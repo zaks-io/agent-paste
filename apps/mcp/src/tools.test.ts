@@ -53,18 +53,17 @@ function uploadMockForPublish() {
   };
 }
 
-/** The server publish response (full PublishResult); share-on adds access_link_url. */
-function serverPublishResult(input: { accessLink?: string | null } = {}) {
+/** The server publish response (full PublishResult); content-only, private viewer link. */
+function serverPublishResult() {
   return {
     artifact_id: ARTIFACT_ID,
     revision_id: REVISION_ID,
     title: "Note",
-    artifact_url: "https://app.example/artifacts/art_1",
+    private_url: "https://app.example/v/art_1",
     revision_content_url: "https://content.example/v/token/content.txt",
     agent_view_url: "https://api.example/v1/public/agent-view/token",
     expires_at: "2026-12-01T00:00:00.000Z",
     bundle: { status: "disabled" },
-    ...(input.accessLink ? { access_link_url: input.accessLink } : {}),
   };
 }
 
@@ -80,7 +79,7 @@ function whoamiBodyFor(scopes: readonly McpScope[]) {
   };
 }
 
-const whoamiBody = whoamiBodyFor(["read", "write", "share"]);
+const whoamiBody = whoamiBodyFor(["read", "publish", "admin"]);
 
 /**
  * Mock api service binding. The pre-flight scope gate (ADR 0079) calls `mcp.whoami`
@@ -173,7 +172,7 @@ describe("callMcpTool", () => {
   it("deletes an artifact through the API binding", async () => {
     const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
     const deleteBody = { artifact_id: artifactId, deleted_at: "2026-01-01T00:00:00.000Z" };
-    const api = apiMock(["write"], Response.json(deleteBody));
+    const api = apiMock(["publish"], Response.json(deleteBody));
     const result = await callMcpTool("delete_artifact", { artifact_id: artifactId }, auth, {
       api,
       upload,
@@ -212,12 +211,12 @@ describe("callMcpTool", () => {
     expect(result).toEqual({ ok: true, result: agentView });
   });
 
-  it("publish_artifact returns the private viewer_url by default (no sharing)", async () => {
+  it("publish_artifact returns the private viewer link (content-only, private)", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(null, { status: 200 })),
     );
-    const api = apiMock(["write", "read"], Response.json(serverPublishResult()));
+    const api = apiMock(["publish", "read"], Response.json(serverPublishResult()));
     const result = await callMcpTool("publish_artifact", { title: "Note", body: "hello", render_mode: "text" }, auth, {
       api,
       upload: uploadMockForPublish(),
@@ -227,36 +226,28 @@ describe("callMcpTool", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.result).toMatchObject({
-        viewer_url: "https://app.example/artifacts/art_1",
-        shared: false,
+        private_url: "https://app.example/v/art_1",
         title: "Note",
       });
+      expect(result.result).not.toHaveProperty("shared");
     }
-    // share:false => the publish request body is empty (no Share Link minted).
+    // Publish is content-only => the publish request body is empty (no Share Link minted).
     expect(await routeCall(api, 0).text()).toBe("");
   });
 
-  it("publish_artifact returns the public share viewer_url when shared", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(null, { status: 200 })),
-    );
-    const api = apiMock(
-      ["write", "read", "share"],
-      Response.json(serverPublishResult({ accessLink: "https://app.example/al/PUBLIC#secret" })),
-    );
+  it("rejects a share input on publish_artifact (no public concept in publish)", async () => {
+    const upload = uploadMockForPublish();
     const result = await callMcpTool(
       "publish_artifact",
       { title: "Note", body: "hello", render_mode: "text", share: true },
       auth,
-      { api, upload: uploadMockForPublish(), bearerToken: "token-all", jsonRpcId: 42 },
+      { api: apiMock(["publish", "read", "admin"]), upload, bearerToken: "token-all", jsonRpcId: 42 },
     );
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.result).toMatchObject({ viewer_url: "https://app.example/al/PUBLIC#secret", shared: true });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("invalid_params");
     }
-    // share:true => the publish request body carries {share:true}.
-    expect(await routeCall(api, 0).json()).toEqual({ share: true });
+    expect(upload.fetch).not.toHaveBeenCalled();
   });
 
   it("scopes derived publish idempotency keys to the payload, not just the json rpc id", async () => {
@@ -267,7 +258,7 @@ describe("callMcpTool", () => {
     const keyFor = async (body: string) => {
       const upload = uploadMockForPublish();
       await callMcpTool("publish_artifact", { title: "Note", body, render_mode: "text" }, auth, {
-        api: apiMock(["write", "read", "share"], Response.json(serverPublishResult())),
+        api: apiMock(["publish", "read", "admin"], Response.json(serverPublishResult())),
         upload,
         bearerToken: "token-all",
         jsonRpcId: 1,
@@ -295,7 +286,7 @@ describe("callMcpTool", () => {
       { title: "Note", body: "hello", render_mode: "text", idempotency_key: "client-key-123" },
       auth,
       {
-        api: apiMock(["write", "read", "share"], Response.json(serverPublishResult())),
+        api: apiMock(["publish", "read", "admin"], Response.json(serverPublishResult())),
         upload,
         bearerToken: "token-all",
         jsonRpcId: 1,
@@ -305,27 +296,12 @@ describe("callMcpTool", () => {
     expect(createCall.headers.get("idempotency-key")).toBe("client-key-123");
   });
 
-  it("requires share scope when publish_artifact explicitly requests a Share Link, without touching upload", async () => {
-    const upload = uploadMockForPublish();
-    const result = await callMcpTool(
-      "publish_artifact",
-      { title: "Note", body: "hello", render_mode: "text", share: true },
-      auth,
-      { api: apiMock(["write", "read"]), upload, bearerToken: "token-write-read", jsonRpcId: 42 },
-    );
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe("insufficient_scope");
-    }
-    expect(upload.fetch).not.toHaveBeenCalled();
-  });
-
   it("maps an upload forward failure to the corresponding MCP error code", async () => {
     const upload = {
       fetch: vi.fn(async () => Response.json({ error: { code: "forbidden", message: "forbidden" } }, { status: 403 })),
     };
     const result = await callMcpTool("publish_artifact", { title: "Note", body: "hello", render_mode: "text" }, auth, {
-      api: apiMock(["write", "read"]),
+      api: apiMock(["publish", "read"]),
       upload,
       bearerToken: "token-write-read",
       jsonRpcId: 42,
@@ -336,7 +312,7 @@ describe("callMcpTool", () => {
     }
   });
 
-  it("skips the PUT for a reused upload target and still returns viewer_url", async () => {
+  it("skips the PUT for a reused upload target and still returns the private viewer link", async () => {
     const putFetch = vi.fn(async () => new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", putFetch);
     const upload = {
@@ -365,14 +341,15 @@ describe("callMcpTool", () => {
       }),
     };
     const result = await callMcpTool("publish_artifact", { title: "Note", body: "hello", render_mode: "text" }, auth, {
-      api: apiMock(["write", "read"], Response.json(serverPublishResult())),
+      api: apiMock(["publish", "read"], Response.json(serverPublishResult())),
       upload,
       bearerToken: "token-write-read",
       jsonRpcId: 42,
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.result).toMatchObject({ viewer_url: "https://app.example/artifacts/art_1", shared: false });
+      expect(result.result).toMatchObject({ private_url: "https://app.example/v/art_1" });
+      expect(result.result).not.toHaveProperty("shared");
     }
     // Reused target => the signed PUT is never issued.
     expect(putFetch).not.toHaveBeenCalled();
@@ -394,10 +371,10 @@ describe("callMcpTool", () => {
     expect(result).toEqual({ ok: true, result: revisions });
   });
 
-  it("creates and mints a share link", async () => {
+  it("make_public creates and mints a share link", async () => {
     const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
     const api = apiMock(
-      ["read", "share"],
+      ["read", "publish"],
       Response.json({
         id: "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
         type: "share",
@@ -407,7 +384,7 @@ describe("callMcpTool", () => {
       }),
       Response.json({ url: "https://share.example/al" }),
     );
-    const result = await callMcpTool("create_share_link", { artifact_id: artifactId }, auth, {
+    const result = await callMcpTool("make_public", { artifact_id: artifactId }, auth, {
       api,
       upload,
       bearerToken: "token-share",
@@ -422,7 +399,7 @@ describe("callMcpTool", () => {
       deriveMcpIdempotencyKey({
         tokenSub: "user_01",
         jsonRpcId: 7,
-        toolName: "create_share_link",
+        toolName: "make_public",
         toolArgs: { artifact_id: artifactId },
       }),
     );
@@ -432,12 +409,58 @@ describe("callMcpTool", () => {
     await expect(mintRequest.text()).resolves.toBe("");
   });
 
-  it("add_revision publishes a new revision on the artifact and returns the private viewer_url by default", async () => {
+  it("make_public retries on a salted key when a replayed create points mint at a revoked link", async () => {
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const api = apiMock(
+      ["read", "publish"],
+      // First create replays a link that has since been revoked.
+      Response.json({
+        id: "al_revoked",
+        type: "share",
+        artifact_id: artifactId,
+        revision_id: null,
+        created_at: "2026-01-01T00:00:00.000Z",
+      }),
+      // Mint on the dead link fails.
+      Response.json({ error: { code: "not_found", message: "not_found" } }, { status: 404 }),
+      // Salted retry create mints a fresh active link.
+      Response.json({
+        id: "al_fresh",
+        type: "share",
+        artifact_id: artifactId,
+        revision_id: null,
+        created_at: "2026-01-01T00:00:01.000Z",
+      }),
+      Response.json({ url: "https://share.example/al-fresh" }),
+    );
+    const result = await callMcpTool("make_public", { artifact_id: artifactId }, auth, {
+      api,
+      upload,
+      bearerToken: "token-share",
+      jsonRpcId: 9,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.result).toMatchObject({ url: "https://share.example/al-fresh" });
+    }
+    const firstKey = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: 9,
+      toolName: "make_public",
+      toolArgs: { artifact_id: artifactId },
+    });
+    // First create uses the derived key; the retry create salts it so the command runs fresh.
+    expect(routeCall(api, 0).headers.get("idempotency-key")).toBe(firstKey);
+    expect(routeCall(api, 2).headers.get("idempotency-key")).toBe(`${firstKey}:r`);
+    expect(routeCall(api, 3).url).toBe("https://agent-paste.internal/v1/access-links/al_fresh/mint");
+  });
+
+  it("add_revision publishes a new revision on the artifact and returns the private viewer link", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(null, { status: 200 })),
     );
-    const api = apiMock(["write", "read"], Response.json(serverPublishResult()));
+    const api = apiMock(["publish", "read"], Response.json(serverPublishResult()));
     const upload = uploadMockForPublish();
     const result = await callMcpTool(
       "add_revision",
@@ -447,7 +470,8 @@ describe("callMcpTool", () => {
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.result).toMatchObject({ viewer_url: "https://app.example/artifacts/art_1", shared: false });
+      expect(result.result).toMatchObject({ private_url: "https://app.example/v/art_1" });
+      expect(result.result).not.toHaveProperty("shared");
     }
     // The create-session request targets the existing artifact.
     const createCall = upload.fetch.mock.calls[0]?.[0] as Request;
@@ -458,7 +482,7 @@ describe("callMcpTool", () => {
     const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
     const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
     const api = apiMock(
-      ["read", "share"],
+      ["read", "publish"],
       Response.json({
         id: "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0",
         type: "revision",
@@ -493,11 +517,41 @@ describe("callMcpTool", () => {
     await expect(mintRequest.text()).resolves.toBe("");
   });
 
+  it("does not retry create_revision_link on mint failure (revision links would duplicate)", async () => {
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const api = apiMock(
+      ["read", "publish"],
+      // Create succeeds.
+      Response.json({
+        id: "al_rev_first",
+        type: "revision",
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        created_at: "2026-01-01T00:00:00.000Z",
+      }),
+      // Mint fails.
+      Response.json({ error: { code: "not_found", message: "not_found" } }, { status: 404 }),
+    );
+    const result = await callMcpTool(
+      "create_revision_link",
+      { artifact_id: artifactId, revision_id: revisionId },
+      auth,
+      { api, upload, bearerToken: "token-share", jsonRpcId: 11 },
+    );
+    expect(result.ok).toBe(false);
+    // Exactly one create + one mint: no salted-key retry that would insert a duplicate revision link.
+    const createCalls = api.fetch.mock.calls
+      .map((call) => call[0] as Request)
+      .filter((request) => request.method === "POST" && request.url.endsWith("/access-links"));
+    expect(createCalls).toHaveLength(1);
+  });
+
   it("lists and revokes access links", async () => {
     const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
     const linkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
     const api = apiMock(
-      ["read", "share"],
+      ["read", "publish"],
       Response.json({
         artifact_id: artifactId,
         items: [
@@ -536,7 +590,7 @@ describe("callMcpTool", () => {
         description: "not supported",
       },
       auth,
-      { api: apiMock(["write"]), upload, bearerToken: "token-write" },
+      { api: apiMock(["publish"]), upload, bearerToken: "token-write" },
     );
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -547,7 +601,7 @@ describe("callMcpTool", () => {
   it("updates display metadata through the API binding", async () => {
     const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
     const metadata = { title: "Renamed", description: null };
-    const api = apiMock(["write"], Response.json(metadata));
+    const api = apiMock(["publish"], Response.json(metadata));
     const result = await callMcpTool("update_display_metadata", { artifact_id: artifactId, title: "Renamed" }, auth, {
       api,
       upload,

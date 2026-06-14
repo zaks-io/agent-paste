@@ -8,7 +8,6 @@ import {
   type IdempotencyKey,
   type McpAddRevisionInput,
   type McpCreateRevisionLinkInput,
-  type McpCreateShareLinkInput,
   type McpDeleteArtifactInput,
   type McpListAccessLinksInput,
   McpListAccessLinksOutput,
@@ -16,6 +15,7 @@ import {
   McpListArtifactsOutput,
   type McpListRevisionsInput,
   McpListRevisionsOutput,
+  type McpMakePublicInput,
   type McpPublishArtifactInput,
   McpPublishArtifactOutput,
   type McpPublishRenderMode,
@@ -71,7 +71,7 @@ export async function callMcpTool(
     return { ok: false, error: mapMcpProtocolError("invalid_params", "invalid_params") };
   }
 
-  const requiredScopes = requiredScopesForToolCall(parsed.data.name, contract.requiredScopes, inputParsed.data);
+  const requiredScopes = contract.requiredScopes;
   if (requiredScopes.length > 0) {
     const granted = await resolveGrantedScopes(deps);
     if (!granted.ok) {
@@ -99,8 +99,8 @@ export async function callMcpTool(
       return callDeleteArtifact(inputParsed.data as McpDeleteArtifactInput, deps);
     case "update_display_metadata":
       return callUpdateDisplayMetadata(inputParsed.data as McpUpdateDisplayMetadataInput, deps);
-    case "create_share_link":
-      return callCreateShareLink(inputParsed.data as McpCreateShareLinkInput, auth, deps);
+    case "make_public":
+      return callMakePublic(inputParsed.data as McpMakePublicInput, auth, deps);
     case "create_revision_link":
       return callCreateRevisionLink(inputParsed.data as McpCreateRevisionLinkInput, auth, deps);
     case "list_access_links":
@@ -113,21 +113,6 @@ export async function callMcpTool(
         error: mapMcpProtocolError("method_not_found", "tools/call is not implemented yet"),
       };
   }
-}
-
-function requiredScopesForToolCall(
-  toolName: string,
-  baseScopes: readonly McpScope[],
-  input: unknown,
-): readonly McpScope[] {
-  if ((toolName !== "publish_artifact" && toolName !== "add_revision") || !requestsShareLink(input)) {
-    return baseScopes;
-  }
-  return Array.from(new Set<McpScope>([...baseScopes, "share"]));
-}
-
-function requestsShareLink(input: unknown): boolean {
-  return typeof input === "object" && input !== null && "share" in input && input.share === true;
 }
 
 function resolveIdempotencyKey(
@@ -214,8 +199,7 @@ async function publishViaSharedModule(deps: McpToolDeps, input: PublishInput): P
   }
   const parsed = McpPublishArtifactOutput.safeParse({
     title: outcome.title,
-    viewer_url: outcome.viewerUrl,
-    shared: outcome.shared,
+    private_url: outcome.privateUrl,
     expires_at: outcome.expiresAt,
     upload_stats: {
       total_files: outcome.uploadStats.totalFiles,
@@ -239,7 +223,7 @@ async function publishViaSharedModule(deps: McpToolDeps, input: PublishInput): P
 
 /** Build the single-file PublishInput from an MCP text-publish request. */
 async function textPublishInput(
-  input: { title?: string; body: string; render_mode: McpPublishRenderMode; share?: boolean },
+  input: { title?: string; body: string; render_mode: McpPublishRenderMode },
   idempotencyKey: IdempotencyKey,
 ): Promise<PublishInput> {
   const entrypoint = mcpEntrypointForRenderMode(input.render_mode);
@@ -262,7 +246,6 @@ async function textPublishInput(
     // existing artifact title for revisions).
     title: ("title" in input && input.title ? input.title : "Revision") as PublishInput["title"],
     entrypoint,
-    share: input.share === true,
     idempotencyKey,
   };
 }
@@ -341,7 +324,7 @@ async function callUpdateDisplayMetadata(
 
 async function createAndMintAccessLink(
   input: {
-    toolName: "create_share_link" | "create_revision_link";
+    toolName: "make_public" | "create_revision_link";
     toolArgs: Record<string, unknown>;
     artifactId: string;
     createBody: { type: "share" } | { type: "revision"; revision_id: string };
@@ -350,6 +333,25 @@ async function createAndMintAccessLink(
   deps: McpToolDeps,
 ): Promise<McpToolResult> {
   const idempotencyKey = resolveIdempotencyKey(input.toolName, input.toolArgs, auth, deps);
+  const first = await createThenMint(input, idempotencyKey, deps);
+  if (first.ok || input.createBody.type !== "share") {
+    // Only share links get the salted retry. A reused idempotency key can replay a
+    // create whose link was revoked since (make_public, revoke_access_link,
+    // make_public again with the same key), leaving mint pointed at a dead link.
+    // Retrying on a salted key re-runs the create, which reuses the artifact's one
+    // active share link or mints a new one — idempotent, no duplicate. Revision
+    // links do NOT dedupe on create, so a blind retry there would insert a second
+    // link for the same revision; they return the original failure instead.
+    return first;
+  }
+  return createThenMint(input, `${idempotencyKey}:r` as IdempotencyKey, deps);
+}
+
+async function createThenMint(
+  input: { artifactId: string; createBody: { type: "share" } | { type: "revision"; revision_id: string } },
+  idempotencyKey: IdempotencyKey,
+  deps: McpToolDeps,
+): Promise<McpToolResult> {
   const created = await forwardToApiRoute({
     api: deps.api,
     routeId: "accessLinks.create",
@@ -377,14 +379,14 @@ async function createAndMintAccessLink(
   return parseForwardResult(minted, AccessLinkSignedUrl, "accessLinks.mint");
 }
 
-async function callCreateShareLink(
-  input: McpCreateShareLinkInput,
+async function callMakePublic(
+  input: McpMakePublicInput,
   auth: McpAuthContext,
   deps: McpToolDeps,
 ): Promise<McpToolResult> {
   return createAndMintAccessLink(
     {
-      toolName: "create_share_link",
+      toolName: "make_public",
       toolArgs: input,
       artifactId: input.artifact_id,
       createBody: { type: "share" },

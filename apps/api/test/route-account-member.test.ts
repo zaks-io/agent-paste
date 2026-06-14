@@ -41,7 +41,7 @@ describe("AP-91 account route modules", () => {
     await expect(responseJson(ok)).resolves.toMatchObject({
       workspace_member: { id: "mem_1", email: "member@example.com" },
       workspace: { id: workspaceId },
-      scopes: ["write", "read", "share"],
+      scopes: ["publish", "read", "admin"],
     });
   });
 

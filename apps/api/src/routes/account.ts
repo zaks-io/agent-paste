@@ -1,5 +1,5 @@
 import type { WorkOsIdentity } from "@agent-paste/auth";
-import { apiScopesToMcpScopes, Seconds } from "@agent-paste/contracts";
+import { Seconds } from "@agent-paste/contracts";
 import type { ApiActor, ApiKeyActor, Repository } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
@@ -42,7 +42,8 @@ export async function mcpWhoami(context: AppContext, principal: Principal, db: R
       email: identity.email ?? actor.email,
     },
     workspace: workspace.workspace,
-    scopes: apiScopesToMcpScopes(actor.scopes),
+    // One scope vocabulary: a member's MCP scopes are their stored API scopes verbatim.
+    scopes: actor.scopes,
   });
 }
 

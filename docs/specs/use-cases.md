@@ -32,11 +32,12 @@ committing temporary files, creating a gist, or deploying to a preview host.
 | Embed artifact handoff      | A product needs artifact storage and a manifest protocol without building the whole platform itself.         | Expose CLI, MCP, Agent View, and documented contracts that can be built on by another platform.          |
 
 For the iteration use case, public/shareable browser URLs must come from an
-explicit Share Link, requested with CLI `--share`, MCP `share:true`, or
-link-management routes. The direct `revision_content_url` is
-exact Revision content; it is useful for one-shot inspection but it does not
-advance when the agent publishes a later Revision. The authenticated Artifact URL
-is the default Workspace app view.
+explicit Share Link, minted by the separate make-public step (`agent-paste
+make-public`, MCP `make_public`); publish itself is content-only and private and
+never makes an Artifact public. The direct `revision_content_url` is exact
+Revision content; it is useful for one-shot inspection but it does not advance
+when the agent publishes a later Revision. The `private_url` (`/v/<artifactId>`
+clean viewer) is the default authenticated Workspace view publish returns.
 
 ## Primary Audiences
 

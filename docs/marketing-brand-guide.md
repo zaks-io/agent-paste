@@ -425,8 +425,9 @@ On-brand set pieces. Each one shows the thesis instead of asserting it.
 
 - **The agent-prompt transcript.** A user asks: "Plan a weekend in San Diego and
   post the link to agent-paste.sh." The agent reads `/agents.md`, builds the
-  page, publishes through CLI or MCP, and returns `access_link_url`. The hero
-  should use this. Keep setup commands below the proof object.
+  page, publishes through CLI or MCP (content-only and private), then runs the
+  make-public step and returns the public Share Link. The hero should use this.
+  Keep setup commands below the proof object.
 - **A live artifact that updates itself.** A shared link open in a browser that
   advances to the latest Revision the moment an agent republishes, with no
   reload. Live Updates, shown not told.

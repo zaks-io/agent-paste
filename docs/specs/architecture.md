@@ -104,7 +104,7 @@ sequenceDiagram
   A->>P: runCommand writes metadata, idempotency, audit
   A->>Q: enqueue warning, bundle, and lifecycle work
   A-->>U: PublishResult
-  U-->>C: authenticated Artifact URL, optional Access Link Signed URL when explicitly minted, plus publish diagnostics
+  U-->>C: private_url (authenticated Private Link, the /v/<artifactId> viewer), plus publish diagnostics
 ```
 
 Key invariants:
@@ -125,8 +125,10 @@ Key invariants:
 
 ## Read And Share Flow
 
-Default human handoff starts with the authenticated Artifact URL. Public or
-shareable handoff requires an explicit Share Link; its Access Link Signed URL
+Default human handoff is the authenticated Private Link (`private_url`, the
+`/v/<artifactId>` clean viewer); publish is content-only and never makes an
+Artifact public. Public or shareable handoff requires an explicit, separate
+make-public step that mints a revocable Share Link; its Access Link Signed URL
 opens the Artifact Viewer for the latest Published Revision. Direct signed
 content URLs are delivery URLs for one exact Revision.
 

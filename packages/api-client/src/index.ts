@@ -1,5 +1,9 @@
 import {
+  type AccessLinkId,
+  AccessLinkSignedUrl,
   type ArtifactId,
+  type CreateAccessLinkRequest,
+  CreateAccessLinkResponse,
   type CreateApiKeyRequest,
   CreateApiKeyResponse,
   type CreateUploadSessionRequest,
@@ -109,6 +113,27 @@ export class ApiClient {
           idempotencyKey,
         },
       ),
+  };
+
+  accessLinks = {
+    // Create an Access Link for an Artifact (e.g. a public Share Link) and mint
+    // its signed URL. Two calls, mirroring the MCP make_public path: create the
+    // link, then mint its Access Link Signed URL.
+    create: (artifactId: ArtifactId | string, body: CreateAccessLinkRequest, idempotencyKey: string) =>
+      this.request(
+        CreateAccessLinkResponse,
+        this.apiBaseUrl,
+        `/v1/artifacts/${encodeURIComponent(artifactId)}/access-links`,
+        {
+          method: "POST",
+          body,
+          idempotencyKey,
+        },
+      ),
+    mint: (accessLinkId: AccessLinkId | string) =>
+      this.request(AccessLinkSignedUrl, this.apiBaseUrl, `/v1/access-links/${encodeURIComponent(accessLinkId)}/mint`, {
+        method: "POST",
+      }),
   };
 
   revisions = {

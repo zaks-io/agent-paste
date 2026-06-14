@@ -18,13 +18,20 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
             ["Artifact", "A durable, addressable folder-like package containing one or more files."],
             ["Revision", "An immutable saved state of an Artifact after publish. New publishes append Revisions."],
             ["Published Revision", "The Revision currently visible through stable Artifact links."],
-            ["Artifact URL", "The authenticated Artifact detail URL for Workspace management."],
+            [
+              "Private Link",
+              "The login-walled clean viewer (`/v/<artifactId>`) for a Workspace Member; the `private_url` publish returns.",
+            ],
+            ["Artifact Console", "The dashboard-only management page (`/artifacts/<id>`); never returned by publish."],
             [
               "Revision Content URL",
               "A signed Content Origin byte URL for one exact Revision. It expires, does not Live Update, and direct HTML there is inert.",
             ],
             ["Access Link", "A revocable grant family for unauthenticated read access."],
-            ["Share Link", "Access Link type that follows the latest Published Revision."],
+            [
+              "Share Link",
+              "Access Link type that follows the latest Published Revision; created only by the make-public step.",
+            ],
             ["Revision Link", "A snapshot Access Link pinned to one specific Revision."],
             ["Bundle", "A downloadable archive generated from a complete Revision file tree."],
           ],
@@ -37,7 +44,7 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Publish creates stable Artifact and Revision IDs. The default post-publish `View` (`viewer_url`) is the authenticated Artifact URL. Public/shareable handoff requires an explicit Share Link; publishing with sharing on makes `viewer_url` that Share Link, which opens the controlled Artifact Viewer. The direct `usercontent.agent-paste.sh/v/...` URL is the Revision Content URL for one exact Revision and is raw byte delivery, not the product viewer.",
+          text: "Publish creates stable Artifact and Revision IDs and is content-only and private. The default post-publish `View` (`private_url`) is the login-walled `/v/<artifactId>` clean viewer for a Workspace Member. Public/shareable handoff is the separate make-public step (`agent-paste make-public`, MCP `make_public`), which mints or reuses the one Share Link and returns its public, no-login Access Link Signed URL opening the controlled Artifact Viewer. The direct `usercontent.agent-paste.sh/v/...` URL is the Revision Content URL for one exact Revision and is raw byte delivery, not the product viewer.",
         },
         {
           kind: "code",

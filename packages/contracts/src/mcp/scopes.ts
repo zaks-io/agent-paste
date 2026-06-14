@@ -1,4 +1,3 @@
-import type { Scope } from "../enums.js";
 import { MCP_AUTHKIT_OAUTH_SCOPES, MCP_RESOURCE_INDICATOR } from "./constants.js";
 import type { McpScope as McpScopeValue } from "./schemas.js";
 import { McpProtectedResourceMetadata } from "./schemas.js";
@@ -41,32 +40,10 @@ export function mcpTokenHasRequiredScopes(
   return required.every((scope) => grantedSet.has(scope));
 }
 
-/** Map delegated MCP scopes to API route scopes for service-binding forwarding (ADR 0034). */
-export function mcpScopesToApiScopes(mcpScopes: readonly McpScopeValue[]): Scope[] {
-  const apiScopes: Scope[] = [];
-  if (mcpScopes.includes("write")) {
-    apiScopes.push("publish");
-  }
-  if (mcpScopes.includes("read")) {
-    apiScopes.push("read");
-  }
-  if (mcpScopes.includes("share")) {
-    apiScopes.push("admin");
-  }
-  return apiScopes;
-}
-
-/** Map a member's API scopes to delegated MCP scopes (inverse of mcpScopesToApiScopes, ADR 0079). */
-export function apiScopesToMcpScopes(apiScopes: readonly Scope[]): McpScopeValue[] {
-  const mcpScopes: McpScopeValue[] = [];
-  if (apiScopes.includes("publish")) {
-    mcpScopes.push("write");
-  }
-  if (apiScopes.includes("read")) {
-    mcpScopes.push("read");
-  }
-  if (apiScopes.includes("admin")) {
-    mcpScopes.push("share");
-  }
-  return mcpScopes;
-}
+// There is ONE scope vocabulary shared by the API and MCP: `read` (look at your
+// stuff), `publish` (change your stuff — create/revise/delete, and manage public
+// access to it: make_public, list and revoke its links), and `admin`
+// (account/workspace management — API keys, settings, audit, billing). MCP tools
+// declare and check `requiredScopes` directly in these names, and a member's
+// granted set is their stored API scopes verbatim (ADR 0079). No translation
+// layer, so nothing to keep in sync.

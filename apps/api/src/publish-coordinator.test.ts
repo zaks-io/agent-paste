@@ -122,8 +122,7 @@ describe("publish coordinator write-allowance reservation", () => {
     expect(publishCalls).toEqual([]);
   });
 
-  it("does not create a Share Link by default", async () => {
-    const createMemberAccessLink = vi.fn();
+  it("publishes content-only: returns the private viewer link and never an access_link_url", async () => {
     const { coordinator } = coordinatorFixture({
       async peekPublishWriteGate() {
         return { is_already_published: true, is_new_artifact: false };
@@ -131,142 +130,12 @@ describe("publish coordinator write-allowance reservation", () => {
       async publishRevision() {
         return publishedResult();
       },
-      createMemberAccessLink,
     });
 
     const result = await coordinator.publishRevision(publishInput);
 
-    expect(createMemberAccessLink).not.toHaveBeenCalled();
+    expect(result).toHaveProperty("private_url");
     expect(result).not.toHaveProperty("access_link_url");
-  });
-
-  it("rejects explicit Share Link publish before committing when signing is not configured", async () => {
-    const publishRevision = vi.fn();
-    const createMemberAccessLink = vi.fn();
-    const { coordinator, writeAllowance } = coordinatorFixture({
-      async peekPublishWriteGate() {
-        return { is_already_published: true, is_new_artifact: false };
-      },
-      publishRevision,
-      createMemberAccessLink,
-    });
-
-    await expect(coordinator.publishRevision({ ...publishInput, share: true })).rejects.toMatchObject({
-      code: "storage_unavailable",
-    });
-    expect(writeAllowance.calls).toEqual([]);
-    expect(publishRevision).not.toHaveBeenCalled();
-    expect(createMemberAccessLink).not.toHaveBeenCalled();
-  });
-
-  it("creates and mints a Share Link when publish explicitly asks to share", async () => {
-    const createMemberAccessLink = vi.fn(async () => ({ id: "al_1" }));
-    const mintMemberAccessLink = vi.fn(async () => ({ url: "https://app.test/al/PUBLICLINK123456#secret" }));
-    const env = {
-      WRITE_ALLOWANCE: fakeWriteAllowance(),
-      ACCESS_LINK_SIGNING_KEY_V1: "access-link-secret",
-      WEB_BASE_URL: "https://app.test",
-    } as unknown as Env;
-    const db = {
-      async peekWorkspaceCommandReplay() {
-        return null;
-      },
-      async peekPublishWriteGate() {
-        return { is_already_published: true, is_new_artifact: false };
-      },
-      async publishRevision() {
-        return publishedResult();
-      },
-      async listMemberAccessLinks() {
-        return { artifact_id: "art_1", items: [] };
-      },
-      createMemberAccessLink,
-      mintMemberAccessLink,
-    } as unknown as Repository;
-    const coordinator = createPublishCoordinator({ db, env });
-
-    const result = await coordinator.publishRevision({ ...publishInput, share: true });
-
-    expect(createMemberAccessLink).toHaveBeenCalledWith({
-      actor,
-      idempotencyKey: "idem_publish:share-link",
-      artifactId: "art_1",
-      type: "share",
-    });
-    expect(mintMemberAccessLink).toHaveBeenCalledWith({
-      actor,
-      accessLinkId: "al_1",
-      appBaseUrl: "https://app.test",
-      signingSecret: "access-link-secret",
-      signingKid: 1,
-    });
-    expect(result).toMatchObject({ access_link_url: "https://app.test/al/PUBLICLINK123456#secret" });
-  });
-
-  it("reuses an active Share Link instead of minting a second one", async () => {
-    const createMemberAccessLink = vi.fn(async () => ({ id: "al_new" }));
-    const mintMemberAccessLink = vi.fn(async () => ({ url: "https://app.test/al/EXISTINGLINK123#secret" }));
-    const env = {
-      WRITE_ALLOWANCE: fakeWriteAllowance(),
-      ACCESS_LINK_SIGNING_KEY_V1: "access-link-secret",
-      WEB_BASE_URL: "https://app.test",
-    } as unknown as Env;
-    const db = {
-      async peekWorkspaceCommandReplay() {
-        return null;
-      },
-      async peekPublishWriteGate() {
-        return { is_already_published: true, is_new_artifact: false };
-      },
-      async publishRevision() {
-        return publishedResult();
-      },
-      async listMemberAccessLinks() {
-        return {
-          artifact_id: "art_1",
-          // Ordered so the predicate must reject a revoked and an expired link
-          // before reaching the active one — exercises both skip branches.
-          items: [
-            {
-              id: "al_revoked",
-              type: "share",
-              artifact_id: "art_1",
-              revision_id: null,
-              created_at: "x",
-              expires_at: null,
-              revoked_at: "2020-01-01T00:00:00.000Z",
-            },
-            {
-              id: "al_expired",
-              type: "share",
-              artifact_id: "art_1",
-              revision_id: null,
-              created_at: "x",
-              expires_at: "2020-01-01T00:00:00.000Z",
-              revoked_at: null,
-            },
-            {
-              id: "al_active",
-              type: "share",
-              artifact_id: "art_1",
-              revision_id: null,
-              created_at: "x",
-              expires_at: null,
-              revoked_at: null,
-            },
-          ],
-        };
-      },
-      createMemberAccessLink,
-      mintMemberAccessLink,
-    } as unknown as Repository;
-    const coordinator = createPublishCoordinator({ db, env });
-
-    const result = await coordinator.publishRevision({ ...publishInput, share: true });
-
-    expect(createMemberAccessLink).not.toHaveBeenCalled();
-    expect(mintMemberAccessLink).toHaveBeenCalledWith(expect.objectContaining({ accessLinkId: "al_active" }));
-    expect(result).toMatchObject({ access_link_url: "https://app.test/al/EXISTINGLINK123#secret" });
   });
 
   it("notifies live updates with persisted render_mode after add_revision publish", async () => {

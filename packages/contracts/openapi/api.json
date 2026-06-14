@@ -523,9 +523,9 @@
             "items": {
               "type": "string",
               "enum": [
-                "write",
                 "read",
-                "share"
+                "publish",
+                "admin"
               ]
             },
             "maxItems": 3
@@ -2071,11 +2071,7 @@
             "minLength": 1,
             "maxLength": 160
           },
-          "artifact_url": {
-            "type": "string",
-            "format": "uri"
-          },
-          "access_link_url": {
+          "private_url": {
             "type": "string",
             "format": "uri"
           },
@@ -2179,7 +2175,7 @@
           "artifact_id",
           "revision_id",
           "title",
-          "artifact_url",
+          "private_url",
           "revision_content_url",
           "agent_view_url",
           "expires_at",
@@ -3354,12 +3350,7 @@
       },
       "PublishRevisionRequest": {
         "type": "object",
-        "properties": {
-          "share": {
-            "type": "boolean",
-            "default": false
-          }
-        },
+        "properties": {},
         "additionalProperties": false
       },
       "WebAuditRow": {

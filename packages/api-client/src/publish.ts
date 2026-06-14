@@ -34,7 +34,6 @@ export type PublishInput = {
   renderMode?: RenderMode;
   /** Present => publish a new Revision on an existing Artifact. */
   artifactId?: ArtifactId;
-  share: boolean;
   /** Opaque, caller-supplied (CLI nonce, MCP deterministic). The module never derives its own. */
   idempotencyKey: IdempotencyKey;
   /** Optional per-file upload progress (CLI rich-mode spinner). Called after each upload. */
@@ -51,9 +50,8 @@ export type UploadStats = {
 };
 
 export type PublishOutcome = {
-  /** The one link to open the artifact: the Share Link when shared, else the Private Link. */
-  viewerUrl: string;
-  shared: boolean;
+  /** The private viewer link to hand back: a login-walled clean viewer (`/v/<id>`). */
+  privateUrl: string;
   title: string;
   expiresAt: string;
   uploadStats: UploadStats;
@@ -87,8 +85,8 @@ export type PublishTransport = {
 /**
  * The one publish path shared by the CLI and the MCP server: create an upload
  * session, upload the files the server does not already have, finalize, and
- * publish the revision. `share` flows straight to the server, which mints (or
- * reuses) the Share Link and returns its URL in `access_link_url`.
+ * publish the revision. Publish is content-only and private — it returns one
+ * link, the private viewer URL (`/v/<id>`). Going public is a separate step.
  */
 export async function runPublish(transport: PublishTransport, input: PublishInput): Promise<PublishOutcome> {
   const session = await transport.createUploadSession(buildCreateSessionRequest(input), input.idempotencyKey);
@@ -124,16 +122,10 @@ export async function runPublish(transport: PublishTransport, input: PublishInpu
   }
 
   const finalized = await transport.finalize(session.upload_session_id, input.idempotencyKey);
-  const result = await transport.publishRevision(
-    finalized.artifact_id,
-    finalized.revision_id,
-    input.idempotencyKey,
-    input.share ? { share: true } : undefined,
-  );
+  const result = await transport.publishRevision(finalized.artifact_id, finalized.revision_id, input.idempotencyKey);
 
   return {
-    viewerUrl: result.access_link_url ?? result.artifact_url,
-    shared: result.access_link_url !== undefined,
+    privateUrl: result.private_url,
     title: result.title,
     expiresAt: result.expires_at,
     uploadStats: stats,

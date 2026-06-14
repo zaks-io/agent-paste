@@ -124,6 +124,40 @@ describe("member MCP repository operations", () => {
     expect(links?.items.filter((link) => link.type === "share")).toHaveLength(1);
   });
 
+  it("reuses the one active share link across distinct make-public calls, then mints fresh after revoke", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const { member, artifactId } = await memberWithPublishedArtifact(repo);
+
+    // Distinct idempotency keys: real make_public calls derive a fresh key each
+    // time, so reuse must come from the active-share-link lookup, not key replay.
+    const first = await repo.createMemberAccessLink({
+      actor: member,
+      idempotencyKey: "make-public-1",
+      artifactId,
+      type: "share",
+    });
+    const second = await repo.createMemberAccessLink({
+      actor: member,
+      idempotencyKey: "make-public-2",
+      artifactId,
+      type: "share",
+    });
+    expect(second.id).toBe(first.id);
+    const afterReuse = await repo.listMemberAccessLinks(member, artifactId);
+    expect(afterReuse?.items.filter((link) => link.type === "share")).toHaveLength(1);
+
+    await repo.revokeMemberAccessLink({ actor: member, accessLinkId: first.id });
+    const third = await repo.createMemberAccessLink({
+      actor: member,
+      idempotencyKey: "make-public-3",
+      artifactId,
+      type: "share",
+    });
+    expect(third.id).not.toBe(first.id);
+    const afterRevoke = await repo.listMemberAccessLinks(member, artifactId);
+    expect(afterRevoke?.items.filter((link) => link.type === "share" && link.revoked_at === null)).toHaveLength(1);
+  });
+
   it("lists, updates title, deletes artifacts, and manages access links for a member", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const { member, artifactId } = await memberWithPublishedArtifact(repo);

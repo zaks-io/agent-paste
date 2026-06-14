@@ -9,7 +9,7 @@ function publishResult(overrides: Record<string, unknown> = {}) {
     artifact_id: ARTIFACT_ID,
     revision_id: REVISION_ID,
     title: "Report",
-    artifact_url: "https://app.test/artifacts/art_1",
+    private_url: "https://app.test/v/art_1",
     revision_content_url: "https://usercontent.test/v/token/index.md",
     agent_view_url: "https://api.test/v1/public/agent-view/token",
     expires_at: "2026-01-01T00:00:00.000Z",
@@ -72,7 +72,6 @@ function input(overrides: Partial<PublishInput> = {}): PublishInput {
     files: [textFile()],
     title: "Report" as never,
     entrypoint: "index.md",
-    share: false,
     idempotencyKey: "cli_publish_1" as never,
     ...overrides,
   };
@@ -105,31 +104,19 @@ describe("runPublish", () => {
     expect(outcome.uploadStats).toMatchObject({ reusedFiles: 1, reusedBytes: 11, uploadedFiles: 0, totalFiles: 1 });
   });
 
-  it("sends {share:true} to publishRevision only when input.share is true", async () => {
+  it("publishes the revision with no body (content-only, private)", async () => {
     const publishRevision = vi.fn(async () => publishResult());
     const { transport } = fakeTransport({ publishRevision });
 
-    await runPublish(transport, input({ share: false }));
-    expect(publishRevision).toHaveBeenLastCalledWith(ARTIFACT_ID, REVISION_ID, "cli_publish_1", undefined);
-
-    await runPublish(transport, input({ share: true }));
-    expect(publishRevision).toHaveBeenLastCalledWith(ARTIFACT_ID, REVISION_ID, "cli_publish_1", { share: true });
+    await runPublish(transport, input());
+    expect(publishRevision).toHaveBeenLastCalledWith(ARTIFACT_ID, REVISION_ID, "cli_publish_1");
   });
 
-  it("returns access_link_url as the viewerUrl when shared, else artifact_url", async () => {
-    const shared = fakeTransport({
-      async publishRevision() {
-        return publishResult({ access_link_url: "https://app.test/al/PUBLIC#secret" });
-      },
-    });
-    const sharedOutcome = await runPublish(shared.transport, input({ share: true }));
-    expect(sharedOutcome.viewerUrl).toBe("https://app.test/al/PUBLIC#secret");
-    expect(sharedOutcome.shared).toBe(true);
-
-    const privateRun = fakeTransport();
-    const privateOutcome = await runPublish(privateRun.transport, input());
-    expect(privateOutcome.viewerUrl).toBe("https://app.test/artifacts/art_1");
-    expect(privateOutcome.shared).toBe(false);
+  it("returns the server private_url as the private viewer link", async () => {
+    const { transport } = fakeTransport();
+    const outcome = await runPublish(transport, input());
+    expect(outcome.privateUrl).toBe("https://app.test/v/art_1");
+    expect(outcome).not.toHaveProperty("shared");
   });
 
   it("merges required_headers with content-type on upload", async () => {

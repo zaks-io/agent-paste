@@ -277,7 +277,7 @@ describe("upload worker", () => {
 
   it.each([
     ["api key", undefined] as const,
-    ["MCP member", "write"] as const,
+    ["MCP member", "read"] as const,
   ])("replays cached idempotent %s create before rate limits", async (_label, mcpScope) => {
     const mcpFixture = mcpScope ? await mcpTokenFixture({ scope: mcpScope }) : null;
     if (mcpFixture) {
@@ -378,7 +378,7 @@ describe("upload worker", () => {
   });
 
   it("replays cached idempotent finalize for MCP member before rate limits", async () => {
-    const fixture = await mcpTokenFixture({ scope: "write" });
+    const fixture = await mcpTokenFixture({ scope: "read" });
     stubMcpFetch(fixture.publicJwk);
     const finalized = {
       upload_session_id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",

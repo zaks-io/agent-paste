@@ -73,7 +73,7 @@ pnpm smoke:local
 
 It starts the local harness, signs the CLI in through the mock WorkOS flow, runs
 `agent-paste whoami`, publishes `examples/local-harness/site`, verifies the
-returned `artifact_url`, fetches the JSON `revision_content_url` and
+returned `private_url`, fetches the JSON `revision_content_url` and
 `agent_view_url`, deletes the Artifact and verifies purge, then publishes
 `examples/local-harness/ephemeral-site` with `agent-paste publish --ephemeral`,
 checks ephemeral policy boundaries (noindex, script-disabled CSP, write
@@ -208,9 +208,9 @@ The first local vertical slice is complete when:
 1. A Workspace and local CLI credential can be created locally.
 2. `agent-paste whoami` succeeds after `pnpm cli:dev login`.
 3. CLI can publish a folder with `index.html`.
-4. Publish prints the authenticated Artifact URL as `View`; public/shareable links are explicit (`--share`, MCP `share:true`, or link-management routes).
-5. CLI JSON output includes `artifact_id`, `revision_id`, `artifact_url`, optional `access_link_url`, `revision_content_url`, `agent_view_url`, and `expires_at` for automation.
-6. `artifact_url` opens the authenticated Artifact detail/viewer path in the local harness, while `revision_content_url` serves raw Revision bytes under the content origin with direct HTML scripts disabled.
+4. Publish is content-only and private: it prints the `private_url` (`/v/<artifactId>` clean viewer) as `View`. Making an Artifact public is the separate `make-public` step (MCP `make_public`).
+5. CLI JSON output includes `artifact_id`, `revision_id`, `private_url`, `revision_content_url`, `agent_view_url`, and `expires_at` for automation. There is no `share` input and no `shared` output.
+6. `private_url` opens the authenticated `/v/<artifactId>` clean viewer in the local harness, while `revision_content_url` serves raw Revision bytes under the content origin with direct HTML scripts disabled.
 7. `agent_view_url` returns Agent View JSON with full per-file URLs.
 8. Admin CLI can list and inspect the artifact.
 9. Manual cleanup can dry-run and admin delete invalidates content URLs.

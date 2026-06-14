@@ -50,13 +50,12 @@ const userEnv = {
 const published = await runCliJson(["publish", smokePath, "--title", config.title, "--json"], userEnv);
 assert(published.artifact_id?.startsWith("art_"), "publish returned artifact_id");
 assert(published.revision_id?.startsWith("rev_"), "publish returned revision_id");
-assert(published.shared === false, "private publish reports shared:false");
-const viewerUrl = parseRequiredUrl(published.viewer_url, "publish returned valid viewer_url");
+const viewerUrl = parseRequiredUrl(published.private_url, "publish returned valid private_url");
 if (config.webBaseUrl) {
   const webUrl = parseRequiredUrl(config.webBaseUrl, `${target} webBaseUrl is valid`);
-  assert(viewerUrl.origin === webUrl.origin, `publish returned ${target} viewer_url`);
+  assert(viewerUrl.origin === webUrl.origin, `publish returned ${target} private_url`);
 }
-assert(viewerUrl.pathname === `/artifacts/${published.artifact_id}`, "publish returned Artifact URL for live viewer");
+assert(viewerUrl.pathname === `/v/${published.artifact_id}`, "publish returned private viewer URL for live viewer");
 const revisionContentUrl = parseRequiredUrl(
   published.revision_content_url,
   "publish returned valid revision_content_url",
@@ -105,7 +104,7 @@ process.stdout.write(`${config.label} smoke passed.
 
 Workspace:      ${provisioned.workspaceId}
 Artifact:       ${published.artifact_id}
-Artifact URL:   ${published.viewer_url}
+Artifact URL:   ${published.private_url}
 Agent View URL: ${published.agent_view_url}
 Revision URL:   ${published.revision_content_url}
 Apex:           ${config.apexBaseUrl}

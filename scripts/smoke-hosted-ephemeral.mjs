@@ -137,7 +137,7 @@ async function runHostedEphemeralSmoke() {
 Environment:  ${target}
 Artifact:     ${published.artifact_id}
 Workspace:    ${published.workspace_id}
-Artifact URL: ${published.viewer_url}
+Artifact URL: ${published.private_url}
 Revision URL: ${published.revision_content_url}
 Agent View:   ${published.agent_view_url}
 Claim URL:    ${published.claim_url.replace(/#.*$/, "#<redacted>")}

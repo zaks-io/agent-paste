@@ -32,7 +32,7 @@ async function publishBlobArtifact(input: {
     type: "api_key";
     id: string;
     workspace_id: string;
-    scopes: readonly ("write" | "read")[];
+    scopes: readonly ("publish" | "read")[];
   };
   artifacts: ReturnType<typeof memoryArtifactsBucket>;
   sha256: string;
@@ -93,7 +93,7 @@ describe("claimEphemeralWorkspace", () => {
       type: "api_key" as const,
       id: provisioned.api_key.id,
       workspace_id: provisioned.workspace.id,
-      scopes: ["write", "read"] as const,
+      scopes: ["publish", "read"] as const,
     };
     const session = await repo.createUploadSession({
       actor,
@@ -206,7 +206,7 @@ describe("claimEphemeralWorkspace", () => {
       type: "api_key" as const,
       id: provisioned.api_key.id,
       workspace_id: provisioned.workspace.id,
-      scopes: ["write", "read"] as const,
+      scopes: ["publish", "read"] as const,
     };
     const session = await repo.createUploadSession({
       actor,
@@ -285,7 +285,7 @@ describe("claimEphemeralWorkspace", () => {
       type: "api_key" as const,
       id: provisioned.api_key.id,
       workspace_id: provisioned.workspace.id,
-      scopes: ["write", "read"] as const,
+      scopes: ["publish", "read"] as const,
     };
     await repo.createUploadSession({
       actor,
@@ -345,7 +345,7 @@ describe("claimEphemeralWorkspace", () => {
       type: "api_key" as const,
       id: provisioned.api_key.id,
       workspace_id: provisioned.workspace.id,
-      scopes: ["write", "read"] as const,
+      scopes: ["publish", "read"] as const,
     };
     const expired = await publishBlobArtifact({
       repo: repo as LocalRepository,
@@ -476,7 +476,7 @@ describe("claimEphemeralWorkspace", () => {
       type: "api_key" as const,
       id: provisioned.api_key.id,
       workspace_id: provisioned.workspace.id,
-      scopes: ["write", "read"] as const,
+      scopes: ["publish", "read"] as const,
     };
     await publishBlobArtifact({
       repo: repo as LocalRepository,
@@ -529,7 +529,7 @@ describe("claimEphemeralWorkspace", () => {
       type: "api_key" as const,
       id: provisioned.api_key.id,
       workspace_id: provisioned.workspace.id,
-      scopes: ["write", "read"] as const,
+      scopes: ["publish", "read"] as const,
     };
     await publishBlobArtifact({
       repo: repo as LocalRepository,
@@ -581,7 +581,7 @@ describe("claimEphemeralWorkspace", () => {
       type: "api_key" as const,
       id: provisioned.api_key.id,
       workspace_id: provisioned.workspace.id,
-      scopes: ["write", "read"] as const,
+      scopes: ["publish", "read"] as const,
     };
     await publishBlobArtifact({
       repo: repo as LocalRepository,
@@ -666,7 +666,7 @@ describe("claimEphemeralWorkspace", () => {
       type: "api_key" as const,
       id: provisioned.api_key.id,
       workspace_id: provisioned.workspace.id,
-      scopes: ["write", "read"] as const,
+      scopes: ["publish", "read"] as const,
     };
     const publishNow = "2099-06-01T12:00:00.000Z";
     const session = await repo.createUploadSession({
@@ -737,7 +737,7 @@ describe("claimEphemeralWorkspace", () => {
           type: "api_key",
           id: provisioned.api_key.id,
           workspace_id: provisioned.workspace.id,
-          scopes: ["write", "read"],
+          scopes: ["publish", "read"],
         },
         claimTokenSecret: provisioned.claim_token_secret,
         idempotencyKey: "claim-forbidden",

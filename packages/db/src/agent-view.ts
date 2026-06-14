@@ -127,7 +127,7 @@ export function buildPublishResult(
     revision_id: revision.id,
     render_mode: revision.render_mode,
     title: artifact.title,
-    artifact_url: `${webBaseUrl}/artifacts/${encodeURIComponent(artifact.id)}`,
+    private_url: `${webBaseUrl}/v/${encodeURIComponent(artifact.id)}`,
     revision_content_url: revisionContentUrl,
     agent_view_url: `${apiBaseUrl}/v1/public/agent-view/${artifact.id}.${revision.id}`,
     expires_at: artifact.expires_at,
