@@ -78,7 +78,7 @@ whole-blob.
   ergonomics (the agent sends only changed files) with zero encryption
   interaction, and is the independently shippable core (stages 1–3 of the plan).
   Not chosen as the endpoint because a big file with a one-line edit still
-  re-uploads in full; chosen as the *foundation* that intra-file delta sits on.
+  re-uploads in full; chosen as the _foundation_ that intra-file delta sits on.
 - **Intra-file delta only; no tree inheritance.** Rejected. Without inheritance
   the agent still re-enumerates every file each Revision, so the ergonomic win is
   small and the hardest piece (reconstruction) carries the least benefit.
@@ -123,7 +123,7 @@ whole-blob.
   a stored object, even though it holds the DEK. Putting reconstruction there
   would turn a write-only module into a read-modify-write one and make
   base-blob decrypt a live path on the hot upload route, widening its blast
-  radius. `jobs` is *already* a read-modify-write module with the `ARTIFACTS`
+  radius. `jobs` is _already_ a read-modify-write module with the `ARTIFACTS`
   binding and the encryption ring: Bundle generation reads revision files,
   decrypts (`revision-file-bytes.ts`), and re-encrypts the output
   (`bundle-generate-orchestration.ts`). Reconstruction is the same operation

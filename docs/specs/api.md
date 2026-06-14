@@ -100,11 +100,23 @@ Authenticated `api` and `upload` routes enforce guards in a fixed order
   "title": "demo",
   "entrypoint": "index.html",
   "render_mode": "html",
+  "base_revision_id": "rev_...",
+  "deleted_paths": ["old/page.html"],
   "files": [
     {
       "path": "index.html",
       "size_bytes": 12345,
       "sha256": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+    },
+    {
+      "path": "big.txt",
+      "size_bytes": 240,
+      "sha256": "<digest of the diff bytes uploaded for this entry>",
+      "patch": {
+        "base_sha256": "<digest of big.txt in the base Revision>",
+        "format": "unified",
+        "result_sha256": "<digest of the whole reconstructed big.txt>"
+      }
     }
   ]
 }
@@ -132,6 +144,22 @@ Rules:
 - `sha256` is optional for compatibility. New CLI/MCP clients send lowercase
   hex SHA-256 for each file. Legacy clients that omit it keep the full-upload
   revision-object path and do not participate in deduplication.
+- `base_revision_id`, `deleted_paths`, and per-file `patch` are the optional
+  commit-chain / partial-manifest inputs ([ADR 0087](../adr/0087-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md)).
+  When `base_revision_id` is set, `files` lists only changed and added paths,
+  `deleted_paths` drops paths, and every other path inherits from the base
+  Revision by reference. A per-file `patch` (`{ base_sha256, format: "unified",
+result_sha256 }`) means the bytes uploaded for that entry are a unified diff
+  rather than the whole file: `size_bytes`/`sha256` describe the diff,
+  `base_sha256` is the digest of that path in the base Revision the diff applies
+  to, and `result_sha256` is the digest of the whole reconstructed file the
+  server produces and verifies. Structural rules enforced at request validation:
+  `patch` and `deleted_paths` require `base_revision_id`; `deleted_paths` is
+  unique; a path cannot be both uploaded and deleted; `format` must be
+  `unified`. Stateful checks (the base belongs to the same Workspace/Artifact, a
+  deleted path exists in the base, a patch `base_sha256` matches the base file)
+  and the tree-inheritance merge and diff reconstruction are applied
+  server-side at finalize/publish.
 
 ### `CreateUploadSessionResponse`
 

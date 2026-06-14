@@ -1,7 +1,7 @@
 # Git-like revisions: tree-inheritance + intra-file delta
 
 Design + staged plan for making revision storage behave more like Git so agents
-can express *small changes to a file* instead of re-submitting the whole tree,
+can express _small changes to a file_ instead of re-submitting the whole tree,
 and so a big file getting a small edit does not re-upload the whole file.
 
 Owner: Isaac. Drafted 2026-06-14. Status: design accepted, not yet implemented.
@@ -13,7 +13,7 @@ and naturally is the point; byte savings are secondary).
 The blob layer is **already half-Git**:
 
 - Content-addressed whole-file blobs: `content_blobs(workspace_id, sha256,
-  size_bytes)` -> shared R2 object `workspaces/{wid}/blobs/sha256/{prefix}/{sha256}`
+size_bytes)` -> shared R2 object `workspaces/{wid}/blobs/sha256/{prefix}/{sha256}`
   (`packages/storage/src/artifact-bytes-encryption.ts` `workspaceBlobObjectKeyFor`).
 - Whole-file dedup: client sends a `(path, size, sha256)` manifest; server marks
   files `reused` when the blob exists, client skips the PUT
@@ -26,7 +26,7 @@ What is **missing** vs Git:
 
 1. **No commit chain.** `revisions` has no `parent_revision_id`
    (`packages/db/src/schema.ts:237`). Revisions are a flat numbered list.
-2. **No tree inheritance.** A new revision must re-enumerate *every* path. The
+2. **No tree inheritance.** A new revision must re-enumerate _every_ path. The
    client still walks + hashes the whole directory each publish; dedup only saves
    the bytes, not the enumeration or the "send the whole dir" mental model.
 3. **No intra-file delta.** A blob is a whole file. One line changed in a 5 MB
@@ -34,17 +34,17 @@ What is **missing** vs Git:
 
 ## Architecture constraint that shapes the design (the seams)
 
-| Seam | Owns | DB | R2 | Constraint |
-| --- | --- | --- | --- | --- |
-| cli / mcp | client hashing, publish verb | - | - | already hashes plaintext sha256 |
-| api | durable DB writes, publish coord | yes | read-only | **only place** commit-graph / tree metadata can be written |
-| upload | R2 PUT, encrypt-before-write, finalize | yes | PUT | owns reused/upload_required; per-workspace DEK |
-| content | serving untrusted bytes | **no DB** | read-only | decrypts **whole** object in-memory, no Range, cannot reach patch metadata |
+| Seam      | Owns                                   | DB        | R2        | Constraint                                                                 |
+| --------- | -------------------------------------- | --------- | --------- | -------------------------------------------------------------------------- |
+| cli / mcp | client hashing, publish verb           | -         | -         | already hashes plaintext sha256                                            |
+| api       | durable DB writes, publish coord       | yes       | read-only | **only place** commit-graph / tree metadata can be written                 |
+| upload    | R2 PUT, encrypt-before-write, finalize | yes       | PUT       | owns reused/upload_required; per-workspace DEK                             |
+| content   | serving untrusted bytes                | **no DB** | read-only | decrypts **whole** object in-memory, no Range, cannot reach patch metadata |
 
 Two facts decide everything:
 
 - **Ciphertext is not content-addressable** (random IV per encrypt). Dedup works
-  because the key is the *plaintext* SHA-256. Blob encryption already uses a
+  because the key is the _plaintext_ SHA-256. Blob encryption already uses a
   distinct AAD `v2 = (workspaceId, sha256)` with no path/revision binding
   (`artifact-bytes-encryption.ts:7-8,27-31`), so a blob is reusable across
   revisions by construction.
@@ -57,7 +57,7 @@ Two facts decide everything:
 Encryption defends exactly **platform-tier** risk (Cloudflare-side R2
 misconfiguration / object-store insider), as defense-in-depth over R2's own
 at-rest encryption. It explicitly does **not** defend the viewer tier (a leaked
-Access Link still serves the bytes). It is therefore a *posture* property, low as
+Access Link still serves the bytes). It is therefore a _posture_ property, low as
 a user-facing control. **We keep it as-is.** The chosen design (Option 1 below)
 preserves the encryption boundary completely: deltas are reconstructed to whole
 blobs before encryption, so `content` and the trust boundary never change.
@@ -70,7 +70,7 @@ Build **both layers**, optimize for agent ergonomics, leave encryption untouched
 - **Option 1 intra-file delta** on top (big-file-small-edit byte savings),
   reconstructed server-side into a whole blob.
 
-Sub-file *chunk store* / per-block AEAD / dropping encryption to R2-only are
+Sub-file _chunk store_ / per-block AEAD / dropping encryption to R2-only are
 explicitly **out of scope** and deferred until usage proves the need ("if people
 use this, refactor later").
 
@@ -114,7 +114,7 @@ use this, refactor later").
   `base_revision_id` and `deleted_paths: string[]`. When `base_revision_id` is
   set, `files` becomes "changed + added only"; unlisted paths inherit from base.
 - Add a per-file optional `patch` descriptor: `{ base_sha256, format: "unified",
-  result_sha256 }` plus the diff bytes uploaded like any file body. Absence =
+result_sha256 }` plus the diff bytes uploaded like any file body. Absence =
   whole-file upload (today's behavior).
 - Validate: `base_revision_id` must belong to the same artifact + workspace;
   `deleted_paths` must exist in base; patch `base_sha256` must match the base
@@ -162,7 +162,7 @@ in `jobs` and keeps `upload`'s narrow role intact.
   id) locally. On revise: diff the working dir against the cache; send only
   changed/added files + `deleted_paths` against `base_revision_id`. **Unchanged
   files are not re-hashed and not re-uploaded.**
-- For a changed *text* file above a size threshold, generate a unified diff
+- For a changed _text_ file above a size threshold, generate a unified diff
   against the cached base and send the patch instead of the whole file. Below
   threshold or binary: whole blob (cheaper than diff overhead).
 - MCP `add_revision`: accept a partial file set + optional per-file patch, same

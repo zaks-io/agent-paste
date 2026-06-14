@@ -133,6 +133,7 @@ export type Revision = {
   id: string;
   workspace_id: string;
   artifact_id: string;
+  parent_revision_id: string | null;
   revision_number: number | null;
   status: RevisionStatus;
   entrypoint: string;

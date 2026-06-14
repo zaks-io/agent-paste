@@ -13,13 +13,27 @@ import {
 import { RenderMode } from "./revisions.js";
 import { z } from "./zod.js";
 
-export const Sha256Hex = z.string().regex(/^[a-f0-9]{64}$/u);
+export const Sha256Hex = z.string().regex(/^[a-f0-9]{64}$/);
 export type Sha256Hex = z.infer<typeof Sha256Hex>;
+
+// A changed file may arrive as a patch against a base Revision's file (ADR 0087)
+// instead of whole bytes. When present, the bytes uploaded for this file entry are
+// the diff (so the entry's size_bytes/sha256 describe the diff), base_sha256 is the
+// digest of the file in the base Revision the diff applies to, and result_sha256 is
+// the digest of the whole reconstructed file the server must produce and verify.
+// Only the unified-diff text format is supported; binary changes upload whole bytes.
+export const UploadSessionFilePatch = z.object({
+  base_sha256: Sha256Hex,
+  format: z.literal("unified"),
+  result_sha256: Sha256Hex,
+});
+export type UploadSessionFilePatch = z.infer<typeof UploadSessionFilePatch>;
 
 export const UploadSessionFileInput = z.object({
   path: FilePath,
   size_bytes: z.number().int().nonnegative().max(Mebibytes.twentyFive),
   sha256: Sha256Hex.optional(),
+  patch: UploadSessionFilePatch.optional(),
 });
 export type UploadSessionFileInput = z.infer<typeof UploadSessionFileInput>;
 
@@ -27,13 +41,58 @@ export type UploadSessionFileInput = z.infer<typeof UploadSessionFileInput>;
 // client input. Clients (CLI, MCP) cannot request or influence artifact lifetime.
 // render_mode is an explicit client override; when absent the server infers it
 // from the entrypoint extension at publish time.
-export const CreateUploadSessionRequest = z.object({
-  artifact_id: ArtifactId.optional(),
-  title: PlainTextTitle,
-  entrypoint: FilePath,
-  render_mode: RenderMode.optional(),
-  files: z.array(UploadSessionFileInput).min(1).max(100),
-});
+// base_revision_id turns this into a partial-manifest publish (ADR 0087): files
+// lists only changed/added paths, deleted_paths drops paths, and every other path
+// inherits from the base Revision by reference. deleted_paths and per-file patches
+// are only meaningful against a base; structural checks live here, while stateful
+// checks (base belongs to the workspace/artifact, deleted path exists in the base,
+// patch base_sha256 matches the base file) are enforced server-side at finalize.
+export const CreateUploadSessionRequest = z
+  .object({
+    artifact_id: ArtifactId.optional(),
+    base_revision_id: RevisionId.optional(),
+    title: PlainTextTitle,
+    entrypoint: FilePath,
+    render_mode: RenderMode.optional(),
+    deleted_paths: z.array(FilePath).max(100).optional(),
+    files: z.array(UploadSessionFileInput).min(1).max(100),
+  })
+  .superRefine((request, ctx) => {
+    if (request.base_revision_id === undefined) {
+      if (request.deleted_paths !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["deleted_paths"],
+          message: "deleted_paths requires base_revision_id",
+        });
+      }
+      const patchedIndex = request.files.findIndex((file) => file.patch !== undefined);
+      if (patchedIndex !== -1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["files", patchedIndex, "patch"],
+          message: "patch requires base_revision_id",
+        });
+      }
+    }
+    const deleted = new Set(request.deleted_paths ?? []);
+    if (deleted.size !== (request.deleted_paths?.length ?? 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["deleted_paths"],
+        message: "deleted_paths must be unique",
+      });
+    }
+    request.files.forEach((file, index) => {
+      if (deleted.has(file.path)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["files", index, "path"],
+          message: "a path cannot be both uploaded and deleted",
+        });
+      }
+    });
+  });
 export type CreateUploadSessionRequest = z.infer<typeof CreateUploadSessionRequest>;
 
 export const UploadRequiredTarget = z.object({

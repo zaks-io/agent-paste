@@ -244,6 +244,7 @@ export const revisions = pgTable(
     artifactId: text("artifact_id")
       .notNull()
       .references(() => artifacts.id, { onDelete: "cascade" }),
+    parentRevisionId: text("parent_revision_id"),
     revisionNumber: integer("revision_number"),
     status: text("status").notNull(),
     entrypoint: text("entrypoint").notNull(),
@@ -274,6 +275,12 @@ export const revisions = pgTable(
     ),
     check("revisions_bundle_status_check", sql`${table.bundleStatus} in ('pending', 'ready', 'failed', 'disabled')`),
     check("revisions_created_by_type_check", sql`${table.createdByType} in ('api_key', 'member')`),
+    index("revisions_parent_idx").on(table.workspaceId, table.artifactId, table.parentRevisionId),
+    foreignKey({
+      name: "revisions_parent_fk",
+      columns: [table.workspaceId, table.artifactId, table.parentRevisionId],
+      foreignColumns: [table.workspaceId, table.artifactId, table.id],
+    }).onDelete("set null"),
   ],
 );
 

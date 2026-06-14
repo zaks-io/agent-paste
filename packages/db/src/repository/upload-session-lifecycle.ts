@@ -222,6 +222,8 @@ export async function finalizeUploadSessionInEntities(
     id: session.revision_id,
     workspace_id: session.workspace_id,
     artifact_id: session.artifact_id,
+    // Set when publishing against a base Revision (ADR 0087 tree inheritance, Stage 3).
+    parent_revision_id: null,
     revision_number: null,
     status: "draft",
     entrypoint: session.entrypoint,
