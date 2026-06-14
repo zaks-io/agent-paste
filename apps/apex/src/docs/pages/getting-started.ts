@@ -60,7 +60,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "A publish walks a file or folder, creates an Upload Session, uploads bytes to signed upload-worker URLs, finalizes a Revision, and publishes it. CLI publish prints the authenticated Artifact URL as `View`; MCP publish omits management IDs and public links by default. CLI JSON output carries diagnostic IDs and snapshot URLs for automation. Artifact lifetime comes from Workspace policy, not a CLI flag.",
+          text: "A publish walks a file or folder, creates an Upload Session, uploads bytes to signed upload-worker URLs, finalizes a Revision, and publishes it. Publish is content-only and private. CLI publish prints the `private_url` (`/v/<artifactId>` clean viewer) as `View`; MCP publish returns the same `private_url` and omits management IDs. CLI JSON output carries diagnostic IDs and snapshot URLs for automation. Artifact lifetime comes from Workspace policy, not a CLI flag.",
         },
         {
           kind: "paragraph",
@@ -68,7 +68,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "For a public/shareable link that follows later publishes, publish with CLI `--share` or MCP `share:true`, then use `viewer_url` (now the public Share Link). The direct `usercontent.agent-paste.sh/v/...` URL points at one Revision, does not Live Update, and direct HTML opened there is inert raw byte delivery. The authenticated Artifact URL is the default Workspace app view.",
+          text: "For a public/shareable link that follows later publishes, run the separate make-public step — `agent-paste make-public <artifact-id>` on the CLI, or the `make_public` MCP tool — to mint or reuse the public Share Link. Publish itself never makes an Artifact public. The direct `usercontent.agent-paste.sh/v/...` URL points at one Revision, does not Live Update, and direct HTML opened there is inert raw byte delivery. The `private_url` clean viewer is the default Workspace view publish returns.",
         },
       ],
     },
@@ -83,7 +83,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "`--ephemeral` self-provisions a short-lived Ephemeral Workspace, publishes once, and leads human output with a one-time Claim Token as `/claim#<token>`. Relay that claim link to the user, not the Artifact URL. It ignores stored login, so use it only when auth is unavailable or explicitly skipped. Ephemeral is not the Free Plan: use it for non-interactive text, markdown, images, and static HTML/CSS. Unclaimed ephemeral HTML is script-disabled, so use authenticated publish for interactive work.",
+          text: "`--ephemeral` self-provisions a short-lived Ephemeral Workspace, publishes once, and leads human output with a one-time Claim Token as `/claim#<token>`. Relay that claim link to the user, not the `private_url`. It ignores stored login, so use it only when auth is unavailable or explicitly skipped. Ephemeral is not the Free Plan: use it for non-interactive text, markdown, images, and static HTML/CSS. Unclaimed ephemeral HTML is script-disabled, so use authenticated publish for interactive work.",
         },
       ],
     },

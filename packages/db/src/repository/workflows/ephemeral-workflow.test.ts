@@ -96,7 +96,7 @@ describe("createEphemeralWorkspace", () => {
       type: "api_key" as const,
       id: provisioned.api_key.id,
       workspace_id: provisioned.workspace.id,
-      scopes: ["write", "read"] as const,
+      scopes: ["publish", "read"] as const,
     };
     const session = await repo.createUploadSession({
       actor,

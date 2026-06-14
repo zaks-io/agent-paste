@@ -14,7 +14,7 @@ describe("MCP WorkOS token verification", () => {
   });
 
   it("verifies a token for the MCP resource indicator", async () => {
-    const fixture = await tokenFixture({ scope: "write read" });
+    const fixture = await tokenFixture({ scope: "read publish" });
     stubJwks(fixture.publicJwk);
 
     const verified = await verifyMcpOAuthToken(fixture.token, {

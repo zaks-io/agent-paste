@@ -51,11 +51,14 @@ its nonce idempotency key, and human/JSON rendering; the MCP keeps its
 deterministic replay-safe idempotency key and the ADR-0079 scope gate. Everything
 between "I have the bytes" and "here is the result" is shared.
 
-The shared output is one link. Publish returns a single `viewer_url` plus a
-`shared` boolean: the authenticated **Private Link** when private, the public
-**Share Link**'s **Access Link Signed URL** when shared. **Private by default.**
-`share` is one bit. See [ADR 0085](./0085-publish-returns-one-viewer-url.md) for
-the link model itself; this ADR is only about the two surfaces sharing the path
+The shared output is one link. Publish is content-only and private-first: it
+returns a single `private_url` — the authenticated **Private Link** (the
+`/v/<artifactId>` clean viewer) — and carries no visibility input and no `shared`
+field. (Output shape `{title, private_url, expires_at, upload_stats?}`.) Making an
+Artifact public is the separate `make_public` / `agent-paste make-public` step.
+See [ADR 0086](./0086-publish-is-content-only-private-first.md) for the current
+link model; this ADR is only about the two surfaces sharing the path. _Amended by
+ADR 0086: the original `viewer_url` + `shared` shape from [ADR 0085](./0085-publish-returns-one-viewer-url.md) is superseded._
 that produces it.
 
 To keep the MCP Worker bundle free of the Node-only `ApiClient` (which reads

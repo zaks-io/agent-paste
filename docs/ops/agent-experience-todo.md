@@ -12,6 +12,14 @@ The walkthrough used the connected `agent-paste` MCP server (authed as
 > nullable + loud-log the swallowed Zod error). P1 (publish returns no link) and
 > the CLI/MCP divergence are being fixed by the publish-unification work — see
 > the plan and PR2/PR3. The descriptions below are kept as the original findings.
+>
+> **Update (ADR 0086):** publish is now content-only and private and always
+> returns one openable link, `private_url` (the `/v/<artifactId>` clean viewer),
+> so "publish returns no link" no longer happens and there is no `share` flag to
+> mis-set. Going public is the explicit `make_public` (MCP) / `agent-paste
+make-public` (CLI) verb, which replaced `create_share_link`. References to
+> `create_share_link`/`share`/`access_link_url` below are the original (now
+> superseded) framing.
 
 ## P0 — `list_artifacts` 500s for any workspace that has a draft artifact
 

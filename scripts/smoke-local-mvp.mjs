@@ -107,8 +107,7 @@ try {
   );
   assert(published.artifact_id?.startsWith("art_"), "publish returned artifact_id");
   assert(published.revision_id?.startsWith("rev_"), "publish returned revision_id");
-  assert(published.shared === false, "private publish reports shared:false");
-  assert(published.viewer_url?.includes(`/artifacts/${published.artifact_id}`), "publish returned Artifact URL");
+  assert(published.private_url?.includes(`/v/${published.artifact_id}`), "publish returned private viewer URL");
   assert(published.revision_content_url?.startsWith(contentBaseUrl), "publish returned local revision_content_url");
   assert(published.agent_view_url?.startsWith(apiBaseUrl), "publish returned local agent_view_url");
 
@@ -153,7 +152,7 @@ try {
 
   Workspace: ${provisioned.workspace.id}
   Artifact:  ${published.artifact_id}
-  Artifact URL: ${published.viewer_url}
+  Artifact URL: ${published.private_url}
   Revision URL: ${published.revision_content_url}
   Ephemeral: ${ephemeral.artifact_id} (claimed into ${ephemeral.member_workspace_id})
 

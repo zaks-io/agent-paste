@@ -59,7 +59,7 @@ describe("MCP OAuth bearer verification", () => {
   });
 
   it("accepts a valid MCP resource token with a stub actor (scopes come from the member row)", async () => {
-    const fixture = await mcpTokenFixture({ scope: "write read share" });
+    const fixture = await mcpTokenFixture({ scope: "read publish" });
     stubFetch(fixture.publicJwk);
 
     const principal = await authenticateMcpBearer(

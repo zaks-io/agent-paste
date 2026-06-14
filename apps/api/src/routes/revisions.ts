@@ -88,7 +88,6 @@ export async function publishRevision(
         idempotencyKey: guard.idempotencyKey,
         artifactId: params.artifactId ?? "",
         revisionId: params.revisionId ?? "",
-        share: guard.body.share,
       }),
     { respondError: guard.respondError as ContractRespondError },
   );

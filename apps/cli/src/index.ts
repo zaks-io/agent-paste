@@ -97,6 +97,8 @@ async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
         return publishEphemeral(parsed);
       }
       return publish(parsed, client);
+    case "make-public":
+      return makePublic(parsed, client);
     default:
       throw new Error(`Unknown command: ${command}`);
   }
@@ -301,22 +303,17 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
     entrypoint: inferred.entrypoint,
     ...(explicitRenderMode ? { renderMode: explicitRenderMode } : {}),
     ...(artifactId ? { artifactId } : {}),
-    share: booleanFlag(parsed, "share", false),
     idempotencyKey: createIdempotencyKey("cli_publish"),
     onUploadProgress: ({ uploadedFiles, totalToUpload, uploadedBytes }) =>
       progress.update({ done: uploadedFiles, total: totalToUpload, bytes: uploadedBytes }),
   });
   progress.done();
 
-  // Present the unified publish surface: one `viewer_url` (the link to hand the
-  // user) plus a `shared` bit, identical to what the MCP server returns. Both
-  // surfaces consume the same api-client outcome, so neither leaks the raw
-  // server `access_link_url`/`artifact_url` split into its published contract.
-  const { artifact_url, access_link_url, ...rest } = outcome.result;
+  // Publish is content-only and private: one link to hand the user, the private
+  // viewer URL (`/v/<id>`), identical to what the MCP server returns. Going public
+  // is a separate, explicit step (`agent-paste make-public <artifact-id>`).
   return {
-    ...rest,
-    viewer_url: outcome.viewerUrl,
-    shared: outcome.shared,
+    ...outcome.result,
     upload_stats: {
       total_files: outcome.uploadStats.totalFiles,
       total_bytes: outcome.uploadStats.totalBytes,
@@ -326,6 +323,34 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
       reused_bytes: outcome.uploadStats.reusedBytes,
     },
   };
+}
+
+// Make an Artifact public: create (or reuse) its revocable Share Link and mint
+// the public Access Link Signed URL. Publish stays private; this is the separate,
+// explicit verb that opts an Artifact into no-login access. Mirrors the MCP
+// make_public tool (accessLinks.create {type:"share"} then accessLinks.mint).
+async function makePublic(parsed: Parsed, client: ApiClient) {
+  const artifactId = ArtifactId.parse(requiredArg(parsed, 0, "artifact-id"));
+  const created = await client.accessLinks.create(
+    artifactId,
+    { type: "share" },
+    createIdempotencyKey("cli_make_public"),
+  );
+  const minted = await client.accessLinks.mint(created.id);
+  const payload = { artifact_id: artifactId, access_link_id: created.id, public_url: minted.url };
+  return output(payload, parsed.global, formatMakePublic(outputModeFor(parsed.global), payload));
+}
+
+function formatMakePublic(mode: OutputMode, payload: { public_url: string }) {
+  const label = (text: string) => paint(mode, "dim", text);
+  return [
+    `${paint(mode, "green", "✓")} Public link created`,
+    "",
+    `  ${label("Public")}    ${hyperlink(mode, payload.public_url)}`,
+    `            ${label("(anyone with this link can open it, no login; revoke to take it down)")}`,
+    "",
+    paint(mode, "cyan", `  → open ${payload.public_url}`),
+  ].join("\n");
 }
 
 export function parseArgs(argv: string[]): Parsed {
@@ -447,8 +472,7 @@ type PublishResultShape = {
   artifact_id: string;
   revision_id: string;
   title: string;
-  viewer_url: string;
-  shared: boolean;
+  private_url: string;
   revision_content_url: string;
   agent_view_url: string;
   expires_at: string;
@@ -480,17 +504,17 @@ function uploadStatsLine(mode: OutputMode, stats: NonNullable<PublishResultShape
 // republishing a new Artifact. Snapshot URLs stay on the JSON surface.
 function formatPublishResult(mode: OutputMode, result: PublishResultShape, updateCommand: string) {
   const label = (text: string) => paint(mode, "dim", text);
-  const viewerUrl = result.viewer_url;
+  const privateUrl = result.private_url;
   return [
     `${paint(mode, "green", "✓")} Published ${paint(mode, "bold", `"${result.title}"`)}`,
     "",
-    `  ${label("View")}      ${hyperlink(mode, viewerUrl)}`,
+    `  ${label("View")}      ${hyperlink(mode, privateUrl)}`,
     `  ${label("Expires")}   ${formatExpiry(result.expires_at)}`,
     ...(result.upload_stats ? [uploadStatsLine(mode, result.upload_stats)] : []),
     "",
     `  ${label("Update")}    ${updateCommand}`,
     `            ${label("(revises this Artifact; same link live-updates the open page)")}`,
-    ...(viewerUrl ? ["", paint(mode, "cyan", `  → open ${viewerUrl}`)] : []),
+    ...(privateUrl ? ["", paint(mode, "cyan", `  → open ${privateUrl}`)] : []),
   ].join("\n");
 }
 
@@ -502,7 +526,7 @@ export function ephemeralClaimUrl(claimToken: string) {
 function formatEphemeralPublishResult(mode: OutputMode, result: PublishResultShape, claimUrl: string) {
   assertClaimTokenNotInPublicUrls(result, claimUrl);
   const label = (text: string) => paint(mode, "dim", text);
-  const viewerUrl = result.viewer_url;
+  const privateUrl = result.private_url;
   return [
     `${paint(mode, "green", "✓")} Published ${paint(mode, "bold", `"${result.title}"`)}`,
     "",
@@ -512,8 +536,8 @@ function formatEphemeralPublishResult(mode: OutputMode, result: PublishResultSha
     ...(result.upload_stats ? [uploadStatsLine(mode, result.upload_stats)] : []),
     "",
     paint(mode, "dim", "The token lives in the URL hash only (never the query string)."),
-    ...(viewerUrl
-      ? ["", `  ${label("View")}      ${hyperlink(mode, viewerUrl)} ${paint(mode, "dim", "(works after claiming)")}`]
+    ...(privateUrl
+      ? ["", `  ${label("View")}      ${hyperlink(mode, privateUrl)} ${paint(mode, "dim", "(works after claiming)")}`]
       : []),
     "",
     paint(mode, "cyan", `  → open ${claimUrl}`),
@@ -529,7 +553,7 @@ function assertClaimTokenNotInPublicUrls(result: PublishResultShape, claimUrl: s
     throw new Error("Claim Token must not appear in the URL query string");
   }
   if (
-    result.viewer_url.includes(claimToken) ||
+    result.private_url.includes(claimToken) ||
     result.revision_content_url.includes(claimToken) ||
     result.agent_view_url.includes(claimToken)
   ) {
@@ -544,7 +568,8 @@ Usage:
   agent-paste login
   agent-paste logout
   agent-paste whoami [--json]
-  agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--share] [--ephemeral] [--json]
+  agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ephemeral] [--json]
+  agent-paste make-public <artifact-id> [--json]
   agent-paste version [--json]
   agent-paste upgrade [<tag>]
 
@@ -557,8 +582,12 @@ Publish:
   --title       Set the Artifact title.
   --entrypoint  Override the entrypoint file within <path>.
   --render-mode text | markdown | html (otherwise inferred from the entrypoint).
-  --share       Explicitly create a public/shareable Share Link for publish.
   --ephemeral   Accountless 24h publish with a one-time claim link (no login).
+
+Make public:
+  Publish keeps an Artifact private (the link is a login-walled viewer). To make
+  it reachable without login, run make-public <artifact-id>: it creates (or
+  reuses) the Artifact's revocable Share Link and prints the public URL.
 
 Output:
   --json        Machine-readable JSON on stdout (stable, carries schema_version).

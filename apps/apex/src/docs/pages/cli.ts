@@ -17,7 +17,14 @@ export const CLI_DOC: DocsPage = {
             ["`agent-paste login`", "Sign in through browser OAuth and store a scoped local credential."],
             ["`agent-paste logout`", "Revoke the stored credential when possible, then remove it locally."],
             ["`agent-paste whoami`", "Show the resolved Workspace, actor, and granted scopes."],
-            ["`agent-paste publish <path>`", "Upload files, publish a Revision, and print the result."],
+            [
+              "`agent-paste publish <path>`",
+              "Upload files, publish a Revision, and print the result. Content-only and private.",
+            ],
+            [
+              "`agent-paste make-public <artifact-id>`",
+              "Mint or reuse the Artifact's one Share Link and print its public, no-login signed URL.",
+            ],
             ["`agent-paste version`", "Print the CLI version baked into the package or binary."],
             ["`agent-paste upgrade [<tag>]`", "Self-update a standalone binary install."],
           ],
@@ -55,25 +62,25 @@ export const CLI_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "A successful CLI publish leads with `View`, the authenticated Artifact URL for the Workspace app, then an `Update` line: the one command to revise this Artifact in place (`publish <path> --artifact-id art_...`). The `Update` line is the explicit revise handle on the human surface — Revision IDs, `revision_content_url`, and `agent_view_url` stay in the JSON output. Revising keeps the same link and live-updates pages already open; publishing again without the id makes a new Artifact on a new link.",
+          text: "Publish is content-only and private. A successful CLI publish leads with `View`, the `private_url` (`/v/<artifactId>` clean viewer for the Workspace Member), then an `Update` line: the one command to revise this Artifact in place (`publish <path> --artifact-id art_...`). The `Update` line is the explicit revise handle on the human surface — Revision IDs, `revision_content_url`, and `agent_view_url` stay in the JSON output. Revising keeps the same link and live-updates pages already open; publishing again without the id makes a new Artifact on a new link.",
         },
         {
           kind: "code",
           language: "text",
-          code: '✓ Published "My Publication Title"\n\n  View      https://app.agent-paste.sh/artifacts/art_01H...\n  Expires   2026-06-20\n  Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached\n\n  Update    npx @zaks-io/agent-paste publish ./report --artifact-id art_01H...\n            (revises this Artifact; same link live-updates the open page)\n\n  → open https://app.agent-paste.sh/artifacts/art_01H...',
+          code: '✓ Published "My Publication Title"\n\n  View      https://app.agent-paste.sh/v/art_01H...\n  Expires   2026-06-20\n  Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached\n\n  Update    npx @zaks-io/agent-paste publish ./report --artifact-id art_01H...\n            (revises this Artifact; same link live-updates the open page)\n\n  → open https://app.agent-paste.sh/v/art_01H...',
         },
         {
           kind: "note",
-          title: "Public links are explicit",
+          title: "Going public is a separate step",
           body: [
-            "When a human needs a public/shareable URL that follows later publishes, publish with `--share`; `viewer_url` is then the public Share Link. Without `--share`, `viewer_url` is the authenticated Workspace app view, and `revision_content_url` is raw signed byte delivery for one Revision.",
+            "Publish is content-only and private; `private_url` is the login-walled `/v/<artifactId>` clean viewer. When a human needs a public/shareable URL that follows later publishes, run `agent-paste make-public <artifact-id>`; it mints or reuses the one Share Link and prints its public, no-login signed URL. `revision_content_url` is raw signed byte delivery for one Revision.",
           ],
         },
         {
           kind: "note",
           title: "Ephemeral output leads with the claim link",
           body: [
-            "With `--ephemeral`, human-readable output leads with `claim_url` — the link to open, keep, and unlock the Artifact. The authenticated Artifact URL appears as `View (works after claiming)`. Agents should relay the claim link to the user, not `artifact_url`.",
+            "With `--ephemeral`, human-readable output leads with `claim_url` — the link to open, keep, and unlock the Artifact. The `private_url` clean viewer appears as `View (works after claiming)`. Agents should relay the claim link to the user, not `private_url`.",
           ],
         },
         {

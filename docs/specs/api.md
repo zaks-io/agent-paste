@@ -177,7 +177,7 @@ even while the session is still open.
   "artifact_id": "art_...",
   "revision_id": "rev_...",
   "title": "demo",
-  "artifact_url": "https://app.agent-paste.sh/artifacts/art_...",
+  "private_url": "https://app.agent-paste.sh/v/art_...",
   "revision_content_url": "https://usercontent.agent-paste.sh/v/{content_token}/index.html",
   "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/{agent_view_token}",
   "expires_at": "2026-06-19T12:00:00.000Z",
@@ -192,19 +192,26 @@ Finalize verifies every expected file exists in R2 and returns a draft Revision
 summary. Publishing the finalized Revision creates or updates the published
 Artifact state, signs the URLs, and returns `PublishResult`.
 
-`artifact_url` is the authenticated **Artifact URL** for owner/member
-management and the default post-publish `View`. `revision_content_url` is the
-direct signed Content Origin URL for the exact `revision_id` returned in this
+Publish is **content-only and private**. `PublishResult` carries no visibility
+input and no `shared` field, and there is no `access_link_url` member.
+`private_url` is the **Private Link** — the login-walled clean viewer at
+`/v/<artifactId>` for the owning **Workspace Member** — and is the only handoff
+link publish returns. The dashboard-only **Artifact Console** at
+`/artifacts/<artifactId>` is never returned by publish. `revision_content_url` is
+the direct signed Content Origin URL for the exact `revision_id` returned in this
 response, expires with its signed token, and does not Live Update. Direct
 `usercontent` HTML is inert raw byte delivery unless it is loaded through the
-controlled Artifact Viewer iframe. `access_link_url` appears only when a
-**Share Link** or **Revision Link** is explicitly created. CLI `--share` creates
-a Share Link and includes `access_link_url` in the publish result. MCP publish
-tools (`publish_artifact`, `add_revision`) return a single `viewer_url` plus a
-`shared` boolean, title, expiry, and upload stats. `viewer_url` is the
-authenticated **Artifact URL** when private (`shared: false`) and the public
-**Access Link Signed URL** when `share: true` (`shared: true`); the CLI and MCP
-run the same publish path so the link semantics match.
+controlled Artifact Viewer iframe. MCP publish tools (`publish_artifact`,
+`add_revision`) and CLI `publish` run the same publish path and return the same
+shape: `private_url`, title, expiry, and upload stats. Making an Artifact public
+is a separate explicit step — `make_public` (MCP) and `agent-paste make-public`
+(CLI) — which mints or reuses the one revocable **Share Link** and returns its
+public, no-login **Access Link Signed URL**. Creating a `share` Access Link is
+idempotent on the Artifact, not just on the request key: if the Artifact already
+has an active (non-revoked, unexpired) Share Link, create returns that same link
+instead of minting a duplicate, so an Artifact has at most one live Share Link.
+Revoking it lets the next `make_public` mint a fresh one. `revision` Access Links
+are never deduped — each pins a specific Revision.
 
 ## Content Routes
 
@@ -238,15 +245,15 @@ Human operators and rotation agents use WorkOS operator auth or Cloudflare Acces
 4. CLI or MCP calls `POST upload /v1/upload-sessions/{session_id}/finalize`.
 5. `upload` verifies files and returns the finalized draft Revision.
 6. CLI or MCP calls `POST api /v1/artifacts/{artifact_id}/revisions/{revision_id}/publish`.
-7. CLI human output prints `View` with the authenticated Artifact URL; CLI JSON output returns `PublishResult`.
+7. CLI human output prints `View` with the `private_url` (`/v/<artifactId>` clean viewer); CLI JSON output returns `PublishResult`.
 
 Publishing without `--artifact-id` creates a new Artifact. Publishing with an
 existing `artifact_id` creates and publishes a new Revision for that Artifact.
 The previous `revision_content_url` continues to point at the older Revision.
-A Share Link remains the explicit public/shareable live viewer grant for the
-Artifact. Its Access Link Signed URL is the user-facing public URL when a caller
-asks to share. The `artifact_url` remains the authenticated app URL for
-Workspace members.
+Publish never makes the Artifact public; a Share Link is created only by the
+separate `make_public` / `agent-paste make-public` step. Its Access Link Signed
+URL is the user-facing public URL. The `private_url` remains the authenticated
+clean-viewer link for Workspace members.
 
 Workspace-wide publish deduplication starts only for new hash-aware uploads after
 the digest-manifest contract shipped. There is no historical backfill of legacy

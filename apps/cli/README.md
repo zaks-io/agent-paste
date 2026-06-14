@@ -13,11 +13,11 @@ npx @zaks-io/agent-paste publish ./report
 ```text
 ✓ Published "report"
 
-  View      https://app.agent-paste.sh/artifacts/art_01H...
+  View      https://app.agent-paste.sh/v/art_01H...
   Expires   2026-06-20
   Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached
 
-  → open https://app.agent-paste.sh/artifacts/art_01H...
+  → open https://app.agent-paste.sh/v/art_01H...
 ```
 
 The npm package is `@zaks-io/agent-paste`; the installed binary is `agent-paste`.
@@ -105,22 +105,23 @@ a retention flag.
 The URL model has three distinct URL types:
 
 ```text
-Artifact URL          https://app.agent-paste.sh/artifacts/{artifact_id}
+Private Link          https://app.agent-paste.sh/v/{artifact_id}
 Access Link Signed URL https://app.agent-paste.sh/al/{publicId}#{blob}
 Revision Content URL  https://usercontent.agent-paste.sh/v/{content_token}/index.html
 ```
 
-An **Artifact URL** is authenticated Workspace app navigation and is the default
-`View` URL after publish. An **Access Link Signed URL** minted from a
-**Share Link** is a public/shareable URL that follows the latest Published
-Revision. A **Revision Content URL** is a signed Content Origin URL for one exact
-Revision; it expires, does not Live Update, and direct `usercontent` HTML is
-inert.
+A **Private Link** is the login-walled clean viewer at `/v/{artifact_id}` for a
+Workspace Member, and is the `View` URL publish prints. (The dashboard-only
+Artifact Console at `/artifacts/{artifact_id}` is a management page, never the
+publish handoff.) An **Access Link Signed URL** minted from a **Share Link** is a
+public, no-login URL that follows the latest Published Revision. A
+**Revision Content URL** is a signed Content Origin URL for one exact Revision;
+it expires, does not Live Update, and direct `usercontent` HTML is inert.
 
-The current CLI prints a `View` URL in human-readable output. It is the
-authenticated Artifact URL unless an explicit share flow supplied
-`access_link_url`. Pass `--share` only when you intentionally want publish to
-create a public/shareable Share Link and print that signed link as `View`. JSON
+Publish is **content-only and private**: it returns one link, the `private_url`
+Private Link, and prints it as `View`. There is no `--share` flag. To make an
+Artifact public, run `agent-paste make-public <artifact-id>` as a separate step;
+it mints or reuses the one Share Link and prints its no-login signed URL. JSON
 output still carries diagnostic IDs and URLs for automation.
 
 ## Ephemeral publish fallback
@@ -153,7 +154,7 @@ Artifact lives for at most **24 hours** (the ephemeral TTL ceiling) and then
 auto-deletes. To keep it, a signed-in human opens the claim link to reparent the
 Artifact into their Personal Workspace.
 
-The Claim Token rides the URL **hash** only (`/claim#<token>`): never the query string, and never the `artifact_url`, `revision_content_url`, or `agent_view_url`. The claim link points at `AGENT_PASTE_WEB_URL` (default `https://app.agent-paste.sh`).
+The Claim Token rides the URL **hash** only (`/claim#<token>`): never the query string, and never the `private_url`, `revision_content_url`, or `agent_view_url`. The claim link points at `AGENT_PASTE_WEB_URL` (default `https://app.agent-paste.sh`).
 
 Ephemeral content uses the script-disabled execution policy while unclaimed.
 Text, markdown, images, and static HTML/CSS render, but JavaScript, inline event
@@ -164,14 +165,15 @@ from a signed-in Workspace instead of passing `--ephemeral`.
 
 ## Commands
 
-| Command                       | Purpose                                                                          |
-| ----------------------------- | -------------------------------------------------------------------------------- |
-| `agent-paste login`           | Sign in through browser loopback auth and store a scoped local credential.       |
-| `agent-paste logout`          | Revoke the stored credential when possible, then remove it locally.              |
-| `agent-paste whoami`          | Show the resolved **Workspace**, actor, and granted scopes.                      |
-| `agent-paste publish <path>`  | Walk a local file or directory, upload bytes, finalize, and print the result.    |
-| `agent-paste version`         | Print the CLI version baked in at build time.                                    |
-| `agent-paste upgrade [<tag>]` | Self-update a standalone binary install: download, verify, and replace in place. |
+| Command                                 | Purpose                                                                                                  |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `agent-paste login`                     | Sign in through browser loopback auth and store a scoped local credential.                               |
+| `agent-paste logout`                    | Revoke the stored credential when possible, then remove it locally.                                      |
+| `agent-paste whoami`                    | Show the resolved **Workspace**, actor, and granted scopes.                                              |
+| `agent-paste publish <path>`            | Walk a local file or directory, upload bytes, finalize, and print the result (content-only and private). |
+| `agent-paste make-public <artifact-id>` | Mint or reuse the Artifact's one Share Link and print its public, no-login signed URL.                   |
+| `agent-paste version`                   | Print the CLI version baked in at build time.                                                            |
+| `agent-paste upgrade [<tag>]`           | Self-update a standalone binary install: download, verify, and replace in place.                         |
 
 ## Flags
 
@@ -181,7 +183,6 @@ from a signed-in Workspace instead of passing `--ephemeral`.
 | `--title <text>`         | Set the title. Default: path basename.                                                                                                                     |
 | `--entrypoint <path>`    | Override the inferred entrypoint. Must be a file inside the upload.                                                                                        |
 | `--render-mode <mode>`   | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.                                                                  |
-| `--share`                | Explicitly create a public/shareable Share Link during publish and print its signed URL as `View`.                                                         |
 | `--ephemeral`            | Restricted accountless fallback for non-interactive text/images/static output. Ignores stored login and environment credentials, then prints a claim link. |
 | `--json`                 | Emit the result as JSON on stdout. Stdout becomes pure JSON and carries a stable `schema_version`.                                                         |
 | `--quiet`                | Suppress human-readable stdout output.                                                                                                                     |
@@ -198,7 +199,7 @@ stdout is exactly the publish result:
   "artifact_id": "art_01H...",
   "revision_id": "rev_01H...",
   "title": "report",
-  "artifact_url": "https://app.agent-paste.sh/artifacts/art_01H...",
+  "private_url": "https://app.agent-paste.sh/v/art_01H...",
   "revision_content_url": "https://usercontent.agent-paste.sh/v/...",
   "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/...",
   "expires_at": "2026-06-20T00:00:00.000Z",
@@ -209,10 +210,11 @@ stdout is exactly the publish result:
 }
 ```
 
-`artifact_url` is the authenticated Artifact detail URL for Workspace members and
-the default `View` URL. `access_link_url`, when present, is the Access Link
-Signed URL from an explicitly created Share Link or Revision Link; CLI publish
-creates one only when called with `--share`.
+`private_url` is the login-walled `/v/{artifact_id}` clean viewer for Workspace
+members and the default `View` URL. Publish is content-only and private, so the
+result carries no `shared` field and no `access_link_url`; making the Artifact
+public is the separate `agent-paste make-public <artifact-id>` step, which prints
+the Share Link's no-login Access Link Signed URL.
 `revision_content_url` is served from the isolated content origin
 (`usercontent.agent-paste.sh`), is signed for the returned `revision_id`, and
 does not Live Update; direct HTML opened there is raw/inert byte delivery, not
@@ -220,7 +222,7 @@ the product viewer. `agent_view_url` is the Agent View JSON on the API origin.
 `bundle` reports whether the revision archive is pending, ready, failed, or disabled.
 
 With `--ephemeral`, human-readable output leads with the claim link — the URL to
-open, keep, and unlock the Artifact. The authenticated Artifact URL appears as
+open, keep, and unlock the Artifact. The `private_url` clean viewer appears as
 `View (works after claiming)`:
 
 ```text
@@ -228,12 +230,12 @@ Open this to view, keep, and unlock your artifact:
   Claim    https://app.agent-paste.sh/claim#ap_ct_...
   Expires  2026-06-13
 
-  View     https://app.agent-paste.sh/artifacts/art_01H... (works after claiming)
+  View     https://app.agent-paste.sh/v/art_01H... (works after claiming)
 
   → open https://app.agent-paste.sh/claim#ap_ct_...
 ```
 
-Agents should relay the claim link to the user, not the Artifact URL.
+Agents should relay the claim link to the user, not the `private_url`.
 
 With `--json` and `--ephemeral`, the result also carries `claim_token`, `claim_url`, `workspace_id`, `api_key_id`, and `claim_token_id`.
 

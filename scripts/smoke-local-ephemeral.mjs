@@ -122,7 +122,7 @@ export async function runLocalEphemeralSmoke(options) {
 
   return {
     artifact_id: published.artifact_id,
-    viewer_url: published.viewer_url,
+    private_url: published.private_url,
     revision_content_url: published.revision_content_url,
     workspace_id: published.workspace_id,
     member_workspace_id: memberWorkspaceId,

@@ -233,7 +233,7 @@ export async function signPublishResult(
   const data = result as Record<string, unknown> & {
     artifact_id?: unknown;
     revision_id?: unknown;
-    artifact_url?: unknown;
+    private_url?: unknown;
     revision_content_url?: unknown;
     agent_view_url?: unknown;
     entrypoint_object_key?: unknown;
@@ -244,7 +244,7 @@ export async function signPublishResult(
     return result;
   }
   const {
-    artifact_url: _rawArtifactUrl,
+    private_url: _rawPrivateUrl,
     revision_content_url: rawRevisionContentUrl,
     agent_view_url: rawAgentViewUrl,
     entrypoint_object_key: rawEntrypointObjectKey,
@@ -284,7 +284,7 @@ export async function signPublishResult(
   );
   return {
     ...rest,
-    artifact_url: `${webBaseUrl(env)}/artifacts/${encodeURIComponent(data.artifact_id)}`,
+    private_url: `${webBaseUrl(env)}/v/${encodeURIComponent(data.artifact_id)}`,
     revision_content_url: revisionContentUrl,
     agent_view_url: secret
       ? await mintAgentViewUrl({

@@ -212,23 +212,24 @@ describe("ApiClient", () => {
     expect(calls[1]?.headers.get("idempotency-key")).toBe("idem_publish");
   });
 
-  it("sends an explicit publish share request body only when requested", async () => {
+  it("publishes a revision with no request body (content-only, private)", async () => {
     const calls: Request[] = [];
     const client = authedClient({
       apiBaseUrl: "https://api.example.test/",
       fetch: async (input, init) => {
         calls.push(new Request(input, init));
-        return Response.json({ ...publishResult(), access_link_url: "https://app.example.test/al/PUBLIC#secret" });
+        return Response.json(publishResult());
       },
     });
 
-    await client.revisions.publish(artifactId, revisionId, "idem_publish_share", { share: true });
+    const result = await client.revisions.publish(artifactId, revisionId, "idem_publish");
 
     expect(calls[0]?.url).toBe(`https://api.example.test/v1/artifacts/${artifactId}/revisions/${revisionId}/publish`);
     expect(calls[0]?.method).toBe("POST");
-    expect(calls[0]?.headers.get("idempotency-key")).toBe("idem_publish_share");
-    expect(calls[0]?.headers.get("content-type")).toBe("application/json");
-    await expect(calls[0]?.json()).resolves.toEqual({ share: true });
+    expect(calls[0]?.headers.get("idempotency-key")).toBe("idem_publish");
+    await expect(calls[0]?.text()).resolves.toBe("");
+    expect(result.private_url.endsWith(`/v/${artifactId}`)).toBe(true);
+    expect(result).not.toHaveProperty("access_link_url");
   });
 
   it("revokes the current API key with API-key auth", async () => {
@@ -369,7 +370,7 @@ function publishResult() {
     artifact_id: artifactId,
     revision_id: revisionId,
     title: "Demo",
-    artifact_url: "https://app.example.test/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+    private_url: `https://app.example.test/v/${artifactId}`,
     revision_content_url: "https://content.example.test/v/token/index.html",
     agent_view_url: "https://api.example.test/v1/agent-view/token",
     expires_at: "2026-02-01T00:00:00.000Z",

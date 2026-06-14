@@ -34,20 +34,15 @@ _Avoid_: Partial update, pending files
 The **Revision** currently visible through stable **Artifact** links.
 _Avoid_: Live version, current snapshot
 
-<a id="artifact-url"></a>
-**Artifact URL**:
-The authenticated app URL for a **Workspace Member** to open an **Artifact** detail view. Publish surfaces return it as `artifact_url`, and it is the default post-publish `View` URL. Agents should mint a **Share Link** and return its signed URL only when the user explicitly asks for a public/shareable link.
-_Avoid_: Access Link, public link, Revision Content URL, live handoff URL
-
-<a id="viewer-url"></a>
-**Viewer URL**:
-The single "open this **Artifact** in a browser" link an agent hands back to the user, returned by the CLI publish and the MCP publish tools as `viewer_url`. It resolves to the **Private Link** (**Artifact URL**) when the publish is private, and to the **Share Link**'s **Access Link Signed URL** when shared. It is an output-surface convenience over the two underlying grants, not a third grant: private vs shared is still the **Private Link** / **Access Link** distinction, governed by the one `share` bit.
-_Avoid_: a new link type, public-by-default link, separate viewer grant
+<a id="artifact-console"></a><a id="artifact-url"></a>
+**Artifact Console**:
+The dashboard-only management page for an **Artifact** (`/artifacts/<id>`): access-links table, lockdown, revisions. Never returned by **Publish** or any agent surface.
+_Avoid_: Artifact URL, Private Link, Access Link, public link, Revision Content URL, live handoff URL
 
 <a id="artifact-viewer"></a>
 **Artifact Viewer**:
-The recipient-facing browser surface opened by an **Access Link Signed URL**. It displays the **Published Revision** authorized by the **Access Link** without dashboard management chrome.
-_Avoid_: Artifact page, dashboard artifact page, app page
+The recipient-facing browser surface that displays a **Published Revision** without dashboard management chrome. It is opened by a **Private Link** (the authenticated `/v/<artifactId>` clean viewer for a **Workspace Member**) or by an **Access Link Signed URL** (the unauthenticated recipient path).
+_Avoid_: Artifact Console, dashboard artifact page, app page
 
 <a id="live-update"></a>
 **Live Update**:
@@ -256,12 +251,18 @@ _Avoid_: Owner, author
 
 <a id="scope"></a>
 **Scope**:
-A named permission that authorizes an actor to perform a class of action within a **Workspace**. A **Workspace Member** is implicitly granted every **Scope** (including **Member-Only Scopes** such as `admin`) only when authenticated for direct workspace control (the dashboard). The CLI does not carry **Scopes** in a token: `agent-paste login` creates an **Agent Credential**, and those credentials are capped at `publish` and `read` (never `admin`), so the CLI surface is structurally below the dashboard ceiling. An **Agent Credential** holds a named subset.
-_Avoid_: Role, capability
+A named permission that authorizes an actor to perform a class of action within a **Workspace**. There is exactly one **Scope** vocabulary, shared verbatim by the API and the MCP surface (no per-surface names, no translation layer to keep in sync). The three **Scopes** are:
+
+- `read` — view your own **Artifacts**, **Revisions**, and **Access Links**.
+- `publish` — change your own content: create, revise, and delete **Artifacts**, and manage public access to your own **Artifact** (make it public, list, and revoke its **Access Links**). This is the full agent write surface.
+- `admin` — a **Member-Only Scope** for account/workspace management only (**Agent Credential** lifecycle, **Workspace** settings, **Audit Event** reads, billing). It does **not** grant publishing or public-access actions.
+
+A **Workspace Member** authenticated for direct workspace control (the dashboard) is implicitly granted every **Scope**, including `admin`. An **Agent Credential** (created by `agent-paste login`) and an MCP member's delegated set are capped at `publish` and `read` (never `admin`), so every agent surface is structurally below the dashboard ceiling. A member's MCP **Scopes** are their stored API **Scopes** verbatim, derived in `api`, never carried in the OAuth token (ADR 0079).
+_Avoid_: Role, capability, write/share (old MCP-only names — unified into `publish`)
 
 <a id="member-only-scope"></a>
 **Member-Only Scope**:
-A **Scope** that only a **Workspace Member** can hold via direct workspace authentication (the dashboard); it cannot be granted to an **Agent Credential** and cannot be carried by tokens issued for delegated agent surfaces such as the CLI or MCP. Member-only **Scopes** authorize **Agent Credential** lifecycle management, **Audit Event** reads, and **Workspace** administration.
+A **Scope** that only a **Workspace Member** can hold via direct workspace authentication (the dashboard); it cannot be granted to an **Agent Credential** and cannot be carried by tokens issued for delegated agent surfaces such as the CLI or MCP. The only **Member-Only Scope** is `admin`: it authorizes **Agent Credential** lifecycle management, **Audit Event** reads, **Workspace** settings, and billing. It is distinct from `publish`, which covers all content and public-access actions on your own **Artifacts** and is available to agents.
 _Avoid_: Admin scope, restricted scope
 
 <a id="operator"></a>
@@ -326,8 +327,8 @@ _Avoid_: Remote localStorage, app database, permanent storage
 
 <a id="private-link"></a>
 **Private Link**:
-The authenticated URL for reading an **Artifact** within its owning tenant.
-_Avoid_: Admin link, dashboard link
+The login-walled clean viewer (`/v/<artifactId>`) for a **Workspace Member**, returned by every **Publish** as `private_url`. No management chrome.
+_Avoid_: Artifact URL, console link, /artifacts page, dashboard link
 
 <a id="access-link"></a>
 **Access Link**:
@@ -346,8 +347,8 @@ _Avoid_: Suspension, ban, freeze, admin lock
 
 <a id="share-link"></a>
 **Share Link**:
-A type of **Access Link** that resolves to the latest **Published Revision** of an **Artifact**. It opens the **Artifact Viewer** and can receive **Publish Updates**. Agents should create or reuse a Share Link, then return its minted **Access Link Signed URL**, when a user asks for the live page. A Share Link is revocable and may expire, so avoid calling it a permalink.
-_Avoid_: Artifact URL, public app link, permalink, Revision Content URL
+A type of **Access Link** that resolves to the latest **Published Revision** of an **Artifact**. It opens the **Artifact Viewer** and can receive **Publish Updates**. It is created only by the explicit make-public step (`make_public` on MCP, `agent-paste make-public` on the CLI), which mints or reuses the one Share Link and returns its **Access Link Signed URL** — the no-login public URL. **Publish** never creates one. A Share Link is revocable and may expire, so avoid calling it a permalink.
+_Avoid_: Artifact Console, public app link, permalink, Revision Content URL
 
 <a id="expiration"></a>
 **Expiration**:
@@ -543,24 +544,24 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - A **Platform Lockdown** can only be set or lifted by an **Operator**
 - A **Share Link** resolves to the latest **Published Revision** of an **Artifact**
 - A **Share Link** is an **Access Link** type, not a synonym for **Access Link**
-- The signed URL minted from a **Share Link** is the primary user-facing live handoff
+- The signed URL minted from a **Share Link** is the public, no-login handoff produced by the make-public step
 - A **Revision Link** resolves to exactly one **Revision**
 - A **Revision Link** can continue resolving to an older **Revision** after a newer **Revision** is published
 - A **Revision Link** can be revoked without deleting its **Revision**
 - **Retention** can make a **Revision Link** stop resolving without revoking it
-- The base REST/CLI **Publish Result** currently includes the **Artifact** id, **Revision** id, authenticated **Artifact URL**, direct signed **Revision Content URL**, public **Agent View** URL, expiration, and **Bundle Availability**
-- MCP and CLI publish are private by default and return one `viewer_url`; a **Share Link** is created or reused only when the caller sets the `share` bit
+- The base REST/CLI **Publish Result** includes the **Artifact** id, **Revision** id, authenticated **Private Link** (`private_url`), direct signed **Revision Content URL**, public **Agent View** URL, expiration, and **Bundle Availability**
+- **Publish** is content-only and private-first on every surface (CLI, MCP, REST): it accepts no visibility input and returns exactly one link, the **Private Link** as `private_url`. There is no `share`/`--share` input and no `shared` output bit
+- A **Share Link** is created only by the explicit make-public step (`make_public` on MCP, `agent-paste make-public` on the CLI), never by **Publish**
 - MCP publish tools do not create a **Revision Link** unless the agent explicitly calls **Create Revision Link**
-- MCP publish fails if a requested **Share Link** cannot be created
-- **Access Link Lockdown** blocks creating or resolving **Access Links**; plain **Publish** without requested link creation is not an **Access Link** operation
+- **Access Link Lockdown** blocks creating or resolving **Access Links**; **Publish** is content-only and never an **Access Link** operation
 - **Revision Links** are not created for **Draft Revisions**
 - **Share Links** always resolve to the latest **Published Revision**
 - Additional **Revision Links** can be created for an already published **Revision**
 - Additional **Revision Links** can target any retained published **Revision**
-- **Publish** creates a **Share Link** only when the caller sets the `share` bit; without it the publish stays private and no **Share Link** is created
-- **Publish** fails if a requested **Share Link** cannot be created
-- A shared **Artifact** keeps one stable **Share Link**: **Publish** reuses an active **Share Link** before creating one, so the `viewer_url` handed out stays the same across revisions and live-updates to the latest **Published Revision** (both MCP **add_revision** and CLI re-publish)
-- The CLI and MCP **Publish Result** both surface one `viewer_url`; the CLI still carries the full authenticated **Artifact URL** and exact **Revision Content URL** in its JSON for automation
+- **Publish** never creates a **Share Link**; making an **Artifact** public is the separate `make_public` step, which mints or reuses the one revocable **Share Link** and returns its **Access Link Signed URL**
+- The make-public step fails if the **Share Link** cannot be created (for example under **Access Link Lockdown**) without affecting the **Published Revision**
+- A public **Artifact** keeps one stable **Share Link**: `make_public` reuses an active **Share Link** before creating one, so the public URL stays the same across revisions and live-updates to the latest **Published Revision**
+- The CLI and MCP **Publish Result** both surface one `private_url`; the CLI still carries the full **Publish Result** (IDs, `private_url`, exact **Revision Content URL**, **Agent View** URL, **Bundle** status) in its JSON for automation
 - A **Publish Result** includes separate human-view links and agent-view links
 - A **Publish Result** includes **Bundle Availability** even when the **Bundle** is not ready
 - A **Workspace** has exactly one **Usage Policy**
@@ -839,7 +840,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Dev:** "Can an agent change **Access Link** **Expiration** during **Access Link Lockdown**?"
 > **Domain expert:** "Yes — expiration can change, but lockdown still prevents access."
 > **Dev:** "Can an agent publish a new **Revision** while **Access Link Lockdown** is active?"
-> **Domain expert:** "Yes — plain **Publish** can create a new **Revision**. Lockdown blocks creating new **Access Links**, including requested **Share Links** or explicit **Revision Links**."
+> **Domain expert:** "Yes — **Publish** is content-only and can create a new **Revision**. Lockdown blocks creating new **Access Links**, so the separate make-public step (the **Share Link**) and explicit **Revision Links** fail while it is active."
 > **Dev:** "Can another agent use a **Share Link** without an **Agent Credential**?"
 > **Domain expert:** "Yes — a **Share Link** grants read-only access to the **Agent View** and published files."
 > **Dev:** "Can another agent use a **Revision Link** to inspect an exact **Revision**?"
@@ -893,21 +894,21 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Dev:** "Do **Unpublished Artifacts** count against creation limits?"
 > **Domain expert:** "Yes — **Usage Policy** controls their creation too."
 > **Dev:** "What is the simplest way for an agent to share a folder?"
-> **Domain expert:** "Call **Publish** with the `share` bit set. That creates or reuses the **Artifact**'s **Share Link** and the returned `viewer_url` is its **Access Link Signed URL** — the primary live handoff. The authenticated **Artifact URL** is for workspace management."
+> **Domain expert:** "Two steps. **Publish** the folder — it is content-only and private, and returns the **Private Link** as `private_url`. Then, only if the user wants a public no-login link, call the make-public step (`make_public` on MCP, `agent-paste make-public` on the CLI). That mints or reuses the **Artifact**'s one **Share Link** and returns its **Access Link Signed URL**."
 > **Dev:** "What does an agent get back after **Publish**?"
-> **Domain expert:** "One `viewer_url` plus a `shared` bit. The CLI also carries the full **Publish Result** in its JSON — IDs, the authenticated **Artifact URL**, direct **Revision Content URL**, **Agent View** URL, **Bundle** status, and any **Safety Warnings** — for automation."
+> **Domain expert:** "One `private_url` — the login-walled `/v/<artifactId>` viewer. The CLI also carries the full **Publish Result** in its JSON — IDs, `private_url`, direct **Revision Content URL**, **Agent View** URL, **Bundle** status, and any **Safety Warnings** — for automation. There is no `shared` bit and no `share` input."
 > **Dev:** "Does **Publish** make an **Artifact** shareable by default?"
-> **Domain expert:** "No — **Publish** is private by default on every surface. Sharing is the one `share` bit; without it nothing is reachable by URL, and `viewer_url` is the authenticated **Private Link**."
-> **Dev:** "What if a requested **Share Link** cannot be created during **Publish**?"
-> **Domain expert:** "**Publish** fails before the **Revision** becomes visible."
+> **Domain expert:** "No — **Publish** is content-only and private on every surface; nothing is reachable without login. Going public is the separate `make_public` step, and `private_url` is always the authenticated **Private Link**."
+> **Dev:** "What if the **Share Link** cannot be created during the make-public step?"
+> **Domain expert:** "`make_public` fails without touching the **Published Revision** or its **Private Link**."
 > **Dev:** "Can a **Share Link** be pinned to the current **Published Revision**?"
 > **Domain expert:** "No — **Share Links** always follow the latest **Published Revision**; use a **Revision Link** to pin one."
-> **Dev:** "Can an agent create a **Share Link** after **Publish**?"
-> **Domain expert:** "Yes — **Share Links** can be created during **Publish** or later."
+> **Dev:** "Can an agent create a **Share Link** without publishing again?"
+> **Domain expert:** "Yes — the make-public step works on any already-published **Artifact**; it never needs a re-publish."
 > **Dev:** "Can an agent create a **Share Link** while **Access Link Lockdown** is active?"
 > **Domain expert:** "No — lockdown prevents creating new **Access Links**."
 > **Dev:** "Does **Publish** create a pinned link for the exact **Revision**?"
-> **Domain expert:** "No — user-facing **Publish** should create or return the latest-moving **Share Link**. An agent must call **Create Revision Link** only when it needs a pinned URL for the exact **Revision**."
+> **Domain expert:** "No — **Publish** returns only the latest-following **Private Link**. For a public latest-moving link an agent runs the make-public step to mint the **Share Link**; for a pinned URL of the exact **Revision** it calls **Create Revision Link**."
 > **Dev:** "Can an agent create another **Revision Link** for the same **Revision**?"
 > **Domain expert:** "Yes — additional **Revision Links** can be created for separate audiences."
 > **Dev:** "Can an agent create an additional **Revision Link** during **Access Link Lockdown**?"

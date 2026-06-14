@@ -205,12 +205,16 @@ Highest-signal gaps:
 - Live Updates deferred polish (AP-166): Access Link Lockdown live disconnect
   hook, operator-tunable viewer cap. The feature itself is shipped (AP-25 +
   AP-164).
-- Hosted agent publish handoff shipped in AP-299/PR #475 and was tightened on
-  2026-06-11: publish results distinguish `artifact_url` (authenticated app
-  viewer/navigation) from `revision_content_url` (one-Revision content URL).
-  MCP publish/add-revision no longer create or reuse Share Links by default;
-  callers must set `share: true` or use link-management tools when the user
-  explicitly asks for a public/shareable `access_link_url`.
+- Hosted agent publish handoff shipped in AP-299/PR #475. Per ADR 0086, publish
+  is now **content-only and private**: `publish_artifact`, `add_revision`, and
+  `agent-paste publish` take no visibility input and return one link,
+  `private_url` — the login-walled `/v/<artifactId>` clean viewer (the server
+  `PublishResult` renamed `artifact_url`→`private_url` and dropped
+  `access_link_url`/`shared`). Going public is the separate explicit verb
+  `make_public` (MCP) / `agent-paste make-public` (CLI), renamed from
+  `create_share_link`, which mints or reuses the one revocable Share Link and
+  returns its no-login Access Link Signed URL. ADR 0085 (one switching
+  `viewer_url` + `shared`) is superseded.
 - File-bytes hash-reputation malware scanner: cancelled/removed. Llama Guard
   and Cloudflare URL Scanner still support the ephemeral advisory/abuse path
   when configured, alongside built-in warning metadata. Containment is the trust

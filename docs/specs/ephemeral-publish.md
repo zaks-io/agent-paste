@@ -31,7 +31,7 @@ served under the script-disabled **Execution Policy**.
 ## Actors
 
 **Ephemeral Publisher**:
-An unattended agent that self-provisions an **Ephemeral Workspace** and publishes against it. The CLI holds a short-lived scoped credential for the unclaimed tenant. It grants `write` and `read` only, never `share` implicitly or `admin`.
+An unattended agent that self-provisions an **Ephemeral Workspace** and publishes against it. The CLI holds a short-lived scoped credential for the unclaimed tenant. It grants `publish` and `read` only, never `admin`.
 
 **Claimer**:
 A **Workspace Member** (authenticated through WorkOS) who redeems a **Claim Token** to reparent the ephemeral tenant's **Artifacts** into their existing Personal **Workspace** at the claimed `free` tier (see Claim Flow). The source **Ephemeral Workspace** is marked consumed; claim never creates a standalone **Workspace**.
@@ -83,7 +83,7 @@ Hosts the claim/upgrade UI. Turnstile guards these human surfaces only.
    tenant state.
 2. Under a reserved system actor through `runCommand` ([ADR 0035](../adr/0035-runcommand-sequencing-and-idempotency-records.md)), `api`:
    - creates a **Workspace** flagged ephemeral, no **Workspace Member**, ephemeral cap set;
-   - creates a short-lived scoped credential with `write` + `read` **Scopes**;
+   - creates a short-lived scoped credential with `publish` + `read` **Scopes**;
    - generates a one-time **Claim Token** (signed, single-use, stored hashed);
    - emits an **Audit Event**.
 3. Response returns the credential secret and the **Claim Token** to the caller only. The **Claim Token** is never placed in any **Access Link Signed URL**.
@@ -144,7 +144,7 @@ Field-level shape lands in [`data-model.md`](./data-model.md) and the contracts 
 ## Acceptance Criteria
 
 - A valid `provision` call returns a working scoped credential and a one-time **Claim Token**.
-- A freshly provisioned credential can run the standard **Upload Session** → **Publish** loop without implicit `share` scope.
+- A freshly provisioned credential can run the standard **Upload Session** → **Publish** loop with `publish` + `read` only; publishing is content-only and never makes an **Artifact** public on its own.
 - The ephemeral daily new-**Artifact** allowance is enforced; exceeding it returns a stable rate-limit error with `Retry-After`; new **Revisions** of an existing **Artifact** are not counted (up to the lifetime ceiling).
 - Ephemeral **Artifacts** carry the shortest **Auto Deletion** and `noindex`; they are swept on schedule.
 - A valid **Claim Token** redeemed by an authenticated **Workspace Member** reparents the surviving **Artifacts** into the member's Personal **Workspace** at the `free` cap set, marks the source **Ephemeral Workspace** consumed, and is single-use thereafter.

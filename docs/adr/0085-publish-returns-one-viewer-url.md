@@ -1,5 +1,14 @@
 # Publish Returns One Viewer URL, Private By Default
 
+> **Superseded by [ADR 0086](./0086-publish-is-content-only-private-first.md).**
+> This ADR made `viewer_url` flip between a private and a public grant and surfaced
+> that as a `shared` boolean. In practice that conflated "which URL" with "is it
+> public," so a revise that did not re-assert `share` reported `shared:false` and
+> handed back a different URL — a confusing, dishonest output, and a default that
+> made artifacts public when the caller did not ask. ADR 0086 makes publish
+> content-only and private, returns one private viewer link, and moves "go public"
+> to a separate explicit, revocable step.
+
 An agent's core job on this product is "publish an **Artifact**, get back a link."
 The link is the deliverable. So the publish surfaces must return _a link the
 caller can open_, and the rules for which link and who can open it must be dead

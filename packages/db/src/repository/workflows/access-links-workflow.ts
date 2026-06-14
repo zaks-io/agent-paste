@@ -13,6 +13,26 @@ export async function resolveAccessLink(
   return ctx.uow.read(PLATFORM_SCOPE, async (entities) => resolveAccessLinkFromEntities(entities, input));
 }
 
+/**
+ * The make-public step reuses an artifact's one active Share Link instead of
+ * minting a duplicate every call. "Active" = a non-revoked, unexpired `share`
+ * link. Revision links are never deduped (each pins a specific Revision).
+ */
+async function findActiveShareLink(
+  entities: { accessLinks: { listForArtifact(artifactId: string): Promise<import("../../types.js").AccessLink[]> } },
+  artifactId: string,
+  nowIso: string,
+): Promise<import("../../types.js").AccessLink | undefined> {
+  const nowMs = Date.parse(nowIso);
+  const links = await entities.accessLinks.listForArtifact(artifactId);
+  return links.find(
+    (link) =>
+      link.type === "share" &&
+      link.revoked_at === null &&
+      (link.expires_at === null || Date.parse(link.expires_at) > nowMs),
+  );
+}
+
 export async function createMemberAccessLink(
   ctx: RepositoryCoreContext,
   input: {
@@ -44,6 +64,18 @@ export async function createMemberAccessLink(
         const revision = revisionId ? await entities.revisions.findById(revisionId, input.actor.workspace_id) : null;
         if (!revision || revision.artifact_id !== artifact.id || revision.status !== "published") {
           repositoryError("not_found");
+        }
+      }
+      if (input.type === "share") {
+        const existing = await findActiveShareLink(entities, artifact.id, now);
+        if (existing) {
+          return {
+            id: existing.id,
+            type: existing.type,
+            artifact_id: existing.artifact_id,
+            revision_id: existing.revision_id,
+            created_at: existing.created_at,
+          };
         }
       }
       const link = createAccessLinkRow({
