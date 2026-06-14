@@ -70,6 +70,7 @@
     "test": "turbo run test",
     "test:scripts": "vitest run --config vitest.scripts.config.ts",
     "test:coverage": "node scripts/clean-coverage.mjs && turbo run test:coverage && node scripts/merge-coverage.mjs",
+    "test:coverage:strict": "node scripts/clean-coverage.mjs && turbo run test:coverage --force && node scripts/merge-coverage.mjs",
     "typecheck": "turbo run typecheck",
     "typecheck:scripts": "tsc -p tsconfig.scripts.json",
     "verify": "pnpm format:code:check && pnpm format:docs:check && pnpm knip && pnpm dupes && turbo run lint typecheck test openapi:check db:check && pnpm typecheck:scripts && pnpm test:scripts"
