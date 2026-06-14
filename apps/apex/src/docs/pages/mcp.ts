@@ -75,10 +75,13 @@ export const MCP_DOC: DocsPage = {
           columns: ["Tool", "Purpose"],
           rows: [
             ["`whoami`", "Return authenticated member, Workspace, and derived scopes."],
-            ["`publish_artifact`", "Publish a new text-only Artifact and return its viewer_url. Private by default."],
+            [
+              "`publish_artifact`",
+              "Publish a NEW text-only Artifact (new viewer_url). Private by default. To change published work, use add_revision instead.",
+            ],
             [
               "`add_revision`",
-              "Add and publish a new text-only Revision and return its viewer_url. Private by default.",
+              "Revise an EXISTING Artifact: pass its artifact_id to publish a new Revision. Same stable viewer_url; live-updates open viewers. Use this to change published work, not publish_artifact.",
             ],
             ["`list_artifacts`", "List Artifacts in the Workspace."],
             ["`read_artifact`", "Read latest Agent View for an Artifact."],
@@ -103,7 +106,7 @@ export const MCP_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "`publish_artifact` and `add_revision` return a single `viewer_url` (the link to open the Artifact) plus a `shared` boolean. They default `share` to `false`: `viewer_url` is then the authenticated owner-only link. Set `share: true` to share with other people; `viewer_url` becomes the public Access Link Signed URL, and a shared Artifact keeps one stable Share Link that follows the latest Revision. Artifact IDs, Revision IDs, and content URLs are available through the read/list/link tools. The tools also accept optional idempotency keys; when omitted, the server derives stable keys from the OAuth subject, JSON-RPC id, and tool name.",
+          text: "`publish_artifact` and `add_revision` return a single `viewer_url` (the link to open the Artifact) plus a `shared` boolean. They default `share` to `false`: `viewer_url` is then the authenticated owner-only link. Set `share: true` to share with other people; `viewer_url` becomes the public Access Link Signed URL, and a shared Artifact keeps one stable Share Link that follows the latest Revision. To change a published Artifact, call `add_revision` with its `artifact_id` rather than `publish_artifact`: the `viewer_url` is stable and already-open viewers live-update to the new Revision, whereas a second `publish_artifact` mints a separate Artifact on a new link. Artifact IDs, Revision IDs, and content URLs are available through the read/list/link tools. The tools also accept optional idempotency keys; when omitted, the server derives stable keys from the OAuth subject, JSON-RPC id, and tool name.",
         },
         {
           kind: "paragraph",

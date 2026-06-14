@@ -18,6 +18,13 @@ the final live page.
   credential to copy), then publish: \`npx @zaks-io/agent-paste publish ./path\`
   prints \`View\`, the authenticated app URL for the Artifact. Retries are
   idempotent.
+- Update published work in place. To change something you already published — fix
+  it, extend it — add a Revision to the SAME Artifact instead of publishing again:
+  \`npx @zaks-io/agent-paste publish ./path --artifact-id art_...\` (CLI, the id is
+  in the publish output) or MCP \`add_revision\`. The Artifact's View link (and any
+  Share Link) is stable and live-updates pages already open to the newest Revision,
+  so a revision needs no new link. Publishing again without the id makes a new
+  Artifact on a new link and strands the page the user already has open.
 - Before using the accountless path, run \`npx @zaks-io/agent-paste whoami --json\`.
   It exits \`0\` either way; check the JSON, not the exit code. If it shows you are
   signed in, publish normally. If it shows \`"authenticated": false\`, ask the user
@@ -61,7 +68,10 @@ bearer token.
 ## Mental model
 
 - Artifact - addressable, named container (folder).
-- Revision - immutable saved state. New publishes append a new Revision.
+- Revision - immutable saved state. Revise an existing Artifact with
+  \`--artifact-id\` (CLI) or \`add_revision\` (MCP); the Artifact's stable link
+  follows the latest Revision and live-updates open viewers. A bare publish makes a
+  new Artifact on a new link instead.
 - Access Link - revocable grant family for unauthenticated read access. Share
   Links and Revision Links are Access Link types; an Access Link Signed URL is
   the minted URL string.

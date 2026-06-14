@@ -68,8 +68,10 @@ npx @zaks-io/agent-paste publish ./report
 # => View https://app.agent-paste.sh/artifacts/art_...
 \`\`\`
 
-Human-readable CLI output prints the authenticated app URL as \`View\`. It does
-not print Artifact IDs, Revision IDs, or direct content URLs:
+Human-readable CLI output leads with the authenticated app URL as \`View\`, then
+prints an \`Update\` line: the one command to revise this Artifact in place. The
+\`Update\` line is the explicit revise handle; Revision IDs and direct content URLs
+stay in JSON:
 
 \`\`\`
 ✓ Published "report"
@@ -77,6 +79,9 @@ not print Artifact IDs, Revision IDs, or direct content URLs:
   View      ${APP_BASE_URL}/artifacts/art_...
   Expires   2026-06-20
   Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached
+
+  Update    npx @zaks-io/agent-paste publish ./report --artifact-id art_...
+            (revises this Artifact; same link live-updates the open page)
 
   → open ${APP_BASE_URL}/artifacts/art_...
 \`\`\`
@@ -92,8 +97,20 @@ JSON output has these URL fields:
   delivery rather than the product viewer.
 - \`agent_view_url\` - machine-readable Agent View JSON for tools.
 
-Publish creates a new Artifact by default. To append and publish a new Revision
-on an existing Artifact, pass \`--artifact-id art_...\`.
+## Updating published work
+
+Publishing without \`--artifact-id\` creates a new Artifact on a new link. When the
+user wants to change something you already published — fix it, update it, extend
+it — revise the SAME Artifact instead of publishing a new one:
+
+- CLI: \`npx @zaks-io/agent-paste publish ./path --artifact-id art_...\`
+- MCP: \`add_revision\` with the \`artifact_id\`.
+
+The Artifact's View link (and any Share Link) is stable and live-updates pages
+already open to the newest Revision, so a revision needs no new link. Re-publishing
+an edit as a fresh Artifact strands the link the user already has open. Keep the
+\`artifact_id\` from each publish (the CLI \`Update\` hint, the JSON \`artifact_id\`
+field, or \`list_artifacts\`) so you can revise.
 
 If the user asks for a public/shareable link, create a Share Link and return
 \`access_link_url\`: the Access Link Signed URL minted from that Share Link. In
@@ -168,12 +185,15 @@ Read (\`read\`):
 
 Write (\`write\`):
 
-- \`publish_artifact\` - publish a new text-only Artifact without creating a
-  public link by default. Set \`share:true\` only when the user explicitly asks
+- \`publish_artifact\` - publish a NEW text-only Artifact on a new \`viewer_url\`.
+  Use it only for something not yet published; to change published work use
+  \`add_revision\` instead. Set \`share:true\` only when the user explicitly asks
   for a public/shareable Access Link.
-- \`add_revision\` - add and publish a new Revision to an Artifact without
-  creating or reusing a Share Link by default. Set \`share:true\` only when the
-  user explicitly asks for a public/shareable Access Link.
+- \`add_revision\` - revise an EXISTING Artifact: add and publish a new Revision
+  under its \`artifact_id\`. Use this, not \`publish_artifact\`, to change published
+  work — the Artifact's \`viewer_url\`/Share Link is stable and live-updates open
+  viewers, so there is no new link to send. Set \`share:true\` only when the user
+  explicitly asks for a public/shareable Access Link.
 - \`delete_artifact\` - delete an Artifact.
 - \`update_display_metadata\` - update an Artifact's display title.
 

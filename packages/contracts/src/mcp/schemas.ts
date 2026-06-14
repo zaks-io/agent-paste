@@ -62,7 +62,9 @@ export type McpPublishArtifactInput = z.infer<typeof McpPublishArtifactInput>;
 
 export const McpAddRevisionInput = z
   .object({
-    artifact_id: ArtifactId,
+    artifact_id: ArtifactId.describe(
+      "The existing Artifact to revise (from a publish_artifact response or list_artifacts). The new Revision publishes under this Artifact's stable viewer_url, which live-updates any already-open viewer.",
+    ),
     body: mcpTextBody,
     render_mode: McpPublishRenderMode,
     share: mcpPublishShareDefault,

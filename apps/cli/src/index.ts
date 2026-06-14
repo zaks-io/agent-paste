@@ -32,7 +32,7 @@ import {
   paint,
   resolveMode,
 } from "./render.js";
-import { detectChannel, runUpdateCheck, signedOutHint } from "./update-check.js";
+import { commandInvocation, detectChannel, runUpdateCheck, signedOutHint } from "./update-check.js";
 import { runUpgrade } from "./upgrade.js";
 import { CLI_VERSION } from "./version.js";
 
@@ -230,10 +230,26 @@ function unauthenticatedClient() {
   return new ApiClient();
 }
 
+// POSIX single-quote escaping for a path embedded in a copy-pasteable shell
+// command. Bare when it's already shell-safe; otherwise wrap in single quotes
+// and escape any embedded single quote as '\''.
+export function shellQuote(value: string) {
+  if (/^[A-Za-z0-9_./-]+$/.test(value)) return value;
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
 async function publish(parsed: Parsed, client: ApiClient) {
   const mode = outputModeFor(parsed.global);
   const result = await runPublish(parsed, client, mode);
-  return output(result, parsed.global, formatPublishResult(mode, result));
+  // Channel-correct command the agent reruns to revise this Artifact in place,
+  // so it learns the revise verb at the moment it holds the id. Shell-quote the
+  // path so spaces or special chars don't produce a broken revise command.
+  const inputPath = requiredArg(parsed, 0, "path");
+  const updateCommand = commandInvocation(
+    detectChannel(),
+    `publish ${shellQuote(inputPath)} --artifact-id ${result.artifact_id}`,
+  );
+  return output(result, parsed.global, formatPublishResult(mode, result, updateCommand));
 }
 
 async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
@@ -449,9 +465,11 @@ function uploadStatsLine(mode: OutputMode, stats: NonNullable<PublishResultShape
   return `  ${paint(mode, "dim", "Upload")}    ${uploaded}, ${stats.reused_files} reused · ${formatBytes(stats.uploaded_bytes)} sent, ${formatBytes(stats.reused_bytes)} cached`;
 }
 
-// Human-readable publish result. Keep the default handoff focused on the live
-// viewer URL; JSON is the explicit machine/debug surface for IDs and snapshots.
-function formatPublishResult(mode: OutputMode, result: PublishResultShape) {
+// Human-readable publish result. The handoff leads with the live viewer URL,
+// then shows the one command to revise this Artifact in place so the agent
+// edits via add-revision (stable link, live-updates the open page) instead of
+// republishing a new Artifact. Snapshot URLs stay on the JSON surface.
+function formatPublishResult(mode: OutputMode, result: PublishResultShape, updateCommand: string) {
   const label = (text: string) => paint(mode, "dim", text);
   const viewerUrl = result.access_link_url ?? result.artifact_url;
   return [
@@ -460,6 +478,9 @@ function formatPublishResult(mode: OutputMode, result: PublishResultShape) {
     `  ${label("View")}      ${hyperlink(mode, viewerUrl)}`,
     `  ${label("Expires")}   ${formatExpiry(result.expires_at)}`,
     ...(result.upload_stats ? [uploadStatsLine(mode, result.upload_stats)] : []),
+    "",
+    `  ${label("Update")}    ${updateCommand}`,
+    `            ${label("(revises this Artifact; same link live-updates the open page)")}`,
     ...(viewerUrl ? ["", paint(mode, "cyan", `  → open ${viewerUrl}`)] : []),
   ].join("\n");
 }
@@ -519,9 +540,20 @@ Usage:
   agent-paste version [--json]
   agent-paste upgrade [<tag>]
 
+Publish:
+  --artifact-id Revise an EXISTING Artifact: publishes a new Revision under it
+                instead of creating a new Artifact. The viewer link is stable and
+                live-updates pages already open — this is how you change published
+                work. Omit it to create a new Artifact on a new link. Re-publishing
+                an edit without --artifact-id strands the link the user already has.
+  --title       Set the Artifact title.
+  --entrypoint  Override the entrypoint file within <path>.
+  --render-mode text | markdown | html (otherwise inferred from the entrypoint).
+  --share       Explicitly create a public/shareable Share Link for publish.
+  --ephemeral   Accountless 24h publish with a one-time claim link (no login).
+
 Output:
   --json        Machine-readable JSON on stdout (stable, carries schema_version).
-  --share       Explicitly create a public/shareable Share Link for publish.
   --quiet       Suppress the human summary; errors and exit code still apply.
   --color       Force colour/rich output; --no-color forces plain.
                 Default: rich on a TTY, plain when piped or NO_COLOR/CI is set.

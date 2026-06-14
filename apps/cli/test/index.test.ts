@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Credential } from "../src/credentials.js";
 import * as credentials from "../src/credentials.js";
-import { isMainEntrypoint, logout, main, parseArgs, SCHEMA_VERSION } from "../src/index.js";
+import { isMainEntrypoint, logout, main, parseArgs, SCHEMA_VERSION, shellQuote } from "../src/index.js";
 import { CLI_VERSION } from "../src/version.js";
 
 const usagePolicy = {
@@ -44,6 +44,22 @@ function mockStdout() {
 function stdoutValues(stdout: ReturnType<typeof mockStdout>) {
   return stdout.mock.calls.map(([value]) => String(value));
 }
+
+describe("shellQuote (Update-command path safety)", () => {
+  it("leaves shell-safe paths bare", () => {
+    expect(shellQuote("./report")).toBe("./report");
+    expect(shellQuote("examples/local-harness/site")).toBe("examples/local-harness/site");
+  });
+
+  it("single-quotes paths with spaces or shell-significant chars", () => {
+    expect(shellQuote("./My Reports/site")).toBe("'./My Reports/site'");
+    expect(shellQuote("a;b")).toBe("'a;b'");
+  });
+
+  it("escapes embedded single quotes", () => {
+    expect(shellQuote("it's/site")).toBe("'it'\\''s/site'");
+  });
+});
 
 describe("cli command dispatch", () => {
   it("detects the executable entrypoint from a file URL and filesystem path", () => {
@@ -279,11 +295,13 @@ describe("cli command dispatch", () => {
       expect(finalize).toHaveBeenCalledWith(uploadSessionId, idempotencyKey);
       // No --share: the publish body is omitted (undefined), so the server does not mint a Share Link.
       expect(publish).toHaveBeenCalledWith(artifactId, revisionId, idempotencyKey, undefined);
-      // Human output defaults to the private/authenticated app View. Keep raw IDs
-      // and snapshot URLs out of the default path.
+      // Human output defaults to the private/authenticated app View, and surfaces
+      // the artifact id only as the --artifact-id revise handle (so the agent edits
+      // in place instead of republishing). The revision id and snapshot URLs stay
+      // on the JSON surface.
       const out = stdoutValues(stdout).join("");
       expect(out).toContain("https://app.test/artifacts/art_1");
-      expect(out).not.toContain(artifactId);
+      expect(out).toContain(`--artifact-id ${artifactId}`);
       expect(out).not.toContain(revisionId);
       expect(out).not.toContain("https://content.test/v/token/index.html");
       // Upload summary surfaces the count uploaded and that nothing was reused —
