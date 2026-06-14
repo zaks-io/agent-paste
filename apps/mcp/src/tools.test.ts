@@ -409,6 +409,52 @@ describe("callMcpTool", () => {
     await expect(mintRequest.text()).resolves.toBe("");
   });
 
+  it("make_public retries on a salted key when a replayed create points mint at a revoked link", async () => {
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const api = apiMock(
+      ["read", "publish"],
+      // First create replays a link that has since been revoked.
+      Response.json({
+        id: "al_revoked",
+        type: "share",
+        artifact_id: artifactId,
+        revision_id: null,
+        created_at: "2026-01-01T00:00:00.000Z",
+      }),
+      // Mint on the dead link fails.
+      Response.json({ error: { code: "not_found", message: "not_found" } }, { status: 404 }),
+      // Salted retry create mints a fresh active link.
+      Response.json({
+        id: "al_fresh",
+        type: "share",
+        artifact_id: artifactId,
+        revision_id: null,
+        created_at: "2026-01-01T00:00:01.000Z",
+      }),
+      Response.json({ url: "https://share.example/al-fresh" }),
+    );
+    const result = await callMcpTool("make_public", { artifact_id: artifactId }, auth, {
+      api,
+      upload,
+      bearerToken: "token-share",
+      jsonRpcId: 9,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.result).toMatchObject({ url: "https://share.example/al-fresh" });
+    }
+    const firstKey = deriveMcpIdempotencyKey({
+      tokenSub: "user_01",
+      jsonRpcId: 9,
+      toolName: "make_public",
+      toolArgs: { artifact_id: artifactId },
+    });
+    // First create uses the derived key; the retry create salts it so the command runs fresh.
+    expect(routeCall(api, 0).headers.get("idempotency-key")).toBe(firstKey);
+    expect(routeCall(api, 2).headers.get("idempotency-key")).toBe(`${firstKey}:r`);
+    expect(routeCall(api, 3).url).toBe("https://agent-paste.internal/v1/access-links/al_fresh/mint");
+  });
+
   it("add_revision publishes a new revision on the artifact and returns the private viewer link", async () => {
     vi.stubGlobal(
       "fetch",

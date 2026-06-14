@@ -333,6 +333,23 @@ async function createAndMintAccessLink(
   deps: McpToolDeps,
 ): Promise<McpToolResult> {
   const idempotencyKey = resolveIdempotencyKey(input.toolName, input.toolArgs, auth, deps);
+  const first = await createThenMint(input, idempotencyKey, deps);
+  if (first.ok) {
+    return first;
+  }
+  // A reused idempotency key can replay a create whose link was revoked since
+  // (e.g. make_public, revoke_access_link, make_public again with the same key),
+  // leaving mint pointed at a dead link. Retry once on a salted key so the create
+  // runs fresh and (for share links) reuses the artifact's active link or mints a
+  // new one. Self-heals without parsing error codes; the happy path never retries.
+  return createThenMint(input, `${idempotencyKey}:r` as IdempotencyKey, deps);
+}
+
+async function createThenMint(
+  input: { artifactId: string; createBody: { type: "share" } | { type: "revision"; revision_id: string } },
+  idempotencyKey: IdempotencyKey,
+  deps: McpToolDeps,
+): Promise<McpToolResult> {
   const created = await forwardToApiRoute({
     api: deps.api,
     routeId: "accessLinks.create",
