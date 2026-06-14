@@ -31,6 +31,15 @@ Link** (when private) and the public **Share Link** (when shared), surfaced thro
   with no management chrome. It is returned as `private_url`. The dashboard-only
   **Artifact Console** at `/artifacts/<artifactId>` (the management page) is never
   returned by any publish or agent surface.
+- **The Private Link is permanent, stable, and always private.** The URL is derived
+  only from the Artifact id — no token, signature, or expiry — and `add_revision`
+  republishes into the same id, so the link never changes across revisions and
+  live-updates to the latest Published Revision. It is member-only (publish never
+  grants public access) and stops resolving only when the Artifact itself is deleted
+  or swept by Auto Deletion. The `expires_at` in the publish response is the
+  Artifact's content lifetime, not a link expiry. The mental model: a permanent,
+  private, internal link that is always there; making it public is a separate,
+  revocable Share Link.
 - **Going public is a separate, explicit verb.** `make_public` (MCP) and
   `agent-paste make-public` (CLI), replacing `create_share_link`, mint or reuse the
   one revocable **Share Link** (`access_links.type='share'`) and return its public,

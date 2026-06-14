@@ -327,8 +327,8 @@ _Avoid_: Remote localStorage, app database, permanent storage
 
 <a id="private-link"></a>
 **Private Link**:
-The login-walled clean viewer (`/v/<artifactId>`) for a **Workspace Member**, returned by every **Publish** as `private_url`. No management chrome.
-_Avoid_: Artifact URL, console link, /artifacts page, dashboard link
+The login-walled clean viewer (`/v/<artifactId>`) for a **Workspace Member**, returned by every **Publish** as `private_url`. No management chrome. It is **permanent and stable**: the URL is built only from the **Artifact** id with no token, signature, or **Expiration** baked in, and `add_revision` republishes into the same id, so the same link keeps working and live-updates to the latest **Published Revision** — it never changes when content is revised. It is **member-only and always private**: there is no public mode and **Publish** never grants public access. It stops resolving only when the **Artifact** itself is gone (deleted or swept by **Auto Deletion**), which is a property of the **Artifact**'s lifetime, not the link. To hand the same content to someone without a login, the **Member** mints a separate, revocable **Share Link**.
+_Avoid_: Artifact URL, console link, /artifacts page, dashboard link, permalink (it is stable, but say "permanent member link" not "permalink", which we reserve against for public links)
 
 <a id="access-link"></a>
 **Access Link**:
@@ -347,7 +347,7 @@ _Avoid_: Suspension, ban, freeze, admin lock
 
 <a id="share-link"></a>
 **Share Link**:
-A type of **Access Link** that resolves to the latest **Published Revision** of an **Artifact**. It opens the **Artifact Viewer** and can receive **Publish Updates**. It is created only by the explicit make-public step (`make_public` on MCP, `agent-paste make-public` on the CLI), which mints or reuses the one Share Link and returns its **Access Link Signed URL** — the no-login public URL. **Publish** never creates one. A Share Link is revocable and may expire, so avoid calling it a permalink.
+A type of **Access Link** that resolves to the latest **Published Revision** of an **Artifact**. It opens the **Artifact Viewer** and can receive **Publish Updates**. It is the **public** counterpart to the **Private Link**: a no-login URL, **off by default**, created only by the explicit make-public step (`make_public` on MCP, `agent-paste make-public` on the CLI), which mints or reuses the **one** Share Link an **Artifact** has and returns its **Access Link Signed URL**. **Publish** never creates one. It is **revocable at any time** (`revoke_access_link`) and may expire, so avoid calling it a permalink; revoking it kills public access without touching the **Artifact**, its data, its **Revisions**, or its **Private Link**.
 _Avoid_: Artifact Console, public app link, permalink, Revision Content URL
 
 <a id="expiration"></a>

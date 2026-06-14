@@ -196,8 +196,15 @@ Publish is **content-only and private**. `PublishResult` carries no visibility
 input and no `shared` field, and there is no `access_link_url` member.
 `private_url` is the **Private Link** — the login-walled clean viewer at
 `/v/<artifactId>` for the owning **Workspace Member** — and is the only handoff
-link publish returns. The dashboard-only **Artifact Console** at
-`/artifacts/<artifactId>` is never returned by publish. `revision_content_url` is
+link publish returns. It is **permanent and stable**: the URL is derived only
+from the Artifact id with no token, signature, or expiry, and `add_revision`
+republishes into the same id, so the link never changes across revisions and
+live-updates to the latest Published Revision. It is **always private** (member
+only; publish never grants public access) and stops resolving only when the
+Artifact itself is deleted or swept by Auto Deletion — a property of the
+Artifact's lifetime, not the link. The `expires_at` in `PublishResult` is the
+Artifact's content lifetime, not a link expiry. The dashboard-only **Artifact
+Console** at `/artifacts/<artifactId>` is never returned by publish. `revision_content_url` is
 the direct signed Content Origin URL for the exact `revision_id` returned in this
 response, expires with its signed token, and does not Live Update. Direct
 `usercontent` HTML is inert raw byte delivery unless it is loaded through the
