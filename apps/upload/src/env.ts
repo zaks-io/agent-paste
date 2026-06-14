@@ -21,6 +21,11 @@ export type R2Object = {
   size: number;
 };
 
+export type R2ObjectBody = {
+  body: ReadableStream | ArrayBuffer | Uint8Array | string | null | undefined;
+  customMetadata?: Record<string, string>;
+};
+
 export type R2Bucket = {
   put(
     key: string,
@@ -28,6 +33,9 @@ export type R2Bucket = {
     options?: { httpMetadata?: Record<string, string>; customMetadata?: Record<string, string> },
   ): Promise<unknown>;
   head(key: string): Promise<R2Object | null>;
+  // Reconstruction (ADR 0087) reads a base blob + the uploaded diff back at finalize to
+  // apply the patch. This is the only read on upload's R2 binding; every other op writes.
+  get(key: string): Promise<R2ObjectBody | null>;
 };
 
 export type RateLimitBinding = {

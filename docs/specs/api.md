@@ -165,10 +165,17 @@ result_sha256 }`) means the bytes uploaded for that entry are a unified diff
   At finalize the merged tree (inherited base rows + uploaded changes − deletions)
   sets `revisions.parent_revision_id = base_revision_id`, and `file_count` /
   `size_bytes` are recomputed from the merged tree, not the uploaded manifest.
-  Diff reconstruction into a whole blob is deferred to a later `jobs` step, so a
-  session that carries a `patch` is currently rejected at finalize rather than
-  serving the diff bytes as the file. A file may not declare both a whole-file
-  `sha256` and a `patch`.
+  A patched file is reconstructed synchronously at finalize: the server applies the
+  diff to the base blob, verifies the result digest equals `result_sha256`, and
+  stores the whole result as an ordinary content-addressed blob — so caps are
+  enforced against the reconstructed result size, not the diff. If the diff cannot
+  be applied cleanly (base moved, hunk fails, or the result digest mismatches),
+  finalize fails with `patch_conflict` (HTTP 422) and message
+  `patch_conflict: <path>: <reason>` (`reason` ∈ `parse_error`,
+  `base_hash_mismatch`, `apply_failed`, `result_hash_mismatch`); the caller
+  regenerates that file's diff and re-finalizes. A broken patch never produces a
+  servable Revision. A file may not declare both a whole-file `sha256` and a
+  `patch`.
 
 ### `CreateUploadSessionResponse`
 

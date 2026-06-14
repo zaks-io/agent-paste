@@ -32,7 +32,7 @@ export const RepositoryErrorCode = {
   lockdown_insert_conflict: "lockdown_insert_conflict",
   not_found: "not_found",
   patch_base_mismatch: "patch_base_mismatch",
-  patch_reconstruction_unavailable: "patch_reconstruction_unavailable",
+  patch_conflict: "patch_conflict",
   pinned_artifact_cap_exceeded: "pinned_artifact_cap_exceeded",
   postgres_http_error: "postgres_http_error",
   postgres_http_executor_no_transactions: "postgres_http_executor_no_transactions",
@@ -102,8 +102,11 @@ const repositoryErrorToAppErrorMap: Record<RepositoryErrorCode, ErrorCodeValue |
   invalid_request: "invalid_request",
   lockdown_insert_conflict: null,
   not_found: "not_found",
-  patch_base_mismatch: "invalid_request",
-  patch_reconstruction_unavailable: "invalid_request",
+  // A patch that cannot apply (base moved / hunk failed / result hash) is an
+  // agent-fixable conflict, distinct from a generic invalid_request so the agent can
+  // tell "regenerate this diff" from "your request was malformed" (ADR 0087).
+  patch_base_mismatch: "patch_conflict",
+  patch_conflict: "patch_conflict",
   pinned_artifact_cap_exceeded: "pinned_artifact_cap_exceeded",
   postgres_http_error: null,
   postgres_http_executor_no_transactions: null,

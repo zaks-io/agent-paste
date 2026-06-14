@@ -1,7 +1,12 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import type { routeContracts } from "@agent-paste/contracts";
 import { FinalizeUploadSessionResponse } from "@agent-paste/contracts";
-import { observeUploadSessionForFinalize, type Repository, repositoryErrorToAppError } from "@agent-paste/db";
+import {
+  isRepositoryError,
+  observeUploadSessionForFinalize,
+  type Repository,
+  repositoryErrorToAppError,
+} from "@agent-paste/db";
 import { type GuardState, getBoundResponders, type Principal } from "@agent-paste/worker-runtime";
 import type { AppContext } from "./env.js";
 import { uploadSessionActor } from "./upload-actor.js";
@@ -53,7 +58,14 @@ export async function finalizeUploadSession(
     }
     const repositoryCode = repositoryErrorToAppError(error);
     if (repositoryCode) {
-      return getBoundResponders(context).respondError(repositoryCode);
+      // A patch conflict carries the path + failure reason on the error cause so the
+      // agent learns which file to regenerate (ADR 0087). Other codes use their default
+      // message.
+      const detail =
+        repositoryCode === "patch_conflict" && isRepositoryError(error) && error.cause instanceof Error
+          ? error.cause.message
+          : undefined;
+      return getBoundResponders(context).respondError(repositoryCode, detail);
     }
     throw error;
   }

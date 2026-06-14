@@ -69,6 +69,7 @@ export const storageRouteContracts = [
       "file_size_cap_exceeded",
       "revision_size_cap_exceeded",
       "invalid_request",
+      "patch_conflict",
       "unexpected_upload_object",
       "upload_incomplete",
       "upload_session_expired",

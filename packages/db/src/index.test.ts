@@ -5,6 +5,9 @@ import {
   type DrizzleConnection,
   LocalRepository,
   PostgresRepository,
+  type RepositoryOptions,
+  RevisionReconstructionConflict,
+  type RevisionReconstructor,
   type SqlExecutor,
   type SqlValue,
 } from "./index";
@@ -2284,6 +2287,36 @@ describe("createPostgresHttpExecutor", () => {
 
 const sha = (char: string) => char.repeat(64);
 
+// A fake reconstructor for finalize-wiring tests: the real apply/crypto path is covered
+// by the storage applier + revision-reconstructor factory tests, so here we only need to
+// exercise how finalize collects descriptors, registers content_blobs, writes blob rows,
+// and propagates a conflict. By default it echoes each request as a successful result
+// blob; `conflictFor`/`resultSize` override per path.
+function fakeReconstructor(options?: {
+  conflictFor?: string;
+  resultSize?: (path: string) => number;
+}): RevisionReconstructor & { calls: number } {
+  const adapter = {
+    calls: 0,
+    async reconstruct(input: Parameters<RevisionReconstructor["reconstruct"]>[0]) {
+      adapter.calls += 1;
+      const files = input.files.map((file) => {
+        if (options?.conflictFor === file.path) {
+          throw new RevisionReconstructionConflict(file.path, "result_hash_mismatch");
+        }
+        return {
+          path: file.path,
+          sha256: file.resultSha256,
+          r2Key: `workspaces/${input.workspaceId}/blobs/sha256/${file.resultSha256.slice(0, 2)}/${file.resultSha256}`,
+          sizeBytes: options?.resultSize ? options.resultSize(file.path) : 100,
+        };
+      });
+      return { files };
+    },
+  };
+  return adapter;
+}
+
 // Publish a base Revision whose files are blob-backed (sha256 set + uploaded), so
 // they are eligible to inherit forward under ADR 0087 tree inheritance.
 async function publishBlobBackedBase(
@@ -2813,8 +2846,15 @@ describe("ADR 0087 tree inheritance", () => {
     ).rejects.toThrow("inherited_path_not_blob_backed");
   });
 
-  it("records a patch descriptor without applying it (Stage 3)", async () => {
-    const { repo, actor } = await localRepoWithApiActor();
+  // Drives a patched-file finalize against a one-file-changed base, returning the repo,
+  // the finalize promise's inputs, and the reconstructor so each test can assert on the
+  // committed tree or the thrown conflict.
+  async function patchedFinalize(options?: {
+    reconstructor?: RevisionReconstructor & { calls: number };
+    resultSize?: (path: string) => number;
+  }) {
+    const reconstructor = options?.reconstructor ?? fakeReconstructor({ resultSize: options?.resultSize });
+    const { repo, actor } = await localRepoWithApiActor({ revisionReconstructor: reconstructor });
     const base = await publishBlobBackedBase(
       repo,
       actor,
@@ -2844,15 +2884,6 @@ describe("ADR 0087 tree inheritance", () => {
       now: "2026-01-02T00:00:00.000Z",
     });
     const descriptor = session.files.find((file) => file.path === "big.txt");
-    // The diff uploads as a revision object with sha256 omitted from the signed path.
-    expect(descriptor?.sha256).toBeNull();
-    expect(descriptor?.storage_kind).toBe("revision");
-    const stored = repo.uploadSessionFiles.get(`${session.upload_session_id}:big.txt`);
-    expect(stored?.patch_base_sha256).toBe(sha("c"));
-    expect(stored?.patch_result_sha256).toBe(sha("e"));
-
-    // Stage 3 cannot reconstruct the result blob (jobs Stage 4 owns that), so a
-    // valid patch must still be refused at finalize rather than serving diff bytes.
     await repo.recordUploadedFile({
       workspaceId: actor.workspace_id,
       sessionId: session.upload_session_id,
@@ -2861,15 +2892,68 @@ describe("ADR 0087 tree inheritance", () => {
       sizeBytes: 40,
       uploadedAt: "2026-01-02T00:00:01.000Z",
     });
-    await expect(
+    const finalize = () =>
       repo.finalizeUploadSession({
         actor,
         idempotencyKey: "idem-patch-finalize",
         sessionId: session.upload_session_id,
         observedFiles: [{ path: "big.txt", objectKey: descriptor?.object_key ?? "", sizeBytes: 40 }],
         now: "2026-01-02T00:00:02.000Z",
-      }),
-    ).rejects.toThrow("patch_reconstruction_unavailable");
+      });
+    return { repo, actor, base, session, descriptor, finalize, reconstructor };
+  }
+
+  it("records the patch descriptor on the session file (Stage 3 contract preserved)", async () => {
+    const { session, descriptor, repo } = await patchedFinalize();
+    // The diff uploads as a revision object with sha256 omitted from the signed path.
+    expect(descriptor?.sha256).toBeNull();
+    expect(descriptor?.storage_kind).toBe("revision");
+    const stored = repo.uploadSessionFiles.get(`${session.upload_session_id}:big.txt`);
+    expect(stored?.patch_base_sha256).toBe(sha("c"));
+    expect(stored?.patch_result_sha256).toBe(sha("e"));
+  });
+
+  it("reconstructs a patched file into an ordinary blob row at finalize (Stage 4)", async () => {
+    const { repo, finalize, reconstructor } = await patchedFinalize({ resultSize: () => 64 });
+    const blobsBefore = repo.contentBlobs.size;
+    const finalized = await finalize();
+    expect(reconstructor.calls).toBe(1);
+
+    // The committed artifact_files row for the patched path is a content-addressed blob,
+    // not a diff: storage_kind blob, sha256 = result_sha256, key = the derived blob key.
+    const files = [...repo.artifactFiles.values()].filter((file) => file.revision_id === finalized.revision_id);
+    const patched = files.find((file) => file.path === "big.txt");
+    expect(patched?.storage_kind).toBe("blob");
+    expect(patched?.sha256).toBe(sha("e"));
+    expect(patched?.r2_key).toContain(sha("e"));
+    expect(patched?.size_bytes).toBe(64);
+
+    // The new result blob is registered so the GC refcount protects it.
+    expect(repo.contentBlobs.size).toBe(blobsBefore + 1);
+    const blob = [...repo.contentBlobs.values()].find((candidate) => candidate.sha256 === sha("e"));
+    expect(blob?.size_bytes).toBe(64);
+
+    // The committed revision size reflects the reconstructed RESULT size, not the diff.
+    // (index.html 12 + big.txt result 64 = 76.)
+    expect(repo.revisions.get(finalized.revision_id)?.size_bytes).toBe(76);
+  });
+
+  it("fails finalize with patch_conflict when reconstruction cannot apply (Stage 4)", async () => {
+    const reconstructor = fakeReconstructor({ conflictFor: "big.txt" });
+    const { repo, finalize } = await patchedFinalize({ reconstructor });
+    const blobsBefore = repo.contentBlobs.size;
+    const revisionsBefore = repo.revisions.size;
+    await expect(finalize()).rejects.toThrow("patch_conflict");
+    // Nothing committed: no revision, no content_blobs row.
+    expect(repo.revisions.size).toBe(revisionsBefore);
+    expect(repo.contentBlobs.size).toBe(blobsBefore);
+  });
+
+  it("enforces the file size cap against the reconstructed result, not the diff", async () => {
+    // The diff declares 40 bytes (under cap), but the applied result is enormous.
+    const reconstructor = fakeReconstructor({ resultSize: () => 50_000_000 });
+    const { finalize } = await patchedFinalize({ reconstructor });
+    await expect(finalize()).rejects.toThrow(/file_size_cap_exceeded|revision_size_cap_exceeded/);
   });
 
   it("rejects a patch whose base_sha256 does not match the base file", async () => {
@@ -2937,8 +3021,8 @@ function firstFile(session: { files: Array<{ object_key: string }> }) {
   return file;
 }
 
-async function localRepoWithApiActor() {
-  const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+async function localRepoWithApiActor(options?: Partial<RepositoryOptions>) {
+  const repo = new LocalRepository({ apiKeyPepper: "pepper", ...options });
   const workspace = await repo.createWorkspace({
     actor: adminActor,
     idempotencyKey: "idem-ws",

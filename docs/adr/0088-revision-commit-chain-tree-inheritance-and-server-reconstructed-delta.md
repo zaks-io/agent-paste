@@ -133,6 +133,12 @@ whole-blob.
   modeled like the existing async Bundle/safety-scan pending states, not as a
   finalize-blocking step. This supersedes the earlier draft note that started
   reconstruction in `upload`.
+  **Superseded at implementation (see "Stage 4 implementation notes" below):**
+  reconstruction shipped SYNCHRONOUSLY at finalize in `upload`, not async in
+  `jobs`, and there is no pending state. The async/pending framing was reversed
+  because a patch that cannot apply must fail the agent's finalize call so the
+  agent can fix it (the conflict is the feature), which a fire-and-forget job
+  cannot do.
 - **Caps still apply to the reconstructed result**, not the diff: a small diff
   whose applied result exceeds the file/Revision cap fails.
 - **Spec + glossary updates.** [`data-model.md`](../specs/data-model.md)
@@ -182,6 +188,53 @@ next implementer does not re-derive them:
   `sha256` and a `patch` (rejected at request validation).
 
 This confirms, and does not reverse, the Stage 2 "applied at finalize" wording.
+
+## Stage 4 implementation notes (synchronous reconstruct-at-finalize)
+
+Stage 4 reverses two specifics of the "Server-reconstructed intra-file delta"
+decision above (placement and the pending model). The reasons, so the next
+implementer trusts these notes over the earlier framing:
+
+- **The conflict is the feature, so reconstruction is synchronous and fails the
+  finalize call.** The whole point of intra-file delta is agent ergonomics: when a
+  diff cannot be applied (base moved, hunk fails, result digest mismatch), the
+  system must flag that back to the agent in the same request so the agent
+  re-submits a corrected diff. An async `jobs` job with a pending state cannot fail
+  the caller's call; it can only 404 or DLQ, which buries the signal. So
+  reconstruction runs inline at finalize and a conflict throws
+  `RevisionReconstructionConflict` → `patch_conflict` (HTTP 422), message
+  `patch_conflict: <path>: <reason>`. There is **no pending state and no
+  `reconstruction_status` column** — a broken patch never becomes a draft, so a
+  servable-but-broken revision cannot exist.
+- **Placement is finalize in `upload`, not `jobs`.** The blast-radius argument for
+  `jobs` assumed async; synchronous reconstruction must run where the finalize
+  transaction is, and finalize already owns the patch gate, the only
+  `artifact_files` write, and the result-size cap-check. `upload` already holds the
+  encryption ring; the only new capability is R2 `get`. Blast radius is contained
+  by never exposing an arbitrary-key read in app code: the reconstructor
+  (`RevisionReconstructor`, injected via `RepositoryOptions` like the reparent
+  migrator) takes a validated `(workspaceId, sha256)` derived from the base
+  Revision's own `artifact_files` rows. The decrypt/apply/encrypt logic is shared
+  in `packages/storage` (`unified-diff.ts` applier, `workspace-blob-bytes.ts`
+  read/write helpers), invoked from `packages/db/src/postgres/revision-reconstructor.ts`.
+- **The applier is hand-rolled and byte-exact.** No diff library: `jsdiff` fuzzes
+  hunks and round-trips through UTF-16, which breaks byte-exactness against the
+  raw-byte `result_sha256` digest and yields false conflicts. The applier splices
+  raw base byte ranges for context/unchanged regions and never normalizes
+  CRLF/BOM/trailing-newline. `result_sha256` is the backstop, so conflict reasons
+  are coarse (`parse_error | base_hash_mismatch | apply_failed |
+result_hash_mismatch`) — the agent's only action on any of them is "regenerate
+  this file's diff", so hunk/line forensics would be unusable detail.
+- **The result is an ordinary content-addressed blob (Option 1 holds).** Finalize
+  replaces the diff placeholder with a `storage_kind='blob'` `artifact_files` row
+  and registers a `content_blobs` row in the same transaction (so GC protects the
+  new blob). `content`, bundles, and GC are unchanged. No DB migration.
+- **The Stage 3 `patch_reconstruction_unavailable` gate is removed** and replaced
+  by the reconstruction call. Infra failures (missing ring/R2, decrypt errors) map
+  to `storage_unavailable` (503), never `patch_conflict`, so the agent is never
+  told "your patch is bad" for an outage. First-failure-wins across multiple
+  patched files; all files apply+verify in memory before any blob is PUT, so a
+  batch with one conflict writes zero blobs.
 
 ## What this ADR is not
 

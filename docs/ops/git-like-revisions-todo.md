@@ -141,26 +141,42 @@ result_sha256 }` plus the diff bytes uploaded like any file body. Absence =
   patch base match) with six new repo error codes mapped to `invalid_request`.
   See the ADR 0087 Stage 3 implementation notes for the decisions.
 
-### Stage 4 - jobs: Option 1 reconstruct-on-write
+### Stage 4 - synchronous reconstruct-at-finalize (DONE)
 
-Reconstruction runs in **`jobs`**, not `upload`. `upload` is write-only against
-R2 today (sole op is `ARTIFACTS.put`, `apps/upload/src/put.ts:150`); `jobs` is
-already a read-modify-write module with the `ARTIFACTS` binding + encryption ring
-(Bundle generation: `revision-file-bytes.ts` decrypts, `bundle-generate-
-orchestration.ts` re-encrypts). Reconstruction is the same shape, so it belongs
-in `jobs` and keeps `upload`'s narrow role intact.
+Reconstruction runs **synchronously at finalize, in the `upload` worker**, BEFORE
+the new Revision is committed as a draft. (An earlier sketch put this async in
+`jobs`; that was rejected because a patch that cannot apply must FLAG BACK to the
+agent so the agent can fix it - the conflict is the feature, not bookkeeping. A
+broken patch must never produce a servable revision, so reconstruction has to be
+able to FAIL the finalize call. Finalize is also where the patch gate, the only
+`artifact_files` write, and the result-size cap-check already live, and the
+`upload` worker already holds R2 + the encryption ring.)
 
-- Client uploads a unified diff for a patched path. A `jobs` task fetches +
-  decrypts the base blob, applies the patch, hashes -> must equal
-  `result_sha256`, encrypts the **whole result** as a normal blob under
-  `workspaceBlobObjectKeyFor(result_sha256)`.
-- Model the pending window like existing async Bundle/safety-scan states: a
-  Revision containing a patched file is not servable until reconstruction
-  completes, so Publish resolves it after the `jobs` task lands (not a
-  finalize-blocking step).
-- The resulting `artifact_files` row is an ordinary `storage_kind='blob'` row.
-  Nothing downstream (content, bundles, GC) needs to know a patch was involved.
-- Caps: patched-result size still enforced against file/revision caps.
+- A patched file uploads a unified diff (sha256 null, revision-scoped key). At
+  finalize, before any DB write, `mergeBaseRevisionTree` validates the diff base
+  against the base Revision's file (`patch_base_mismatch`) then runs the injected
+  `RevisionReconstructor` (`packages/db/src/postgres/revision-reconstructor.ts`):
+  decrypts the base blob, applies the diff (`packages/storage/src/unified-diff.ts`,
+  a hand-rolled byte-exact applier), verifies `sha256(result) === result_sha256`,
+  and encrypts the **whole result** as a normal blob under
+  `workspaceBlobObjectKeyFor(result_sha256)`. All files apply+verify in memory
+  first; only then are blobs PUT (a multi-file batch with one conflict writes zero
+  blobs).
+- A patch that cannot apply throws `RevisionReconstructionConflict` -> finalize
+  fails with `patch_conflict` (HTTP 422), message `patch_conflict: <path>: <reason>`
+  (`parse_error | base_hash_mismatch | apply_failed | result_hash_mismatch`), so
+  the agent regenerates that file's diff and re-finalizes. Infra failures
+  (missing ring/R2, decrypt) stay `storage_unavailable` (503), never a conflict.
+  First-failure-wins across multiple patched files.
+- The committed `artifact_files` row is an ordinary `storage_kind='blob'` row +
+  a `content_blobs` row (registered in the same tx so GC protects it). Nothing
+  downstream (content, bundles, GC) knows a patch was involved. No new DB column,
+  no `reconstruction_status`, no migration.
+- Caps run on the MERGED tree carrying RECONSTRUCTED result sizes (a patched
+  file's session `size_bytes` is the diff size), so a result over cap is rejected.
+- Security: `upload` gains R2 `get`, but app code never reads an arbitrary key -
+  the reconstructor takes a validated `(workspaceId, sha256)` derived from the
+  base Revision's own `artifact_files` rows.
 - Done: big-file-small-edit uploads only the diff bytes; served file is
   byte-identical to applying the patch locally; `content` unchanged.
 

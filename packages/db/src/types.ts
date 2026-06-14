@@ -291,6 +291,50 @@ export type ReparentBlobMigrator = {
   migrate(input: { fromWorkspaceId: string; toWorkspaceId: string; blobs: readonly WorkspaceBlobRef[] }): Promise<void>;
 };
 
+// ADR 0087 Stage 4: a patched file in a partial-manifest publish uploads only a unified
+// diff. Before the new Revision can commit, the diff is applied to the base blob and the
+// whole result stored as an ordinary content-addressed blob. The reconstructor takes
+// VALIDATED descriptors (base/result sha already checked against the base Revision's own
+// artifact_files, workspace-scoped by the db layer) — never a raw object key — so a
+// compromised caller cannot read an arbitrary blob. A patch that cannot apply cleanly
+// throws RevisionReconstructionConflict (agent-visible); an infra failure throws anything
+// else (mapped to a retryable error, never a conflict).
+export type RevisionReconstructionRequest = {
+  workspaceId: string;
+  files: ReadonlyArray<{
+    path: string;
+    diffObjectKey: string;
+    baseSha256: string;
+    resultSha256: string;
+  }>;
+};
+
+export type RevisionReconstructionResult = {
+  // Per patched path, the applied result's content-addressed blob. The caller turns this
+  // into an ordinary storage_kind='blob' artifact_files row + content_blobs row.
+  files: ReadonlyArray<{ path: string; sha256: string; r2Key: string; sizeBytes: number }>;
+};
+
+export type RevisionReconstructionConflictReason =
+  | "parse_error"
+  | "base_hash_mismatch"
+  | "apply_failed"
+  | "result_hash_mismatch";
+
+export class RevisionReconstructionConflict extends Error {
+  readonly name = "RevisionReconstructionConflict";
+  constructor(
+    readonly path: string,
+    readonly reason: RevisionReconstructionConflictReason,
+  ) {
+    super(`patch_conflict: ${path}: ${reason}`);
+  }
+}
+
+export type RevisionReconstructor = {
+  reconstruct(input: RevisionReconstructionRequest): Promise<RevisionReconstructionResult>;
+};
+
 export type RepositoryOptions = {
   apiKeyPepper: string;
   /** When set, verification and minting use multi-pepper overlap from ADR 0045. */
@@ -303,4 +347,6 @@ export type RepositoryOptions = {
   billingEnabled?: boolean;
   /** Copies workspace blob bytes into the destination tenant before claim reparent commits. */
   reparentBlobMigrator?: ReparentBlobMigrator;
+  /** Applies intra-file unified-diff patches to base blobs before a partial-manifest finalize commits (ADR 0087). */
+  revisionReconstructor?: RevisionReconstructor;
 };

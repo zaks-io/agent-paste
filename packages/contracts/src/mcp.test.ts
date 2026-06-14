@@ -3,6 +3,7 @@ import { UpdateDisplayMetadataRequest } from "./accessLinks.js";
 import {
   buildMcpToolList,
   deriveMcpIdempotencyKey,
+  MCP_API_ERROR_HTTP_STATUS,
   McpAddRevisionInput,
   McpPublishArtifactInput,
   McpToolName,
@@ -431,6 +432,33 @@ describe("MCP error mapping", () => {
     });
   });
 
+  it("maps a patch_conflict to 422, not the 500 fallback", () => {
+    const mapped = mapApiErrorToMcp({
+      code: "patch_conflict",
+      message: "patch_conflict: app.js: result_hash_mismatch",
+      requestId: "req_patch",
+    });
+    expect(mapped).toMatchObject({ code: "patch_conflict", httpStatus: 422 });
+    // The actionable detail (path + reason) rides the message through to the agent.
+    expect(mapped.message).toContain("app.js");
+  });
+
+  it("has an HTTP status for every error a forwarded MCP tool can surface", () => {
+    // A missing entry silently falls back to 500, masking a real client-actionable
+    // error (the list_artifacts null-revision class of bug). Guard the whole surface.
+    const reachable = new Set<keyof typeof MCP_API_ERROR_HTTP_STATUS>();
+    for (const tool of mcpToolContracts) {
+      for (const call of tool.forwardedCalls) {
+        for (const code of routeContractById(call.routeId).errors) {
+          reachable.add(code);
+        }
+      }
+    }
+    for (const code of reachable) {
+      expect(MCP_API_ERROR_HTTP_STATUS[code], `missing MCP HTTP status for ${code}`).toBeDefined();
+    }
+  });
+
   it("maps protocol auth and scope failures", () => {
     expect(mapMcpProtocolError("invalid_token", "invalid_token")).toMatchObject({
       code: "invalid_token",
@@ -446,6 +474,20 @@ describe("MCP error mapping", () => {
     const envelope = toMcpJsonRpcError(mapMcpProtocolError("insufficient_scope", "Actor lacks share scope"));
     expect(envelope.data?.code).toBe("insufficient_scope");
     expect(envelope.message).toBe("Actor lacks share scope");
+  });
+
+  it("declares patch_conflict on every tool that forwards a finalize call", () => {
+    // finalize can surface patch_conflict (ADR 0087); a tool that forwards it must
+    // declare it, or an agent sees an error its contract never advertised (it slipped
+    // out of publishChain once). Scoped to patch_conflict + the finalize route rather
+    // than a full superset assertion, which would relitigate the deliberate exclusion
+    // of signed-PUT and auth codes from tool error groups.
+    for (const tool of mcpToolContracts) {
+      const forwardsFinalize = tool.forwardedCalls.some((call) => call.routeId === "uploadSessions.finalize");
+      if (forwardsFinalize) {
+        expect(tool.errors, `${tool.name} forwards finalize but omits patch_conflict`).toContain("patch_conflict");
+      }
+    }
   });
 });
 

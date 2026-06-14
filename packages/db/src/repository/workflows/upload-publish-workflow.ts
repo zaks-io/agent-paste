@@ -121,6 +121,7 @@ export async function finalizeUploadSession(
         // workspace still collapses to upload_session_not_found (non-enumerable)
         // via the workspace-scoped session lookup rather than workspace_not_found.
         resolveUsagePolicy: async () => ctx.usagePolicyFor(await ctx.mustWorkspace(entities, input.actor.workspace_id)),
+        ...(ctx.options.revisionReconstructor ? { revisionReconstructor: ctx.options.revisionReconstructor } : {}),
       }),
   );
 }

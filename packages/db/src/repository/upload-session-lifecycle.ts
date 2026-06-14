@@ -11,7 +11,17 @@ import {
 } from "../policy.js";
 import { repositoryError } from "../repository-error.js";
 import { toUploadSessionRecord } from "../transforms.js";
-import type { ApiActor, Artifact, RenderMode, Revision, StoredFile, UploadSession, Workspace } from "../types.js";
+import type {
+  ApiActor,
+  Artifact,
+  RenderMode,
+  Revision,
+  RevisionReconstructor,
+  StoredFile,
+  UploadSession,
+  Workspace,
+} from "../types.js";
+import { RevisionReconstructionConflict } from "../types.js";
 import { contentTypeForPath, normalizeStoragePath, objectKeyFor, validateUpload } from "../validation.js";
 import type { Entities } from "./ports.js";
 
@@ -185,17 +195,91 @@ type MergedTree = {
   fileCount: number;
   sizeBytes: number;
   parentRevisionId: string;
+  // Patched files reconstructed into NEW content-addressed blobs. Their content_blobs
+  // rows must be registered at finalize so the refcount protects them from GC.
+  reconstructedBlobs: StoredFile[];
 };
+
+// Validate the patched files against the base tree and reconstruct each result blob
+// (ADR 0087 Stage 4). The diff base must match the base Revision's file (defense before
+// the applier re-checks the hash); a patch that cannot apply throws an agent-visible
+// conflict, failing finalize so a broken revision never reaches draft. Returns a blob
+// StoredFile per patched path to replace the diff placeholder in the merged tree.
+async function reconstructPatchedFiles(input: {
+  session: UploadSession;
+  sessionFiles: StoredFile[];
+  baseFiles: Map<string, StoredFile>;
+  reconstructor: RevisionReconstructor | undefined;
+}): Promise<Map<string, StoredFile>> {
+  const { session, sessionFiles, baseFiles } = input;
+  const requests: Array<{ path: string; diffObjectKey: string; baseSha256: string; resultSha256: string }> = [];
+  for (const file of sessionFiles) {
+    if (!file.patch_base_sha256 || !file.patch_result_sha256) {
+      continue;
+    }
+    const baseFile = baseFiles.get(file.path);
+    if (!baseFile || baseFile.sha256 !== file.patch_base_sha256) {
+      repositoryError("patch_base_mismatch");
+    }
+    requests.push({
+      path: file.path,
+      diffObjectKey: file.r2_key,
+      baseSha256: file.patch_base_sha256,
+      resultSha256: file.patch_result_sha256,
+    });
+  }
+  const reconstructed = new Map<string, StoredFile>();
+  if (requests.length === 0) {
+    return reconstructed;
+  }
+  if (!input.reconstructor) {
+    // The capability is wired in every real worker (upload) + the local harness; its
+    // absence is an infra/config failure, not an agent error.
+    repositoryError("storage_unavailable");
+  }
+  let result: Awaited<ReturnType<RevisionReconstructor["reconstruct"]>>;
+  try {
+    result = await input.reconstructor.reconstruct({ workspaceId: session.workspace_id, files: requests });
+  } catch (error) {
+    // A patch that cannot apply is an agent-fixable conflict carrying the path + reason
+    // in the message; any other failure (R2/decrypt/ring) is infra and stays retryable.
+    if (error instanceof RevisionReconstructionConflict) {
+      repositoryError("patch_conflict", { cause: error });
+    }
+    throw error;
+  }
+  const bySha = new Map(sessionFiles.filter((f) => f.patch_result_sha256).map((f) => [f.path, f]));
+  for (const file of result.files) {
+    const source = bySha.get(file.path);
+    reconstructed.set(file.path, {
+      workspace_id: session.workspace_id,
+      artifact_id: session.artifact_id,
+      revision_id: session.revision_id,
+      upload_session_id: session.id,
+      path: file.path,
+      size_bytes: file.sizeBytes,
+      content_type: source?.content_type ?? contentTypeForPath(file.path),
+      r2_key: file.r2Key,
+      sha256: file.sha256,
+      storage_kind: "blob",
+      uploaded_at: session.finalized_at,
+    });
+  }
+  return reconstructed;
+}
 
 // ADR 0087 tree inheritance: merge the base Revision's published tree with this
 // session's changed/added/deleted manifest into the full tree the new Revision
 // commits. Runs at finalize (the base is a published Revision; the merge is the
 // "commit = parent tree + delta" step) and validates every stateful precondition
-// the contract deferred from create.
+// the contract deferred from create. A patched file's diff is reconstructed into a
+// whole content-addressed blob here, before any DB write, so the committed tree only
+// ever contains servable blob/revision rows — never a raw diff.
 async function mergeBaseRevisionTree(
   entities: Entities,
   session: UploadSession,
   sessionFiles: StoredFile[],
+  reconstructor: RevisionReconstructor | undefined,
 ): Promise<MergedTree> {
   const baseRevisionId = session.base_revision_id;
   if (!baseRevisionId) {
@@ -229,19 +313,10 @@ async function mergeBaseRevisionTree(
       repositoryError("deleted_path_not_in_base");
     }
   }
-  for (const file of sessionFiles) {
-    if (file.patch_base_sha256) {
-      const baseFile = baseFiles.get(file.path);
-      if (!baseFile || baseFile.sha256 !== file.patch_base_sha256) {
-        repositoryError("patch_base_mismatch");
-      }
-      // Stage 3 records and validates the patch descriptor but cannot reconstruct
-      // the whole result blob yet (jobs Stage 4 owns that). Finalizing now would
-      // commit the diff bytes as the served file, so refuse until reconstruction
-      // exists. Fail loud rather than serve a half-applied file (ADR 0087).
-      repositoryError("patch_reconstruction_unavailable");
-    }
-  }
+
+  // Reconstruct patched files into whole blobs before any DB write. A conflict throws
+  // here, so finalize fails atomically with nothing committed.
+  const reconstructed = await reconstructPatchedFiles({ session, sessionFiles, baseFiles, reconstructor });
 
   // Inherited rows are copied forward by reference and must be blob-backed: a
   // revision-scoped base file (sha256 null) lives under that base Revision's prefix
@@ -264,6 +339,18 @@ async function mergeBaseRevisionTree(
     });
   }
   for (const file of sessionFiles) {
+    // A patched file MUST be replaced by its reconstructed blob row; committing the diff
+    // placeholder (storage_kind:"revision", the encrypted diff bytes) would serve the
+    // diff as content. Guard the never-serve-a-diff invariant explicitly rather than
+    // trusting the reconstructor returned one result per request.
+    if (file.patch_base_sha256 || file.patch_result_sha256) {
+      const blob = reconstructed.get(file.path);
+      if (!blob) {
+        throw new Error(`reconstruction missing result for patched path: ${file.path}`);
+      }
+      merged.set(file.path, blob);
+      continue;
+    }
     merged.set(file.path, file);
   }
 
@@ -273,6 +360,7 @@ async function mergeBaseRevisionTree(
     fileCount: files.length,
     sizeBytes: files.reduce((sum, file) => sum + file.size_bytes, 0),
     parentRevisionId: baseRevisionId,
+    reconstructedBlobs: [...reconstructed.values()],
   };
 }
 
@@ -340,6 +428,9 @@ export async function finalizeUploadSessionInEntities(
     // Resolved lazily and only for a base-Revision merge (validateUpload on the
     // merged tree), so non-base finalizes never touch the workspace lookup.
     resolveUsagePolicy: () => Promise<UsagePolicyConfig>;
+    // Applies intra-file unified-diff patches before commit (ADR 0087 Stage 4). Only
+    // exercised when the session has patched files; absent on full-manifest finalizes.
+    revisionReconstructor?: RevisionReconstructor;
   },
 ) {
   const session = await entities.uploadSessions.findById(input.sessionId, input.actor.workspace_id);
@@ -375,8 +466,13 @@ export async function finalizeUploadSessionInEntities(
   // from the merge (the session row counts only the changed manifest). validateUpload
   // re-checks caps + entrypoint against the real published tree (an inherited path
   // may be the entrypoint). Without a base, behavior is unchanged.
-  const merged = session.base_revision_id ? await mergeBaseRevisionTree(entities, session, files) : null;
+  const merged = session.base_revision_id
+    ? await mergeBaseRevisionTree(entities, session, files, input.revisionReconstructor)
+    : null;
   if (merged) {
+    // Caps run on the MERGED tree carrying RECONSTRUCTED result sizes (a patched file's
+    // session size_bytes is the diff size), so an applied result that blows the cap is
+    // rejected here.
     validateUpload(merged.files, await input.resolveUsagePolicy(), session.entrypoint);
   }
   const treeFiles = merged?.files ?? files;
@@ -416,6 +512,21 @@ export async function finalizeUploadSessionInEntities(
   };
   await entities.revisions.insert(revision);
   await entities.uploadSessions.markFinalized(session.id, input.now);
+  // Register each reconstructed result blob so the content-blob refcount protects it
+  // (its sha256 is brand new — unlike an inherited blob whose row already exists).
+  for (const blob of merged?.reconstructedBlobs ?? []) {
+    if (!blob.sha256) {
+      continue;
+    }
+    await entities.contentBlobs.upsert({
+      workspace_id: session.workspace_id,
+      sha256: blob.sha256,
+      size_bytes: blob.size_bytes,
+      r2_key: blob.r2_key,
+      created_at: input.now,
+      updated_at: input.now,
+    });
+  }
   for (const file of treeFiles) {
     await entities.artifactFiles.insert(session.artifact_id, session.revision_id, file, input.now);
   }

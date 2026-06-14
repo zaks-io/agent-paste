@@ -7,7 +7,12 @@ import jobsWorker from "../apps/jobs/dist/index.js";
 import streamWorker from "../apps/stream/dist/index.js";
 import { createMemoryArtifactLiveNamespace } from "../apps/stream/dist/memory-artifact-live.js";
 import uploadWorker from "../apps/upload/dist/index.js";
-import { createLocalServices, createPostgresServices, reparentBlobMigratorFromEnv } from "../packages/db/dist/index.js";
+import {
+  createLocalServices,
+  createPostgresServices,
+  reparentBlobMigratorFromEnv,
+  revisionReconstructorFromEnv,
+} from "../packages/db/dist/index.js";
 import { encryptArtifactBytes } from "../packages/storage/dist/index.js";
 import { createMemoryWriteAllowanceNamespace } from "../packages/write-allowance/dist/index.js";
 import { loadEnvFiles } from "./lib/load-env-files.mjs";
@@ -269,6 +274,10 @@ const reparentBlobMigrator = reparentBlobMigratorFromEnv({
   ARTIFACTS: artifacts,
   ARTIFACT_BYTES_ENCRYPTION_KEY: artifactBytesEncryptionKey,
 });
+const revisionReconstructor = revisionReconstructorFromEnv({
+  ARTIFACTS: artifacts,
+  ARTIFACT_BYTES_ENCRYPTION_KEY: artifactBytesEncryptionKey,
+});
 const services = postgresBinding
   ? createPostgresServices({
       binding: postgresBinding,
@@ -276,12 +285,14 @@ const services = postgresBinding
       apiBaseUrl,
       contentBaseUrl,
       reparentBlobMigrator,
+      revisionReconstructor,
     })
   : createLocalServices({
       apiKeyPepper,
       apiBaseUrl,
       contentBaseUrl,
       reparentBlobMigrator,
+      revisionReconstructor,
     });
 const denylist = new MemoryKVNamespace();
 const cliRelease = new MemoryKVNamespace();
