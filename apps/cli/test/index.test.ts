@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Credential } from "../src/credentials.js";
 import * as credentials from "../src/credentials.js";
-import { isMainEntrypoint, logout, main, parseArgs, SCHEMA_VERSION } from "../src/index.js";
+import { isMainEntrypoint, logout, main, parseArgs, SCHEMA_VERSION, shellQuote } from "../src/index.js";
 import { CLI_VERSION } from "../src/version.js";
 
 const usagePolicy = {
@@ -44,6 +44,22 @@ function mockStdout() {
 function stdoutValues(stdout: ReturnType<typeof mockStdout>) {
   return stdout.mock.calls.map(([value]) => String(value));
 }
+
+describe("shellQuote (Update-command path safety)", () => {
+  it("leaves shell-safe paths bare", () => {
+    expect(shellQuote("./report")).toBe("./report");
+    expect(shellQuote("examples/local-harness/site")).toBe("examples/local-harness/site");
+  });
+
+  it("single-quotes paths with spaces or shell-significant chars", () => {
+    expect(shellQuote("./My Reports/site")).toBe("'./My Reports/site'");
+    expect(shellQuote("a;b")).toBe("'a;b'");
+  });
+
+  it("escapes embedded single quotes", () => {
+    expect(shellQuote("it's/site")).toBe("'it'\\''s/site'");
+  });
+});
 
 describe("cli command dispatch", () => {
   it("detects the executable entrypoint from a file URL and filesystem path", () => {

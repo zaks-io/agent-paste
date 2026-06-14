@@ -99,9 +99,9 @@ JSON output has these URL fields:
 
 ## Updating published work
 
-Publishing creates a new Artifact on a new link every time. When the user wants to
-change something you already published — fix it, update it, extend it — revise the
-SAME Artifact instead of publishing again:
+Publishing without \`--artifact-id\` creates a new Artifact on a new link. When the
+user wants to change something you already published — fix it, update it, extend
+it — revise the SAME Artifact instead of publishing a new one:
 
 - CLI: \`npx @zaks-io/agent-paste publish ./path --artifact-id art_...\`
 - MCP: \`add_revision\` with the \`artifact_id\`.

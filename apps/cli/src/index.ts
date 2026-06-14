@@ -230,13 +230,25 @@ function unauthenticatedClient() {
   return new ApiClient();
 }
 
+// POSIX single-quote escaping for a path embedded in a copy-pasteable shell
+// command. Bare when it's already shell-safe; otherwise wrap in single quotes
+// and escape any embedded single quote as '\''.
+export function shellQuote(value: string) {
+  if (/^[A-Za-z0-9_./-]+$/.test(value)) return value;
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
 async function publish(parsed: Parsed, client: ApiClient) {
   const mode = outputModeFor(parsed.global);
   const result = await runPublish(parsed, client, mode);
   // Channel-correct command the agent reruns to revise this Artifact in place,
-  // so it learns the revise verb at the moment it holds the id.
+  // so it learns the revise verb at the moment it holds the id. Shell-quote the
+  // path so spaces or special chars don't produce a broken revise command.
   const inputPath = requiredArg(parsed, 0, "path");
-  const updateCommand = commandInvocation(detectChannel(), `publish ${inputPath} --artifact-id ${result.artifact_id}`);
+  const updateCommand = commandInvocation(
+    detectChannel(),
+    `publish ${shellQuote(inputPath)} --artifact-id ${result.artifact_id}`,
+  );
   return output(result, parsed.global, formatPublishResult(mode, result, updateCommand));
 }
 
