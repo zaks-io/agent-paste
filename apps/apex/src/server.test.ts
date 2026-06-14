@@ -24,6 +24,7 @@ const notFoundAssets = {
 
 const htmlRewriterGlobal = globalThis as typeof globalThis & { HTMLRewriter?: unknown };
 const originalHtmlRewriter = htmlRewriterGlobal.HTMLRewriter;
+const ANALYTICS_SCRIPT_FIXTURE = '<script defer src="https://static.cloudflareinsights.com/beacon.min.js"></script>';
 
 function env(extra: Partial<Env> = {}): Env {
   return { ASSETS: okHtmlAssets, ...extra };
@@ -293,10 +294,10 @@ describe("ASSETS delegation and 404", () => {
       env({
         ASSETS: {
           async fetch() {
-            return new Response(
-              '<!doctype html><script defer src="https://static.cloudflareinsights.com/beacon.min.js"></script><main>ok</main>',
-              { status: 200, headers: { "content-type": "text/html; charset=utf-8" } },
-            );
+            return new Response(`<!doctype html>${ANALYTICS_SCRIPT_FIXTURE}<main>ok</main>`, {
+              status: 200,
+              headers: { "content-type": "text/html; charset=utf-8" },
+            });
           },
         },
       }),
@@ -344,14 +345,8 @@ function installTestHtmlRewriter() {
       const stream = new ReadableStream({
         async start(controller) {
           const text = await response.text();
-          controller.enqueue(
-            new TextEncoder().encode(
-              text.replace(
-                /<script[^>]+src="https:\/\/static\.cloudflareinsights\.com\/beacon\.min\.js"[^>]*><\/script>/g,
-                "",
-              ),
-            ),
-          );
+          expect(text).toContain(ANALYTICS_SCRIPT_FIXTURE);
+          controller.enqueue(new TextEncoder().encode("<!doctype html><main>ok</main>"));
           controller.close();
         },
       });
