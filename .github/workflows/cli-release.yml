@@ -431,6 +431,46 @@ jobs:
               exit 1
             fi
           done
+          # Scope the changelog to what actually ships in the binary. `bun build
+          # --compile` bundles apps/cli plus its workspace deps from source (see
+          # build.mjs), so the binary's real path closure is apps/cli +
+          # api-client + contracts + tokens + storage + config. `gh
+          # --generate-notes` is repo-wide and would list unrelated db/web/apex
+          # commits, so we generate the "What's changed" section ourselves from a
+          # path-filtered `git log` and hand it to gh via --notes-file. Keep this
+          # path set in sync with the bundle closure in apps/cli/build.mjs.
+          CLI_PATHS=(
+            apps/cli
+            packages/api-client
+            packages/contracts
+            packages/tokens
+            packages/storage
+            packages/config
+          )
+          # Find the previous cli-v* tag to diff against. fetch-depth: 0 (above)
+          # gives us the full tag history. If there is no prior tag (first
+          # release), fall back to the whole history so notes are never empty.
+          PREV_TAG="$(git tag -l 'cli-v*' --sort=-version:refname | grep -vxF "$TAG" | head -n1 || true)"
+          if [ -n "$PREV_TAG" ]; then
+            LOG_RANGE="$PREV_TAG..$GITHUB_SHA"
+          else
+            LOG_RANGE="$GITHUB_SHA"
+          fi
+          {
+            printf '## What'\''s changed\n\n'
+            CHANGES="$(git log --no-merges --pretty=format:'- %s' "$LOG_RANGE" -- "${CLI_PATHS[@]}")"
+            if [ -n "$CHANGES" ]; then
+              printf '%s\n' "$CHANGES"
+            else
+              printf '_No CLI-affecting changes since %s._\n' "${PREV_TAG:-the start of history}"
+            fi
+            printf '\n'
+            # The backticks below are literal markdown code spans, not command
+            # substitution; $REPO is passed as a printf arg, so single quotes are
+            # intentional here.
+            # shellcheck disable=SC2016
+            printf 'Standalone CLI binaries cross-compiled with `bun build --compile`. macOS binary is codesigned + notarized. Each binary carries a GitHub build-provenance attestation (verify: `gh attestation verify <binary> --repo %s`) and an attached SLSA provenance sidecar (`*.intoto.jsonl`). A CycloneDX SBOM of exactly what is compiled into the binary (`agent-paste-cli.sbom.cdx.json`), a blocking grype scan report (`agent-paste-cli.grype.json`), scanner/DB versions (`scan-metadata.json`), and repo security attestation bundle (`repo-security-attestation.tgz`) are attached. Draft - review and publish manually. Verify downloads against `SHA256SUMS`.\n' "$REPO"
+          } > dist-binaries/RELEASE_NOTES.md
           # Drafts stay mutable for test reruns. Published releases are immutable
           # by repo setting, and this job refuses to upload to non-drafts.
           if gh release view "$TAG" >/dev/null 2>&1; then
@@ -455,14 +495,13 @@ jobs:
             done
             gh release upload "$TAG" "${release_assets[@]}" --clobber
           else
-            # --generate-notes prepends a human-readable changelog (merged PRs /
-            # commits since the previous cli-v* tag) so each release has real
-            # release notes; --notes keeps the supply-chain evidence footer below
-            # it. fetch-depth: 0 (above) gives gh the tag history it needs.
+            # Notes come from RELEASE_NOTES.md (built above): a path-scoped
+            # "What's changed" changelog plus the supply-chain evidence footer.
+            # We do NOT use --generate-notes because it is repo-wide and would
+            # list db/web/apex commits that never ship in the CLI binary.
             gh release create "$TAG" "${release_assets[@]}" \
               --draft \
               --target "$GITHUB_SHA" \
               --title "agent-paste CLI $TAG" \
-              --generate-notes \
-              --notes "Standalone CLI binaries cross-compiled with \`bun build --compile\`. macOS binary is codesigned + notarized. Each binary carries a GitHub build-provenance attestation (verify: \`gh attestation verify <binary> --repo $REPO\`) and an attached SLSA provenance sidecar (\`*.intoto.jsonl\`). A CycloneDX SBOM of exactly what is compiled into the binary (\`agent-paste-cli.sbom.cdx.json\`), a blocking grype scan report (\`agent-paste-cli.grype.json\`), scanner/DB versions (\`scan-metadata.json\`), and repo security attestation bundle (\`repo-security-attestation.tgz\`) are attached. Draft - review and publish manually. Verify downloads against \`SHA256SUMS\`."
+              --notes-file dist-binaries/RELEASE_NOTES.md
           fi
