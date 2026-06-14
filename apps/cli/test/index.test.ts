@@ -101,6 +101,20 @@ describe("cli command dispatch", () => {
     );
   });
 
+  it("routes a --help flag on a subcommand to help instead of running it", async () => {
+    const stdout = mockStdout();
+
+    // `publish --help` (and any other subcommand) must print help without
+    // requiring the positional path or resolving a client — passing no client
+    // would throw on a real publish attempt.
+    await main(["publish", "--help"]);
+    await main(["whoami", "--help"]);
+
+    expect(stdoutValues(stdout)).toEqual(
+      expect.arrayContaining([expect.stringContaining("agent-paste publish <path>")]),
+    );
+  });
+
   it("reports its version without resolving a client", async () => {
     const stdout = mockStdout();
 
@@ -416,7 +430,11 @@ describe("cli command dispatch", () => {
       await main(["publish", root, "--entrypoint=index.html", "--render-mode", "html", "--json"], client);
 
       expect(putFile).not.toHaveBeenCalled();
-      const payload = JSON.parse(stdoutValues(stdout).join("")) as { upload_stats: unknown };
+      const payload = JSON.parse(stdoutValues(stdout).join("")) as {
+        upload_stats: unknown;
+        viewer_url: string;
+        shared: boolean;
+      };
       expect(payload.upload_stats).toEqual({
         total_files: 1,
         total_bytes: 14,
@@ -425,6 +443,13 @@ describe("cli command dispatch", () => {
         reused_files: 1,
         reused_bytes: 14,
       });
+      // Unified publish surface: one `viewer_url` (the authenticated Artifact
+      // URL when not shared) plus a `shared` bit, the same shape MCP returns.
+      // The raw server `access_link_url`/`artifact_url` split must not leak.
+      expect(payload.viewer_url).toBe("https://app.test/artifacts/art_1");
+      expect(payload.shared).toBe(false);
+      expect(payload).not.toHaveProperty("access_link_url");
+      expect(payload).not.toHaveProperty("artifact_url");
     } finally {
       await removePublishFixture(root);
     }

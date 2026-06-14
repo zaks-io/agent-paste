@@ -37,7 +37,7 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Publish creates stable Artifact and Revision IDs. The default post-publish `View` is the authenticated Artifact URL. Public/shareable handoff requires an explicit Share Link, whose `access_link_url` opens the controlled Artifact Viewer. The direct `usercontent.agent-paste.sh/v/...` URL is the Revision Content URL for one exact Revision and is raw byte delivery, not the product viewer.",
+          text: "Publish creates stable Artifact and Revision IDs. The default post-publish `View` (`viewer_url`) is the authenticated Artifact URL. Public/shareable handoff requires an explicit Share Link; publishing with sharing on makes `viewer_url` that Share Link, which opens the controlled Artifact Viewer. The direct `usercontent.agent-paste.sh/v/...` URL is the Revision Content URL for one exact Revision and is raw byte delivery, not the product viewer.",
         },
         {
           kind: "code",

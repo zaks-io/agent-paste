@@ -66,7 +66,7 @@ export const CLI_DOC: DocsPage = {
           kind: "note",
           title: "Public links are explicit",
           body: [
-            "When a human needs a public/shareable URL that follows later publishes, publish with `--share` or explicitly create a Share Link and return `access_link_url`. `artifact_url` is the authenticated Workspace app view, and `revision_content_url` is raw signed byte delivery for one Revision.",
+            "When a human needs a public/shareable URL that follows later publishes, publish with `--share`; `viewer_url` is then the public Share Link. Without `--share`, `viewer_url` is the authenticated Workspace app view, and `revision_content_url` is raw signed byte delivery for one Revision.",
           ],
         },
         {

@@ -8,9 +8,9 @@ const LLMS_TXT_BASE = `# agent-paste
 agent-paste gives agents a stable, addressable place to publish work products.
 An Artifact is a folder of one or more files. Default publish flows return an
 authenticated Artifact URL as View plus an Agent View manifest another agent can
-read. Public sharing is explicit: return access_link_url only when the user asks
-for a Share Link. Do not send users to the usercontent Revision Content URL as
-the final live page.
+read. Public sharing is explicit: publish with sharing on so viewer_url is the
+public Share Link only when the user asks for one. Do not send users to the
+usercontent Revision Content URL as the final live page.
 
 ## What you can do here
 
@@ -51,9 +51,9 @@ the final live page.
   \`npx @zaks-io/agent-paste publish ./path --share\` only when the user
   explicitly asks for a public/shareable link.
 - In MCP publish tools, \`share\` defaults to \`false\`. Set \`share:true\` only
-  when the user explicitly asks for a public/shareable Access Link, then return
-  \`access_link_url\`. Do not return \`usercontent.agent-paste.sh/v/...\` as the
-  final live page.
+  when the user explicitly asks for a public/shareable link, then return the
+  \`viewer_url\` (now the public Share Link). Do not return
+  \`usercontent.agent-paste.sh/v/...\` as the final live page.
 
 ## Entry points
 
