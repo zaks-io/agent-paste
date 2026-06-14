@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 
 // Skip hook installation only when we are truly inside GitHub Actions (the hosted
 // CI that runs `pnpm verify` itself), or when an operator opts out explicitly.
@@ -34,7 +35,8 @@ export function installHooks({ env = process.env, spawn = spawnSync, log = conso
   return { installed: true, skipped: false };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+const isMainModule = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMainModule) {
   const outcome = installHooks();
   process.exit(outcome.failed ? 1 : 0);
 }

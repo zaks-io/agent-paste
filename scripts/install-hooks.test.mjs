@@ -57,6 +57,20 @@ describe("installHooks", () => {
     expect(spawn).toHaveBeenLastCalledWith("lefthook", ["install", "--force"], { stdio: "inherit" });
   });
 
+  it("does not retry when the first --force attempt already failed", () => {
+    const spawn = vi
+      .fn()
+      .mockReturnValueOnce({ status: 0, stdout: ".husky\n" }) // core.hooksPath set -> first attempt is --force
+      .mockReturnValueOnce({ status: 1 }); // lefthook install --force fails
+    const log = vi.fn();
+
+    const result = installHooks({ env: {}, spawn, log });
+
+    expect(result).toEqual({ installed: false, skipped: false, failed: true });
+    // git config + one (already-forced) install attempt; no pointless second retry.
+    expect(spawn).toHaveBeenCalledTimes(2);
+  });
+
   it("retries with --force and reports failure when install keeps failing", () => {
     const spawn = vi
       .fn()
