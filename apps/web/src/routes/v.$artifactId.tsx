@@ -52,7 +52,7 @@ function PrivateViewerPage() {
   return (
     <div className="flex h-screen flex-col bg-background">
       <header className="flex items-center justify-between border-b border-rule px-4 py-2">
-        <Link to="/artifacts/$artifactId" params={{ artifactId }} aria-label="Open in dashboard">
+        <Link to="/dashboard" aria-label="Go to dashboard">
           <Wordmark small />
         </Link>
         <span className="truncate font-mono text-mono-sm text-subtle">{artifact?.title?.trim() || "Artifact"}</span>
