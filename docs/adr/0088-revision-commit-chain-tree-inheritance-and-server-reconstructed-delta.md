@@ -144,6 +144,45 @@ whole-blob.
   term is introduced for "patch"; it is an implementation property of how a
   changed file is transmitted.
 
+## Stage 3 implementation notes (tree inheritance at finalize)
+
+Decisions surfaced while building the api tree-inheritance step, recorded so the
+next implementer does not re-derive them:
+
+- **The merge runs at finalize, not at session create.** The session-create
+  alternative was considered (the base is already known there) and rejected: it
+  contradicts this ADR's "publish-time merge" framing and would write inherited
+  rows into `upload_session_files` that the client would then be asked to PUT.
+  Keeping the merge at finalize is also strictly less code (the wire builder,
+  observe loop, and upload worker are untouched). The session carries the intent
+  via `upload_sessions.base_revision_id` and `upload_sessions.deleted_paths`.
+- **Inheritance requires `base.status = 'published'` and blob-backed paths only.**
+  A draft base is uncommitted (and unreachable as a base anyway, since a session
+  on the same Artifact hits `draft_revision_conflict` first); a retained base's
+  blobs fall out of the GC refcount. A `storage_kind = 'revision'` base path is
+  not refcount-protected, so it is rejected (`inherited_path_not_blob_backed`)
+  rather than copied forward into a dangling reference.
+- **The composite `revisions_parent_fk` is the DB backstop** for a cross-artifact
+  or cross-workspace parent. The app validates the base belongs to the same
+  Artifact (`base_revision_artifact_mismatch`) and Workspace
+  (`base_revision_not_found`) and fails fast before the foreign key would 500.
+- **A patched file's diff bytes upload as a revision-scoped object with `sha256`
+  omitted** from the signed payload (the signed-blob-key assertion in the upload
+  worker only fires when `sha256` is signed). The patch descriptor
+  (`patch_base_sha256`, `patch_result_sha256`) is recorded on
+  `upload_session_files` so a later `jobs` step can reconstruct the result blob.
+  Stage 3 validates `base_sha256` against the base file but does not apply the
+  diff.
+- **Stage 3 refuses to finalize a patched file** (`patch_reconstruction_unavailable`).
+  Without Stage 4's reconstruction, finalizing would commit the raw diff bytes as
+  the served file. The descriptor is still recorded and validated at create so the
+  wire path is exercised, but the publish flow fails loud until reconstruction
+  exists. This guards a hand-rolled API/MCP caller even though no first-party
+  client emits patches until Stage 5. A file may not declare both a whole-file
+  `sha256` and a `patch` (rejected at request validation).
+
+This confirms, and does not reverse, the Stage 2 "applied at finalize" wording.
+
 ## What this ADR is not
 
 - Not a chunk store, not per-block encryption, not Range serving, not global

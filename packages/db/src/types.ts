@@ -209,6 +209,10 @@ export type UploadSession = {
   expires_at: string;
   created_at: string;
   finalized_at: string | null;
+  // Base Revision this publish inherits from (ADR 0087); null = full manifest.
+  base_revision_id: string | null;
+  // Base paths this publish drops (distinguishes deleted from inherited at finalize).
+  deleted_paths: string[];
 };
 
 export type ContentBlob = {
@@ -235,6 +239,10 @@ export type StoredFile = {
   storage_kind?: StoredFileStorageKind;
   uploaded_at: string | null;
   put_url_expires_at?: string;
+  // ADR 0087 intra-file delta descriptor (recorded on upload_session_files only).
+  // Both null (whole-file upload) or both set; jobs reconstructs the result blob.
+  patch_base_sha256?: string | null;
+  patch_result_sha256?: string | null;
 };
 
 export type SafetyWarning = {

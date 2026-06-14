@@ -44,9 +44,10 @@ export type UploadSessionFileInput = z.infer<typeof UploadSessionFileInput>;
 // base_revision_id turns this into a partial-manifest publish (ADR 0087): files
 // lists only changed/added paths, deleted_paths drops paths, and every other path
 // inherits from the base Revision by reference. deleted_paths and per-file patches
-// are only meaningful against a base; structural checks live here, while stateful
-// checks (base belongs to the workspace/artifact, deleted path exists in the base,
-// patch base_sha256 matches the base file) are enforced server-side at finalize.
+// are only meaningful against a base. Structural checks live here; the stateful
+// checks and the tree-inheritance merge (base is a published Revision in the same
+// workspace/artifact, only blob-backed paths inherit, deleted path exists in the
+// base, patch base_sha256 matches the base file) run server-side at finalize.
 export const CreateUploadSessionRequest = z
   .object({
     artifact_id: ArtifactId.optional(),
@@ -89,6 +90,16 @@ export const CreateUploadSessionRequest = z
           code: z.ZodIssueCode.custom,
           path: ["files", index, "path"],
           message: "a path cannot be both uploaded and deleted",
+        });
+      }
+      // A patch carries the diff's own digest; a whole-file sha256 on the same
+      // entry is contradictory (the bytes are a diff, not the content-addressed
+      // file), so reject it rather than silently dropping one.
+      if (file.patch !== undefined && file.sha256 !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["files", index, "sha256"],
+          message: "a patched file cannot also declare a whole-file sha256",
         });
       }
     });

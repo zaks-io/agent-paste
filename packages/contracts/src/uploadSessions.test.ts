@@ -34,7 +34,6 @@ describe("CreateUploadSessionRequest partial-manifest + patch", () => {
           {
             path: "big.txt",
             size_bytes: 30,
-            sha256: sha("c"),
             patch: { base_sha256: sha("d"), format: "unified", result_sha256: sha("e") },
           },
         ],
@@ -50,6 +49,22 @@ describe("CreateUploadSessionRequest partial-manifest + patch", () => {
   it("rejects a patch with no base_revision_id", () => {
     const result = CreateUploadSessionRequest.safeParse(
       baseRequest({
+        files: [
+          {
+            path: "big.txt",
+            size_bytes: 30,
+            patch: { base_sha256: sha("d"), format: "unified", result_sha256: sha("e") },
+          },
+        ],
+      }),
+    );
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a file declaring both a whole-file sha256 and a patch", () => {
+    const result = CreateUploadSessionRequest.safeParse(
+      baseRequest({
+        base_revision_id: baseRevisionId,
         files: [
           {
             path: "big.txt",

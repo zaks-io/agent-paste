@@ -122,7 +122,7 @@ result_sha256 }` plus the diff bytes uploaded like any file body. Absence =
 - Done: contract + OpenAPI regenerated; round-trip tests for partial manifest and
   patch descriptor.
 
-### Stage 3 - api: tree inheritance at finalize/publish
+### Stage 3 - api: tree inheritance at finalize/publish - DONE
 
 - When finalizing against `base_revision_id`: copy forward the base's
   `artifact_files` rows for inherited paths (already point at shared blobs),
@@ -132,6 +132,14 @@ result_sha256 }` plus the diff bytes uploaded like any file body. Absence =
 - Done: a revision published with one changed file has a full `artifact_files`
   tree but only one new blob; `parent_revision_id` set; diffing two revisions'
   `artifact_files` yields the changeset.
+- Landed: merge runs at finalize (`mergeBaseRevisionTree` in
+  `packages/db/src/repository/upload-session-lifecycle.ts`); session carries
+  `base_revision_id` + `deleted_paths`; patched files record a descriptor
+  (`patch_base_sha256` / `patch_result_sha256`) on `upload_session_files` with
+  `sha256` omitted from the signed PUT. Stateful validation (published base,
+  same workspace/artifact, blob-backed-only inheritance, deleted-path-in-base,
+  patch base match) with six new repo error codes mapped to `invalid_request`.
+  See the ADR 0087 Stage 3 implementation notes for the decisions.
 
 ### Stage 4 - jobs: Option 1 reconstruct-on-write
 

@@ -156,10 +156,19 @@ result_sha256 }`) means the bytes uploaded for that entry are a unified diff
   server produces and verifies. Structural rules enforced at request validation:
   `patch` and `deleted_paths` require `base_revision_id`; `deleted_paths` is
   unique; a path cannot be both uploaded and deleted; `format` must be
-  `unified`. Stateful checks (the base belongs to the same Workspace/Artifact, a
-  deleted path exists in the base, a patch `base_sha256` matches the base file)
-  and the tree-inheritance merge and diff reconstruction are applied
-  server-side at finalize/publish.
+  `unified`. Stateful checks and the tree-inheritance merge run server-side at
+  finalize. The base must be a `published` Revision in the same Workspace and
+  Artifact (a cross-workspace base is reported as not found; a cross-artifact base
+  is rejected before it could violate the parent foreign key). Only blob-backed
+  base paths inherit; a legacy revision-scoped path must be re-uploaded. A deleted
+  path must exist in the base, and a patch `base_sha256` must match the base file.
+  At finalize the merged tree (inherited base rows + uploaded changes − deletions)
+  sets `revisions.parent_revision_id = base_revision_id`, and `file_count` /
+  `size_bytes` are recomputed from the merged tree, not the uploaded manifest.
+  Diff reconstruction into a whole blob is deferred to a later `jobs` step, so a
+  session that carries a `patch` is currently rejected at finalize rather than
+  serving the diff bytes as the file. A file may not declare both a whole-file
+  `sha256` and a `patch`.
 
 ### `CreateUploadSessionResponse`
 

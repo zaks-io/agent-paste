@@ -117,6 +117,10 @@ export async function finalizeUploadSession(
         sessionId: input.sessionId,
         observedFiles: input.observedFiles,
         now: input.now,
+        // Resolved lazily and only for a base-Revision merge, so a missing/cross
+        // workspace still collapses to upload_session_not_found (non-enumerable)
+        // via the workspace-scoped session lookup rather than workspace_not_found.
+        resolveUsagePolicy: async () => ctx.usagePolicyFor(await ctx.mustWorkspace(entities, input.actor.workspace_id)),
       }),
   );
 }

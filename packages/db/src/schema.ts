@@ -197,6 +197,12 @@ export const uploadSessions = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     finalizedAt: timestamp("finalized_at", { withTimezone: true }),
+    // Base Revision this publish inherits from (ADR 0087 tree inheritance). Null = full
+    // manifest. Copied to revisions.parent_revision_id when the merge runs at finalize.
+    baseRevisionId: text("base_revision_id"),
+    // Base paths this publish drops. Needed to tell a deleted path apart from an
+    // inherited one at finalize (both are base paths absent from the file manifest).
+    deletedPaths: jsonb("deleted_paths").$type<string[]>().notNull().default([]),
   },
   (table) => [
     index("upload_sessions_pending_expiry_idx").on(table.workspaceId, table.expiresAt),
@@ -225,12 +231,22 @@ export const uploadSessionFiles = pgTable(
     storageKind: text("storage_kind").notNull().default("revision"),
     uploadedAt: timestamp("uploaded_at", { withTimezone: true }),
     putUrlExpiresAt: timestamp("put_url_expires_at", { withTimezone: true }).notNull(),
+    // Intra-file delta descriptor (ADR 0087). When set, the uploaded bytes are a
+    // unified diff against the base file; jobs reconstructs the whole result blob
+    // (Stage 4). base = digest of the base Revision's file, result = digest of the
+    // reconstructed whole file. Both null (whole-file upload) or both set.
+    patchBaseSha256: text("patch_base_sha256"),
+    patchResultSha256: text("patch_result_sha256"),
   },
   (table) => [
     primaryKey({ columns: [table.uploadSessionId, table.path] }),
     index("upload_session_files_blob_idx").on(table.workspaceId, table.sha256, table.sizeBytes),
     check("upload_session_files_storage_kind_check", sql`${table.storageKind} in ('revision', 'blob')`),
     check("upload_session_files_sha256_check", sql`${table.sha256} is null or ${table.sha256} ~ '^[a-f0-9]{64}$'`),
+    check(
+      "upload_session_files_patch_check",
+      sql`(${table.patchBaseSha256} is null and ${table.patchResultSha256} is null) or (${table.patchBaseSha256} ~ '^[a-f0-9]{64}$' and ${table.patchResultSha256} ~ '^[a-f0-9]{64}$')`,
+    ),
   ],
 );
 

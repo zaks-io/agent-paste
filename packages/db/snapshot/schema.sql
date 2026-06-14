@@ -197,9 +197,12 @@ CREATE TABLE "upload_session_files" (
 	"storage_kind" text DEFAULT 'revision' NOT NULL,
 	"uploaded_at" timestamp with time zone,
 	"put_url_expires_at" timestamp with time zone NOT NULL,
+	"patch_base_sha256" text,
+	"patch_result_sha256" text,
 	CONSTRAINT "upload_session_files_upload_session_id_path_pk" PRIMARY KEY("upload_session_id","path"),
 	CONSTRAINT "upload_session_files_storage_kind_check" CHECK ("upload_session_files"."storage_kind" in ('revision', 'blob')),
-	CONSTRAINT "upload_session_files_sha256_check" CHECK ("upload_session_files"."sha256" is null or "upload_session_files"."sha256" ~ '^[a-f0-9]{64}$')
+	CONSTRAINT "upload_session_files_sha256_check" CHECK ("upload_session_files"."sha256" is null or "upload_session_files"."sha256" ~ '^[a-f0-9]{64}$'),
+	CONSTRAINT "upload_session_files_patch_check" CHECK (("upload_session_files"."patch_base_sha256" is null and "upload_session_files"."patch_result_sha256" is null) or ("upload_session_files"."patch_base_sha256" ~ '^[a-f0-9]{64}$' and "upload_session_files"."patch_result_sha256" ~ '^[a-f0-9]{64}$'))
 );
 
 CREATE TABLE "upload_sessions" (
@@ -219,6 +222,8 @@ CREATE TABLE "upload_sessions" (
 	"expires_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"finalized_at" timestamp with time zone,
+	"base_revision_id" text,
+	"deleted_paths" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	CONSTRAINT "upload_sessions_created_by_type_check" CHECK ("upload_sessions"."created_by_type" in ('api_key', 'member')),
 	CONSTRAINT "upload_sessions_render_mode_check" CHECK ("upload_sessions"."render_mode" is null or "upload_sessions"."render_mode" in ('html', 'markdown', 'text', 'image', 'audio', 'video'))
 );
