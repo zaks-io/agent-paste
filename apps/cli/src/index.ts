@@ -62,11 +62,13 @@ export async function main(argv = process.argv.slice(2), client?: ApiClient) {
   if (command === "version" || command === "-v" || (command === "" && booleanFlag(parsed, "version", false))) {
     return output({ version: CLI_VERSION }, parsed.global, CLI_VERSION);
   }
+  // `<subcommand> --help` (e.g. `publish --help`) must print help, not fall
+  // through to the subcommand and fail on a missing positional. A bare `--help`
+  // parses as the command; a `--help` flag alongside any command lands here.
+  if (command === "" || command === "help" || command === "--help" || booleanFlag(parsed, "help", false)) {
+    return printHelp();
+  }
   switch (command) {
-    case "":
-    case "help":
-    case "--help":
-      return printHelp();
     case "login":
       await login();
       return;
@@ -306,8 +308,15 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
   });
   progress.done();
 
+  // Present the unified publish surface: one `viewer_url` (the link to hand the
+  // user) plus a `shared` bit, identical to what the MCP server returns. Both
+  // surfaces consume the same api-client outcome, so neither leaks the raw
+  // server `access_link_url`/`artifact_url` split into its published contract.
+  const { artifact_url, access_link_url, ...rest } = outcome.result;
   return {
-    ...outcome.result,
+    ...rest,
+    viewer_url: outcome.viewerUrl,
+    shared: outcome.shared,
     upload_stats: {
       total_files: outcome.uploadStats.totalFiles,
       total_bytes: outcome.uploadStats.totalBytes,
@@ -438,8 +447,8 @@ type PublishResultShape = {
   artifact_id: string;
   revision_id: string;
   title: string;
-  artifact_url: string;
-  access_link_url?: string | undefined;
+  viewer_url: string;
+  shared: boolean;
   revision_content_url: string;
   agent_view_url: string;
   expires_at: string;
@@ -471,7 +480,7 @@ function uploadStatsLine(mode: OutputMode, stats: NonNullable<PublishResultShape
 // republishing a new Artifact. Snapshot URLs stay on the JSON surface.
 function formatPublishResult(mode: OutputMode, result: PublishResultShape, updateCommand: string) {
   const label = (text: string) => paint(mode, "dim", text);
-  const viewerUrl = result.access_link_url ?? result.artifact_url;
+  const viewerUrl = result.viewer_url;
   return [
     `${paint(mode, "green", "✓")} Published ${paint(mode, "bold", `"${result.title}"`)}`,
     "",
@@ -493,7 +502,7 @@ export function ephemeralClaimUrl(claimToken: string) {
 function formatEphemeralPublishResult(mode: OutputMode, result: PublishResultShape, claimUrl: string) {
   assertClaimTokenNotInPublicUrls(result, claimUrl);
   const label = (text: string) => paint(mode, "dim", text);
-  const viewerUrl = result.access_link_url ?? result.artifact_url;
+  const viewerUrl = result.viewer_url;
   return [
     `${paint(mode, "green", "✓")} Published ${paint(mode, "bold", `"${result.title}"`)}`,
     "",
@@ -520,8 +529,7 @@ function assertClaimTokenNotInPublicUrls(result: PublishResultShape, claimUrl: s
     throw new Error("Claim Token must not appear in the URL query string");
   }
   if (
-    result.artifact_url.includes(claimToken) ||
-    result.access_link_url?.includes(claimToken) ||
+    result.viewer_url.includes(claimToken) ||
     result.revision_content_url.includes(claimToken) ||
     result.agent_view_url.includes(claimToken)
   ) {

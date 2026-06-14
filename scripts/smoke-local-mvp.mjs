@@ -102,12 +102,13 @@ try {
   assert(whoami.workspace?.id === provisioned.workspace.id, "whoami resolves the provisioned workspace");
 
   const published = await runCliJson(
-    ["publish", "examples/local-harness/site", "--ttl", "1d", "--title", "Local harness", "--json"],
+    ["publish", "examples/local-harness/site", "--title", "Local harness", "--json"],
     apiEnv,
   );
   assert(published.artifact_id?.startsWith("art_"), "publish returned artifact_id");
   assert(published.revision_id?.startsWith("rev_"), "publish returned revision_id");
-  assert(published.artifact_url?.includes(`/artifacts/${published.artifact_id}`), "publish returned Artifact URL");
+  assert(published.shared === false, "private publish reports shared:false");
+  assert(published.viewer_url?.includes(`/artifacts/${published.artifact_id}`), "publish returned Artifact URL");
   assert(published.revision_content_url?.startsWith(contentBaseUrl), "publish returned local revision_content_url");
   assert(published.agent_view_url?.startsWith(apiBaseUrl), "publish returned local agent_view_url");
 
@@ -152,7 +153,7 @@ try {
 
   Workspace: ${provisioned.workspace.id}
   Artifact:  ${published.artifact_id}
-  Artifact URL: ${published.artifact_url}
+  Artifact URL: ${published.viewer_url}
   Revision URL: ${published.revision_content_url}
   Ephemeral: ${ephemeral.artifact_id} (claimed into ${ephemeral.member_workspace_id})
 
@@ -245,7 +246,7 @@ async function assertBytesPurgedAfterDelete(published) {
 
 async function assertBytesPurgedAfterExpiry(apiEnv) {
   const expiryPublish = await runCliJson(
-    ["publish", "examples/local-harness/site", "--ttl", "1d", "--title", "Local expiry harness", "--json"],
+    ["publish", "examples/local-harness/site", "--title", "Local expiry harness", "--json"],
     apiEnv,
   );
   const prefix = `artifacts/${expiryPublish.artifact_id}/`;

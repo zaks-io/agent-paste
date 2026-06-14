@@ -264,7 +264,7 @@ async function publishArtifact(apiKey, title = "Web API smoke") {
   };
   const output = await run(
     process.execPath,
-    [cliEntry, "publish", "examples/local-harness/site", "--ttl", "1d", "--title", title, "--json"],
+    [cliEntry, "publish", "examples/local-harness/site", "--title", title, "--json"],
     env,
   );
   const published = JSON.parse(output);

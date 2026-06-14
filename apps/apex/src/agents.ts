@@ -3,10 +3,10 @@ import { APP_BASE_URL, MCP_BASE_URL } from "./copy";
 export const AGENTS_MD = `# agent-paste for agents
 
 agent-paste gives AI agents a durable, addressable place to publish work
-products. Publish returns the authenticated Artifact URL as \`View\` by default.
-Create a Share Link and return \`access_link_url\` only when the user explicitly
-asks for a public/shareable link. Do not send users to the Revision Content URL
-as the final live page.
+products. Publish returns one \`viewer_url\` to hand the user — the authenticated
+Artifact URL by default. Publish with sharing on (so \`viewer_url\` is the public
+Share Link) only when the user explicitly asks for a public/shareable link. Do
+not send users to the Revision Content URL as the final live page.
 
 This document is the longer-form companion to [/llms.txt](/llms.txt). It is
 written for an agent reading the apex domain at request time.
@@ -88,14 +88,18 @@ stay in JSON:
 
 JSON output has these URL fields:
 
-- \`artifact_url\` - authenticated workspace Artifact detail URL and default
-  \`View\` URL.
-- \`access_link_url\` - Access Link Signed URL from an explicitly created Share
-  Link or Revision Link.
+- \`viewer_url\` - the one link to hand the user. It is the public Share Link when
+  \`shared\` is true, otherwise the authenticated workspace Artifact URL. This is
+  the default \`View\` link.
+- \`shared\` - whether \`viewer_url\` is a public Share Link (no login) or the
+  authenticated owner-only Artifact URL.
 - \`revision_content_url\` - exact signed Content Origin URL for this Revision.
   It expires, does not Live Update, and direct HTML opened there is inert raw byte
   delivery rather than the product viewer.
 - \`agent_view_url\` - machine-readable Agent View JSON for tools.
+
+The \`create_share_link\` and \`create_revision_link\` MCP tools return the minted
+link as \`url\`.
 
 ## Updating published work
 
@@ -112,10 +116,10 @@ an edit as a fresh Artifact strands the link the user already has open. Keep the
 \`artifact_id\` from each publish (the CLI \`Update\` hint, the JSON \`artifact_id\`
 field, or \`list_artifacts\`) so you can revise.
 
-If the user asks for a public/shareable link, create a Share Link and return
-\`access_link_url\`: the Access Link Signed URL minted from that Share Link. In
-CLI this means passing \`--share\`; in MCP this means setting \`share:true\` or
-using \`create_share_link\`. Do not return the
+If the user asks for a public/shareable link, publish so that \`viewer_url\` is the
+public Share Link (\`shared: true\`). In CLI this means passing \`--share\`; in MCP
+this means setting \`share:true\`. You can also mint a Share Link explicitly with
+the \`create_share_link\` MCP tool, which returns it as \`url\`. Do not return the
 \`usercontent.agent-paste.sh/v/...\` Revision Content URL as the final answer.
 
 ## Ephemeral publish fallback

@@ -40,6 +40,10 @@ automatic; flags override detection.
   version is `"1"`. Consumers should branch on it; new fields may be added
   within a version, but field removals or renames bump it.
 - Object payloads are emitted as `{ "schema_version": "1", ...fields }`.
+- `publish` emits one handoff link, `viewer_url` (the public Share Link when
+  `shared` is true, else the authenticated Artifact URL), plus the `shared` bit —
+  the same unified surface the MCP server returns. The CLI does not surface the
+  raw server `access_link_url`/`artifact_url` split.
 - Errors in `json` mode are emitted on **stderr** as
   `{ "error": { "code", "message", "docs?" } }` (no `schema_version` — it is an
   error envelope, not a result).
@@ -80,8 +84,8 @@ keep the install small and the supply chain clean.
 ## Publish human output
 
 Authenticated `publish` in `rich`/`plain` mode leads with the live **View** URL
-(`access_link_url` when shared, else `artifact_url`), then **Expires**, the upload
-summary, and an **Update** line:
+(`viewer_url` — the public Share Link when shared, else the authenticated Artifact
+URL), then **Expires**, the upload summary, and an **Update** line:
 
 - **Update** — the channel-correct command to revise this Artifact in place
   (`publish <path> --artifact-id <artifact_id>`). This is the human surface's only
@@ -102,10 +106,10 @@ In `rich`/`plain` mode, the claim link is the primary handoff:
 
 - **Claim** — the link to open, keep, and unlock the Artifact (`claim_url`).
   The `→ open` hint targets this URL.
-- **View** — the authenticated Artifact URL (`artifact_url`), labeled as working
-  only after claim. Until a human redeems the **Claim Token**, this route 404s for
-  cold recipients because the Artifact lives in an unclaimed **Ephemeral
-  Workspace**.
+- **View** — the `viewer_url` (the authenticated Artifact URL for an ephemeral
+  publish), labeled as working only after claim. Until a human redeems the
+  **Claim Token**, this route 404s for cold recipients because the Artifact lives
+  in an unclaimed **Ephemeral Workspace**.
 
 Agents relaying ephemeral publish results to humans should pass `claim_url`, not
-`artifact_url`.
+`viewer_url`.

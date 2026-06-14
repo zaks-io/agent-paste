@@ -68,7 +68,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "For a public/shareable link that follows later publishes, publish with CLI `--share` or MCP `share:true`/`create_share_link`, then use `access_link_url`. The direct `usercontent.agent-paste.sh/v/...` URL points at one Revision, does not Live Update, and direct HTML opened there is inert raw byte delivery. The authenticated Artifact URL is the default Workspace app view.",
+          text: "For a public/shareable link that follows later publishes, publish with CLI `--share` or MCP `share:true`, then use `viewer_url` (now the public Share Link). The direct `usercontent.agent-paste.sh/v/...` URL points at one Revision, does not Live Update, and direct HTML opened there is inert raw byte delivery. The authenticated Artifact URL is the default Workspace app view.",
         },
       ],
     },

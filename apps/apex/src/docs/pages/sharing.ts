@@ -73,7 +73,7 @@ export const SHARING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "A Workspace Member opens the authenticated Artifact URL by default. When a user explicitly asks for a public/shareable page, use CLI `--share` or MCP `share:true`/`create_share_link`, then return `access_link_url`. Use Agent View when an agent needs file trees, metadata, or signed per-file URLs.",
+          text: "A Workspace Member opens the authenticated Artifact URL by default. When a user explicitly asks for a public/shareable page, publish with CLI `--share` or MCP `share:true` and return `viewer_url` (now the public Share Link), or mint one explicitly with the `create_share_link` tool, which returns it as `url`. Use Agent View when an agent needs file trees, metadata, or signed per-file URLs.",
         },
       ],
     },
