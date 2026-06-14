@@ -1,6 +1,5 @@
-import { Wordmark } from "@agent-paste/ui";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { ArtifactLiveViewer, useLastGoodArtifact } from "../components/artifacts/ArtifactLiveViewer";
 import { dashboardPageMeta } from "../lib/page-meta";
@@ -55,17 +54,13 @@ function PrivateViewerPage() {
     );
   }
 
+  // No chrome: a member reaches `/v` already authenticated via a publish
+  // handoff, so the wordmark/title top bar is redundant. The anti-phishing brand
+  // affordance lives only on the public `/al` access-link viewer, where the
+  // recipient is unauthenticated and needs proof of origin.
   return (
-    <div className="flex h-screen flex-col bg-background">
-      <header className="flex items-center justify-between border-b border-rule px-4 py-2">
-        <Link to="/dashboard" aria-label="Go to dashboard">
-          <Wordmark small />
-        </Link>
-        <span className="truncate font-mono text-mono-sm text-subtle">{artifact?.title?.trim() || "Artifact"}</span>
-      </header>
-      <div className="min-h-0 flex-1">
-        <ArtifactLiveViewer artifactId={artifactId} artifact={artifact ?? null} chrome={false} />
-      </div>
+    <div className="h-screen bg-background">
+      <ArtifactLiveViewer artifactId={artifactId} artifact={artifact ?? null} chrome={false} />
     </div>
   );
 }
