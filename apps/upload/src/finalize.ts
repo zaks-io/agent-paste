@@ -59,7 +59,7 @@ export async function finalizeUploadSession(
     const repositoryCode = repositoryErrorToAppError(error);
     if (repositoryCode) {
       // A patch conflict carries the path + failure reason on the error cause so the
-      // agent learns which file to regenerate (ADR 0087). Other codes use their default
+      // agent learns which file to regenerate (ADR 0088). Other codes use their default
       // message.
       const detail =
         repositoryCode === "patch_conflict" && isRepositoryError(error) && error.cause instanceof Error

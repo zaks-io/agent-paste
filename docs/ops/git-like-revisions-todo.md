@@ -139,7 +139,7 @@ result_sha256 }` plus the diff bytes uploaded like any file body. Absence =
   `sha256` omitted from the signed PUT. Stateful validation (published base,
   same workspace/artifact, blob-backed-only inheritance, deleted-path-in-base,
   patch base match) with six new repo error codes mapped to `invalid_request`.
-  See the ADR 0087 Stage 3 implementation notes for the decisions.
+  See the ADR 0088 Stage 3 implementation notes for the decisions.
 
 ### Stage 4 - synchronous reconstruct-at-finalize (DONE)
 

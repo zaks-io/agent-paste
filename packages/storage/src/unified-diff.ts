@@ -1,4 +1,4 @@
-// ADR 0087 Stage 4 intra-file delta: apply an agent-uploaded unified diff to a base
+// ADR 0088 Stage 4 intra-file delta: apply an agent-uploaded unified diff to a base
 // blob and commit the whole reconstructed result. A patch that cannot be applied
 // cleanly is a first-class, agent-visible CONFLICT (the agent re-submits a corrected
 // diff), never a silent failure. Reconstruction is byte-exact: the result digest must

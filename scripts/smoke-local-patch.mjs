@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-// End-to-end smoke for ADR 0087 Stage 4 intra-file patch reconstruction. Unlike the
+// End-to-end smoke for ADR 0088 Stage 4 intra-file patch reconstruction. Unlike the
 // unit/integration tests (which use a fake reconstructor), this drives the REAL path:
 // boots the local MVP server (real encryption ring + in-memory R2 that round-trips
 // ciphertext), publishes a base Revision with known bytes, then create-session with a

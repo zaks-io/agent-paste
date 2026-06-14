@@ -145,7 +145,7 @@ Rules:
   hex SHA-256 for each file. Legacy clients that omit it keep the full-upload
   revision-object path and do not participate in deduplication.
 - `base_revision_id`, `deleted_paths`, and per-file `patch` are the optional
-  commit-chain / partial-manifest inputs ([ADR 0087](../adr/0087-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md)).
+  commit-chain / partial-manifest inputs ([ADR 0088](../adr/0088-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md)).
   When `base_revision_id` is set, `files` lists only changed and added paths,
   `deleted_paths` drops paths, and every other path inherits from the base
   Revision by reference. A per-file `patch` (`{ base_sha256, format: "unified",

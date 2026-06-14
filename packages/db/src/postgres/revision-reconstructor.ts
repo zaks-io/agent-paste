@@ -8,7 +8,7 @@ import {
 } from "@agent-paste/storage";
 import { RevisionReconstructionConflict, type RevisionReconstructor } from "../types.js";
 
-// ADR 0087 Stage 4: builds the reconstructor that applies an agent-uploaded unified diff
+// ADR 0088 Stage 4: builds the reconstructor that applies an agent-uploaded unified diff
 // to a base blob and stores the whole result as an ordinary content-addressed blob,
 // SYNCHRONOUSLY at finalize and BEFORE the new Revision commits. A clean patch yields a
 // blob the rest of the system treats like any other; a patch that cannot apply throws an

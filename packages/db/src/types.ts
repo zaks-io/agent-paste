@@ -209,7 +209,7 @@ export type UploadSession = {
   expires_at: string;
   created_at: string;
   finalized_at: string | null;
-  // Base Revision this publish inherits from (ADR 0087); null = full manifest.
+  // Base Revision this publish inherits from (ADR 0088); null = full manifest.
   base_revision_id: string | null;
   // Base paths this publish drops (distinguishes deleted from inherited at finalize).
   deleted_paths: string[];
@@ -239,7 +239,7 @@ export type StoredFile = {
   storage_kind?: StoredFileStorageKind;
   uploaded_at: string | null;
   put_url_expires_at?: string;
-  // ADR 0087 intra-file delta descriptor (recorded on upload_session_files only).
+  // ADR 0088 intra-file delta descriptor (recorded on upload_session_files only).
   // Both null (whole-file upload) or both set; jobs reconstructs the result blob.
   patch_base_sha256?: string | null;
   patch_result_sha256?: string | null;
@@ -291,7 +291,7 @@ export type ReparentBlobMigrator = {
   migrate(input: { fromWorkspaceId: string; toWorkspaceId: string; blobs: readonly WorkspaceBlobRef[] }): Promise<void>;
 };
 
-// ADR 0087 Stage 4: a patched file in a partial-manifest publish uploads only a unified
+// ADR 0088 Stage 4: a patched file in a partial-manifest publish uploads only a unified
 // diff. Before the new Revision can commit, the diff is applied to the base blob and the
 // whole result stored as an ordinary content-addressed blob. The reconstructor takes
 // VALIDATED descriptors (base/result sha already checked against the base Revision's own
@@ -347,6 +347,6 @@ export type RepositoryOptions = {
   billingEnabled?: boolean;
   /** Copies workspace blob bytes into the destination tenant before claim reparent commits. */
   reparentBlobMigrator?: ReparentBlobMigrator;
-  /** Applies intra-file unified-diff patches to base blobs before a partial-manifest finalize commits (ADR 0087). */
+  /** Applies intra-file unified-diff patches to base blobs before a partial-manifest finalize commits (ADR 0088). */
   revisionReconstructor?: RevisionReconstructor;
 };
