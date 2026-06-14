@@ -55,12 +55,12 @@ export const CLI_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "A successful CLI publish prints `View`, the authenticated Artifact URL for the Workspace app. It does not print raw Artifact IDs, Revision IDs, `revision_content_url`, or `agent_view_url` in the default human-readable output.",
+          text: "A successful CLI publish leads with `View`, the authenticated Artifact URL for the Workspace app, then an `Update` line: the one command to revise this Artifact in place (`publish <path> --artifact-id art_...`). The `Update` line is the explicit revise handle on the human surface — Revision IDs, `revision_content_url`, and `agent_view_url` stay in the JSON output. Revising keeps the same link and live-updates pages already open; publishing again without the id makes a new Artifact on a new link.",
         },
         {
           kind: "code",
           language: "text",
-          code: '✓ Published "My Publication Title"\n\n  View      https://app.agent-paste.sh/artifacts/art_01H...\n  Expires   2026-06-20\n  Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached\n\n  → open https://app.agent-paste.sh/artifacts/art_01H...',
+          code: '✓ Published "My Publication Title"\n\n  View      https://app.agent-paste.sh/artifacts/art_01H...\n  Expires   2026-06-20\n  Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached\n\n  Update    npx @zaks-io/agent-paste publish ./report --artifact-id art_01H...\n            (revises this Artifact; same link live-updates the open page)\n\n  → open https://app.agent-paste.sh/artifacts/art_01H...',
         },
         {
           kind: "note",

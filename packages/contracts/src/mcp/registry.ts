@@ -29,7 +29,7 @@ export const mcpToolContracts = [
   {
     name: "publish_artifact",
     description:
-      "Publish a new text-only Artifact and get back viewer_url: the link to open it in a browser, which you hand to the user. Private by default (viewer_url is the authenticated owner-only link). Set share:true to share with other people; viewer_url is then the public link anyone can open. Artifact/Revision IDs and content URLs are available via the read/list/link tools.",
+      "Publish a NEW text-only Artifact: creates a new Artifact with its own viewer_url, the browser link you hand to the user. Use this only for something not yet published. To CHANGE something you already published, do NOT call this again — call add_revision with the existing artifact_id instead, so the user's open viewer_url live-updates in place. Re-publishing an edit here mints a different Artifact on a different link and strands the page the user already has open. Private by default (viewer_url is the authenticated owner-only link); set share:true and viewer_url becomes the public Share Link anyone can open. Keep the artifact_id from the response so you can revise later; IDs and content URLs are also available via the read/list/link tools.",
     auth: "mcp_oauth",
     requiredScopes: ["write", "read"],
     idempotency: "optional_override",
@@ -41,7 +41,7 @@ export const mcpToolContracts = [
   {
     name: "add_revision",
     description:
-      "Add and publish a text-only Revision to an existing Artifact and get back viewer_url: the link to open it. Private by default; set share:true to share with other people. A shared Artifact keeps one stable viewer_url that follows the latest Revision. Artifact/Revision IDs and content URLs are available via the read/list/link tools.",
+      "Edit/update an EXISTING Artifact: adds and publishes a new Revision under the artifact_id you pass. This is how you change something already published. The Artifact's viewer_url / Share Link is STABLE and already-open viewers LIVE-UPDATE to this new Revision — there is no new link to send. Use this, NOT publish_artifact, whenever the user wants to revise, fix, or extend work you already published; calling publish_artifact instead would create a separate Artifact on a new link and strand the page the user already has open. Get the artifact_id from the publish_artifact response or list_artifacts. Private by default; set share:true to share. IDs and content URLs are also available via the read/list/link tools.",
     auth: "mcp_oauth",
     requiredScopes: ["write", "read"],
     idempotency: "optional_override",

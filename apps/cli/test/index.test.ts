@@ -279,11 +279,13 @@ describe("cli command dispatch", () => {
       expect(finalize).toHaveBeenCalledWith(uploadSessionId, idempotencyKey);
       // No --share: the publish body is omitted (undefined), so the server does not mint a Share Link.
       expect(publish).toHaveBeenCalledWith(artifactId, revisionId, idempotencyKey, undefined);
-      // Human output defaults to the private/authenticated app View. Keep raw IDs
-      // and snapshot URLs out of the default path.
+      // Human output defaults to the private/authenticated app View, and surfaces
+      // the artifact id only as the --artifact-id revise handle (so the agent edits
+      // in place instead of republishing). The revision id and snapshot URLs stay
+      // on the JSON surface.
       const out = stdoutValues(stdout).join("");
       expect(out).toContain("https://app.test/artifacts/art_1");
-      expect(out).not.toContain(artifactId);
+      expect(out).toContain(`--artifact-id ${artifactId}`);
       expect(out).not.toContain(revisionId);
       expect(out).not.toContain("https://content.test/v/token/index.html");
       // Upload summary surfaces the count uploaded and that nothing was reused —

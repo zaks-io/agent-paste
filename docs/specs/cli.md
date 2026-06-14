@@ -77,6 +77,21 @@ and all tooling lives in `devDependencies`. Rich output is therefore hand-rolled
 ANSI in `apps/cli/src/render.ts` rather than a `chalk`/`ora`-style library, to
 keep the install small and the supply chain clean.
 
+## Publish human output
+
+Authenticated `publish` in `rich`/`plain` mode leads with the live **View** URL
+(`access_link_url` when shared, else `artifact_url`), then **Expires**, the upload
+summary, and an **Update** line:
+
+- **Update** — the channel-correct command to revise this Artifact in place
+  (`publish <path> --artifact-id <artifact_id>`). This is the human surface's only
+  explicit revise handle, and it is deliberate: it teaches the agent the revise verb
+  at the moment it holds the id, so an edit adds a Revision (stable link,
+  live-updates the open page) instead of republishing a new Artifact on a new link.
+  (The default private `View`/`→ open` URL is itself `/artifacts/<artifact_id>`, so
+  the id appears there too; the `Update` line is what spells out the revise command.)
+  The `revision_id` and snapshot content URLs stay on the JSON surface.
+
 ## Ephemeral publish human output
 
 `publish --ephemeral` uses the same JSON fields as authenticated publish plus
