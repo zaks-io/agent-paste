@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { spawn } from "node:child_process";
 // End-to-end smoke for ADR 0087 Stage 4 intra-file patch reconstruction. Unlike the
 // unit/integration tests (which use a fake reconstructor), this drives the REAL path:
 // boots the local MVP server (real encryption ring + in-memory R2 that round-trips
@@ -9,7 +10,6 @@
 // the served content asserting it is byte-identical to applying the patch locally. Also
 // asserts the conflict path: a diff whose result digest is wrong fails with patch_conflict.
 import { createHash } from "node:crypto";
-import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
@@ -17,22 +17,50 @@ import { waitForHarnessHealth } from "./lib/smoke-port.mjs";
 import { provisionSmokeWorkspace, smokeHarnessSecretFromEnv, waitForHealthz } from "./smoke-harness.mjs";
 
 const root = new URL("..", import.meta.url);
-// Default target is the local MVP harness; pass `preview` to run against hosted preview.
+// Targets: `local` (in-memory MVP harness, default), `preview` (persistent preview env),
+// `pr` (per-PR ephemeral preview deploy). Hosted targets mirror scripts/smoke-hosted.mjs
+// env resolution so CI can reuse the same secrets.
 const target = (process.argv[2] ?? "local").toLowerCase();
 const isLocal = target === "local";
 const apiPort = intEnv("AGENT_PASTE_LOCAL_API_PORT", 8787);
 const uploadPort = intEnv("AGENT_PASTE_LOCAL_UPLOAD_PORT", 8788);
 const contentPort = intEnv("AGENT_PASTE_LOCAL_CONTENT_PORT", 8789);
 const jobsPort = intEnv("AGENT_PASTE_LOCAL_JOBS_PORT", 8790);
-const apiBaseUrl = isLocal
-  ? `http://127.0.0.1:${apiPort}`
-  : env("AGENT_PASTE_PREVIEW_API_URL", "https://agent-paste-api-preview.isaac-a46.workers.dev");
-const uploadBaseUrl = isLocal
-  ? `http://127.0.0.1:${uploadPort}`
-  : env("AGENT_PASTE_PREVIEW_UPLOAD_URL", "https://agent-paste-upload-preview.isaac-a46.workers.dev");
+const hosted = hostedConfig(target);
+const apiBaseUrl = isLocal ? `http://127.0.0.1:${apiPort}` : hosted.apiBaseUrl;
+const uploadBaseUrl = isLocal ? `http://127.0.0.1:${uploadPort}` : hosted.uploadBaseUrl;
 const jobsBaseUrl = isLocal ? `http://127.0.0.1:${jobsPort}` : "";
 const harnessSecret = smokeHarnessSecretFromEnv();
 const serverEntry = fileURLToPath(new URL("./local-mvp-server.mjs", import.meta.url));
+
+function hostedConfig(name) {
+  if (name === "local") {
+    return { apiBaseUrl: "", uploadBaseUrl: "", harnessSecret: "" };
+  }
+  if (name === "preview") {
+    return {
+      apiBaseUrl: env("AGENT_PASTE_PREVIEW_API_URL", "https://agent-paste-api-preview.isaac-a46.workers.dev"),
+      uploadBaseUrl: env("AGENT_PASTE_PREVIEW_UPLOAD_URL", "https://agent-paste-upload-preview.isaac-a46.workers.dev"),
+      harnessSecret: env("AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET", env("AGENT_PASTE_SMOKE_HARNESS_SECRET", "")),
+    };
+  }
+  if (name === "pr") {
+    return {
+      apiBaseUrl: requiredEnv("AGENT_PASTE_PR_API_URL"),
+      uploadBaseUrl: requiredEnv("AGENT_PASTE_PR_UPLOAD_URL"),
+      harnessSecret: env("AGENT_PASTE_PR_SMOKE_HARNESS_SECRET", env("AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET", "")),
+    };
+  }
+  throw new Error(`unknown target "${name}" (expected local, preview, or pr)`);
+}
+
+function requiredEnv(name) {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`missing required env ${name} for target ${target}`);
+  }
+  return value;
+}
 
 const sha256Hex = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const enc = new TextEncoder();
@@ -170,16 +198,17 @@ function env(name, fallback) {
 }
 
 // Mirror scripts/smoke-hosted.mjs credential resolution: a preprovisioned key wins;
-// otherwise provision via the harness secret (the PREVIEW_-prefixed one against preview,
-// the local default against the harness).
+// otherwise provision via the target's harness secret (local default for the harness,
+// the per-env harness secret for preview/pr).
 async function resolveApiKey() {
   const preprovisioned = env("AGENT_PASTE_SMOKE_API_KEY", "");
   if (preprovisioned) {
     return preprovisioned;
   }
-  const secret = isLocal
-    ? harnessSecret
-    : env("AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET", env("AGENT_PASTE_SMOKE_HARNESS_SECRET", harnessSecret));
+  const secret = isLocal ? harnessSecret : hosted.harnessSecret;
+  if (!secret) {
+    throw new Error(`no API key or harness secret available for target ${target}`);
+  }
   const provisioned = await provisionSmokeWorkspace(apiBaseUrl, {
     email: `patch-${Date.now()}@example.test`,
     name: "Patch Smoke",
