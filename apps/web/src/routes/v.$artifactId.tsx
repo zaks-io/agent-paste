@@ -4,7 +4,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { ArtifactLiveViewer, useLastGoodArtifact } from "../components/artifacts/ArtifactLiveViewer";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { artifactQuery } from "../lib/queries";
+import { artifactQuery, webSessionQuery } from "../lib/queries";
 import { loadAuthedSessionFn } from "../rpc/web-loaders";
 
 /**
@@ -21,6 +21,12 @@ export const Route = createFileRoute("/v/$artifactId")({
     if ("redirectTo" in session) {
       return { redirectTo: session.redirectTo as string };
     }
+    // Provision the workspace member before the artifact read. Unlike `_authed`
+    // routes (which provision off the critical path in their shell), `/v` is a
+    // standalone handoff link: a brand-new user signing in directly here has a
+    // valid token but no member row yet, so without this the owner-scoped artifact
+    // read would miss and show the empty state on first login.
+    await context.queryClient.ensureQueryData(webSessionQuery());
     await context.queryClient.ensureQueryData(artifactQuery(params.artifactId));
     return { redirectTo: null };
   },

@@ -517,6 +517,36 @@ describe("callMcpTool", () => {
     await expect(mintRequest.text()).resolves.toBe("");
   });
 
+  it("does not retry create_revision_link on mint failure (revision links would duplicate)", async () => {
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const api = apiMock(
+      ["read", "publish"],
+      // Create succeeds.
+      Response.json({
+        id: "al_rev_first",
+        type: "revision",
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        created_at: "2026-01-01T00:00:00.000Z",
+      }),
+      // Mint fails.
+      Response.json({ error: { code: "not_found", message: "not_found" } }, { status: 404 }),
+    );
+    const result = await callMcpTool(
+      "create_revision_link",
+      { artifact_id: artifactId, revision_id: revisionId },
+      auth,
+      { api, upload, bearerToken: "token-share", jsonRpcId: 11 },
+    );
+    expect(result.ok).toBe(false);
+    // Exactly one create + one mint: no salted-key retry that would insert a duplicate revision link.
+    const createCalls = api.fetch.mock.calls
+      .map((call) => call[0] as Request)
+      .filter((request) => request.method === "POST" && request.url.endsWith("/access-links"));
+    expect(createCalls).toHaveLength(1);
+  });
+
   it("lists and revokes access links", async () => {
     const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
     const linkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";

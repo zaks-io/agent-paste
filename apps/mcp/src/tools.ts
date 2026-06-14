@@ -334,14 +334,16 @@ async function createAndMintAccessLink(
 ): Promise<McpToolResult> {
   const idempotencyKey = resolveIdempotencyKey(input.toolName, input.toolArgs, auth, deps);
   const first = await createThenMint(input, idempotencyKey, deps);
-  if (first.ok) {
+  if (first.ok || input.createBody.type !== "share") {
+    // Only share links get the salted retry. A reused idempotency key can replay a
+    // create whose link was revoked since (make_public, revoke_access_link,
+    // make_public again with the same key), leaving mint pointed at a dead link.
+    // Retrying on a salted key re-runs the create, which reuses the artifact's one
+    // active share link or mints a new one — idempotent, no duplicate. Revision
+    // links do NOT dedupe on create, so a blind retry there would insert a second
+    // link for the same revision; they return the original failure instead.
     return first;
   }
-  // A reused idempotency key can replay a create whose link was revoked since
-  // (e.g. make_public, revoke_access_link, make_public again with the same key),
-  // leaving mint pointed at a dead link. Retry once on a salted key so the create
-  // runs fresh and (for share links) reuses the artifact's active link or mints a
-  // new one. Self-heals without parsing error codes; the happy path never retries.
   return createThenMint(input, `${idempotencyKey}:r` as IdempotencyKey, deps);
 }
 
