@@ -18,6 +18,7 @@ vi.mock("../src/server/api-client", () => ({
 
 vi.mock("../src/server/runtime", () => ({
   getWebEnv: () => ({ WEB_BASE_URL: "https://app.test" }),
+  getRequestHeaderValue: () => undefined,
 }));
 
 import { listAccessLinks, listArtifactAccessLinks, listArtifactRevisions } from "../src/server/web-loaders";

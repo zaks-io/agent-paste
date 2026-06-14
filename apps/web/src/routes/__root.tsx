@@ -30,7 +30,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   }),
   loader: async (): Promise<RootLoaderData> => {
     const env = await loadRootEnvFn();
-    return { webBaseUrl: env.webBaseUrl, sentry: env.sentry, analyticsToken: env.analyticsToken };
+    return {
+      webBaseUrl: env.webBaseUrl,
+      sentry: env.sentry,
+      analyticsToken: env.analyticsToken,
+      optionalAnalyticsDisabled: env.optionalAnalyticsDisabled,
+    };
   },
   errorComponent: ({ error }) => <RootError error={error} />,
   notFoundComponent: NotFound,

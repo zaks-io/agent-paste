@@ -19,6 +19,7 @@
     "typegen": "wrangler types --config wrangler.jsonc --env preview"
   },
   "dependencies": {
+    "@agent-paste/brand": "workspace:*",
     "@agent-paste/contracts": "workspace:*",
     "@agent-paste/plans": "workspace:*",
     "@agent-paste/worker-runtime": "workspace:*",

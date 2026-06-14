@@ -14,13 +14,14 @@ The `web` Worker uses TanStack Start and serves `app.agent-paste.sh`. It owns no
 | `/api/auth/sign-in`       | none             | Start WorkOS AuthKit Authorization Code + PKCE login.                                               |
 | `/api/auth/sign-out`      | session          | Clear the AuthKit session through POST-only sign-out.                                               |
 | `/api/auth/callback`      | none             | Complete WorkOS AuthKit Authorization Code + PKCE flow and establish the session.                   |
+| `/.well-known/gpc.json`   | none             | Declare Global Privacy Control support for optional web analytics.                                  |
 | `/al/{publicId}`          | none             | Artifact Viewer opened by an Access Link. Reads fragment and calls `POST /v1/access-links/resolve`. |
 | `/dashboard`              | dashboard member | Workspace overview.                                                                                 |
 | `/artifacts`              | dashboard member | Artifact list.                                                                                      |
 | `/artifacts/{artifactId}` | dashboard member | Authenticated Artifact detail and management: revisions, links, warnings, bundle state.             |
 | `/keys`                   | dashboard member | Credential list, reveal-once creation flow, and revocation.                                         |
 | `/audit`                  | dashboard member | Audit Event list.                                                                                   |
-| `/settings`               | dashboard member | Workspace name and Auto Deletion setting.                                                           |
+| `/settings`               | dashboard member | Workspace name, Auto Deletion setting, and optional web analytics preference.                       |
 | `/admin`                  | operator         | Operator-only dashboard.                                                                            |
 
 `/al/*` must not import WorkOS/AuthKit session modules. A lint rule should enforce this.
@@ -147,6 +148,16 @@ Fields:
   contract accepts the platform syntactic ceiling of 90 and repository policy
   enforces the effective per-workspace bound.
 - Read-only Usage Policy caps.
+- Privacy choices card for optional Cloudflare Web Analytics:
+  - `Sec-GPC: 1` disables the beacon.
+  - `DNT: 1` disables the beacon as a courtesy.
+  - `agp_analytics=off` disables the beacon for this browser.
+  - `agp_analytics=on` re-enables the beacon only when no browser-level GPC/DNT
+    signal is active.
+  - The preference does not disable authentication/session cookies, theme
+    preference, security logs, abuse-prevention records, billing records, audit
+    events, Sentry error monitoring, or Artifact publish/read telemetry needed
+    to operate the service.
 
 ## Artifact Viewer
 

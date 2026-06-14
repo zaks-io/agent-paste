@@ -3,7 +3,7 @@
 Two product-analytics surfaces, both on Cloudflare:
 
 1. **Workers Analytics Engine** — custom `publish` and `read` events on artifacts, written from the `api` and `content` Workers. This is application/product telemetry, distinct from the infra logs/traces that flow to Axiom via [Logpush](./runbook-logpush.md).
-2. **Cloudflare Web Analytics** — a cookieless RUM beacon on the human web app (`apps/web`).
+2. **Cloudflare Web Analytics** — a cookieless RUM beacon on the human web app (`apps/web`) and apex marketing site (`apps/apex`).
 
 ## 1. Workers Analytics Engine (artifact events)
 
@@ -71,18 +71,28 @@ GROUP BY tier
 
 ### Wiring (already in the repo)
 
-- Component: `apps/web/src/components/web-analytics-beacon.tsx`. Server-renders the official `static.cloudflareinsights.com/beacon.min.js` tag into `<head>`, only when a token is present.
-- Token flows `CF_WEB_ANALYTICS_TOKEN` (wrangler var) → `WebEnv` → `loadRootEnv` → root route loader → `RootDocument`.
-- Production token is set in `apps/web/wrangler.jsonc` (`production.vars`). The token is **public** by design (it ships in the HTML), so committing it as a var is correct — it is not a secret.
+- Dashboard helper: `apps/web/src/lib/analytics-scripts.ts`. The root loader passes the token only when optional analytics are allowed, then TanStack renders the official `static.cloudflareinsights.com/beacon.min.js` tag into `<head>`.
+- Apex helper: `apps/apex/src/app/Shell.tsx`. The prerendered static HTML includes the beacon when a token is present; `apps/apex/src/server.ts` strips that beacon from opted-out HTML responses with `HTMLRewriter`.
+- Token flows from `CF_WEB_ANALYTICS_TOKEN` (wrangler var). Production tokens are set in `apps/web/wrangler.jsonc` and `apps/apex/wrangler.jsonc`. The token is public by design (it ships in the HTML), so committing it as a var is correct; it is not a secret.
 - `dev` and `preview` set the token to `""`, so the beacon renders nothing outside production.
+
+### Privacy preferences
+
+- `Sec-GPC: 1` disables optional Cloudflare Web Analytics.
+- `DNT: 1` also disables optional Cloudflare Web Analytics as a courtesy, even though DNT is deprecated.
+- `agp_analytics=off` is the first-party, shared site preference cookie. It is scoped like `agp_theme`, so a choice on `agent-paste.sh` applies to `app.agent-paste.sh` and preview subdomains.
+- `agp_analytics=on` re-enables optional web analytics only when no browser-level GPC/DNT signal is active.
+- Both apex and web serve `/.well-known/gpc.json` with `{ "gpc": true, "lastUpdate": "2026-06-14" }`.
+- The preference controls only the optional Cloudflare Web Analytics beacon. It does not disable authentication/session cookies, theme preference cookies, security logs, abuse-prevention records, billing records, audit events, Sentry error monitoring, or Artifact publish/read telemetry in Workers Analytics Engine.
 
 ### No Subresource Integrity (deliberate)
 
 The beacon tag has no `integrity`/`crossorigin`. Cloudflare ships `beacon.min.js` unversioned and updates it in place; a pinned SRI hash would break the beacon the moment they push an update. The script is Cloudflare's first-party CDN (same trust boundary as the Workers), and this is the exact embed the CF dashboard generates. Adding SRI here would be a self-inflicted outage, not a hardening.
 
-### No CSP change needed
+### CSP
 
-The main web app responses have no Content-Security-Policy (only the access-link viewer/proxy paths in `apps/web/src/security-headers.ts` set a CSP, and the beacon does not render on those). If a global CSP is ever added, allow `static.cloudflareinsights.com` in `script-src` and `cloudflareinsights.com` in `connect-src`.
+- `apps/web` uses a nonce-based strict CSP. The beacon is declared through TanStack `head().scripts` so `<HeadContent>` stamps the nonce.
+- `apps/apex` allows `https://static.cloudflareinsights.com` in `script-src` and `https://cloudflareinsights.com` in `connect-src`.
 
 ### Rotating / changing the site
 

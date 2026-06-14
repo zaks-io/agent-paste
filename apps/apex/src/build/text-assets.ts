@@ -1,3 +1,4 @@
+import { GPC_SUPPORT_BODY, GPC_SUPPORT_PATH } from "@agent-paste/brand";
 import { AGENTS_MD } from "../agents";
 import { renderDocsIndexMarkdown, renderDocsPageMarkdown, renderLlmsFullText } from "../docs/markdown";
 import { DOCS_PAGES, docsHtmlPath, docsMarkdownPath } from "../docs/registry";
@@ -8,6 +9,7 @@ import { renderLlmsTxt } from "../llms";
 const TEXT_PLAIN = "text/plain; charset=utf-8";
 const TEXT_MARKDOWN = "text/markdown; charset=utf-8";
 const TEXT_XML = "application/xml; charset=utf-8";
+const APPLICATION_JSON = "application/json; charset=utf-8";
 const TEXT_SHELL = "text/x-shellscript; charset=utf-8";
 
 export type TextAsset = { path: string; contentType: string; body: string };
@@ -26,6 +28,7 @@ export function textAssets(opts: { origin: string; billingEnabled: boolean }): T
     { path: "/install.sh", contentType: TEXT_SHELL, body: INSTALL_SH },
     { path: "/install.ps1", contentType: TEXT_PLAIN, body: INSTALL_PS1 },
     { path: "/robots.txt", contentType: TEXT_PLAIN, body: robotsTxt(opts.origin) },
+    { path: GPC_SUPPORT_PATH, contentType: APPLICATION_JSON, body: GPC_SUPPORT_BODY },
     { path: "/.well-known/security.txt", contentType: TEXT_PLAIN, body: securityTxt() },
     { path: "/sitemap.xml", contentType: TEXT_XML, body: sitemapXml(opts.origin, opts.billingEnabled) },
   ];
