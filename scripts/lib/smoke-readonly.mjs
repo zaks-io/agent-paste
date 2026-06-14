@@ -124,6 +124,11 @@ export async function assertApexServes(c) {
   assert(agents.headers.get("content-type")?.includes("text/markdown"), "apex /agents.md is text/markdown");
   assert(!agents.headers.get("set-cookie"), "apex /agents.md does not set cookies");
 
+  const gpc = await fetch(`${c.apexBaseUrl}/.well-known/gpc.json`, { redirect: "manual" });
+  assert(gpc.status === 200, `apex /.well-known/gpc.json returned ${gpc.status}`);
+  assert(gpc.headers.get("content-type")?.includes("application/json"), "apex /.well-known/gpc.json is JSON");
+  assert(!gpc.headers.get("set-cookie"), "apex /.well-known/gpc.json does not set cookies");
+
   const redirect = await fetch(`${c.apexBaseUrl}/dashboard`, { redirect: "manual" });
   assert(redirect.status === 308, `apex /dashboard returned ${redirect.status} (expected 308)`);
   assert(!redirect.headers.get("set-cookie"), "apex /dashboard does not set cookies");

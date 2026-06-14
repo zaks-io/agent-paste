@@ -71,6 +71,11 @@ describe("apex shell", () => {
   it("omits the beacon when no analytics token is configured", () => {
     expect(html).not.toContain("cloudflareinsights.com");
   });
+
+  it("renders the optional analytics preference control", () => {
+    expect(html).toContain('id="analytics-toggle"');
+    expect(html).toContain("Analytics on");
+  });
 });
 
 describe("home page", () => {
@@ -107,6 +112,7 @@ describe("home page", () => {
     expect(body).toContain('href="https://app.agent-paste.sh/api/auth/sign-in"');
     expect(body).toContain('href="/terms"');
     expect(body).toContain('href="/privacy"');
+    expect(body).toContain('href="/privacy#your-choices"');
     expect(body).toContain('href="/privacy#data-storage-and-protection"');
     expect(body).toContain('href="/llms-full.txt"');
     expect(body).toContain('href="https://github.com/zaks-io/agent-paste"');

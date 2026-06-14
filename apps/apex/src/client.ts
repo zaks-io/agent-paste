@@ -10,7 +10,15 @@
 // (the SAME source the dashboard's React toggle uses), so the two headers cannot
 // drift. Vite bundles these imports into the static client chunk; nothing ships
 // to the marketing page beyond this one script.
-import { buildThemeCookie, NEXT_THEME, readThemeCookie, THEME_ICON, type ThemeState } from "@agent-paste/ui";
+import {
+  buildOptionalAnalyticsCookie,
+  buildThemeCookie,
+  NEXT_THEME,
+  readOptionalAnalyticsCookie,
+  readThemeCookie,
+  THEME_ICON,
+  type ThemeState,
+} from "@agent-paste/ui";
 
 // Sticky-state toggle for the shared topbar.
 (() => {
@@ -48,6 +56,38 @@ import { buildThemeCookie, NEXT_THEME, readThemeCookie, THEME_ICON, type ThemeSt
       document.cookie = buildThemeCookie(next, location.hostname, location.protocol === "https:");
     } catch {}
     paint(next);
+  });
+})();
+
+// Optional analytics preference. Browser-level GPC/DNT signals win; otherwise the
+// shared first-party preference cookie controls whether the CF Web Analytics
+// beacon is rendered on the next response.
+(() => {
+  const toggle = document.getElementById("analytics-toggle") as HTMLButtonElement | null;
+  if (!toggle) return;
+
+  const browserSignalActive = () =>
+    (navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl === true ||
+    navigator.doNotTrack === "1";
+  const sitePreference = () => readOptionalAnalyticsCookie(document.cookie);
+  const analyticsOff = () => browserSignalActive() || sitePreference() === "off";
+  const paint = () => {
+    const off = analyticsOff();
+    const browserSignal = browserSignalActive();
+    toggle.textContent = off ? "Analytics off" : "Analytics on";
+    toggle.setAttribute("aria-pressed", String(off));
+    toggle.disabled = browserSignal;
+    toggle.title = browserSignal ? "Browser privacy signal active" : "Toggle optional analytics";
+  };
+
+  paint();
+  toggle.addEventListener("click", () => {
+    const next = analyticsOff() ? "on" : "off";
+    try {
+      // biome-ignore lint/suspicious/noDocumentCookie: preference must be readable by the next SSR request on both public surfaces.
+      document.cookie = buildOptionalAnalyticsCookie(next, location.hostname, location.protocol === "https:");
+    } catch {}
+    location.reload();
   });
 })();
 

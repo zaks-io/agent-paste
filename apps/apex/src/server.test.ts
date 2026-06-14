@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { DOCS_PAGES, docsMarkdownPath } from "./docs/registry";
 import { type Env, handleRequest } from "./server";
 
@@ -21,6 +21,9 @@ const notFoundAssets = {
     return new Response("nope", { status: 404 });
   },
 };
+
+const htmlRewriterGlobal = globalThis as typeof globalThis & { HTMLRewriter?: unknown };
+const originalHtmlRewriter = htmlRewriterGlobal.HTMLRewriter;
 
 function env(extra: Partial<Env> = {}): Env {
   return { ASSETS: okHtmlAssets, ...extra };
@@ -143,6 +146,13 @@ describe("text and data assets", () => {
     expect(body).toContain("Preferred-Languages: en");
     expect(body).toContain("Canonical: https://agent-paste.sh/.well-known/security.txt");
     expect(body).toContain("Expires: 2027-06-12T00:00:00Z");
+  });
+
+  it("serves /.well-known/gpc.json with the GPC support declaration", async () => {
+    const response = await get("/.well-known/gpc.json");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
+    await expect(response.json()).resolves.toEqual({ gpc: true, lastUpdate: "2026-06-14" });
   });
 
   it("serves /sitemap.xml with the public URL set", async () => {
@@ -276,6 +286,27 @@ describe("ASSETS delegation and 404", () => {
     expect(await response.text()).toBe("");
   });
 
+  it("strips the analytics beacon from opted-out HTML asset responses", async () => {
+    installTestHtmlRewriter();
+    const response = await handleRequest(
+      new Request(`${APEX}/`, { headers: { "sec-gpc": "1" } }),
+      env({
+        ASSETS: {
+          async fetch() {
+            return new Response(
+              '<!doctype html><script defer src="https://static.cloudflareinsights.com/beacon.min.js"></script><main>ok</main>',
+              { status: 200, headers: { "content-type": "text/html; charset=utf-8" } },
+            );
+          },
+        },
+      }),
+    );
+
+    const body = await response.text();
+    expect(body).not.toContain("static.cloudflareinsights.com/beacon.min.js");
+    expect(body).toContain("<main>ok</main>");
+  });
+
   it("404s unknown paths and still stamps security headers", async () => {
     const response = await get("/no-such-page", { ASSETS: notFoundAssets });
     expect(response.status).toBe(404);
@@ -299,6 +330,38 @@ describe("ASSETS delegation and 404", () => {
   });
 });
 
+afterEach(() => {
+  Object.defineProperty(htmlRewriterGlobal, "HTMLRewriter", { value: originalHtmlRewriter, configurable: true });
+});
+
+function installTestHtmlRewriter() {
+  class TestHtmlRewriter {
+    on() {
+      return this;
+    }
+
+    transform(response: Response): Response {
+      const stream = new ReadableStream({
+        async start(controller) {
+          const text = await response.text();
+          controller.enqueue(
+            new TextEncoder().encode(
+              text.replace(
+                /<script[^>]+src="https:\/\/static\.cloudflareinsights\.com\/beacon\.min\.js"[^>]*><\/script>/g,
+                "",
+              ),
+            ),
+          );
+          controller.close();
+        },
+      });
+      return new Response(stream, response);
+    }
+  }
+
+  Object.defineProperty(htmlRewriterGlobal, "HTMLRewriter", { value: TestHtmlRewriter, configurable: true });
+}
+
 it("never sets cookies on any apex response", async () => {
   const paths = [
     "/",
@@ -315,6 +378,7 @@ it("never sets cookies on any apex response", async () => {
     "/install.sh",
     "/install.ps1",
     "/robots.txt",
+    "/.well-known/gpc.json",
     "/.well-known/security.txt",
     "/sitemap.xml",
     "/dashboard",
