@@ -144,7 +144,7 @@ export function assertNoClaimTokenLeakage(published, stderrOutput) {
   assertBoundary(claimToken?.startsWith("ap_ct_"), "publish", "JSON output includes Claim Token");
   assertBoundary(published.claim_url?.includes(`#${claimToken}`), "publish", "claim_url carries token in URL hash");
   assertBoundary(!published.claim_url?.includes("?"), "publish", "claim_url does not use query string");
-  assertBoundary(!published.artifact_url?.includes(claimToken), "publish", "artifact_url does not embed Claim Token");
+  assertBoundary(!published.viewer_url?.includes(claimToken), "publish", "viewer_url does not embed Claim Token");
   assertBoundary(
     !published.revision_content_url?.includes(claimToken),
     "publish",
@@ -166,7 +166,7 @@ export async function assertPublishOutput(
 ) {
   assertBoundary(published.artifact_id?.startsWith("art_"), "publish", "artifact_id returned");
   assertBoundary(published.revision_id?.startsWith("rev_"), "publish", "revision_id returned");
-  const artifactUrl = parseSmokeUrl(published.artifact_url, "publish", "artifact_url is a valid URL");
+  const viewerUrl = parseSmokeUrl(published.viewer_url, "publish", "viewer_url is a valid URL");
   const revisionContentUrl = parseSmokeUrl(
     published.revision_content_url,
     "content",
@@ -175,12 +175,12 @@ export async function assertPublishOutput(
   const agentViewUrl = parseSmokeUrl(published.agent_view_url, "content", "agent_view_url is a valid URL");
   if (webBaseUrl) {
     const webUrl = parseSmokeUrl(webBaseUrl, "publish", "webBaseUrl is a valid URL");
-    assertBoundary(artifactUrl.origin === webUrl.origin, "publish", "artifact_url targets web origin");
+    assertBoundary(viewerUrl.origin === webUrl.origin, "publish", "viewer_url targets web origin");
   }
   assertBoundary(
-    artifactUrl.pathname === `/artifacts/${published.artifact_id}`,
+    viewerUrl.pathname === `/artifacts/${published.artifact_id}`,
     "publish",
-    "artifact_url targets Artifact viewer",
+    "viewer_url targets Artifact viewer",
   );
   const contentUrl = parseSmokeUrl(contentBaseUrl, "content", "contentBaseUrl is a valid URL");
   assertBoundary(
