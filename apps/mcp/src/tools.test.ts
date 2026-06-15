@@ -9,6 +9,10 @@ const ARTIFACT_ID = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const REVISION_ID = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const UPLOAD_SESSION_ID = "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 
+function accessLinkId(index: number) {
+  return `al_${String(index).padStart(26, "0")}`;
+}
+
 /**
  * An upload binding that answers the publish sequence: uploadSessions.create
  * (one upload_required file) then uploadSessions.finalize. The PUT itself goes
@@ -616,6 +620,44 @@ describe("callMcpTool", () => {
     expect(routeCall(api, 1).url).toBe(`https://agent-paste.internal/v1/artifacts/${artifactId}/access-links`);
     expect(routeCall(api, 2).url).toBe(`https://agent-paste.internal/v1/access-links/${shareLinkId}/revoke`);
     expect(routeCall(api, 3).url).toBe(`https://agent-paste.internal/v1/access-links/${revisionLinkId}/revoke`);
+  });
+
+  it("set_visibility private revokes more than 100 active access links", async () => {
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const activeLinks = Array.from({ length: 101 }, (_, index) => ({
+      id: accessLinkId(index),
+      type: "share",
+      artifact_id: artifactId,
+      revision_id: null,
+      created_at: "2026-01-01T00:00:00.000Z",
+      expires_at: null,
+      revoked_at: null,
+    }));
+    const api = apiMock(
+      ["read", "publish"],
+      Response.json(baseAgentView({ artifact_id: artifactId, private_url: "https://app.example/v/private" })),
+      Response.json({ artifact_id: artifactId, items: activeLinks }),
+      ...activeLinks.map((link) => Response.json({ access_link_id: link.id, revoked_at: "2026-01-01T00:00:04.000Z" })),
+    );
+
+    const result = await callMcpTool("set_visibility", { artifact_id: artifactId, visibility: "private" }, auth, {
+      api,
+      upload,
+      bearerToken: "token-share",
+      jsonRpcId: 12,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      result: {
+        artifact_id: artifactId,
+        visibility: "private",
+        private_url: "https://app.example/v/private",
+        revoked_access_link_ids: activeLinks.map((link) => link.id),
+      },
+    });
+    expect(routeCall(api, 2).url).toBe(`https://agent-paste.internal/v1/access-links/${activeLinks[0].id}/revoke`);
+    expect(routeCall(api, 102).url).toBe(`https://agent-paste.internal/v1/access-links/${activeLinks[100].id}/revoke`);
   });
 
   it("set_visibility rejects unsupported visibility values before forwarding", async () => {

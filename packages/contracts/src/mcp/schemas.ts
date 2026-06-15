@@ -207,7 +207,7 @@ export const McpSetVisibilityPrivateOutput = z
     artifact_id: ArtifactId,
     visibility: z.literal("private"),
     private_url: UrlString,
-    revoked_access_link_ids: z.array(AccessLinkId).max(100),
+    revoked_access_link_ids: z.array(AccessLinkId),
   })
   .strict();
 export type McpSetVisibilityPrivateOutput = z.infer<typeof McpSetVisibilityPrivateOutput>;
@@ -247,7 +247,7 @@ export type McpAccessLinkRow = z.infer<typeof McpAccessLinkRow>;
 export const McpListAccessLinksOutput = z
   .object({
     artifact_id: ArtifactId,
-    items: z.array(McpAccessLinkRow).max(100),
+    items: z.array(McpAccessLinkRow),
   })
   .strict();
 export type McpListAccessLinksOutput = z.infer<typeof McpListAccessLinksOutput>;

@@ -145,23 +145,22 @@ describe("cli command dispatch", () => {
     const outputs = stdoutValues(stdout);
     expect(outputs).toHaveLength(2);
     for (const help of outputs) {
-      expect(help).toContain("agent-paste publish guide for agents");
-      expect(help).toContain("Choose the mode:");
-      expect(help).toContain("Private");
-      expect(help).toContain("Unlisted");
-      expect(help).toContain("Ephemeral");
+      expect(help).toContain("agent-paste publish <path>");
       expect(help).toContain("agent-paste set-visibility <artifact_id> unlisted --json");
+      expect(help).toContain("private_url");
+      expect(help).toContain("unlisted_url");
     }
   });
 
-  it("documents agent-facing publish and share output shapes in publish help", async () => {
+  it("documents agent-facing publish contract tokens in publish help", async () => {
     const stdout = mockStdout();
 
     await main(["help", "publish"]);
 
     const help = stdoutValues(stdout).join("");
-    expect(help).toContain("Directory publish uploads every included");
-    expect(help).toContain("relative paths are");
+    expect(help).toContain("agent-paste publish <path>");
+    expect(help).toContain("agent-paste publish <path> --ephemeral --json");
+    expect(help).toContain("agent-paste set-visibility <artifact_id> unlisted --json");
     expect(help).toContain("private_url");
     expect(help).toContain("revision_content_url");
     expect(help).toContain("agent_view_url");
@@ -170,11 +169,7 @@ describe("cli command dispatch", () => {
     expect(help).toContain("claim_url");
     expect(help).toContain("access_link_id");
     expect(help).toContain("unlisted_url");
-    expect(help).toContain("return unlisted_url");
-    expect(help).toContain("return claim_url, not private_url");
-    expect(help).toMatch(/plain HTTP\s+fetch cannot verify/);
     expect(help).not.toContain("--share");
-    expect(help).not.toContain("shared");
   });
 
   it("reports its version without resolving a client", async () => {

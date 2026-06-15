@@ -5,9 +5,11 @@ import {
   deriveMcpIdempotencyKey,
   MCP_API_ERROR_HTTP_STATUS,
   McpAddRevisionInput,
+  McpListAccessLinksOutput,
   McpMultiEditInput,
   McpPublishArtifactInput,
   McpSetVisibilityInput,
+  McpSetVisibilityOutput,
   McpToolName,
   McpUpdateDisplayMetadataInput,
   mapApiErrorToMcp,
@@ -97,6 +99,30 @@ describe("MCP tool registry", () => {
         visibility: "public",
       }).success,
     ).toBe(false);
+  });
+
+  it("allows set_visibility private to report every revoked access link", () => {
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const accessLinkIds = Array.from({ length: 101 }, (_, index) => `al_${String(index).padStart(26, "0")}`);
+    const accessLinkRows = accessLinkIds.map((id) => ({
+      id,
+      type: "share",
+      artifact_id: artifactId,
+      revision_id: null,
+      created_at: "2026-01-01T00:00:00.000Z",
+      expires_at: null,
+      revoked_at: null,
+    }));
+
+    expect(McpListAccessLinksOutput.safeParse({ artifact_id: artifactId, items: accessLinkRows }).success).toBe(true);
+    expect(
+      McpSetVisibilityOutput.safeParse({
+        artifact_id: artifactId,
+        visibility: "private",
+        private_url: "https://app.example/v/art_1",
+        revoked_access_link_ids: accessLinkIds,
+      }).success,
+    ).toBe(true);
   });
 
   it("requires publish and read for publish tools", () => {
