@@ -1,6 +1,7 @@
 import { SectionLabel } from "@agent-paste/ui";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { PrivacyChoices } from "../components/settings/PrivacyChoices";
 import { SettingsForm } from "../components/settings/SettingsForm";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
@@ -29,6 +30,7 @@ function SettingsPage() {
       ) : (
         <div className="grid gap-10">
           <SettingsForm settings={settings} />
+          <PrivacyChoices />
           <section>
             <SectionLabel className="mb-4">Usage policy</SectionLabel>
             <dl className="border-t border-rule">

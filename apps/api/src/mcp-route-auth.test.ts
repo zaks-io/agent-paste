@@ -73,7 +73,7 @@ describe("API MCP route-boundary auth", () => {
       await expect(response.json()).resolves.toMatchObject({
         workspace_member: { id: memberActor.id, email: memberActor.email },
         workspace: { id: workspaceId, name: "MCP Workspace" },
-        scopes: ["write", "read", "share"],
+        scopes: ["read", "publish", "admin"],
       });
     });
 

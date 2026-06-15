@@ -1,8 +1,13 @@
 /** OAuth resource indicator for MCP-issued tokens (ADR 0061). */
 export const MCP_RESOURCE_INDICATOR = "https://mcp.agent-paste.sh/" as const;
 
-/** The MCP capability vocabulary; a member's granted subset is derived in `api` from their role (ADR 0079). */
-export const MCP_DELEGATED_SCOPES = ["write", "read", "share"] as const;
+/**
+ * The MCP capability vocabulary. It is the SAME set as the API `Scope` enum
+ * (`read`/`publish`/`admin`) — there is one scope vocabulary, not an MCP-specific
+ * one that has to be kept in sync. A member's granted subset is derived in `api`
+ * from their stored API scopes (ADR 0079); no MCP tool requires `admin`.
+ */
+export const MCP_DELEGATED_SCOPES = ["read", "publish", "admin"] as const;
 
 /**
  * OAuth scopes advertised in Protected Resource Metadata. These are the scopes

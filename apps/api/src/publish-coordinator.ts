@@ -1,24 +1,23 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
-import { publishShareLinkIdempotencyKey } from "@agent-paste/contracts";
 import type { ApiActor, Repository } from "@agent-paste/db";
-import { type AccessLinkSigner, resolveAccessLinkSigner } from "@agent-paste/rotation";
 import { writeArtifactEvent } from "@agent-paste/worker-runtime";
 import { entrypointPathFromContentUrl, signPublishResult } from "./agent-view.js";
 import type { Env } from "./env.js";
 import { buildRevisionNoticeFromPublishResult, notifyLiveUpdatePublish } from "./live-updates.js";
 import { enqueuePostPublishJobs } from "./post-publish.js";
 import { RepositoryRouteError } from "./responses.js";
-import { webBaseUrl } from "./runtime.js";
 import { enforceNewArtifactWriteAllowance, releaseNewArtifactWriteAllowance } from "./write-allowance.js";
 
 type PublishResult = Awaited<ReturnType<Repository["publishRevision"]>>;
 
+// Publish is content-only and private. It never mints a Share Link or makes an
+// Artifact public — that is a separate, explicit step (make_public). So the
+// coordinator carries no `share` input and no access-link signing.
 export type PublishCoordinatorInput = {
   actor: ApiActor;
   idempotencyKey: string;
   artifactId: string;
   revisionId: string;
-  share?: boolean;
 };
 
 export type PublishCoordinator = {
@@ -35,23 +34,11 @@ export function createPublishCoordinator(deps: PublishCoordinatorDeps): PublishC
     async publishRevision(input) {
       const isReplay = await assertPublishNotInFlight(deps.db, input);
       const now = new Date().toISOString();
-      const shareSigner = resolvePublishShareLinkSigner(deps.env, input.share);
       const consumedAllowance = await reservePublishAllowance(deps, input, isReplay);
       const result = await commitPublish(deps, input, now, consumedAllowance);
-      return runPostPublishFanout(deps, input, result, now, isReplay, shareSigner);
+      return runPostPublishFanout(deps, input, result, now, isReplay);
     },
   };
-}
-
-function resolvePublishShareLinkSigner(env: Env, share: boolean | undefined): AccessLinkSigner | undefined {
-  if (!share) {
-    return undefined;
-  }
-  const signer = resolveAccessLinkSigner(env);
-  if (!signer) {
-    throw new RepositoryRouteError("storage_unavailable", "Access Link signing is not configured");
-  }
-  return signer;
 }
 
 async function assertPublishNotInFlight(db: Repository, input: PublishCoordinatorInput): Promise<boolean> {
@@ -142,67 +129,13 @@ async function runPostPublishFanout(
   result: PublishResult,
   now: string,
   isReplay: boolean,
-  shareSigner: AccessLinkSigner | undefined,
 ): Promise<unknown> {
   const ephemeralTier = isEphemeralPublish(result);
   recordFreshPublishEvent(deps.env, input, ephemeralTier, isReplay);
   await enqueuePublishJobs(deps.env, input, result, now, ephemeralTier);
   const signed = await signPublishResult(result, deps.env, { workspaceId: input.actor.workspace_id, ephemeralTier });
-  const accessLinkUrl = await maybeMintPublishShareLink(deps, input, shareSigner);
-  const output = withOptionalAccessLinkUrl(signed, accessLinkUrl);
-  await notifyPublishedRevision(deps.env, result, output);
-  return output;
-}
-
-function withOptionalAccessLinkUrl(signed: unknown, accessLinkUrl: string | undefined): unknown {
-  if (!accessLinkUrl) {
-    return signed;
-  }
-  return signed && typeof signed === "object" ? { ...signed, access_link_url: accessLinkUrl } : signed;
-}
-
-async function maybeMintPublishShareLink(
-  deps: PublishCoordinatorDeps,
-  input: PublishCoordinatorInput,
-  signer: AccessLinkSigner | undefined,
-): Promise<string | undefined> {
-  if (!signer) {
-    return undefined;
-  }
-  // A Share Link follows the latest Published Revision, so an artifact needs at
-  // most one. Reuse the active one if it exists; otherwise create it. Without this
-  // every share publish (CLI --share, MCP share:true) would leak a brand-new link,
-  // because createMemberAccessLink dedups by idempotency key, not by artifact.
-  const accessLinkId =
-    (await findActiveShareLinkId(deps.db, input)) ??
-    (
-      await deps.db.createMemberAccessLink({
-        actor: input.actor,
-        idempotencyKey: publishShareLinkIdempotencyKey(input.idempotencyKey),
-        artifactId: input.artifactId,
-        type: "share",
-      })
-    ).id;
-  const minted = await deps.db.mintMemberAccessLink({
-    actor: input.actor,
-    accessLinkId,
-    appBaseUrl: webBaseUrl(deps.env),
-    signingSecret: signer.signingSecret,
-    signingKid: signer.signingKid,
-  });
-  return minted.url;
-}
-
-async function findActiveShareLinkId(db: Repository, input: PublishCoordinatorInput): Promise<string | undefined> {
-  const listed = await db.listMemberAccessLinks(input.actor, input.artifactId);
-  const nowMs = Date.now();
-  const active = listed?.items.find(
-    (link) =>
-      link.type === "share" &&
-      link.revoked_at === null &&
-      (link.expires_at === null || Date.parse(link.expires_at) > nowMs),
-  );
-  return active?.id;
+  await notifyPublishedRevision(deps.env, result, signed);
+  return signed;
 }
 
 function isEphemeralPublish(result: PublishResult): boolean {

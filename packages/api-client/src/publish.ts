@@ -2,6 +2,7 @@ import type {
   ArtifactId,
   CreateUploadSessionRequest,
   CreateUploadSessionResponse,
+  FilePath,
   FinalizeUploadSessionResponse,
   IdempotencyKey,
   PlainTextTitle,
@@ -10,13 +11,24 @@ import type {
   RenderMode,
   RevisionId,
   Sha256Hex,
+  UploadSessionFileInput,
   UploadSessionId,
 } from "@agent-paste/contracts";
+
+/** A unified-diff patch a changed file is sent as instead of whole bytes (ADR 0090). */
+export type PublishFilePatch = {
+  baseSha256: Sha256Hex;
+  resultSha256: Sha256Hex;
+};
 
 /**
  * One file to publish, with its bytes available on demand. The caller computes
  * the digest (CLI from disk, MCP from the in-memory body); `read` is only
  * invoked for targets the server reports as `upload_required`.
+ *
+ * When `patch` is set, `read` returns the unified-diff bytes (not the whole file)
+ * and `sizeBytes`/`sha256` describe that diff; the server reconstructs and
+ * re-hashes the whole file to `patch.resultSha256` at finalize.
  */
 export type PublishFile = {
   path: string;
@@ -24,6 +36,7 @@ export type PublishFile = {
   sha256: Sha256Hex;
   contentType: string;
   read: () => Promise<Uint8Array> | Uint8Array;
+  patch?: PublishFilePatch;
 };
 
 export type PublishInput = {
@@ -34,7 +47,13 @@ export type PublishInput = {
   renderMode?: RenderMode;
   /** Present => publish a new Revision on an existing Artifact. */
   artifactId?: ArtifactId;
-  share: boolean;
+  /**
+   * Present => a partial-manifest publish: `files` lists only changed/added paths
+   * (some possibly as patches), `deletedPaths` drops paths, and every other path
+   * inherits from this base Revision by reference (ADR 0090).
+   */
+  baseRevisionId?: RevisionId;
+  deletedPaths?: FilePath[];
   /** Opaque, caller-supplied (CLI nonce, MCP deterministic). The module never derives its own. */
   idempotencyKey: IdempotencyKey;
   /** Optional per-file upload progress (CLI rich-mode spinner). Called after each upload. */
@@ -51,9 +70,8 @@ export type UploadStats = {
 };
 
 export type PublishOutcome = {
-  /** The one link to open the artifact: the Share Link when shared, else the Private Link. */
-  viewerUrl: string;
-  shared: boolean;
+  /** The private viewer link to hand back: a login-walled clean viewer (`/v/<id>`). */
+  privateUrl: string;
   title: string;
   expiresAt: string;
   uploadStats: UploadStats;
@@ -87,8 +105,8 @@ export type PublishTransport = {
 /**
  * The one publish path shared by the CLI and the MCP server: create an upload
  * session, upload the files the server does not already have, finalize, and
- * publish the revision. `share` flows straight to the server, which mints (or
- * reuses) the Share Link and returns its URL in `access_link_url`.
+ * publish the revision. Publish is content-only and private — it returns one
+ * link, the private viewer URL (`/v/<id>`). Going public is a separate step.
  */
 export async function runPublish(transport: PublishTransport, input: PublishInput): Promise<PublishOutcome> {
   const session = await transport.createUploadSession(buildCreateSessionRequest(input), input.idempotencyKey);
@@ -124,16 +142,10 @@ export async function runPublish(transport: PublishTransport, input: PublishInpu
   }
 
   const finalized = await transport.finalize(session.upload_session_id, input.idempotencyKey);
-  const result = await transport.publishRevision(
-    finalized.artifact_id,
-    finalized.revision_id,
-    input.idempotencyKey,
-    input.share ? { share: true } : undefined,
-  );
+  const result = await transport.publishRevision(finalized.artifact_id, finalized.revision_id, input.idempotencyKey);
 
   return {
-    viewerUrl: result.access_link_url ?? result.artifact_url,
-    shared: result.access_link_url !== undefined,
+    privateUrl: result.private_url,
     title: result.title,
     expiresAt: result.expires_at,
     uploadStats: stats,
@@ -144,11 +156,28 @@ export async function runPublish(transport: PublishTransport, input: PublishInpu
 function buildCreateSessionRequest(input: PublishInput): CreateUploadSessionRequest {
   return {
     ...(input.artifactId ? { artifact_id: input.artifactId } : {}),
+    ...(input.baseRevisionId ? { base_revision_id: input.baseRevisionId } : {}),
     title: input.title,
     entrypoint: input.entrypoint,
     ...(input.renderMode ? { render_mode: input.renderMode } : {}),
-    files: input.files.map((file) => ({ path: file.path, size_bytes: file.sizeBytes, sha256: file.sha256 })),
+    ...(input.deletedPaths && input.deletedPaths.length > 0 ? { deleted_paths: input.deletedPaths } : {}),
+    // A patched entry omits sha256 (the contract forbids both) and carries the
+    // diff descriptor; the uploaded bytes are the diff and size_bytes is its size.
+    files: input.files.map((file) => buildFileEntry(file)),
   } as CreateUploadSessionRequest;
+}
+
+function buildFileEntry(file: PublishFile): UploadSessionFileInput {
+  const entry = file.patch
+    ? {
+        path: file.path,
+        size_bytes: file.sizeBytes,
+        patch: { base_sha256: file.patch.baseSha256, format: "unified", result_sha256: file.patch.resultSha256 },
+      }
+    : { path: file.path, size_bytes: file.sizeBytes, sha256: file.sha256 };
+  // path/sha256 are branded contract types; the runtime values are plain strings
+  // the server validates. The brand is erased at the wire boundary.
+  return entry as unknown as UploadSessionFileInput;
 }
 
 async function asBytes(value: Promise<Uint8Array> | Uint8Array): Promise<Uint8Array> {

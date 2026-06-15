@@ -4,15 +4,17 @@ Source of truth for the Live Updates feature decided in [ADR 0069](../adr/0069-l
 
 Status: **shipped.** Backend in AP-25 (`apps/stream`, api notify/authorize, web SSE proxies); the SSE-driven live UI landed in AP-164 (publishing a revision live-updates the whole artifact card / iframe with no reload, verified on preview 2026-06-04). Two deferred-polish items remain, tracked in [AP-166](https://linear.app/zaks-io/issue/AP-166): the Access Link Lockdown disconnect hook and an operator-tunable viewer cap.
 
-Publish-handoff fix shipped: publish results now distinguish authenticated
-Artifact URL (`artifact_url`) from exact content-origin Revision content
-(`revision_content_url`). AP-299/PR #475 added first-class MCP
-`access_link_url` support, and the 2026-06-11 tightening made public sharing
-explicit: MCP publish/add-revision no longer create or reuse Share Links by
-default. MCP publish output deliberately omits Artifact IDs, Revision IDs,
-`artifact_url`, `revision_content_url`, and `agent_view_url`; explicit
-read/list/link tools remain available for management, sharing, and
-pinned-Revision flows.
+Publish-handoff model (ADR 0086): publish is content-only and private. Publish
+results return one link, `private_url` — the login-walled `/v/<artifactId>` clean
+viewer — alongside the exact content-origin Revision content
+(`revision_content_url`). There is no `share` input and no `shared` output, and
+the result carries no `access_link_url`. Going public is the separate `make_public`
+(MCP) / `agent-paste make-public` (CLI) verb, which mints or reuses the one Share
+Link and returns its no-login Access Link Signed URL. MCP publish output
+deliberately omits Artifact IDs, Revision IDs, `revision_content_url`, and
+`agent_view_url`; explicit read/list/link tools remain available for management,
+sharing, and pinned-Revision flows. (This supersedes the AP-299/PR #475 + 2026-06-11
+`access_link_url`/`share:true` framing in the completed checklist items below.)
 
 ## Dependencies
 

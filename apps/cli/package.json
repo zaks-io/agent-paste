@@ -1,7 +1,7 @@
 {
   "name": "@zaks-io/agent-paste",
   "license": "Apache-2.0",
-  "version": "0.1.4",
+  "version": "0.1.6",
   "type": "module",
   "description": "Command-line interface for publishing shareable Artifacts to Agent Paste.",
   "homepage": "https://agent-paste.sh",
@@ -38,6 +38,7 @@
   "devDependencies": {
     "@agent-paste/api-client": "workspace:*",
     "@agent-paste/contracts": "workspace:*",
+    "@agent-paste/revise-core": "workspace:*",
     "@agent-paste/storage": "workspace:*",
     "esbuild": "^0.28.0",
     "typescript": "catalog:",

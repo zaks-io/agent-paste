@@ -128,6 +128,9 @@ importers:
 
   apps/apex:
     dependencies:
+      '@agent-paste/brand':
+        specifier: workspace:*
+        version: link:../../packages/brand
       '@agent-paste/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -201,6 +204,9 @@ importers:
       '@agent-paste/rotation':
         specifier: workspace:*
         version: link:../../packages/rotation
+      '@agent-paste/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@agent-paste/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
@@ -235,6 +241,9 @@ importers:
       '@agent-paste/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@agent-paste/revise-core':
+        specifier: workspace:*
+        version: link:../../packages/revise-core
       '@agent-paste/storage':
         specifier: workspace:*
         version: link:../../packages/storage
@@ -345,6 +354,9 @@ importers:
       '@agent-paste/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@agent-paste/revise-core':
+        specifier: workspace:*
+        version: link:../../packages/revise-core
       '@agent-paste/worker-runtime':
         specifier: workspace:*
         version: link:../../packages/worker-runtime
@@ -432,6 +444,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@agent-paste/brand':
+        specifier: workspace:*
+        version: link:../../packages/brand
       '@agent-paste/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -668,6 +683,25 @@ importers:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.4.15
+
+  packages/revise-core:
+    dependencies:
+      '@agent-paste/storage':
+        specifier: workspace:*
+        version: link:../storage
+    devDependencies:
+      '@agent-paste/api-client':
+        specifier: workspace:*
+        version: link:../api-client
+      '@agent-paste/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.7(@opentelemetry/api@1.9.1)(@types/node@24.12.4)(@vitest/coverage-v8@4.1.7)(jsdom@26.1.0)(vite@7.3.3(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.3)(yaml@2.9.0))
 
   packages/rotation:
     dependencies:

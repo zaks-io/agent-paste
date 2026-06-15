@@ -1,4 +1,5 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
+import { z } from "../zod.js";
 import type { ApiPathHelpers } from "./api.helpers.js";
 import { schemaRef, standardJsonResponses } from "./responses.js";
 
@@ -7,7 +8,8 @@ import { schemaRef, standardJsonResponses } from "./responses.js";
  * each file under the `noExcessiveLinesPerFile` limit.
  */
 export function registerArtifactPaths(registry: OpenAPIRegistry, helpers: ApiPathHelpers): void {
-  const { params, pathStringParam, idempotencyKeyHeader, requestIdHeader } = helpers;
+  const { params, pathStringParam, queryStringParam, queryOptionalStringParam, idempotencyKeyHeader, requestIdHeader } =
+    helpers;
 
   registry.registerPath({
     method: "get",
@@ -36,6 +38,23 @@ export function registerArtifactPaths(registry: OpenAPIRegistry, helpers: ApiPat
       headers: [requestIdHeader],
     },
     responses: standardJsonResponses(schemaRef("AgentView")),
+  });
+
+  registry.registerPath({
+    method: "get",
+    path: "/v1/artifacts/{artifact_id}/file-content",
+    operationId: "artifacts.fileContent",
+    summary: "Read one stored file's decrypted plaintext for the owning member.",
+    security: [{ ApiKeyBearer: [] }],
+    request: {
+      params: params({ artifact_id: pathStringParam("artifact_id", "Artifact id.") }),
+      query: z.object({
+        path: queryStringParam("path", "File path within the artifact tree."),
+        revision_id: queryOptionalStringParam("revision_id", "Revision to read; defaults to the latest."),
+      }),
+      headers: [requestIdHeader],
+    },
+    responses: standardJsonResponses(schemaRef("ArtifactFileContent")),
   });
 
   registry.registerPath({

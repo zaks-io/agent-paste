@@ -1,3 +1,4 @@
+import { GPC_SUPPORT_PATH, shouldDisableOptionalAnalytics } from "@agent-paste/brand";
 import { isBillingEnabled } from "@agent-paste/config";
 import { sentryOptions } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
@@ -30,8 +31,11 @@ const TEXT_ASSET_PATHS = new Set([
   "/install.ps1",
   "/robots.txt",
   "/sitemap.xml",
+  GPC_SUPPORT_PATH,
   "/.well-known/security.txt",
 ]);
+
+const ANALYTICS_BEACON_SELECTOR = 'script[src="https://static.cloudflareinsights.com/beacon.min.js"]';
 
 export function isTextAssetPath(pathname: string): boolean {
   return TEXT_ASSET_PATHS.has(pathname) || /^\/docs\/[^/]+\.md$/.test(pathname);
@@ -89,15 +93,37 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
     for (const [name, value] of Object.entries(security)) {
       headers.set(name, value as string);
     }
-    return new Response(request.method === "HEAD" ? null : assetResponse.body, {
+    const response = new Response(request.method === "HEAD" ? null : assetResponse.body, {
       status: assetResponse.status,
       statusText: assetResponse.statusText,
       headers,
     });
+    return maybeStripOptionalAnalytics(request, response);
   }
 
   return new Response("not_found", {
     status: 404,
     headers: { "content-type": TEXT_PLAIN, ...security },
   });
+}
+
+function maybeStripOptionalAnalytics(request: Request, response: Response): Response {
+  if (
+    request.method === "HEAD" ||
+    !isHtmlResponse(response) ||
+    !shouldDisableOptionalAnalytics({ getHeader: (name) => request.headers.get(name) })
+  ) {
+    return response;
+  }
+  return new HTMLRewriter()
+    .on(ANALYTICS_BEACON_SELECTOR, {
+      element(element) {
+        element.remove();
+      },
+    })
+    .transform(response);
+}
+
+function isHtmlResponse(response: Response): boolean {
+  return response.headers.get("content-type")?.toLowerCase().includes("text/html") ?? false;
 }

@@ -12,6 +12,7 @@ function seedPublishedRevision(state: ReturnType<typeof createLocalState>) {
     id: revisionId,
     workspace_id: workspaceId,
     artifact_id: artifactId,
+    parent_revision_id: null,
     revision_number: 1,
     status: "published",
     entrypoint: "index.html",

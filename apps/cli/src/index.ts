@@ -11,8 +11,9 @@ import {
   runPublish as runSharedPublish,
 } from "@agent-paste/api-client";
 import type { EphemeralProvisionResponse } from "@agent-paste/contracts";
-import { ArtifactId, RenderMode } from "@agent-paste/contracts";
+import { ArtifactId, FilePath, RenderMode, RevisionId } from "@agent-paste/contracts";
 import { type Credential, deleteCredential, isCredentialExpired, loadCredential } from "./credentials.js";
+import { HELP_TEXT } from "./help.js";
 import {
   contentTypeForLocalPath,
   inferPublishOptions,
@@ -21,17 +22,20 @@ import {
   walkLocalPath,
 } from "./local.js";
 import { login } from "./login.js";
-import { apiClientTransport } from "./publish-transport.js";
+import { loadManifestCache, type ManifestCacheFile, saveManifestCache } from "./manifest-cache.js";
 import {
-  createProgress,
-  exitCodeFor,
-  formatBytes,
-  formatError,
-  hyperlink,
-  type OutputMode,
-  paint,
-  resolveMode,
-} from "./render.js";
+  ephemeralClaimUrl,
+  formatEphemeralPublishResult,
+  formatMakePublic,
+  formatPublishResult,
+} from "./publish-format.js";
+import { apiClientTransport } from "./publish-transport.js";
+
+// Re-exported for tests that import it from the CLI entrypoint.
+export { ephemeralClaimUrl } from "./publish-format.js";
+
+import { createProgress, exitCodeFor, formatError, type OutputMode, resolveMode } from "./render.js";
+import { buildRevisePlan, isBaseUnusableError, type LocalFileWithDigest, type RevisePlan } from "./revise.js";
 import { commandInvocation, detectChannel, runUpdateCheck, signedOutHint } from "./update-check.js";
 import { runUpgrade } from "./upgrade.js";
 import { CLI_VERSION } from "./version.js";
@@ -62,11 +66,13 @@ export async function main(argv = process.argv.slice(2), client?: ApiClient) {
   if (command === "version" || command === "-v" || (command === "" && booleanFlag(parsed, "version", false))) {
     return output({ version: CLI_VERSION }, parsed.global, CLI_VERSION);
   }
+  // `<subcommand> --help` (e.g. `publish --help`) must print help, not fall
+  // through to the subcommand and fail on a missing positional. A bare `--help`
+  // parses as the command; a `--help` flag alongside any command lands here.
+  if (command === "" || command === "help" || command === "--help" || booleanFlag(parsed, "help", false)) {
+    return printHelp();
+  }
   switch (command) {
-    case "":
-    case "help":
-    case "--help":
-      return printHelp();
     case "login":
       await login();
       return;
@@ -95,6 +101,10 @@ async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
         return publishEphemeral(parsed);
       }
       return publish(parsed, client);
+    case "make-public":
+      return makePublic(parsed, client);
+    case "pull":
+      return pull(parsed, client);
     default:
       throw new Error(`Unknown command: ${command}`);
   }
@@ -238,6 +248,16 @@ export function shellQuote(value: string) {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
+function wholePublishFile(file: LocalFileWithDigest): PublishFile {
+  return {
+    path: file.path,
+    sizeBytes: file.sizeBytes,
+    sha256: file.sha256,
+    contentType: contentTypeForLocalPath(file.path),
+    read: () => fs.readFile(file.absolutePath),
+  };
+}
+
 async function publish(parsed: Parsed, client: ApiClient) {
   const mode = outputModeFor(parsed.global);
   const result = await runPublish(parsed, client, mode);
@@ -275,37 +295,84 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
   const digestByPath = new Map(
     await Promise.all(files.map(async (file) => [file.path, await sha256HexForFile(file.absolutePath)] as const)),
   );
-
-  const publishFiles: PublishFile[] = files.map((file) => {
+  const filesWithDigest: LocalFileWithDigest[] = files.map((file) => {
     const digest = digestByPath.get(file.path);
     if (!digest) {
       throw new Error(`Missing digest for ${file.path}`);
     }
-    return {
-      path: file.path,
-      sizeBytes: digest.sizeBytes,
-      sha256: digest.sha256,
-      contentType: contentTypeForLocalPath(file.path),
-      read: () => fs.readFile(file.absolutePath),
-    };
+    return { ...file, sha256: digest.sha256, sizeBytes: digest.sizeBytes };
   });
+
+  const wholeManifest = (): PublishFile[] => filesWithDigest.map(wholePublishFile);
+  const fullTree = (): ManifestCacheFile[] =>
+    filesWithDigest.map((file) => ({ path: file.path, sha256: file.sha256, size_bytes: file.sizeBytes }));
 
   const artifactIdFlag = stringFlag(parsed, "artifact-id");
   const artifactId = artifactIdFlag ? ArtifactId.parse(artifactIdFlag) : undefined;
+
+  // On a revise with a matching local cache, send only changed/added files (some
+  // as verified unified diffs) against the base Revision; unchanged files inherit.
+  // No cache (first publish elsewhere / fresh machine) => a full whole-blob publish.
+  const cache = artifactId ? await loadManifestCache(artifactId) : null;
+  const built =
+    artifactId && cache
+      ? await buildRevisePlan({ client, artifactId, cache, files: filesWithDigest, entrypoint: inferred.entrypoint })
+      : null;
+  // A no-op delta (working tree identical to the base: nothing changed, added, or
+  // deleted) cannot be sent as a partial manifest — the server requires a delta to
+  // carry at least one change. Fall back to a full whole-blob publish, which always
+  // produces a valid request and a fresh Revision (e.g. re-publishing an unchanged
+  // dir, or a metadata-only revise like --title).
+  const plan = built && built.publishFiles.length === 0 && built.deletedPaths.length === 0 ? null : built;
+
   const progress = createProgress(mode);
-  const outcome = await runSharedPublish(apiClientTransport(client), {
-    files: publishFiles,
-    title: inferred.title,
-    entrypoint: inferred.entrypoint,
-    ...(explicitRenderMode ? { renderMode: explicitRenderMode } : {}),
-    ...(artifactId ? { artifactId } : {}),
-    share: booleanFlag(parsed, "share", false),
-    idempotencyKey: createIdempotencyKey("cli_publish"),
-    onUploadProgress: ({ uploadedFiles, totalToUpload, uploadedBytes }) =>
-      progress.update({ done: uploadedFiles, total: totalToUpload, bytes: uploadedBytes }),
-  });
+  const runOnce = (revise: RevisePlan | null) =>
+    runSharedPublish(apiClientTransport(client), {
+      files: revise ? revise.publishFiles : wholeManifest(),
+      title: inferred.title,
+      entrypoint: inferred.entrypoint,
+      ...(explicitRenderMode ? { renderMode: explicitRenderMode } : {}),
+      ...(artifactId ? { artifactId } : {}),
+      ...(revise
+        ? {
+            baseRevisionId: RevisionId.parse(revise.baseRevisionId),
+            ...(revise.deletedPaths.length > 0
+              ? { deletedPaths: revise.deletedPaths.map((p) => FilePath.parse(p)) }
+              : {}),
+          }
+        : {}),
+      idempotencyKey: createIdempotencyKey("cli_publish"),
+      onUploadProgress: ({ uploadedFiles, totalToUpload, uploadedBytes }) =>
+        progress.update({ done: uploadedFiles, total: totalToUpload, bytes: uploadedBytes }),
+    });
+
+  let outcome: Awaited<ReturnType<typeof runOnce>>;
+  try {
+    outcome = await runOnce(plan);
+  } catch (error) {
+    // A cached base that the server can no longer use (concurrent revise, retained
+    // base, non-inheritable file) is recoverable: drop the partial manifest and
+    // re-publish the whole working dir, which is always on disk.
+    if (plan && isBaseUnusableError(error)) {
+      progress.done();
+      outcome = await runOnce(null);
+    } else {
+      throw error;
+    }
+  }
   progress.done();
 
+  // Seed the cache with the full effective tree so the next revise diffs correctly.
+  if (outcome.result.artifact_id && outcome.result.revision_id) {
+    await saveManifestCache(outcome.result.artifact_id, {
+      revision_id: outcome.result.revision_id,
+      files: plan ? plan.effectiveTree : fullTree(),
+    });
+  }
+
+  // Publish is content-only and private: one link to hand the user, the private
+  // viewer URL (`/v/<id>`), identical to what the MCP server returns. Going public
+  // is a separate, explicit step (`agent-paste make-public <artifact-id>`).
   return {
     ...outcome.result,
     upload_stats: {
@@ -317,6 +384,58 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
       reused_bytes: outcome.uploadStats.reusedBytes,
     },
   };
+}
+
+// Make an Artifact public: create (or reuse) its revocable Share Link and mint
+// the public Access Link Signed URL. Publish stays private; this is the separate,
+// explicit verb that opts an Artifact into no-login access. Mirrors the MCP
+// make_public tool (accessLinks.create {type:"share"} then accessLinks.mint).
+async function makePublic(parsed: Parsed, client: ApiClient) {
+  const artifactId = ArtifactId.parse(requiredArg(parsed, 0, "artifact-id"));
+  const created = await client.accessLinks.create(
+    artifactId,
+    { type: "share" },
+    createIdempotencyKey("cli_make_public"),
+  );
+  const minted = await client.accessLinks.mint(created.id);
+  const payload = { artifact_id: artifactId, access_link_id: created.id, public_url: minted.url };
+  return output(payload, parsed.global, formatMakePublic(outputModeFor(parsed.global), payload));
+}
+
+// Read one stored file's content for the owning member (ADR 0090). Default
+// output is cat-like: the raw text body to stdout, so `agent-paste pull <id> <path>
+//  > file` works. --json emits structured metadata (text body inline; binary and
+// oversize files carry no body — fetch those via the content URL). Plain mode refuses
+// a binary file (raw bytes would corrupt a terminal / piped text).
+async function pull(parsed: Parsed, client: ApiClient) {
+  const artifactId = ArtifactId.parse(requiredArg(parsed, 0, "artifact-id"));
+  const filePath = requiredArg(parsed, 1, "path");
+  const revisionId = stringFlag(parsed, "revision-id");
+  const file = await client.artifacts.readFile(artifactId, filePath, revisionId);
+
+  if (parsed.global.json) {
+    return output(
+      {
+        path: file.path,
+        sha256: file.sha256,
+        size_bytes: file.size_bytes,
+        content_type: file.content_type,
+        is_binary: file.is_binary,
+        ...(file.body !== undefined ? { body: file.body } : {}),
+      },
+      parsed.global,
+    );
+  }
+  if (file.is_binary) {
+    throw new Error(`${file.path} is binary; use --json for metadata and fetch the bytes via the content URL`);
+  }
+  if (file.body === undefined) {
+    throw new Error(`${file.path} is ${file.size_bytes} bytes, too large to inline; fetch via the content URL`);
+  }
+  // The body IS pull's result (cat-like), not a human summary, so --quiet does not
+  // suppress it — like --quiet --json still emitting the object. Otherwise
+  // `pull <id> <path> --quiet > file` would silently write an empty file.
+  await writeStdout(file.body);
 }
 
 export function parseArgs(argv: string[]): Parsed {
@@ -372,7 +491,7 @@ function commandParts(positionals: string[]) {
 }
 
 function takesValue(name: string) {
-  return new Set(["artifact-id", "title", "entrypoint", "render-mode", "name"]).has(name);
+  return new Set(["artifact-id", "title", "entrypoint", "render-mode", "name", "revision-id"]).has(name);
 }
 
 function requiredArg(parsed: Parsed, index: number, label: string) {
@@ -434,130 +553,8 @@ function writeStdout(value: string) {
   });
 }
 
-type PublishResultShape = {
-  artifact_id: string;
-  revision_id: string;
-  title: string;
-  artifact_url: string;
-  access_link_url?: string | undefined;
-  revision_content_url: string;
-  agent_view_url: string;
-  expires_at: string;
-  upload_stats?: {
-    total_files: number;
-    total_bytes: number;
-    uploaded_files: number;
-    uploaded_bytes: number;
-    reused_files: number;
-    reused_bytes: number;
-  };
-};
-
-// Render expires_at as a plain calendar date when it parses as an ISO instant;
-// otherwise pass the raw value through unchanged. Never fabricate a date.
-function formatExpiry(expiresAt: string) {
-  const date = new Date(expiresAt);
-  return Number.isNaN(date.getTime()) ? expiresAt : date.toISOString().slice(0, 10);
-}
-
-function uploadStatsLine(mode: OutputMode, stats: NonNullable<PublishResultShape["upload_stats"]>) {
-  const uploaded = paint(mode, "green", `${stats.uploaded_files}/${stats.total_files} uploaded`);
-  return `  ${paint(mode, "dim", "Upload")}    ${uploaded}, ${stats.reused_files} reused · ${formatBytes(stats.uploaded_bytes)} sent, ${formatBytes(stats.reused_bytes)} cached`;
-}
-
-// Human-readable publish result. The handoff leads with the live viewer URL,
-// then shows the one command to revise this Artifact in place so the agent
-// edits via add-revision (stable link, live-updates the open page) instead of
-// republishing a new Artifact. Snapshot URLs stay on the JSON surface.
-function formatPublishResult(mode: OutputMode, result: PublishResultShape, updateCommand: string) {
-  const label = (text: string) => paint(mode, "dim", text);
-  const viewerUrl = result.access_link_url ?? result.artifact_url;
-  return [
-    `${paint(mode, "green", "✓")} Published ${paint(mode, "bold", `"${result.title}"`)}`,
-    "",
-    `  ${label("View")}      ${hyperlink(mode, viewerUrl)}`,
-    `  ${label("Expires")}   ${formatExpiry(result.expires_at)}`,
-    ...(result.upload_stats ? [uploadStatsLine(mode, result.upload_stats)] : []),
-    "",
-    `  ${label("Update")}    ${updateCommand}`,
-    `            ${label("(revises this Artifact; same link live-updates the open page)")}`,
-    ...(viewerUrl ? ["", paint(mode, "cyan", `  → open ${viewerUrl}`)] : []),
-  ].join("\n");
-}
-
-export function ephemeralClaimUrl(claimToken: string) {
-  const base = (process.env.AGENT_PASTE_WEB_URL ?? "https://app.agent-paste.sh").replace(/\/+$/, "");
-  return `${base}/claim#${claimToken}`;
-}
-
-function formatEphemeralPublishResult(mode: OutputMode, result: PublishResultShape, claimUrl: string) {
-  assertClaimTokenNotInPublicUrls(result, claimUrl);
-  const label = (text: string) => paint(mode, "dim", text);
-  const viewerUrl = result.access_link_url ?? result.artifact_url;
-  return [
-    `${paint(mode, "green", "✓")} Published ${paint(mode, "bold", `"${result.title}"`)}`,
-    "",
-    paint(mode, "dim", "Open this to view, keep, and unlock your artifact:"),
-    `  ${label("Claim")}    ${hyperlink(mode, claimUrl)}`,
-    `  ${label("Expires")}   ${formatExpiry(result.expires_at)}`,
-    ...(result.upload_stats ? [uploadStatsLine(mode, result.upload_stats)] : []),
-    "",
-    paint(mode, "dim", "The token lives in the URL hash only (never the query string)."),
-    ...(viewerUrl
-      ? ["", `  ${label("View")}      ${hyperlink(mode, viewerUrl)} ${paint(mode, "dim", "(works after claiming)")}`]
-      : []),
-    "",
-    paint(mode, "cyan", `  → open ${claimUrl}`),
-  ].join("\n");
-}
-
-function assertClaimTokenNotInPublicUrls(result: PublishResultShape, claimUrl: string) {
-  const claimToken = claimUrl.split("#")[1] ?? "";
-  if (!claimToken || !claimUrl.includes("#")) {
-    throw new Error("Claim URL must carry the token in the URL hash");
-  }
-  if (claimUrl.includes("?") && claimUrl.includes(claimToken)) {
-    throw new Error("Claim Token must not appear in the URL query string");
-  }
-  if (
-    result.artifact_url.includes(claimToken) ||
-    result.access_link_url?.includes(claimToken) ||
-    result.revision_content_url.includes(claimToken) ||
-    result.agent_view_url.includes(claimToken)
-  ) {
-    throw new Error("Claim Token must not appear in public Access Link Signed URLs");
-  }
-}
-
 function printHelp() {
-  return writeStdout(`agent-paste
-
-Usage:
-  agent-paste login
-  agent-paste logout
-  agent-paste whoami [--json]
-  agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--share] [--ephemeral] [--json]
-  agent-paste version [--json]
-  agent-paste upgrade [<tag>]
-
-Publish:
-  --artifact-id Revise an EXISTING Artifact: publishes a new Revision under it
-                instead of creating a new Artifact. The viewer link is stable and
-                live-updates pages already open — this is how you change published
-                work. Omit it to create a new Artifact on a new link. Re-publishing
-                an edit without --artifact-id strands the link the user already has.
-  --title       Set the Artifact title.
-  --entrypoint  Override the entrypoint file within <path>.
-  --render-mode text | markdown | html (otherwise inferred from the entrypoint).
-  --share       Explicitly create a public/shareable Share Link for publish.
-  --ephemeral   Accountless 24h publish with a one-time claim link (no login).
-
-Output:
-  --json        Machine-readable JSON on stdout (stable, carries schema_version).
-  --quiet       Suppress the human summary; errors and exit code still apply.
-  --color       Force colour/rich output; --no-color forces plain.
-                Default: rich on a TTY, plain when piped or NO_COLOR/CI is set.
-`);
+  return writeStdout(HELP_TEXT);
 }
 
 export function isMainEntrypoint(metaUrl: string, argv1: string | undefined, platform = process.platform) {

@@ -261,6 +261,39 @@ describe("finalizeUploadSession", () => {
     await expectError(response, status, appCode);
   });
 
+  // The five base-unusable kinds collapse to wire code invalid_request, so the precise
+  // kind must ride along as the message detail or the CLI cannot tell a stale base from
+  // a malformed request and never self-heals (ADR 0090). This is the server side of that
+  // contract: without the detail, message would be the bare "invalid_request".
+  it.each([
+    "base_revision_not_found",
+    "base_revision_not_publishable",
+    "base_revision_artifact_mismatch",
+    "deleted_path_not_in_base",
+    "inherited_path_not_blob_backed",
+  ] as const)("surfaces base-unusable kind %s as invalid_request with the kind as detail", async (repositoryKind) => {
+    const db: Repository = {
+      async getUploadSession() {
+        return sessionRecord();
+      },
+      async finalizeUploadSession() {
+        throw new RepositoryError(repositoryKind);
+      },
+    } as Repository;
+
+    const response = await finalizeUploadSession(
+      await contextFor(SESSION_ID, { ARTIFACTS: completeArtifacts() }),
+      apiKeyPrincipal,
+      db,
+      guard,
+    );
+
+    expect(response.status).toBe(400);
+    const body = (await response.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("invalid_request");
+    expect(body.error.message).toBe(repositoryKind);
+  });
+
   it("rethrows unmapped repository failures", async () => {
     const db: Repository = {
       async getUploadSession() {

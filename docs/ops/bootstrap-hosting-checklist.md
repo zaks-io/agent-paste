@@ -213,7 +213,7 @@ Pass criteria (the script asserts each line; failure throws):
 
 - `whoami` resolves the smoke workspace.
 - API key is prefixed `ap_pk_production_` (pre-provisioned secret).
-- `publish` returns `artifact_id` (`art_*`), `revision_id` (`rev_*`), an `artifact_url` rooted at `https://app.agent-paste.sh`, a `revision_content_url` rooted at `https://usercontent.agent-paste.sh`, and an `agent_view_url` rooted at `https://api.agent-paste.sh`.
+- `publish` returns `artifact_id` (`art_*`), `revision_id` (`rev_*`), a `private_url` rooted at `https://app.agent-paste.sh` (`/v/<artifactId>`), a `revision_content_url` rooted at `https://usercontent.agent-paste.sh`, and an `agent_view_url` rooted at `https://api.agent-paste.sh`.
 - Agent View JSON lists `index.html`.
 - Agent View HTML returns `200` with `Content-Type: text/html`.
 - Content URL returns `200` HTML matching the smoke fixture.

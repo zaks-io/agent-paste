@@ -8,7 +8,13 @@ import {
 import { RevokeApiKeyResponse } from "../admin.js";
 import { AgentView, PublicAgentView } from "../agentView.js";
 import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../apiKeys.js";
-import { ArtifactDetail, ArtifactListResponse, ArtifactSummary, DeleteArtifactResponse } from "../artifacts.js";
+import {
+  ArtifactDetail,
+  ArtifactFileContent,
+  ArtifactListResponse,
+  ArtifactSummary,
+  DeleteArtifactResponse,
+} from "../artifacts.js";
 import {
   BillingInvoiceListResponse,
   BillingStatusResponse,
@@ -92,6 +98,7 @@ export function registerApiSchemas(registry: OpenAPIRegistry, options: RegisterA
   registry.register("CliVersionResponse", CliVersionResponse);
   const registeredPublicAgentView = registry.register("PublicAgentView", PublicAgentView);
   registry.register("AgentView", AgentView);
+  registry.register("ArtifactFileContent", ArtifactFileContent);
   registry.register("AccessLinkResolveRequest", AccessLinkResolveRequest);
   registry.register("PowChallenge", PowChallenge);
   registry.register("EphemeralProvisionRequest", EphemeralProvisionRequest);

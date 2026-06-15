@@ -65,6 +65,9 @@ export function buildAgentView(
       content_type: file.content_type,
       object_key: file.r2_key,
       url: `${prefix}/${encodePath(file.path)}`,
+      // Plaintext content address so an agent can detect changes and declare a
+      // patch base (ADR 0090). Omitted for non-blob/diff-only rows.
+      ...(file.sha256 ? { sha256: file.sha256 } : {}),
     })),
     safety_warnings: warnings.slice(0, 100).map(toAgentViewSafetyWarning),
     bundle: buildBundleAvailability(revision),
@@ -127,7 +130,7 @@ export function buildPublishResult(
     revision_id: revision.id,
     render_mode: revision.render_mode,
     title: artifact.title,
-    artifact_url: `${webBaseUrl}/artifacts/${encodeURIComponent(artifact.id)}`,
+    private_url: `${webBaseUrl}/v/${encodeURIComponent(artifact.id)}`,
     revision_content_url: revisionContentUrl,
     agent_view_url: `${apiBaseUrl}/v1/public/agent-view/${artifact.id}.${revision.id}`,
     expires_at: artifact.expires_at,

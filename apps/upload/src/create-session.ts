@@ -37,13 +37,16 @@ export async function createUploadSession(
     path: file.path,
     size_bytes: file.size_bytes,
     ...(file.sha256 ? { sha256: file.sha256 } : {}),
+    ...(file.patch ? { patch: file.patch } : {}),
   }));
   const createRequest = {
     entrypoint: body.entrypoint,
     files,
     ...(body.title === undefined ? {} : { title: body.title }),
     ...(body.artifact_id === undefined ? {} : { artifact_id: body.artifact_id }),
+    ...(body.base_revision_id === undefined ? {} : { base_revision_id: body.base_revision_id }),
     ...(body.render_mode === undefined ? {} : { render_mode: body.render_mode }),
+    ...(body.deleted_paths === undefined ? {} : { deleted_paths: body.deleted_paths }),
   };
 
   let session: UploadSessionRecord;

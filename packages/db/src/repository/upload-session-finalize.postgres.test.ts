@@ -231,6 +231,61 @@ describe("finalizeUploadSession Postgres lifecycle", () => {
     ]);
   }, 30_000);
 
+  it("inherits the base revision's render_mode on a revise with no explicit value (ADR 0091)", async () => {
+    const base = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-upload-inherit-base",
+      request: {
+        title: "render-mode-inherit",
+        entrypoint: "index.md",
+        // Explicit mode the entrypoint extension would NOT infer (markdown vs. inferred markdown
+        // for .md happens to match, so use html on the .md entrypoint to prove inheritance, not re-inference).
+        render_mode: "html",
+        files: [{ path: "index.md", size_bytes: 5 }],
+      },
+      now: "2026-01-01T00:00:00.000Z",
+    });
+    const finalizedBase = await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-finalize-inherit-base",
+      sessionId: base.upload_session_id,
+      observedFiles: [{ path: "index.md", objectKey: firstFile(base).object_key, sizeBytes: 5 }],
+      now: "2026-01-01T00:00:01.000Z",
+    });
+    await repo.publishRevision({
+      actor,
+      idempotencyKey: "idem-publish-inherit-base",
+      artifactId: finalizedBase.artifact_id,
+      revisionId: finalizedBase.revision_id,
+      now: "2026-01-01T00:00:02.000Z",
+    });
+
+    const revise = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-upload-inherit-revise",
+      request: {
+        artifact_id: finalizedBase.artifact_id,
+        base_revision_id: finalizedBase.revision_id,
+        files: [{ path: "index.md", size_bytes: 7 }],
+      },
+      now: "2026-01-01T00:00:03.000Z",
+    });
+    const finalizedRevise = await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-finalize-inherit-revise",
+      sessionId: revise.upload_session_id,
+      observedFiles: [{ path: "index.md", objectKey: firstFile(revise).object_key, sizeBytes: 7 }],
+      now: "2026-01-01T00:00:04.000Z",
+    });
+
+    const revisions = await repo.listRevisions({ actor, artifactId: finalizedBase.artifact_id });
+    expect(revisions?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ revision_id: finalizedRevise.revision_id, render_mode: "html" }),
+      ]),
+    );
+  }, 30_000);
+
   it("returns null state for a session in another workspace", async () => {
     const session = await repo.createUploadSession({
       actor,

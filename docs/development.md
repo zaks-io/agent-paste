@@ -43,6 +43,7 @@ pnpm hooks:install
 | [`packages/auth`](../packages/auth)                       | Implemented | WorkOS JWT/JWKS verification, MCP OAuth bearer verification, request/error helpers, and two-layer cached lookup helper.                                                          |
 | [`packages/api-client`](../packages/api-client)           | Implemented | Internal HTTP client used by the CLI and login credential flow.                                                                                                                  |
 | [`packages/storage`](../packages/storage)                 | Implemented | Served content-type allowlist and security-header helpers.                                                                                                                       |
+| [`packages/revise-core`](../packages/revise-core)         | Implemented | Transport-agnostic revise engine: literal `applyEdits`, the `RevisionReader` read seam, verified-patch orchestrators, and the unified-diff generator shared by the CLI and MCP.  |
 | [`packages/billing`](../packages/billing)                 | Implemented | Stripe billing sync seam, entitlement projection, Checkout, webhooks, Portal, invoices, and daily reconciliation backstop.                                                       |
 | [`packages/commands`](../packages/commands)               | Implemented | `runCommand`, idempotency claim/replay, and audit event sequencing helpers.                                                                                                      |
 | [`packages/tokens`](../packages/tokens)                   | Implemented | Shared signed-token codec and token-kind modules for content, Agent View, Access Links, and upload URLs.                                                                         |
@@ -156,23 +157,24 @@ deploy production from a laptop.
 
 ### Smoke Tests
 
-| Command                           | Purpose                                                                                                               |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `pnpm smoke:local`                | Build and run the local publish/content/delete smoke path (also gated in CI `Validate`).                              |
-| `pnpm smoke:ci:postgres`          | Build, migrate a job-local Postgres database, and run the local CLI smoke through the Postgres/RLS-backed harness.    |
-| `pnpm smoke:web`                  | Build and run local web API auth/dashboard smoke assertions.                                                          |
-| `pnpm smoke:mcp`                  | Build and run local MCP transport + OAuth + publish/read/delete smoke.                                                |
-| `pnpm smoke:mcp:preview`          | Build and run hosted preview MCP smoke (optional token for authenticated checks).                                     |
-| `pnpm smoke:mcp:production`       | Build and run hosted production MCP smoke (requires explicit approval and token).                                     |
-| `pnpm lighthouse:dashboard-a11y`  | Run the local Lighthouse accessibility gate on authenticated `/dashboard` empty chrome (requires `pnpm build` first). |
-| `pnpm smoke:preview`              | Build and run hosted preview smoke assertions.                                                                        |
-| `pnpm smoke:preview:ephemeral`    | Build and run hosted preview ephemeral publish smoke.                                                                 |
-| `pnpm smoke:production`           | Build and run hosted production smoke assertions.                                                                     |
-| `pnpm smoke:production:ephemeral` | Build and run hosted production ephemeral publish smoke (operator-only; optional WorkOS token for claim).             |
-| `pnpm smoke:pr`                   | Build and run hosted PR-preview smoke assertions manually using PR workflow-provided URLs.                            |
-| `pnpm smoke:pr:ephemeral`         | Build and run hosted PR-preview ephemeral publish smoke.                                                              |
-| `pnpm smoke:preview:readonly`     | Build and run the credential-free read-only preview smoke.                                                            |
-| `pnpm smoke:prod:readonly`        | Build and run the credential-free read-only production smoke.                                                         |
+| Command                           | Purpose                                                                                                                 |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `pnpm smoke:local`                | Build and run the local publish/content/delete smoke path (also gated in CI `Validate`).                                |
+| `pnpm smoke:local:patch`          | Build and run the local ADR 0089 intra-file patch reconstruction smoke (real diff apply + serve byte-exact + conflict). |
+| `pnpm smoke:ci:postgres`          | Build, migrate a job-local Postgres database, and run the local CLI smoke through the Postgres/RLS-backed harness.      |
+| `pnpm smoke:web`                  | Build and run local web API auth/dashboard smoke assertions.                                                            |
+| `pnpm smoke:mcp`                  | Build and run local MCP transport + OAuth + publish/read/delete smoke.                                                  |
+| `pnpm smoke:mcp:preview`          | Build and run hosted preview MCP smoke (optional token for authenticated checks).                                       |
+| `pnpm smoke:mcp:production`       | Build and run hosted production MCP smoke (requires explicit approval and token).                                       |
+| `pnpm lighthouse:dashboard-a11y`  | Run the local Lighthouse accessibility gate on authenticated `/dashboard` empty chrome (requires `pnpm build` first).   |
+| `pnpm smoke:preview`              | Build and run hosted preview smoke assertions.                                                                          |
+| `pnpm smoke:preview:ephemeral`    | Build and run hosted preview ephemeral publish smoke.                                                                   |
+| `pnpm smoke:production`           | Build and run hosted production smoke assertions.                                                                       |
+| `pnpm smoke:production:ephemeral` | Build and run hosted production ephemeral publish smoke (operator-only; optional WorkOS token for claim).               |
+| `pnpm smoke:pr`                   | Build and run hosted PR-preview smoke assertions manually using PR workflow-provided URLs.                              |
+| `pnpm smoke:pr:ephemeral`         | Build and run hosted PR-preview ephemeral publish smoke.                                                                |
+| `pnpm smoke:preview:readonly`     | Build and run the credential-free read-only preview smoke.                                                              |
+| `pnpm smoke:prod:readonly`        | Build and run the credential-free read-only production smoke.                                                           |
 
 ### Hooks
 

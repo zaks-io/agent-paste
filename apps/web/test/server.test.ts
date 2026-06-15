@@ -56,6 +56,16 @@ describe("web worker", () => {
     await expect(response.json()).resolves.toEqual({ ok: true, app: "web" });
   });
 
+  it("serves /.well-known/gpc.json without rendering the app shell", async () => {
+    const response = await handleRequest(new Request("https://app.agent-paste.sh/.well-known/gpc.json"), env);
+
+    expect(handlerFetch).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(response.headers.get("set-cookie")).toBeNull();
+    await expect(response.json()).resolves.toEqual({ gpc: true, lastUpdate: "2026-06-14" });
+  });
+
   it("renders non-health routes through TanStack Start", async () => {
     handlerFetch.mockResolvedValueOnce(new Response("app", { headers: { "content-type": "text/html" } }));
 

@@ -5,6 +5,7 @@ export type RootLoaderData = {
   webBaseUrl: string;
   sentry: { dsn: string | undefined; environment: string };
   analyticsToken: string | undefined;
+  optionalAnalyticsDisabled: boolean;
 };
 
 export const loadRootEnvFn = createServerFn({ method: "GET" }).handler(async () => {

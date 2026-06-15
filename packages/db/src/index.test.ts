@@ -5,6 +5,9 @@ import {
   type DrizzleConnection,
   LocalRepository,
   PostgresRepository,
+  type RepositoryOptions,
+  RevisionReconstructionConflict,
+  type RevisionReconstructor,
   type SqlExecutor,
   type SqlValue,
 } from "./index";
@@ -2282,6 +2285,774 @@ describe("createPostgresHttpExecutor", () => {
   });
 });
 
+const sha = (char: string) => char.repeat(64);
+
+// A fake reconstructor for finalize-wiring tests: the real apply/crypto path is covered
+// by the storage applier + revision-reconstructor factory tests, so here we only need to
+// exercise how finalize collects descriptors, registers content_blobs, writes blob rows,
+// and propagates a conflict. By default it echoes each request as a successful result
+// blob; `conflictFor`/`resultSize` override per path.
+function fakeReconstructor(options?: {
+  conflictFor?: string;
+  resultSize?: (path: string) => number;
+}): RevisionReconstructor & { calls: number } {
+  const adapter = {
+    calls: 0,
+    async reconstruct(input: Parameters<RevisionReconstructor["reconstruct"]>[0]) {
+      adapter.calls += 1;
+      const files = input.files.map((file) => {
+        if (options?.conflictFor === file.path) {
+          throw new RevisionReconstructionConflict(file.path, "result_hash_mismatch");
+        }
+        return {
+          path: file.path,
+          sha256: file.resultSha256,
+          r2Key: `workspaces/${input.workspaceId}/blobs/sha256/${file.resultSha256.slice(0, 2)}/${file.resultSha256}`,
+          sizeBytes: options?.resultSize ? options.resultSize(file.path) : 100,
+        };
+      });
+      return { files };
+    },
+  };
+  return adapter;
+}
+
+// Publish a base Revision whose files are blob-backed (sha256 set + uploaded), so
+// they are eligible to inherit forward under ADR 0089 tree inheritance.
+async function publishBlobBackedBase(
+  repo: LocalRepository,
+  actor: ApiActor,
+  tag: string,
+  files: Array<{ path: string; size_bytes: number; sha256: string }>,
+  now: string,
+  entrypoint = "index.html",
+) {
+  const session = await repo.createUploadSession({
+    actor,
+    idempotencyKey: `idem-base-create-${tag}`,
+    request: { title: tag, entrypoint, files },
+    now,
+  });
+  for (const file of files) {
+    const descriptor = session.files.find((candidate) => candidate.path === file.path);
+    if (!descriptor) {
+      throw new Error(`expected session descriptor for ${file.path}`);
+    }
+    await repo.recordUploadedFile({
+      workspaceId: actor.workspace_id,
+      sessionId: session.upload_session_id,
+      path: file.path,
+      objectKey: descriptor.object_key,
+      sizeBytes: file.size_bytes,
+      sha256: file.sha256,
+      uploadedAt: now,
+    });
+  }
+  const finalized = await repo.finalizeUploadSession({
+    actor,
+    idempotencyKey: `idem-base-finalize-${tag}`,
+    sessionId: session.upload_session_id,
+    observedFiles: files.map((file) => {
+      const descriptor = session.files.find((candidate) => candidate.path === file.path);
+      return { path: file.path, objectKey: descriptor?.object_key ?? "", sizeBytes: file.size_bytes };
+    }),
+    now,
+  });
+  const published = await repo.publishRevision({
+    actor,
+    idempotencyKey: `idem-base-publish-${tag}`,
+    artifactId: finalized.artifact_id,
+    revisionId: finalized.revision_id,
+    now,
+  });
+  return { artifactId: published.artifact_id, revisionId: published.revision_id };
+}
+
+describe("ADR 0089 tree inheritance", () => {
+  it("inherits unchanged blob-backed files from the base and adds one new blob", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const base = await publishBlobBackedBase(
+      repo,
+      actor,
+      "inherit",
+      [
+        { path: "index.html", size_bytes: 12, sha256: sha("a") },
+        { path: "b.css", size_bytes: 20, sha256: sha("b") },
+        { path: "big.txt", size_bytes: 5000, sha256: sha("c") },
+      ],
+      "2026-01-01T00:00:00.000Z",
+    );
+    const blobsBefore = repo.contentBlobs.size;
+
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-inherit-create",
+      request: {
+        artifact_id: base.artifactId,
+        base_revision_id: base.revisionId,
+        title: "inherit",
+        entrypoint: "index.html",
+        files: [{ path: "index.html", size_bytes: 14, sha256: sha("d") }],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    const changed = session.files.find((file) => file.path === "index.html");
+    await repo.recordUploadedFile({
+      workspaceId: actor.workspace_id,
+      sessionId: session.upload_session_id,
+      path: "index.html",
+      objectKey: changed?.object_key ?? "",
+      sizeBytes: 14,
+      sha256: sha("d"),
+      uploadedAt: "2026-01-02T00:00:01.000Z",
+    });
+    const finalized = await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-inherit-finalize",
+      sessionId: session.upload_session_id,
+      observedFiles: [{ path: "index.html", objectKey: changed?.object_key ?? "", sizeBytes: 14 }],
+      now: "2026-01-02T00:00:02.000Z",
+    });
+
+    const files = [...repo.artifactFiles.values()].filter((file) => file.revision_id === finalized.revision_id);
+    expect(files.map((file) => file.path).sort()).toEqual(["b.css", "big.txt", "index.html"]);
+    const inheritedCss = files.find((file) => file.path === "b.css");
+    expect(inheritedCss?.sha256).toBe(sha("b"));
+    expect(inheritedCss?.storage_kind).toBe("blob");
+    expect(files.find((file) => file.path === "index.html")?.sha256).toBe(sha("d"));
+    // Only the changed file introduced a new blob; inherited rows reuse base blobs.
+    expect(repo.contentBlobs.size).toBe(blobsBefore + 1);
+  });
+
+  it("recomputes file_count/size_bytes from the merged tree, not the changed manifest", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const base = await publishBlobBackedBase(
+      repo,
+      actor,
+      "counts",
+      [
+        { path: "index.html", size_bytes: 100, sha256: sha("a") },
+        { path: "b.css", size_bytes: 200, sha256: sha("b") },
+        { path: "c.js", size_bytes: 300, sha256: sha("c") },
+      ],
+      "2026-01-01T00:00:00.000Z",
+    );
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-counts-create",
+      request: {
+        artifact_id: base.artifactId,
+        base_revision_id: base.revisionId,
+        title: "counts",
+        entrypoint: "index.html",
+        files: [{ path: "index.html", size_bytes: 50, sha256: sha("d") }],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    const changed = session.files.find((file) => file.path === "index.html");
+    await repo.recordUploadedFile({
+      workspaceId: actor.workspace_id,
+      sessionId: session.upload_session_id,
+      path: "index.html",
+      objectKey: changed?.object_key ?? "",
+      sizeBytes: 50,
+      sha256: sha("d"),
+      uploadedAt: "2026-01-02T00:00:01.000Z",
+    });
+    const finalized = await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-counts-finalize",
+      sessionId: session.upload_session_id,
+      observedFiles: [{ path: "index.html", objectKey: changed?.object_key ?? "", sizeBytes: 50 }],
+      now: "2026-01-02T00:00:02.000Z",
+    });
+    expect(finalized.file_count).toBe(3);
+    expect(finalized.size_bytes).toBe(50 + 200 + 300);
+    expect(repo.revisions.get(finalized.revision_id)?.parent_revision_id).toBe(base.revisionId);
+    // The session row still describes only the changed manifest.
+    expect(repo.uploadSessions.get(session.upload_session_id)?.file_count).toBe(1);
+  });
+
+  it("drops a deleted base path from the merged tree", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const base = await publishBlobBackedBase(
+      repo,
+      actor,
+      "delete",
+      [
+        { path: "index.html", size_bytes: 12, sha256: sha("a") },
+        { path: "b.css", size_bytes: 20, sha256: sha("b") },
+        { path: "c.js", size_bytes: 30, sha256: sha("c") },
+      ],
+      "2026-01-01T00:00:00.000Z",
+    );
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-delete-create",
+      request: {
+        artifact_id: base.artifactId,
+        base_revision_id: base.revisionId,
+        title: "delete",
+        entrypoint: "index.html",
+        deleted_paths: ["c.js"],
+        files: [{ path: "index.html", size_bytes: 14, sha256: sha("d") }],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    const changed = session.files.find((file) => file.path === "index.html");
+    await repo.recordUploadedFile({
+      workspaceId: actor.workspace_id,
+      sessionId: session.upload_session_id,
+      path: "index.html",
+      objectKey: changed?.object_key ?? "",
+      sizeBytes: 14,
+      sha256: sha("d"),
+      uploadedAt: "2026-01-02T00:00:01.000Z",
+    });
+    const finalized = await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-delete-finalize",
+      sessionId: session.upload_session_id,
+      observedFiles: [{ path: "index.html", objectKey: changed?.object_key ?? "", sizeBytes: 14 }],
+      now: "2026-01-02T00:00:02.000Z",
+    });
+    const files = [...repo.artifactFiles.values()].filter((file) => file.revision_id === finalized.revision_id);
+    expect(files.map((file) => file.path).sort()).toEqual(["b.css", "index.html"]);
+    expect(finalized.file_count).toBe(2);
+  });
+
+  it("finalizes a delete-only delta with no uploaded files", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const base = await publishBlobBackedBase(
+      repo,
+      actor,
+      "delete-only",
+      [
+        { path: "index.html", size_bytes: 12, sha256: sha("a") },
+        { path: "b.css", size_bytes: 20, sha256: sha("b") },
+        { path: "c.js", size_bytes: 30, sha256: sha("c") },
+      ],
+      "2026-01-01T00:00:00.000Z",
+    );
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-delete-only-create",
+      request: {
+        artifact_id: base.artifactId,
+        base_revision_id: base.revisionId,
+        title: "delete-only",
+        entrypoint: "index.html",
+        deleted_paths: ["c.js"],
+        files: [],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    expect(session.files).toEqual([]);
+    const finalized = await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-delete-only-finalize",
+      sessionId: session.upload_session_id,
+      observedFiles: [],
+      now: "2026-01-02T00:00:02.000Z",
+    });
+    const files = [...repo.artifactFiles.values()].filter((file) => file.revision_id === finalized.revision_id);
+    expect(files.map((file) => file.path).sort()).toEqual(["b.css", "index.html"]);
+    expect(finalized.file_count).toBe(2);
+    expect(repo.revisions.get(finalized.revision_id)?.parent_revision_id).toBe(base.revisionId);
+  });
+
+  it("inherits the entrypoint when it is unchanged", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const base = await publishBlobBackedBase(
+      repo,
+      actor,
+      "entry",
+      [
+        { path: "index.html", size_bytes: 12, sha256: sha("a") },
+        { path: "b.css", size_bytes: 20, sha256: sha("b") },
+      ],
+      "2026-01-01T00:00:00.000Z",
+    );
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-entry-create",
+      request: {
+        artifact_id: base.artifactId,
+        base_revision_id: base.revisionId,
+        title: "entry",
+        entrypoint: "index.html",
+        files: [{ path: "b.css", size_bytes: 22, sha256: sha("d") }],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    const changed = session.files.find((file) => file.path === "b.css");
+    await repo.recordUploadedFile({
+      workspaceId: actor.workspace_id,
+      sessionId: session.upload_session_id,
+      path: "b.css",
+      objectKey: changed?.object_key ?? "",
+      sizeBytes: 22,
+      sha256: sha("d"),
+      uploadedAt: "2026-01-02T00:00:01.000Z",
+    });
+    const finalized = await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-entry-finalize",
+      sessionId: session.upload_session_id,
+      observedFiles: [{ path: "b.css", objectKey: changed?.object_key ?? "", sizeBytes: 22 }],
+      now: "2026-01-02T00:00:02.000Z",
+    });
+    expect(finalized.entrypoint).toBe("index.html");
+    expect(finalized.file_count).toBe(2);
+  });
+
+  it("rejects deleting the entrypoint without re-adding it", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const base = await publishBlobBackedBase(
+      repo,
+      actor,
+      "entry-del",
+      [
+        { path: "index.html", size_bytes: 12, sha256: sha("a") },
+        { path: "b.css", size_bytes: 20, sha256: sha("b") },
+      ],
+      "2026-01-01T00:00:00.000Z",
+    );
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-entry-del-create",
+      request: {
+        artifact_id: base.artifactId,
+        base_revision_id: base.revisionId,
+        title: "entry-del",
+        entrypoint: "index.html",
+        deleted_paths: ["index.html"],
+        files: [{ path: "b.css", size_bytes: 22, sha256: sha("d") }],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    const changed = session.files.find((file) => file.path === "b.css");
+    await repo.recordUploadedFile({
+      workspaceId: actor.workspace_id,
+      sessionId: session.upload_session_id,
+      path: "b.css",
+      objectKey: changed?.object_key ?? "",
+      sizeBytes: 22,
+      sha256: sha("d"),
+      uploadedAt: "2026-01-02T00:00:01.000Z",
+    });
+    await expect(
+      repo.finalizeUploadSession({
+        actor,
+        idempotencyKey: "idem-entry-del-finalize",
+        sessionId: session.upload_session_id,
+        observedFiles: [{ path: "b.css", objectKey: changed?.object_key ?? "", sizeBytes: 22 }],
+        now: "2026-01-02T00:00:02.000Z",
+      }),
+    ).rejects.toThrow("entrypoint_not_in_revision");
+  });
+
+  it("rejects deleting a path absent from the base", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const base = await publishBlobBackedBase(
+      repo,
+      actor,
+      "del-missing",
+      [{ path: "index.html", size_bytes: 12, sha256: sha("a") }],
+      "2026-01-01T00:00:00.000Z",
+    );
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-del-missing-create",
+      request: {
+        artifact_id: base.artifactId,
+        base_revision_id: base.revisionId,
+        title: "del-missing",
+        entrypoint: "index.html",
+        deleted_paths: ["nope.txt"],
+        files: [{ path: "index.html", size_bytes: 14, sha256: sha("d") }],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    const changed = session.files.find((file) => file.path === "index.html");
+    await repo.recordUploadedFile({
+      workspaceId: actor.workspace_id,
+      sessionId: session.upload_session_id,
+      path: "index.html",
+      objectKey: changed?.object_key ?? "",
+      sizeBytes: 14,
+      sha256: sha("d"),
+      uploadedAt: "2026-01-02T00:00:01.000Z",
+    });
+    await expect(
+      repo.finalizeUploadSession({
+        actor,
+        idempotencyKey: "idem-del-missing-finalize",
+        sessionId: session.upload_session_id,
+        observedFiles: [{ path: "index.html", objectKey: changed?.object_key ?? "", sizeBytes: 14 }],
+        now: "2026-01-02T00:00:02.000Z",
+      }),
+    ).rejects.toThrow("deleted_path_not_in_base");
+  });
+
+  it("rejects a base in another artifact before the FK would 500", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const baseA = await publishBlobBackedBase(
+      repo,
+      actor,
+      "art-a",
+      [{ path: "index.html", size_bytes: 12, sha256: sha("a") }],
+      "2026-01-01T00:00:00.000Z",
+    );
+    const baseB = await publishBlobBackedBase(
+      repo,
+      actor,
+      "art-b",
+      [{ path: "index.html", size_bytes: 12, sha256: sha("b") }],
+      "2026-01-01T01:00:00.000Z",
+    );
+    // Session targets artifact A but names artifact B's revision as the base.
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-cross-art-create",
+      request: {
+        artifact_id: baseA.artifactId,
+        base_revision_id: baseB.revisionId,
+        title: "cross-art",
+        entrypoint: "index.html",
+        files: [{ path: "index.html", size_bytes: 14, sha256: sha("d") }],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    const changed = session.files.find((file) => file.path === "index.html");
+    await repo.recordUploadedFile({
+      workspaceId: actor.workspace_id,
+      sessionId: session.upload_session_id,
+      path: "index.html",
+      objectKey: changed?.object_key ?? "",
+      sizeBytes: 14,
+      sha256: sha("d"),
+      uploadedAt: "2026-01-02T00:00:01.000Z",
+    });
+    await expect(
+      repo.finalizeUploadSession({
+        actor,
+        idempotencyKey: "idem-cross-art-finalize",
+        sessionId: session.upload_session_id,
+        observedFiles: [{ path: "index.html", objectKey: changed?.object_key ?? "", sizeBytes: 14 }],
+        now: "2026-01-02T00:00:02.000Z",
+      }),
+    ).rejects.toThrow("base_revision_artifact_mismatch");
+  });
+
+  it("rejects a base revision from another workspace as not found", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const base = await publishBlobBackedBase(
+      repo,
+      actor,
+      "cross-ws",
+      [{ path: "index.html", size_bytes: 12, sha256: sha("a") }],
+      "2026-01-01T00:00:00.000Z",
+    );
+    const otherWorkspace = await repo.createWorkspace({
+      actor: adminActor,
+      idempotencyKey: "idem-ws-other",
+      email: "other@example.com",
+    });
+    const otherKey = await repo.createApiKey({
+      actor: adminActor,
+      idempotencyKey: "idem-key-other",
+      workspaceId: otherWorkspace.id,
+      name: "other",
+    });
+    const otherActor = await repo.verifyApiKey(otherKey.secret);
+    if (!otherActor) {
+      throw new Error("expected other actor");
+    }
+    const session = await repo.createUploadSession({
+      actor: otherActor,
+      idempotencyKey: "idem-cross-ws-create",
+      request: {
+        base_revision_id: base.revisionId,
+        title: "cross-ws",
+        entrypoint: "index.html",
+        files: [{ path: "index.html", size_bytes: 14, sha256: sha("d") }],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    const changed = session.files.find((file) => file.path === "index.html");
+    await repo.recordUploadedFile({
+      workspaceId: otherActor.workspace_id,
+      sessionId: session.upload_session_id,
+      path: "index.html",
+      objectKey: changed?.object_key ?? "",
+      sizeBytes: 14,
+      sha256: sha("d"),
+      uploadedAt: "2026-01-02T00:00:01.000Z",
+    });
+    await expect(
+      repo.finalizeUploadSession({
+        actor: otherActor,
+        idempotencyKey: "idem-cross-ws-finalize",
+        sessionId: session.upload_session_id,
+        observedFiles: [{ path: "index.html", objectKey: changed?.object_key ?? "", sizeBytes: 14 }],
+        now: "2026-01-02T00:00:02.000Z",
+      }),
+    ).rejects.toThrow("base_revision_not_found");
+  });
+
+  it("rejects a base that is not published (retained)", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const base = await publishBlobBackedBase(
+      repo,
+      actor,
+      "retained",
+      [{ path: "index.html", size_bytes: 12, sha256: sha("a") }],
+      "2026-01-01T00:00:00.000Z",
+    );
+    // A retained base's blobs fall out of the GC refcount, so it cannot be inherited.
+    const retained = repo.revisions.get(base.revisionId);
+    if (!retained) {
+      throw new Error("expected base revision");
+    }
+    retained.status = "retained";
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-retained-create",
+      request: {
+        artifact_id: base.artifactId,
+        base_revision_id: base.revisionId,
+        title: "on-retained",
+        entrypoint: "index.html",
+        files: [{ path: "index.html", size_bytes: 14, sha256: sha("d") }],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    const changed = session.files.find((file) => file.path === "index.html");
+    await repo.recordUploadedFile({
+      workspaceId: actor.workspace_id,
+      sessionId: session.upload_session_id,
+      path: "index.html",
+      objectKey: changed?.object_key ?? "",
+      sizeBytes: 14,
+      sha256: sha("d"),
+      uploadedAt: "2026-01-02T00:00:01.000Z",
+    });
+    await expect(
+      repo.finalizeUploadSession({
+        actor,
+        idempotencyKey: "idem-retained-finalize",
+        sessionId: session.upload_session_id,
+        observedFiles: [{ path: "index.html", objectKey: changed?.object_key ?? "", sizeBytes: 14 }],
+        now: "2026-01-02T00:00:02.000Z",
+      }),
+    ).rejects.toThrow("base_revision_not_publishable");
+  });
+
+  it("rejects inheriting a non-blob-backed base path", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    // Base file uploaded WITHOUT sha256 -> revision-scoped, not refcount-protected.
+    const base = await publishLocalArtifact(repo, actor, "legacy", "2026-01-01T00:00:00.000Z");
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-legacy-create",
+      request: {
+        artifact_id: base.artifact_id,
+        base_revision_id: base.revision_id,
+        title: "legacy",
+        entrypoint: "index.html",
+        files: [{ path: "extra.css", size_bytes: 10, sha256: sha("d") }],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    const changed = session.files.find((file) => file.path === "extra.css");
+    await repo.recordUploadedFile({
+      workspaceId: actor.workspace_id,
+      sessionId: session.upload_session_id,
+      path: "extra.css",
+      objectKey: changed?.object_key ?? "",
+      sizeBytes: 10,
+      sha256: sha("d"),
+      uploadedAt: "2026-01-02T00:00:01.000Z",
+    });
+    await expect(
+      repo.finalizeUploadSession({
+        actor,
+        idempotencyKey: "idem-legacy-finalize",
+        sessionId: session.upload_session_id,
+        observedFiles: [{ path: "extra.css", objectKey: changed?.object_key ?? "", sizeBytes: 10 }],
+        now: "2026-01-02T00:00:02.000Z",
+      }),
+    ).rejects.toThrow("inherited_path_not_blob_backed");
+  });
+
+  // Drives a patched-file finalize against a one-file-changed base, returning the repo,
+  // the finalize promise's inputs, and the reconstructor so each test can assert on the
+  // committed tree or the thrown conflict.
+  async function patchedFinalize(options?: {
+    reconstructor?: RevisionReconstructor & { calls: number };
+    resultSize?: (path: string) => number;
+  }) {
+    const reconstructor = options?.reconstructor ?? fakeReconstructor({ resultSize: options?.resultSize });
+    const { repo, actor } = await localRepoWithApiActor({ revisionReconstructor: reconstructor });
+    const base = await publishBlobBackedBase(
+      repo,
+      actor,
+      "patch",
+      [
+        { path: "index.html", size_bytes: 12, sha256: sha("a") },
+        { path: "big.txt", size_bytes: 5000, sha256: sha("c") },
+      ],
+      "2026-01-01T00:00:00.000Z",
+    );
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-patch-create",
+      request: {
+        artifact_id: base.artifactId,
+        base_revision_id: base.revisionId,
+        title: "patch",
+        entrypoint: "index.html",
+        files: [
+          {
+            path: "big.txt",
+            size_bytes: 40,
+            patch: { base_sha256: sha("c"), format: "unified", result_sha256: sha("e") },
+          },
+        ],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    const descriptor = session.files.find((file) => file.path === "big.txt");
+    await repo.recordUploadedFile({
+      workspaceId: actor.workspace_id,
+      sessionId: session.upload_session_id,
+      path: "big.txt",
+      objectKey: descriptor?.object_key ?? "",
+      sizeBytes: 40,
+      uploadedAt: "2026-01-02T00:00:01.000Z",
+    });
+    const finalize = () =>
+      repo.finalizeUploadSession({
+        actor,
+        idempotencyKey: "idem-patch-finalize",
+        sessionId: session.upload_session_id,
+        observedFiles: [{ path: "big.txt", objectKey: descriptor?.object_key ?? "", sizeBytes: 40 }],
+        now: "2026-01-02T00:00:02.000Z",
+      });
+    return { repo, actor, base, session, descriptor, finalize, reconstructor };
+  }
+
+  it("records the patch descriptor on the session file (Stage 3 contract preserved)", async () => {
+    const { session, descriptor, repo } = await patchedFinalize();
+    // The diff uploads as a revision object with sha256 omitted from the signed path.
+    expect(descriptor?.sha256).toBeNull();
+    expect(descriptor?.storage_kind).toBe("revision");
+    const stored = repo.uploadSessionFiles.get(`${session.upload_session_id}:big.txt`);
+    expect(stored?.patch_base_sha256).toBe(sha("c"));
+    expect(stored?.patch_result_sha256).toBe(sha("e"));
+  });
+
+  it("reconstructs a patched file into an ordinary blob row at finalize (Stage 4)", async () => {
+    const { repo, finalize, reconstructor } = await patchedFinalize({ resultSize: () => 64 });
+    const blobsBefore = repo.contentBlobs.size;
+    const finalized = await finalize();
+    expect(reconstructor.calls).toBe(1);
+
+    // The committed artifact_files row for the patched path is a content-addressed blob,
+    // not a diff: storage_kind blob, sha256 = result_sha256, key = the derived blob key.
+    const files = [...repo.artifactFiles.values()].filter((file) => file.revision_id === finalized.revision_id);
+    const patched = files.find((file) => file.path === "big.txt");
+    expect(patched?.storage_kind).toBe("blob");
+    expect(patched?.sha256).toBe(sha("e"));
+    expect(patched?.r2_key).toContain(sha("e"));
+    expect(patched?.size_bytes).toBe(64);
+
+    // The new result blob is registered so the GC refcount protects it.
+    expect(repo.contentBlobs.size).toBe(blobsBefore + 1);
+    const blob = [...repo.contentBlobs.values()].find((candidate) => candidate.sha256 === sha("e"));
+    expect(blob?.size_bytes).toBe(64);
+
+    // The committed revision size reflects the reconstructed RESULT size, not the diff.
+    // (index.html 12 + big.txt result 64 = 76.)
+    expect(repo.revisions.get(finalized.revision_id)?.size_bytes).toBe(76);
+  });
+
+  it("fails finalize with patch_conflict when reconstruction cannot apply (Stage 4)", async () => {
+    const reconstructor = fakeReconstructor({ conflictFor: "big.txt" });
+    const { repo, finalize } = await patchedFinalize({ reconstructor });
+    const blobsBefore = repo.contentBlobs.size;
+    const revisionsBefore = repo.revisions.size;
+    await expect(finalize()).rejects.toThrow("patch_conflict");
+    // Nothing committed: no revision, no content_blobs row.
+    expect(repo.revisions.size).toBe(revisionsBefore);
+    expect(repo.contentBlobs.size).toBe(blobsBefore);
+  });
+
+  it("enforces the file size cap against the reconstructed result, not the diff", async () => {
+    // The diff declares 40 bytes (under cap), but the applied result is enormous.
+    const reconstructor = fakeReconstructor({ resultSize: () => 50_000_000 });
+    const { finalize } = await patchedFinalize({ reconstructor });
+    await expect(finalize()).rejects.toThrow(/file_size_cap_exceeded|revision_size_cap_exceeded/);
+  });
+
+  it("rejects a patch whose base_sha256 does not match the base file", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const base = await publishBlobBackedBase(
+      repo,
+      actor,
+      "patch-bad",
+      [
+        { path: "index.html", size_bytes: 12, sha256: sha("a") },
+        { path: "big.txt", size_bytes: 5000, sha256: sha("c") },
+      ],
+      "2026-01-01T00:00:00.000Z",
+    );
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-patch-bad-create",
+      request: {
+        artifact_id: base.artifactId,
+        base_revision_id: base.revisionId,
+        title: "patch-bad",
+        entrypoint: "index.html",
+        files: [
+          {
+            path: "big.txt",
+            size_bytes: 40,
+            patch: { base_sha256: sha("f"), format: "unified", result_sha256: sha("e") },
+          },
+        ],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    const descriptor = session.files.find((file) => file.path === "big.txt");
+    await repo.recordUploadedFile({
+      workspaceId: actor.workspace_id,
+      sessionId: session.upload_session_id,
+      path: "big.txt",
+      objectKey: descriptor?.object_key ?? "",
+      sizeBytes: 40,
+      uploadedAt: "2026-01-02T00:00:01.000Z",
+    });
+    await expect(
+      repo.finalizeUploadSession({
+        actor,
+        idempotencyKey: "idem-patch-bad-finalize",
+        sessionId: session.upload_session_id,
+        observedFiles: [{ path: "big.txt", objectKey: descriptor?.object_key ?? "", sizeBytes: 40 }],
+        now: "2026-01-02T00:00:02.000Z",
+      }),
+    ).rejects.toThrow("patch_base_mismatch");
+  });
+
+  it("leaves parent_revision_id null for a non-base publish", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const published = await publishLocalArtifact(repo, actor, "rootless", "2026-01-01T00:00:00.000Z");
+    expect(repo.revisions.get(published.revision_id)?.parent_revision_id).toBeNull();
+  });
+});
+
 function firstFile(session: { files: Array<{ object_key: string }> }) {
   const file = session.files[0];
   if (!file) {
@@ -2290,8 +3061,8 @@ function firstFile(session: { files: Array<{ object_key: string }> }) {
   return file;
 }
 
-async function localRepoWithApiActor() {
-  const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+async function localRepoWithApiActor(options?: Partial<RepositoryOptions>) {
+  const repo = new LocalRepository({ apiKeyPepper: "pepper", ...options });
   const workspace = await repo.createWorkspace({
     actor: adminActor,
     idempotencyKey: "idem-ws",

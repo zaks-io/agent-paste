@@ -48,6 +48,7 @@ describe("MVP route registry", () => {
       "accessLinks.revoke",
       "agentView.getLatest",
       "agentView.getRevision",
+      "artifacts.fileContent",
       "revisions.list",
       "revisions.publish",
       "web.auth.callback",
@@ -105,6 +106,7 @@ describe("MVP route registry", () => {
         "agentView.getLatest",
         "agentView.getRevision",
         "apiKeys.revokeCurrent",
+        "artifacts.fileContent",
         "revisions.list",
         "revisions.publish",
         "uploadSessions.create",
@@ -192,7 +194,7 @@ describe("MVP route registry", () => {
     expect(api.security).toContainEqual({ CfAccessServiceToken: [] });
   });
 
-  it("keeps Access Link management guarded by the share-capability representation", () => {
+  it("keeps Access Link management guarded by the right scopes", () => {
     const scopesFor = (id: string) => routeContracts.find((route) => route.id === id)?.scopes;
 
     expect(
@@ -228,10 +230,10 @@ describe("MVP route registry", () => {
         ]),
       ),
     ).toEqual({
-      "accessLinks.create": ["admin"],
-      "accessLinks.mint": ["admin"],
-      "accessLinks.list": ["admin"],
-      "accessLinks.revoke": ["admin"],
+      "accessLinks.create": ["publish"],
+      "accessLinks.mint": ["publish"],
+      "accessLinks.list": ["publish"],
+      "accessLinks.revoke": ["publish"],
     });
   });
 
@@ -404,6 +406,7 @@ describe("MVP schemas", () => {
         expires_at: "2026-06-19T12:00:00.000Z",
         entrypoint: "index.html",
         revision_content_url: "https://usercontent.agent-paste.sh/v/token/index.html",
+        private_url: "https://app.agent-paste.sh/v/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
         files: [
           {
             path: "index.html",
@@ -470,6 +473,7 @@ describe("MVP schemas", () => {
         expires_at: "2026-06-19T12:00:00.000Z",
         entrypoint: "index.html",
         revision_content_url: "https://usercontent.agent-paste.sh/v/token/index.html",
+        private_url: "https://app.agent-paste.sh/v/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
         files: [
           {
             path: "index.html",
@@ -533,18 +537,18 @@ describe("MVP schemas", () => {
   });
 
   it("keeps publish wired to the PublishResult shape", () => {
-    expect(
-      PublishResult.parse({
-        artifact_id: artifactId,
-        revision_id: revisionId,
-        title: "demo",
-        bundle: { status: "pending", retry_after_seconds: 5 },
-        artifact_url: "https://app.agent-paste.sh/artifacts/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-        access_link_url: "https://app.agent-paste.sh/al/01HZY7Q8X9Y2S3T4#secret",
-        revision_content_url: "https://usercontent.agent-paste.sh/v/token/index.html",
-        agent_view_url: "https://api.agent-paste.sh/v1/public/agent-view/token",
-        expires_at: "2026-06-19T12:00:00.000Z",
-      }),
-    ).toMatchObject({ title: "demo" });
+    const result = PublishResult.parse({
+      artifact_id: artifactId,
+      revision_id: revisionId,
+      title: "demo",
+      bundle: { status: "pending", retry_after_seconds: 5 },
+      private_url: `https://app.agent-paste.sh/v/${artifactId}`,
+      revision_content_url: "https://usercontent.agent-paste.sh/v/token/index.html",
+      agent_view_url: "https://api.agent-paste.sh/v1/public/agent-view/token",
+      expires_at: "2026-06-19T12:00:00.000Z",
+    });
+    expect(result).toMatchObject({ title: "demo" });
+    expect(result.private_url.endsWith(`/v/${artifactId}`)).toBe(true);
+    expect(result).not.toHaveProperty("access_link_url");
   });
 });

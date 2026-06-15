@@ -14,14 +14,15 @@ export type ProtocolHandlerResult =
 // user's open link. Keep it consistent with the publish_artifact/add_revision tool
 // descriptions in @agent-paste/contracts.
 const MCP_LIFECYCLE_INSTRUCTIONS =
-  "agent-paste stores work as Artifacts you publish and hand to users as a viewer_url (a browser link). " +
-  "Lifecycle: publish_artifact creates a NEW Artifact with a NEW viewer_url. To change anything you already " +
+  "agent-paste stores work as Artifacts you publish and hand to users as a private_url (a login-walled browser " +
+  "link). publish_artifact and add_revision are content-only and PRIVATE — there is no share param. " +
+  "Lifecycle: publish_artifact creates a NEW Artifact with a NEW private_url. To change anything you already " +
   "published — fix, update, extend — call add_revision with that Artifact's id; do NOT publish again. The " +
-  "viewer_url / Share Link is stable and live-updates any page the user already has open to the newest Revision, " +
+  "private_url is stable and live-updates any page the user already has open to the newest Revision, " +
   "so a revision needs no new link. Publishing again for an edit makes a separate Artifact on a different link " +
   "and strands the user's open page. Keep the artifact_id from each publish_artifact response (or use " +
-  "list_artifacts) so you can revise. Artifacts are private by default; set share:true only when the user asks " +
-  "for a public/shareable link.";
+  "list_artifacts) so you can revise. Artifacts are private by default; to make one reachable without login, " +
+  "call make_public, which returns a separate revocable public link.";
 
 export function handleMcpProtocolMethod(input: {
   method: string;

@@ -27,6 +27,7 @@ export const ERROR_STATUS: Record<ErrorCodeValue, number> = {
   upload_incomplete: 409,
   upload_session_expired: 409,
   entrypoint_not_in_revision: 422,
+  patch_conflict: 422,
   revision_retained: 410,
   rate_limited_actor: 429,
   rate_limited_artifact: 429,

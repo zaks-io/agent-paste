@@ -36,6 +36,7 @@ export const routeRepositorySurfaces = {
   "accessLinks.revoke": ["not_found"],
   "agentView.getLatest": [],
   "agentView.getRevision": [],
+  "artifacts.fileContent": [],
   "revisions.list": [],
   "revisions.publish": [
     "artifact_not_found",
@@ -95,7 +96,20 @@ export const routeRepositorySurfaces = {
     "revision_size_cap_exceeded",
   ],
   "uploadSessions.putFile": [],
-  "uploadSessions.finalize": ["draft_revision_conflict", "upload_incomplete", "upload_session_not_found"],
+  "uploadSessions.finalize": [
+    // The five base-* kinds collapse to invalid_request on the wire; declared here so
+    // this surface reflects what finalizeUploadSession can actually throw (ADR 0090).
+    "base_revision_artifact_mismatch",
+    "base_revision_not_found",
+    "base_revision_not_publishable",
+    "deleted_path_not_in_base",
+    "draft_revision_conflict",
+    "inherited_path_not_blob_backed",
+    "patch_base_mismatch",
+    "patch_conflict",
+    "upload_incomplete",
+    "upload_session_not_found",
+  ],
   "content.get": [],
   "content.head": [],
   "content.bundle": [],

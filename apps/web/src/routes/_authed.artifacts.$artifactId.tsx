@@ -1,12 +1,12 @@
-import type { LiveUpdatePointer, WebArtifactDetailResponse } from "@agent-paste/contracts";
-import { Badge, Card, cn, SectionLabel } from "@agent-paste/ui";
-import { type QueryClient, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { Badge, SectionLabel } from "@agent-paste/ui";
+import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { AccessLinkLockdownToggle } from "../components/access-links/AccessLinkLockdownToggle";
 import { AccessLinksTable } from "../components/access-links/AccessLinksTable";
 import { CreateAccessLinkPanel } from "../components/access-links/CreateAccessLinkPanel";
+import { ArtifactLiveViewer, useLastGoodArtifact } from "../components/artifacts/ArtifactLiveViewer";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Identifier } from "../components/ui/Identifier";
@@ -14,7 +14,6 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { RelativeTime } from "../components/ui/RelativeTime";
 import { artifactStatusTone } from "../lib/artifact-status";
 import { formatBytes } from "../lib/format";
-import { connectLiveUpdates } from "../lib/live-updates";
 import { dashboardPageMeta } from "../lib/page-meta";
 import { artifactAccessLinksQuery, artifactQuery, artifactRevisionsQuery, queryKeys } from "../lib/queries";
 
@@ -61,7 +60,6 @@ function ArtifactDetailPage() {
     ]);
   }, [queryClient, artifactId]);
   const artifact = useLastGoodArtifact(artifactId, result.data);
-  const iframeSrc = useArtifactViewerSrc(artifactId, artifact, queryClient);
 
   if (result.error && !artifact) {
     return (
@@ -107,30 +105,7 @@ function ArtifactDetailPage() {
       />
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
         <div className="grid gap-6">
-          {iframeSrc ? (
-            <Card elevated flush className="overflow-hidden">
-              <div className="flex items-center justify-between border-b border-rule px-5 py-3">
-                <div className="flex items-baseline gap-3">
-                  <span className="eyebrow">Published viewer</span>
-                  <span className="text-xs text-subtle">live on each revision</span>
-                </div>
-                <Badge tone="success" dot pulse>
-                  Live
-                </Badge>
-              </div>
-              <div className="h-[min(70vh,720px)] bg-background">
-                <iframe
-                  title="Artifact content"
-                  src={iframeSrc}
-                  sandbox="allow-scripts allow-popups"
-                  referrerPolicy="no-referrer"
-                  className={cn("h-full w-full border-0")}
-                />
-              </div>
-            </Card>
-          ) : (
-            <EmptyState title="No published viewer." body="This artifact has no live revision to display right now." />
-          )}
+          <ArtifactLiveViewer artifactId={artifactId} artifact={artifact} />
         </div>
         <div className="h-fit">
           <SectionLabel className="mb-4">Latest revision</SectionLabel>
@@ -169,87 +144,4 @@ function ArtifactDetailPage() {
       </section>
     </>
   );
-}
-
-function useLastGoodArtifact(
-  artifactId: string,
-  current: WebArtifactDetailResponse | null | undefined,
-): WebArtifactDetailResponse | null {
-  const [lastGoodArtifact, setLastGoodArtifact] = useState<{
-    artifactId: string;
-    artifact: WebArtifactDetailResponse;
-  } | null>(null);
-
-  // Live updates should not blank a working viewer when the background metadata
-  // refetch races a transient timeout.
-  useEffect(() => {
-    if (current) {
-      setLastGoodArtifact({ artifactId, artifact: current });
-    }
-  }, [artifactId, current]);
-
-  return current ?? (lastGoodArtifact?.artifactId === artifactId ? lastGoodArtifact.artifact : null);
-}
-
-function useArtifactViewerSrc(
-  artifactId: string,
-  artifact: WebArtifactDetailResponse | null,
-  queryClient: QueryClient,
-): string | null {
-  const [liveState, setLiveState] = useState<{
-    artifactId: string;
-    pointer: LiveUpdatePointer | null;
-    revoked: boolean;
-  }>(() => ({ artifactId, pointer: null, revoked: false }));
-
-  useEffect(() => {
-    setLiveState((current) =>
-      current.artifactId === artifactId ? current : { artifactId, pointer: null, revoked: false },
-    );
-  }, [artifactId]);
-
-  useEffect(() => {
-    setLiveState((current) => {
-      if (
-        current.artifactId !== artifactId ||
-        !current.pointer ||
-        !artifact?.latest_revision_id ||
-        artifact.latest_revision_id === current.pointer.revision_id
-      ) {
-        return current;
-      }
-      return { ...current, pointer: null };
-    });
-  }, [artifactId, artifact?.latest_revision_id]);
-
-  useEffect(() => {
-    if (!artifact) {
-      return;
-    }
-    const invalidate = () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.artifact(artifactId) });
-    };
-    const connection = connectLiveUpdates({
-      url: `/api/live/artifacts/${encodeURIComponent(artifactId)}`,
-      // A publish event refetches the whole artifact, so the iframe and every
-      // other field (size, file count, last published, status) update together.
-      // A fresh revision also clears any prior revoked state.
-      onPointer: (pointer: LiveUpdatePointer) => {
-        setLiveState({ artifactId, pointer, revoked: false });
-        invalidate();
-      },
-      onRevoked: () => {
-        setLiveState({ artifactId, pointer: null, revoked: true });
-        invalidate();
-      },
-    });
-    return () => connection.close();
-  }, [artifact, artifactId, queryClient]);
-
-  const current = liveState.artifactId === artifactId ? liveState : { pointer: null, revoked: false };
-  // The API leaves `viewer` populated on lockdowns; derive visibility from both
-  // the content pointer and the edge-enforced lockdown signals.
-  return artifact && !artifact.lockdown && !current.revoked
-    ? (current.pointer?.iframe_src ?? artifact.viewer?.iframe_src ?? null)
-    : null;
 }
