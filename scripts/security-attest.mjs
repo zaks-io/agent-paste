@@ -213,7 +213,17 @@ ensureJsonFile("gitleaks.json", []);
 runStep("pnpm-audit", "pnpm", ["audit", "--audit-level", "moderate", "--json"], {
   stdoutFile: "pnpm-audit.json",
   evaluateStatus: (result) => {
-    const policy = evaluatePnpmAuditPolicy(result.stdout);
+    const policy = evaluatePnpmAuditPolicy(result.stdout, {
+      allowedFindings: [
+        {
+          ghsa: "GHSA-8988-4f7v-96qf",
+          module: "@opentelemetry/core",
+          paths: [".>lighthouse>@sentry/node>@opentelemetry/core"],
+          reason:
+            "Remaining OpenTelemetry baggage advisory is isolated to Lighthouse's dev-only Sentry 9 dependency; production Sentry resolves @opentelemetry/core >=2.8.0.",
+        },
+      ],
+    });
     writeFileSync(join(outDir, "pnpm-audit-policy.json"), `${JSON.stringify(policy, null, 2)}\n`);
     return policy.status;
   },

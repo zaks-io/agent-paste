@@ -35,6 +35,79 @@ describe("pnpm-audit-policy", () => {
     expect(result.blocking).toEqual([]);
   });
 
+  it("allows a blocking advisory only when every finding path is explicitly allowed", () => {
+    const result = evaluatePnpmAuditPolicy(
+      report({
+        1: {
+          github_advisory_id: "GHSA-aaaa",
+          module_name: "pkg",
+          severity: "moderate",
+          title: "dev-only path",
+          findings: [{ paths: [".>tool>pkg"] }],
+        },
+      }),
+      {
+        allowedFindings: [{ ghsa: "GHSA-aaaa", module: "pkg", paths: [".>tool>pkg"], reason: "dev-only" }],
+      },
+    );
+    expect(result.status).toBe(0);
+    expect(result.blocking).toEqual([]);
+    expect(result.allowed).toEqual([
+      expect.objectContaining({
+        ghsa: "GHSA-aaaa",
+        module: "pkg",
+        paths: [".>tool>pkg"],
+        reason: "dev-only",
+      }),
+    ]);
+  });
+
+  it("blocks an otherwise allowed advisory when a finding path is not allowed", () => {
+    const result = evaluatePnpmAuditPolicy(
+      report({
+        1: {
+          github_advisory_id: "GHSA-aaaa",
+          module_name: "pkg",
+          severity: "moderate",
+          title: "mixed paths",
+          findings: [{ paths: [".>tool>pkg", ".>app>pkg"] }],
+        },
+      }),
+      {
+        allowedFindings: [{ ghsa: "GHSA-aaaa", module: "pkg", paths: [".>tool>pkg"], reason: "dev-only" }],
+      },
+    );
+    expect(result.status).toBe(1);
+    expect(result.allowed).toEqual([]);
+    expect(result.blocking).toEqual([expect.objectContaining({ ghsa: "GHSA-aaaa", module: "pkg" })]);
+  });
+
+  it("extracts GHSA ids from advisory URLs for path-specific allowances", () => {
+    const result = evaluatePnpmAuditPolicy(
+      report({
+        1: {
+          url: "https://github.com/advisories/GHSA-8988-4f7v-96qf",
+          module_name: "@opentelemetry/core",
+          severity: "moderate",
+          title: "OpenTelemetry Core",
+          findings: [{ paths: [".>lighthouse>@sentry/node>@opentelemetry/core"] }],
+        },
+      }),
+      {
+        allowedFindings: [
+          {
+            ghsa: "GHSA-8988-4f7v-96qf",
+            module: "@opentelemetry/core",
+            paths: [".>lighthouse>@sentry/node>@opentelemetry/core"],
+            reason: "dev-only",
+          },
+        ],
+      },
+    );
+    expect(result.status).toBe(0);
+    expect(result.allowed[0]?.ghsa).toBe("GHSA-8988-4f7v-96qf");
+  });
+
   it("treats unknown severity as non-blocking only when not in the blocked list", () => {
     const result = evaluatePnpmAuditPolicy(report({ 1: { module_name: "x", title: "y" } }), {
       blockedSeverities: ["unknown"],
