@@ -106,7 +106,9 @@ JSON output has these URL fields:
 - \`agent_view_url\` - machine-readable Agent View JSON for tools.
 
 MCP \`set_visibility\` with \`visibility: "unlisted"\` returns \`unlisted_url\`.
-\`create_revision_link\` returns its minted snapshot link as \`url\`.
+\`create_revision_link\` returns its minted snapshot link as \`url\`. To revoke
+that snapshot link later, call \`list_access_links\` and pass the matching
+\`items[].id\` to \`revoke_access_link\`.
 
 Verification notes:
 
@@ -130,8 +132,11 @@ it — revise the SAME Artifact instead of publishing a new one:
 The Artifact's View link (and any Share Link) is stable and live-updates pages
 already open to the newest Revision, so a revision needs no new link. Re-publishing
 an edit as a fresh Artifact strands the link the user already has open. Keep the
-\`artifact_id\` from each publish (the CLI \`Update\` hint, the JSON \`artifact_id\`
-field, or \`list_artifacts\`) so you can revise.
+\`artifact_id\` from each CLI publish (the CLI \`Update\` hint or CLI JSON
+\`artifact_id\` field), or from MCP \`list_artifacts.data[].id\`, so you can revise. MCP
+\`publish_artifact\`, \`add_revision\`, and \`multi_edit\` return \`private_url\`
+but intentionally omit Artifact IDs, Revision IDs, Agent View URLs, and content
+URLs.
 
 If the user asks for a shareable no-login link, run:
 \`npx @zaks-io/agent-paste set-visibility <artifact-id> unlisted\` on the CLI, or
@@ -209,6 +214,7 @@ Read (\`read\`):
 - \`read_file\` - read one stored file's plaintext body or metadata so you can
   edit against the current bytes.
 - \`list_revisions\` - list Revisions for an Artifact.
+  Use \`items[].revision_id\` when another tool needs a Revision ID.
 
 Write (\`publish\`):
 
@@ -216,7 +222,8 @@ Write (\`publish\`):
   Content-only and private; it takes no visibility input. Use it only for
   something not yet published; to change published work use \`add_revision\`
   instead. To share it without login, call \`set_visibility\` with
-  \`visibility: "unlisted"\` afterward.
+  \`visibility: "unlisted"\` afterward. The response intentionally omits IDs;
+  use \`list_artifacts.data[].id\` to recover the Artifact ID.
 - \`add_revision\` - revise an EXISTING Artifact: add and publish a new Revision
   under its \`artifact_id\`. Use this, not \`publish_artifact\`, to change published
   work — the Artifact's \`private_url\` (and any Share Link) is stable and
@@ -238,7 +245,7 @@ Visibility and links (\`publish\` + \`read\` where noted):
   specific Revision (also needs \`read\`). Use only when the user asked for a
   fixed Revision.
 - \`list_access_links\` - list an Artifact's Share Links and Revision Links
-  (also needs \`read\`).
+  (also needs \`read\`). Use \`items[].id\` when revoking a link.
 - \`revoke_access_link\` - revoke a Share Link or Revision Link.
 
 Limits: MCP publish is text-only today. Use the CLI for folder uploads, binary

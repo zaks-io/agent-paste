@@ -5,6 +5,22 @@ import { handleMcpProtocolMethod } from "./protocol.js";
 const auth = { tokenSub: "user_01", scopes: ["read"] as const, bearerToken: "token-read" };
 
 describe("handleMcpProtocolMethod tools/call", () => {
+  it("initializes with publish follow-up instructions that match MCP outputs", () => {
+    const handled = handleMcpProtocolMethod({
+      method: "initialize",
+      params: {},
+      id: 0,
+      auth,
+    });
+    expect(handled.kind).toBe("result");
+    if (handled.kind === "result") {
+      const instructions = (handled.response.result as { instructions: string }).instructions;
+      expect(instructions).toContain("Publish responses intentionally omit artifact_id");
+      expect(instructions).toContain("data[].id");
+      expect(instructions).not.toMatch(/artifact_id from each publish_artifact response/);
+    }
+  });
+
   it("returns internal_error when the API binding is missing", async () => {
     const handled = await handleMcpProtocolMethod({
       method: "tools/call",

@@ -3,9 +3,10 @@
 Project start: 2026-05-18 (first commit on `main`).
 
 Last updated: 2026-06-15 (production agent ergonomics smoke verified the jobs
-R2 fix deployed; the CLI revise-title fix is merged but still needs a CLI npm
-release; AP-139 still needs authenticated MCP host-tool evidence before it is
-Done).
+R2 fix deployed, authenticated MCP host-tool coverage, and the CLI
+revise-title fix released in `@zaks-io/agent-paste@0.1.8`; the MCP docs/tool
+text patch from the follow-up pass still needs deploy before the next
+fresh-session pass).
 See [changelog.md](./status/changelog.md) for what shipped.
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
@@ -154,9 +155,11 @@ the [changelog](./status/changelog.md).
 Feature-specific ledgers:
 
 - [Agent experience todo](./agent-experience-todo.md) - cold happy-path
-  walkthrough findings; 2026-06-15 production pass found jobs R2 binding
-  failures and CLI revise-title drift, both patched in the AP-139 follow-up
-  branch. Authenticated MCP host-tool evidence is still outstanding.
+  walkthrough findings; 2026-06-15 production passes found jobs R2 binding
+  failures, CLI revise-title drift, and MCP output-description friction. The
+  jobs fix is deployed, the CLI fix is released in npm `0.1.8`, authenticated
+  MCP host-tool evidence is captured, and the remaining gate is deploying the
+  MCP wording patch.
 - [Web app todo](./web-app-todo.md) - Phase 3 web/dashboard close-out.
 - [Web CSP todo](./web-csp-todo.md) - dashboard + apex CSP hardening (script-src is
   nonce-based, browser-verified on preview; one item open: drop style `'unsafe-inline'`).

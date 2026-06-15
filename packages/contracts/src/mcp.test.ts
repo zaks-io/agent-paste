@@ -59,6 +59,17 @@ describe("MCP tool registry", () => {
     expect(listed.tools.every((tool) => tool.inputSchema.type === "object")).toBe(true);
   });
 
+  it("does not tell agents publish outputs include omitted IDs", () => {
+    const listed = buildMcpToolList();
+    const publishDescriptions = JSON.stringify(
+      listed.tools.filter((tool) => ["publish_artifact", "add_revision", "multi_edit"].includes(tool.name)),
+    );
+
+    expect(publishDescriptions).toContain("data[].id");
+    expect(publishDescriptions).not.toMatch(/artifact_id from (each )?(publish_artifact )?response/);
+    expect(publishDescriptions).not.toContain("from a publish_artifact response");
+  });
+
   it("exposes no share input on publish tools (content-only, private)", () => {
     const listed = buildMcpToolList();
     for (const name of ["publish_artifact", "add_revision"] as const) {

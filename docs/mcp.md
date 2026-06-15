@@ -92,6 +92,19 @@ MCP publish output intentionally omits Artifact IDs, Revision IDs,
 needed. Use `create_revision_link` only when the reader must see one exact
 Revision.
 
+Output shapes to keep straight:
+
+- `list_artifacts` returns `data[]`; the Artifact ID field is `data[].id`.
+- `read_artifact` returns the Agent View with `artifact_id`, `revision_id`,
+  `files[].url`, and optional `bundle`.
+- `list_revisions` returns `items[]`; the Revision ID field is
+  `items[].revision_id`.
+- `list_access_links` returns `items[]`; the Access Link ID field is
+  `items[].id`.
+- `create_revision_link` returns the minted snapshot `url`. To revoke that link
+  later, call `list_access_links` and pass the matching `items[].id` to
+  `revoke_access_link`.
+
 `add_revision` runs through the shared revise engine (`@agent-paste/revise-core`,
 [ADR 0091](../adr/0091-client-side-revise-engine-and-literal-edit-tools.md)): it
 reads the base Revision and **preserves the existing title** (it takes no title
