@@ -83,6 +83,27 @@ export const mcpToolContracts = [
     errors: readErrors,
   },
   {
+    name: "read_file",
+    description:
+      "Read one file's stored content from an Artifact so you can edit it and revise. Returns the decoded text body plus its sha256 for text files up to 10 MiB; for binary or larger files it returns sha256/size/is_binary with no body (fetch those via the file url or re-upload whole). Use the returned body as the base when producing an edited Revision; the sha256 is the exact base the server validates a diff against.",
+    auth: "mcp_oauth",
+    requiredScopes: ["read"],
+    idempotency: "none",
+    inputSchema: "read_file",
+    outputSchema: "read_file",
+    forwardedCalls: [
+      {
+        routeId: "artifacts.fileContent",
+        auth: "mcp_bearer",
+      },
+    ],
+    // read group + storage_unavailable: reading a file decrypts a blob, which the
+    // base read tools never do, so this tool can surface a transient blob-read
+    // failure the others cannot. Declared so the MCP forward maps it to 503
+    // instead of the 500 fallback.
+    errors: [...readErrors, "storage_unavailable"] as const,
+  },
+  {
     name: "list_revisions",
     description: "List revisions for an artifact.",
     auth: "mcp_oauth",

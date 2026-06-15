@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Credential } from "../src/credentials.js";
 import * as credentials from "../src/credentials.js";
 import { isMainEntrypoint, logout, main, parseArgs, SCHEMA_VERSION, shellQuote } from "../src/index.js";
@@ -31,8 +31,27 @@ const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const uploadSessionId = "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const accessLinkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 
-afterEach(() => {
+// Sandbox the per-artifact manifest cache (ADR 0090) so publish tests do
+// not write to the developer's real ~/.config/agent-paste.
+let configHome: string | undefined;
+let previousConfigHome: string | undefined;
+
+beforeEach(async () => {
+  previousConfigHome = process.env.XDG_CONFIG_HOME;
+  configHome = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cfg-"));
+  process.env.XDG_CONFIG_HOME = configHome;
+});
+
+afterEach(async () => {
   vi.restoreAllMocks();
+  if (previousConfigHome === undefined) {
+    delete process.env.XDG_CONFIG_HOME;
+  } else {
+    process.env.XDG_CONFIG_HOME = previousConfigHome;
+  }
+  if (configHome) {
+    await fs.rm(configHome, { recursive: true, force: true });
+  }
 });
 
 function mockStdout() {
@@ -508,6 +527,290 @@ describe("cli command dispatch", () => {
     } finally {
       await removePublishFixture(root);
     }
+  });
+
+  it("retries a revise as a full whole-blob publish when the cached base is unusable", async () => {
+    mockStdout();
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-"));
+    try {
+      await fs.writeFile(path.join(root, "index.html"), "<h1>Hello</h1>");
+      // Seed a manifest cache for this artifact whose base the server will reject.
+      const manifests = path.join(configHome ?? "", "agent-paste", "manifests");
+      await fs.mkdir(manifests, { recursive: true });
+      const staleRevisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0";
+      await fs.writeFile(
+        path.join(manifests, `${encodeURIComponent(artifactId)}.json`),
+        JSON.stringify({
+          revision_id: staleRevisionId,
+          files: [{ path: "gone.html", sha256: "a".repeat(64), size_bytes: 5 }],
+        }),
+      );
+      const sessionResponse = {
+        upload_session_id: uploadSessionId,
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "pending",
+        expires_at: "2026-01-01T00:00:00.000Z",
+        files: [
+          {
+            status: "upload_required",
+            path: "index.html",
+            put_url: "https://upload.test/index",
+            required_headers: {},
+            expires_at: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      };
+      const create = vi
+        .fn()
+        .mockRejectedValueOnce(Object.assign(new Error("patch_conflict"), { code: "patch_conflict" }))
+        .mockResolvedValueOnce(sessionResponse);
+      const finalize = vi.fn().mockResolvedValue({
+        upload_session_id: uploadSessionId,
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "draft",
+        title: "Published",
+        entrypoint: "index.html",
+        file_count: 1,
+        size_bytes: 14,
+      });
+      const publish = vi.fn().mockResolvedValue({
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        title: "Published",
+        private_url: "https://app.test/v/art_1",
+        revision_content_url: "https://content.test/v/token/index.html",
+        agent_view_url: "https://api.test/agent-view",
+        expires_at: "2026-02-01T00:00:00.000Z",
+      });
+      const client = fakeClient({
+        usagePolicy: vi.fn().mockResolvedValue(usagePolicy),
+        uploadSessions: { create, finalize },
+        revisions: { publish },
+        putFile: vi.fn().mockResolvedValue(undefined),
+      });
+
+      await main(["publish", root, "--artifact-id", artifactId], client);
+
+      expect(create).toHaveBeenCalledTimes(2);
+      // First attempt used the cached base; the retry dropped it and sent a full manifest.
+      expect(create.mock.calls[0]?.[0]).toMatchObject({ base_revision_id: staleRevisionId });
+      expect(create.mock.calls[1]?.[0]).not.toHaveProperty("base_revision_id");
+    } finally {
+      await removePublishFixture(root);
+    }
+  });
+
+  it("self-heals when finalize collapses a base-unusable error to invalid_request", async () => {
+    // The base-* repository kinds reach the wire as code `invalid_request` with the kind
+    // attached as the message detail (ADR 0090). This proves the CLI keys on that detail —
+    // rejecting on `finalize` (where base errors realistically fire), not `create`, and with
+    // a bare `invalid_request` code, so it fails if the detail signal regresses.
+    mockStdout();
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-"));
+    try {
+      await fs.writeFile(path.join(root, "index.html"), "<h1>Hello</h1>");
+      const manifests = path.join(configHome ?? "", "agent-paste", "manifests");
+      await fs.mkdir(manifests, { recursive: true });
+      const staleRevisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0";
+      await fs.writeFile(
+        path.join(manifests, `${encodeURIComponent(artifactId)}.json`),
+        JSON.stringify({
+          revision_id: staleRevisionId,
+          files: [{ path: "gone.html", sha256: "a".repeat(64), size_bytes: 5 }],
+        }),
+      );
+      const sessionResponse = {
+        upload_session_id: uploadSessionId,
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "pending",
+        expires_at: "2026-01-01T00:00:00.000Z",
+        files: [
+          {
+            status: "upload_required",
+            path: "index.html",
+            put_url: "https://upload.test/index",
+            required_headers: {},
+            expires_at: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      };
+      const create = vi.fn().mockResolvedValue(sessionResponse);
+      const finalize = vi
+        .fn()
+        // Collapsed wire shape: code is the generic invalid_request; the precise kind is the message.
+        .mockRejectedValueOnce(Object.assign(new Error("base_revision_not_found"), { code: "invalid_request" }))
+        .mockResolvedValueOnce({
+          upload_session_id: uploadSessionId,
+          artifact_id: artifactId,
+          revision_id: revisionId,
+          status: "draft",
+          title: "Published",
+          entrypoint: "index.html",
+          file_count: 1,
+          size_bytes: 14,
+        });
+      const publish = vi.fn().mockResolvedValue({
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        title: "Published",
+        private_url: "https://app.test/v/art_1",
+        revision_content_url: "https://content.test/v/token/index.html",
+        agent_view_url: "https://api.test/agent-view",
+        expires_at: "2026-02-01T00:00:00.000Z",
+      });
+      const client = fakeClient({
+        usagePolicy: vi.fn().mockResolvedValue(usagePolicy),
+        uploadSessions: { create, finalize },
+        revisions: { publish },
+        putFile: vi.fn().mockResolvedValue(undefined),
+      });
+
+      await main(["publish", root, "--artifact-id", artifactId], client);
+
+      expect(create).toHaveBeenCalledTimes(2);
+      expect(finalize).toHaveBeenCalledTimes(2);
+      expect(create.mock.calls[0]?.[0]).toMatchObject({ base_revision_id: staleRevisionId });
+      expect(create.mock.calls[1]?.[0]).not.toHaveProperty("base_revision_id");
+    } finally {
+      await removePublishFixture(root);
+    }
+  });
+
+  it("revising an unchanged working tree falls back to a full publish, not an empty delta", async () => {
+    const { createHash } = await import("node:crypto");
+    mockStdout();
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-"));
+    try {
+      const body = "<h1>Hello</h1>";
+      await fs.writeFile(path.join(root, "index.html"), body);
+      // Cache matches the working tree exactly: nothing changed, added, or deleted, so
+      // the revise plan is a no-op delta the server would reject. The CLI must drop the
+      // base and send a full whole-blob manifest instead.
+      const manifests = path.join(configHome ?? "", "agent-paste", "manifests");
+      await fs.mkdir(manifests, { recursive: true });
+      const baseRevisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0";
+      const sha256 = createHash("sha256").update(new TextEncoder().encode(body)).digest("hex");
+      await fs.writeFile(
+        path.join(manifests, `${encodeURIComponent(artifactId)}.json`),
+        JSON.stringify({
+          revision_id: baseRevisionId,
+          files: [{ path: "index.html", sha256, size_bytes: body.length }],
+        }),
+      );
+      const create = vi.fn().mockResolvedValue({
+        upload_session_id: uploadSessionId,
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "pending",
+        expires_at: "2026-01-01T00:00:00.000Z",
+        files: [
+          {
+            status: "upload_required",
+            path: "index.html",
+            put_url: "https://upload.test/index",
+            required_headers: {},
+            expires_at: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      });
+      const finalize = vi.fn().mockResolvedValue({
+        upload_session_id: uploadSessionId,
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "draft",
+        title: "Published",
+        entrypoint: "index.html",
+        file_count: 1,
+        size_bytes: body.length,
+      });
+      const publish = vi.fn().mockResolvedValue({
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        title: "Published",
+        private_url: "https://app.test/v/art_1",
+        revision_content_url: "https://content.test/v/token/index.html",
+        agent_view_url: "https://api.test/agent-view",
+        expires_at: "2026-02-01T00:00:00.000Z",
+      });
+      const client = fakeClient({
+        usagePolicy: vi.fn().mockResolvedValue(usagePolicy),
+        uploadSessions: { create, finalize },
+        revisions: { publish },
+        putFile: vi.fn().mockResolvedValue(undefined),
+      });
+
+      await main(["publish", root, "--artifact-id", artifactId], client);
+
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(create.mock.calls[0]?.[0]).not.toHaveProperty("base_revision_id");
+      expect(create.mock.calls[0]?.[0]).toMatchObject({ files: [{ path: "index.html" }] });
+    } finally {
+      await removePublishFixture(root);
+    }
+  });
+
+  it("pull writes the file body to stdout, and --quiet does not suppress it", async () => {
+    const body = "line one\nline two\n";
+    const readFile = vi.fn().mockResolvedValue({
+      path: "notes.md",
+      sha256: "b".repeat(64),
+      size_bytes: body.length,
+      content_type: "text/markdown",
+      is_binary: false,
+      body,
+    });
+    const client = fakeClient({ artifacts: { readFile } });
+
+    const stdout = mockStdout();
+    await main(["pull", artifactId, "notes.md"], client);
+    expect(stdoutValues(stdout).join("")).toBe(body);
+    stdout.mockRestore();
+
+    // The body IS the result (cat-like), so --quiet must not suppress it — otherwise
+    // `pull … --quiet > file` writes an empty file.
+    const quietStdout = mockStdout();
+    await main(["pull", artifactId, "notes.md", "--quiet"], client);
+    expect(stdoutValues(quietStdout).join("")).toBe(body);
+    quietStdout.mockRestore();
+  });
+
+  it("pull refuses a binary file in plain mode", async () => {
+    const readFile = vi.fn().mockResolvedValue({
+      path: "logo.bin",
+      sha256: "c".repeat(64),
+      size_bytes: 4,
+      content_type: "application/octet-stream",
+      is_binary: true,
+    });
+    const client = fakeClient({ artifacts: { readFile } });
+    mockStdout();
+    await expect(main(["pull", artifactId, "logo.bin"], client)).rejects.toThrow(/binary/);
+  });
+
+  it("pull refuses a too-large-to-inline text file in plain mode but emits metadata in --json", async () => {
+    // The oversize branch returns text metadata with no body (is_binary false, body
+    // undefined). Plain mode must refuse it; --json must still emit metadata sans body.
+    const oversize = {
+      path: "huge.txt",
+      sha256: "d".repeat(64),
+      size_bytes: 20_000_000,
+      content_type: "text/plain",
+      is_binary: false,
+    };
+    const client = fakeClient({ artifacts: { readFile: vi.fn().mockResolvedValue(oversize) } });
+
+    mockStdout();
+    await expect(main(["pull", artifactId, "huge.txt"], client)).rejects.toThrow(/too large to inline/);
+
+    const jsonStdout = mockStdout();
+    await main(["pull", artifactId, "huge.txt", "--json"], client);
+    const printed = JSON.parse(stdoutValues(jsonStdout).join(""));
+    expect(printed).not.toHaveProperty("body");
+    expect(printed).toMatchObject({ path: "huge.txt", is_binary: false, size_bytes: 20_000_000 });
+    jsonStdout.mockRestore();
   });
 
   it("throws on unknown commands", async () => {

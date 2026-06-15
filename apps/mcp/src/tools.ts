@@ -20,6 +20,8 @@ import {
   McpPublishArtifactOutput,
   type McpPublishRenderMode,
   type McpReadArtifactInput,
+  type McpReadFileInput,
+  McpReadFileOutput,
   type McpRevokeAccessLinkInput,
   McpRevokeAccessLinkOutput,
   type McpScope,
@@ -93,6 +95,8 @@ export async function callMcpTool(
       return callListArtifacts(inputParsed.data as McpListArtifactsInput, deps);
     case "read_artifact":
       return callReadArtifact(inputParsed.data as McpReadArtifactInput, deps);
+    case "read_file":
+      return callReadFile(inputParsed.data as McpReadFileInput, deps);
     case "list_revisions":
       return callListRevisions(inputParsed.data as McpListRevisionsInput, deps);
     case "delete_artifact":
@@ -285,6 +289,17 @@ async function callReadArtifact(input: McpReadArtifactInput, deps: McpToolDeps):
     bearerToken: deps.bearerToken,
   });
   return parseForwardResult(forwarded, AgentView, "agentView.getLatest");
+}
+
+async function callReadFile(input: McpReadFileInput, deps: McpToolDeps): Promise<McpToolResult> {
+  const forwarded = await forwardToApiRoute({
+    api: deps.api,
+    routeId: "artifacts.fileContent",
+    params: { artifact_id: input.artifact_id },
+    query: { path: input.path, revision_id: input.revision_id },
+    bearerToken: deps.bearerToken,
+  });
+  return parseForwardResult(forwarded, McpReadFileOutput, "artifacts.fileContent");
 }
 
 async function callListRevisions(input: McpListRevisionsInput, deps: McpToolDeps): Promise<McpToolResult> {

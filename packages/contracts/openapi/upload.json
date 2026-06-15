@@ -59,6 +59,7 @@
                   "invalid_request",
                   "not_authenticated",
                   "not_found",
+                  "patch_conflict",
                   "pinned_artifact_cap_exceeded",
                   "rate_limited_actor",
                   "rate_limited_artifact",
@@ -271,6 +272,10 @@
             "type": "string",
             "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
           },
+          "base_revision_id": {
+            "type": "string",
+            "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
           "title": {
             "type": "string",
             "minLength": 1,
@@ -292,6 +297,15 @@
               "video"
             ]
           },
+          "deleted_paths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "maxItems": 100
+          },
           "files": {
             "type": "array",
             "items": {
@@ -309,7 +323,31 @@
                 },
                 "sha256": {
                   "type": "string",
-                  "pattern": "^[a-f0-9]{64}$/u"
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "patch": {
+                  "type": "object",
+                  "properties": {
+                    "base_sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "format": {
+                      "type": "string",
+                      "enum": [
+                        "unified"
+                      ]
+                    },
+                    "result_sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "required": [
+                    "base_sha256",
+                    "format",
+                    "result_sha256"
+                  ]
                 }
               },
               "required": [
@@ -317,7 +355,6 @@
                 "size_bytes"
               ]
             },
-            "minItems": 1,
             "maxItems": 100
           }
         },
@@ -873,6 +910,10 @@
                     "type": "string",
                     "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
                   },
+                  "base_revision_id": {
+                    "type": "string",
+                    "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
+                  },
                   "title": {
                     "type": "string",
                     "minLength": 1,
@@ -894,6 +935,15 @@
                       "video"
                     ]
                   },
+                  "deleted_paths": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    },
+                    "maxItems": 100
+                  },
                   "files": {
                     "type": "array",
                     "items": {
@@ -911,7 +961,31 @@
                         },
                         "sha256": {
                           "type": "string",
-                          "pattern": "^[a-f0-9]{64}$/u"
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "patch": {
+                          "type": "object",
+                          "properties": {
+                            "base_sha256": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "format": {
+                              "type": "string",
+                              "enum": [
+                                "unified"
+                              ]
+                            },
+                            "result_sha256": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            }
+                          },
+                          "required": [
+                            "base_sha256",
+                            "format",
+                            "result_sha256"
+                          ]
                         }
                       },
                       "required": [
@@ -919,7 +993,6 @@
                         "size_bytes"
                       ]
                     },
-                    "minItems": 1,
                     "maxItems": 100
                   }
                 },
@@ -973,6 +1046,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "patch_conflict",
                             "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
@@ -1049,6 +1123,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "patch_conflict",
                             "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
@@ -1125,6 +1200,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "patch_conflict",
                             "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
@@ -1201,6 +1277,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "patch_conflict",
                             "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
@@ -1297,6 +1374,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "patch_conflict",
                             "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
@@ -1373,6 +1451,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "patch_conflict",
                             "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
@@ -1507,6 +1586,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "patch_conflict",
                             "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
@@ -1583,6 +1663,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "patch_conflict",
                             "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
@@ -1659,6 +1740,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "patch_conflict",
                             "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
@@ -1735,6 +1817,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "patch_conflict",
                             "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
@@ -1889,6 +1972,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "patch_conflict",
                             "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
@@ -1965,6 +2049,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "patch_conflict",
                             "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
@@ -2041,6 +2126,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "patch_conflict",
                             "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
@@ -2117,6 +2203,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "patch_conflict",
                             "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
@@ -2213,6 +2300,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "patch_conflict",
                             "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",
@@ -2289,6 +2377,7 @@
                             "invalid_request",
                             "not_authenticated",
                             "not_found",
+                            "patch_conflict",
                             "pinned_artifact_cap_exceeded",
                             "rate_limited_actor",
                             "rate_limited_artifact",

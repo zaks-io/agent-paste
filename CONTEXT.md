@@ -21,7 +21,7 @@ _Avoid_: Empty artifact, draft artifact
 
 <a id="revision"></a>
 **Revision**:
-A saved state of an **Artifact** after creation or update.
+A saved state of an **Artifact** after creation or update. A **Revision** has zero or one parent **Revision** (a commit chain within the **Artifact**); a **Revision** published against a parent may inherit unchanged files from it instead of re-uploading them.
 _Avoid_: Version, snapshot
 
 <a id="draft-revision"></a>

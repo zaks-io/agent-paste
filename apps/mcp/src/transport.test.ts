@@ -472,6 +472,7 @@ describe("MCP streamable HTTP transport", () => {
       "add_revision",
       "list_artifacts",
       "read_artifact",
+      "read_file",
       "list_revisions",
       "delete_artifact",
       "update_display_metadata",

@@ -18,9 +18,16 @@ export type PaginationInput = {
 
 export type R2ListedObject = { key: string };
 export type R2Objects = { objects: R2ListedObject[]; truncated: boolean; cursor?: string };
+export type R2GetObjectBody = {
+  body: ReadableStream | ArrayBuffer | Uint8Array | string | null | undefined;
+  customMetadata?: Record<string, string>;
+};
 export type R2Bucket = {
   list(options: { prefix?: string; cursor?: string; limit?: number }): Promise<R2Objects>;
   delete(keys: string | string[]): Promise<void>;
+  // ADR 0090: the file-content read route decrypts a stored blob. This is
+  // the only read on api's R2 binding; every other api op lists or deletes.
+  get(key: string): Promise<R2GetObjectBody | null>;
 };
 
 export type KVNamespace = {

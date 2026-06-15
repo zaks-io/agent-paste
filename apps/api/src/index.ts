@@ -25,6 +25,7 @@ import {
   revokeAccessLinkRoute,
 } from "./routes/access-links.js";
 import { getUsagePolicy, mcpWhoami, revokeCurrentApiKey, whoami } from "./routes/account.js";
+import { readArtifactFileContent } from "./routes/artifact-file-content.js";
 import {
   billingCheckout,
   billingInvoices,
@@ -202,6 +203,14 @@ apiDbRegistrar.mount(contractById("agentView.getRevision"), async (context, prin
     revisionId: context.req.param("revision_id") ?? "",
   }),
 );
+apiDbRegistrar.mount(contractById("artifacts.fileContent"), async (context, principal, db) => {
+  const revisionId = context.req.query("revision_id");
+  return readArtifactFileContent(context as AppContext, principal, db, {
+    artifactId: context.req.param("artifact_id") ?? "",
+    path: context.req.query("path") ?? "",
+    ...(revisionId ? { revisionId } : {}),
+  });
+});
 apiDbRegistrar.mount(contractById("revisions.list"), async (context, principal, db) =>
   listRevisions(context as AppContext, principal, db, { artifactId: context.req.param("artifact_id") ?? "" }),
 );

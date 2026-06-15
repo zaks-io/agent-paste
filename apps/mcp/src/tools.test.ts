@@ -211,6 +211,53 @@ describe("callMcpTool", () => {
     expect(result).toEqual({ ok: true, result: agentView });
   });
 
+  it("read_file forwards path + revision_id and returns the file content", async () => {
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const fileContent = {
+      path: "index.md",
+      sha256: "a".repeat(64),
+      size_bytes: 6,
+      content_type: "text/markdown",
+      is_binary: false,
+      body: "hello\n",
+    };
+    const api = apiMock(["read"], Response.json(fileContent));
+    const result = await callMcpTool(
+      "read_file",
+      { artifact_id: artifactId, path: "index.md", revision_id: revisionId },
+      auth,
+      { api, upload, bearerToken: auth.bearerToken },
+    );
+    expect(result).toEqual({ ok: true, result: fileContent });
+    const url = new URL(routeCall(api, 0).url);
+    expect(url.pathname.endsWith(`/artifacts/${artifactId}/file-content`)).toBe(true);
+    expect(url.searchParams.get("path")).toBe("index.md");
+    expect(url.searchParams.get("revision_id")).toBe(revisionId);
+  });
+
+  it("read_file omits revision_id from the query when not provided", async () => {
+    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const fileContent = {
+      path: "index.md",
+      sha256: "a".repeat(64),
+      size_bytes: 6,
+      content_type: "text/markdown",
+      is_binary: false,
+      body: "hello\n",
+    };
+    const api = apiMock(["read"], Response.json(fileContent));
+    const result = await callMcpTool("read_file", { artifact_id: artifactId, path: "index.md" }, auth, {
+      api,
+      upload,
+      bearerToken: auth.bearerToken,
+    });
+    expect(result).toEqual({ ok: true, result: fileContent });
+    const url = new URL(routeCall(api, 0).url);
+    expect(url.searchParams.get("path")).toBe("index.md");
+    expect(url.searchParams.has("revision_id")).toBe(false);
+  });
+
   it("publish_artifact returns the private viewer link (content-only, private)", async () => {
     vi.stubGlobal(
       "fetch",

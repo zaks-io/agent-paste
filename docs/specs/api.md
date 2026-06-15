@@ -76,6 +76,7 @@ Authenticated `api` and `upload` routes enforce guards in a fixed order
 | `GET`  | `/v1/whoami`                                                  | `cli_credential`          | none        | -       | `WhoamiResponse`       |
 | `GET`  | `/v1/mcp/whoami`                                              | `mcp_oauth`               | none        | -       | `McpWhoamiResponse`    |
 | `GET`  | `/v1/artifacts/{artifact_id}/revisions`                       | `cli_or_mcp`              | none        | -       | `RevisionListResponse` |
+| `GET`  | `/v1/artifacts/{artifact_id}/file-content`                    | `cli_or_mcp`              | none        | -       | `ArtifactFileContent`  |
 | `POST` | `/v1/artifacts/{artifact_id}/revisions/{revision_id}/publish` | `cli_or_mcp`              | required    | -       | `PublishResult`        |
 | `GET`  | `/v1/public/agent-view/{token}`                               | `signed_agent_view_token` | none        | -       | `PublicAgentView`      |
 
@@ -84,6 +85,8 @@ Authenticated `api` and `upload` routes enforce guards in a fixed order
 `mcp.whoami` returns the authenticated Workspace Member, workspace, and granted MCP scopes derived from the member record.
 
 `PublicAgentView` is public to anyone with the signed token. It returns full per-file signed content URLs, not `content_prefix`, and does not include lockdown metadata. Authenticated owner/member Agent View routes may include explicit lockdown metadata for dashboard-visible locked Artifacts.
+
+`file-content` reads one stored file's decrypted plaintext for the owning Workspace Member so an agent can diff against it and revise with a unified-diff patch ([ADR 0090](../adr/0090-agent-file-read-back-api-decrypts-member-plaintext.md)). Inputs: `?path=` (required; query, not a path segment, since a file path may contain `/`) and `?revision_id=` (optional; defaults to latest). The response `ArtifactFileContent` is `{ path, sha256, size_bytes, content_type, is_binary, body? }`: `body` is the decoded UTF-8 text and is present only when the file is text and `≤ 10 MiB`. `is_binary` is byte-derived (true binary only); a text file over the inline cap returns `is_binary: false` with `body` absent (the agent fetches it via the content URL or uploads a whole blob), and an oversize file is returned as metadata **without reading R2**. This is the only `api` route that decrypts artifact bytes; the blob key is derived from the RLS-scoped row's plaintext `sha256` plus the actor's workspace, never from client input, and a missing/undecryptable blob is `storage_unavailable` (503), never `not_found`. `AgentView` file entries also carry an optional plaintext `sha256` so an agent can detect what changed before reading a file back.
 
 ## Upload Routes
 
@@ -100,11 +103,22 @@ Authenticated `api` and `upload` routes enforce guards in a fixed order
   "title": "demo",
   "entrypoint": "index.html",
   "render_mode": "html",
+  "base_revision_id": "rev_...",
+  "deleted_paths": ["old/page.html"],
   "files": [
     {
       "path": "index.html",
       "size_bytes": 12345,
       "sha256": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+    },
+    {
+      "path": "big.txt",
+      "size_bytes": 240,
+      "patch": {
+        "base_sha256": "<digest of big.txt in the base Revision>",
+        "format": "unified",
+        "result_sha256": "<digest of the whole reconstructed big.txt>"
+      }
     }
   ]
 }
@@ -129,9 +143,45 @@ Rules:
 - Max file size is `10 MB`.
 - Max total size is `25 MB`.
 - Max file count is `100`.
-- `sha256` is optional for compatibility. New CLI/MCP clients send lowercase
-  hex SHA-256 for each file. Legacy clients that omit it keep the full-upload
-  revision-object path and do not participate in deduplication.
+- `sha256` is optional for compatibility on whole-file entries. New CLI/MCP
+  clients send lowercase hex SHA-256 for each whole-file entry; legacy clients
+  that omit it keep the full-upload revision-object path and do not participate
+  in deduplication. A patched entry must NOT carry `sha256` (its uploaded bytes
+  are the diff, not the content-addressed file); the request is rejected if it
+  declares both.
+- `base_revision_id`, `deleted_paths`, and per-file `patch` are the optional
+  commit-chain / partial-manifest inputs ([ADR 0089](../adr/0089-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md)).
+  When `base_revision_id` is set, `files` lists only changed and added paths,
+  `deleted_paths` drops paths, and every other path inherits from the base
+  Revision by reference. A per-file `patch` (`{ base_sha256, format: "unified",
+result_sha256 }`) means the bytes uploaded for that entry are a unified diff
+  rather than the whole file: `size_bytes` is the diff's byte length and the
+  entry carries no whole-file `sha256`, `base_sha256` is the digest of that path
+  in the base Revision the diff applies to, and `result_sha256` is the digest of
+  the whole reconstructed file the server produces and verifies. Structural rules
+  enforced at request validation: `patch` and `deleted_paths` require
+  `base_revision_id`; `deleted_paths` is unique; a path cannot be both uploaded
+  and deleted; a patched entry cannot also declare a whole-file `sha256`;
+  `format` must be `unified`. Stateful checks and the tree-inheritance merge run server-side at
+  finalize. The base must be a `published` Revision in the same Workspace and
+  Artifact (a cross-workspace base is reported as not found; a cross-artifact base
+  is rejected before it could violate the parent foreign key). Only blob-backed
+  base paths inherit; a legacy revision-scoped path must be re-uploaded. A deleted
+  path must exist in the base, and a patch `base_sha256` must match the base file.
+  At finalize the merged tree (inherited base rows + uploaded changes − deletions)
+  sets `revisions.parent_revision_id = base_revision_id`, and `file_count` /
+  `size_bytes` are recomputed from the merged tree, not the uploaded manifest.
+  A patched file is reconstructed synchronously at finalize: the server applies the
+  diff to the base blob, verifies the result digest equals `result_sha256`, and
+  stores the whole result as an ordinary content-addressed blob — so caps are
+  enforced against the reconstructed result size, not the diff. If the diff cannot
+  be applied cleanly (base moved, hunk fails, or the result digest mismatches),
+  finalize fails with `patch_conflict` (HTTP 422) and message
+  `patch_conflict: <path>: <reason>` (`reason` ∈ `parse_error`,
+  `base_hash_mismatch`, `apply_failed`, `result_hash_mismatch`); the caller
+  regenerates that file's diff and re-finalizes. A broken patch never produces a
+  servable Revision. A file may not declare both a whole-file `sha256` and a
+  `patch`.
 
 ### `CreateUploadSessionResponse`
 

@@ -36,6 +36,22 @@ export {
   migrateWorkspaceBlobsForReparent,
   type WorkspaceBlobRef,
 } from "./reparent-workspace-blobs.js";
+export {
+  type ApplyConflictReason,
+  type ApplyUnifiedDiffResult,
+  applyUnifiedDiff,
+  decodeUtf8Strict,
+} from "./unified-diff.js";
+export {
+  type ArtifactBytesSigningRing,
+  type R2GetObjectBody,
+  readRevisionFileObjectBytes,
+  readWorkspaceBlobBytes,
+  WorkspaceBlobMetadataError,
+  WorkspaceBlobMissingError,
+  type WorkspaceBlobR2,
+  writeWorkspaceBlob,
+} from "./workspace-blob-bytes.js";
 
 export const MIME_TYPES_BY_EXTENSION = {
   ".css": "text/css; charset=utf-8",

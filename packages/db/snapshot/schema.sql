@@ -138,6 +138,7 @@ CREATE TABLE "revisions" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" uuid NOT NULL,
 	"artifact_id" text NOT NULL,
+	"parent_revision_id" text,
 	"revision_number" integer,
 	"status" text NOT NULL,
 	"entrypoint" text NOT NULL,
@@ -196,9 +197,12 @@ CREATE TABLE "upload_session_files" (
 	"storage_kind" text DEFAULT 'revision' NOT NULL,
 	"uploaded_at" timestamp with time zone,
 	"put_url_expires_at" timestamp with time zone NOT NULL,
+	"patch_base_sha256" text,
+	"patch_result_sha256" text,
 	CONSTRAINT "upload_session_files_upload_session_id_path_pk" PRIMARY KEY("upload_session_id","path"),
 	CONSTRAINT "upload_session_files_storage_kind_check" CHECK ("upload_session_files"."storage_kind" in ('revision', 'blob')),
-	CONSTRAINT "upload_session_files_sha256_check" CHECK ("upload_session_files"."sha256" is null or "upload_session_files"."sha256" ~ '^[a-f0-9]{64}$')
+	CONSTRAINT "upload_session_files_sha256_check" CHECK ("upload_session_files"."sha256" is null or "upload_session_files"."sha256" ~ '^[a-f0-9]{64}$'),
+	CONSTRAINT "upload_session_files_patch_check" CHECK (("upload_session_files"."patch_base_sha256" is null and "upload_session_files"."patch_result_sha256" is null) or ("upload_session_files"."patch_base_sha256" ~ '^[a-f0-9]{64}$' and "upload_session_files"."patch_result_sha256" ~ '^[a-f0-9]{64}$'))
 );
 
 CREATE TABLE "upload_sessions" (
@@ -218,6 +222,8 @@ CREATE TABLE "upload_sessions" (
 	"expires_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"finalized_at" timestamp with time zone,
+	"base_revision_id" text,
+	"deleted_paths" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	CONSTRAINT "upload_sessions_created_by_type_check" CHECK ("upload_sessions"."created_by_type" in ('api_key', 'member')),
 	CONSTRAINT "upload_sessions_render_mode_check" CHECK ("upload_sessions"."render_mode" is null or "upload_sessions"."render_mode" in ('html', 'markdown', 'text', 'image', 'audio', 'video'))
 );
@@ -277,6 +283,7 @@ ALTER TABLE "content_blobs" ADD CONSTRAINT "content_blobs_workspace_id_workspace
 ALTER TABLE "operation_events" ADD CONSTRAINT "operation_events_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "revisions" ADD CONSTRAINT "revisions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "revisions" ADD CONSTRAINT "revisions_artifact_id_artifacts_id_fk" FOREIGN KEY ("artifact_id") REFERENCES "public"."artifacts"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "revisions" ADD CONSTRAINT "revisions_parent_fk" FOREIGN KEY ("workspace_id","artifact_id","parent_revision_id") REFERENCES "public"."revisions"("workspace_id","artifact_id","id") ON DELETE set null ON UPDATE no action;
 ALTER TABLE "safety_warnings" ADD CONSTRAINT "safety_warnings_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "safety_warnings" ADD CONSTRAINT "safety_warnings_revision_fk" FOREIGN KEY ("workspace_id","artifact_id","revision_id") REFERENCES "public"."revisions"("workspace_id","artifact_id","id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "upload_session_files" ADD CONSTRAINT "upload_session_files_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
@@ -303,6 +310,7 @@ CREATE INDEX "revisions_workspace_idx" ON "revisions" USING btree ("workspace_id
 CREATE UNIQUE INDEX "revisions_workspace_artifact_id_unique" ON "revisions" USING btree ("workspace_id","artifact_id","id");
 CREATE UNIQUE INDEX "revisions_artifact_number_unique" ON "revisions" USING btree ("artifact_id","revision_number") WHERE "revisions"."revision_number" is not null;
 CREATE UNIQUE INDEX "revisions_one_draft_per_artifact" ON "revisions" USING btree ("artifact_id") WHERE "revisions"."status" = 'draft';
+CREATE INDEX "revisions_parent_idx" ON "revisions" USING btree ("workspace_id","artifact_id","parent_revision_id");
 CREATE INDEX "safety_warnings_revision_idx" ON "safety_warnings" USING btree ("workspace_id","revision_id");
 CREATE INDEX "safety_warnings_scanner_idx" ON "safety_warnings" USING btree ("workspace_id","revision_id","scanner_id");
 CREATE INDEX "stripe_webhook_events_processed_idx" ON "stripe_webhook_events" USING btree ("processed_at");

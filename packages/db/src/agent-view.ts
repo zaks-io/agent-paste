@@ -65,6 +65,9 @@ export function buildAgentView(
       content_type: file.content_type,
       object_key: file.r2_key,
       url: `${prefix}/${encodePath(file.path)}`,
+      // Plaintext content address so an agent can detect changes and declare a
+      // patch base (ADR 0090). Omitted for non-blob/diff-only rows.
+      ...(file.sha256 ? { sha256: file.sha256 } : {}),
     })),
     safety_warnings: warnings.slice(0, 100).map(toAgentViewSafetyWarning),
     bundle: buildBundleAvailability(revision),
