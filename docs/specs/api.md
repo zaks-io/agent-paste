@@ -114,7 +114,6 @@ Authenticated `api` and `upload` routes enforce guards in a fixed order
     {
       "path": "big.txt",
       "size_bytes": 240,
-      "sha256": "<digest of the diff bytes uploaded for this entry>",
       "patch": {
         "base_sha256": "<digest of big.txt in the base Revision>",
         "format": "unified",
@@ -144,22 +143,26 @@ Rules:
 - Max file size is `10 MB`.
 - Max total size is `25 MB`.
 - Max file count is `100`.
-- `sha256` is optional for compatibility. New CLI/MCP clients send lowercase
-  hex SHA-256 for each file. Legacy clients that omit it keep the full-upload
-  revision-object path and do not participate in deduplication.
+- `sha256` is optional for compatibility on whole-file entries. New CLI/MCP
+  clients send lowercase hex SHA-256 for each whole-file entry; legacy clients
+  that omit it keep the full-upload revision-object path and do not participate
+  in deduplication. A patched entry must NOT carry `sha256` (its uploaded bytes
+  are the diff, not the content-addressed file); the request is rejected if it
+  declares both.
 - `base_revision_id`, `deleted_paths`, and per-file `patch` are the optional
   commit-chain / partial-manifest inputs ([ADR 0089](../adr/0089-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md)).
   When `base_revision_id` is set, `files` lists only changed and added paths,
   `deleted_paths` drops paths, and every other path inherits from the base
   Revision by reference. A per-file `patch` (`{ base_sha256, format: "unified",
 result_sha256 }`) means the bytes uploaded for that entry are a unified diff
-  rather than the whole file: `size_bytes`/`sha256` describe the diff,
-  `base_sha256` is the digest of that path in the base Revision the diff applies
-  to, and `result_sha256` is the digest of the whole reconstructed file the
-  server produces and verifies. Structural rules enforced at request validation:
-  `patch` and `deleted_paths` require `base_revision_id`; `deleted_paths` is
-  unique; a path cannot be both uploaded and deleted; `format` must be
-  `unified`. Stateful checks and the tree-inheritance merge run server-side at
+  rather than the whole file: `size_bytes` is the diff's byte length and the
+  entry carries no whole-file `sha256`, `base_sha256` is the digest of that path
+  in the base Revision the diff applies to, and `result_sha256` is the digest of
+  the whole reconstructed file the server produces and verifies. Structural rules
+  enforced at request validation: `patch` and `deleted_paths` require
+  `base_revision_id`; `deleted_paths` is unique; a path cannot be both uploaded
+  and deleted; a patched entry cannot also declare a whole-file `sha256`;
+  `format` must be `unified`. Stateful checks and the tree-inheritance merge run server-side at
   finalize. The base must be a `published` Revision in the same Workspace and
   Artifact (a cross-workspace base is reported as not found; a cross-artifact base
   is rejected before it could violate the parent foreign key). Only blob-backed

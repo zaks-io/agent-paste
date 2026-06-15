@@ -52,12 +52,16 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
   return toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", asBufferSource(bytes))));
 }
 
-// Decode UTF-8, returning null on any invalid sequence. `TextDecoder({ fatal: true })`
-// is the obvious tool but its option type is not in every Worker TS lib config, so we
-// decode lossily then verify the decode round-trips to the same bytes — a replacement
-// character inserted for an invalid sequence re-encodes to different bytes.
+// Decode UTF-8, returning null on any invalid sequence. We decode lossily
+// (`fatal: false`, the default) then verify the decode round-trips to the same
+// bytes — a replacement character inserted for an invalid sequence re-encodes to
+// different bytes, so a mismatch means the input was not valid UTF-8.
+// `ignoreBOM: true` keeps a leading UTF-8 BOM in the output; without it TextDecoder
+// strips the BOM and the re-encode would drop those 3 bytes, wrongly rejecting valid
+// BOM-prefixed text as binary. `fatal` is passed explicitly because the Worker TS lib
+// types it as required on TextDecoderConstructorOptions.
 export function decodeUtf8Strict(bytes: Uint8Array): string | null {
-  const text = new TextDecoder().decode(asBufferSource(bytes));
+  const text = new TextDecoder("utf-8", { fatal: false, ignoreBOM: true }).decode(asBufferSource(bytes));
   if (!bytesEqual(new TextEncoder().encode(text), bytes)) {
     return null;
   }

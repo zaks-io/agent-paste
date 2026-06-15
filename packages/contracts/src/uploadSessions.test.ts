@@ -106,6 +106,8 @@ describe("CreateUploadSessionRequest partial-manifest + patch", () => {
   });
 
   it("rejects a non-unified patch format", () => {
+    // No whole-file sha256 here: a patched entry must omit it, so this isolates the
+    // format:"binary" rejection rather than tripping the sha256+patch mutual-exclusion.
     const result = CreateUploadSessionRequest.safeParse(
       baseRequest({
         base_revision_id: baseRevisionId,
@@ -113,7 +115,6 @@ describe("CreateUploadSessionRequest partial-manifest + patch", () => {
           {
             path: "big.bin",
             size_bytes: 30,
-            sha256: sha("c"),
             patch: { base_sha256: sha("d"), format: "binary", result_sha256: sha("e") },
           },
         ],

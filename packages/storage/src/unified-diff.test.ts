@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyUnifiedDiff } from "./unified-diff.js";
+import { applyUnifiedDiff, decodeUtf8Strict } from "./unified-diff.js";
 
 const enc = new TextEncoder();
 
@@ -22,6 +22,19 @@ async function applyText(base: string, diff: string, expectedResult: string) {
     expectedResultSha256: await sha256Hex(resultBytes),
   });
 }
+
+describe("decodeUtf8Strict", () => {
+  it("preserves a leading UTF-8 BOM so valid BOM text is not rejected as binary", () => {
+    const bytes = new Uint8Array([0xef, 0xbb, 0xbf, ...enc.encode("hello\n")]);
+    const decoded = decodeUtf8Strict(bytes);
+    expect(decoded).not.toBeNull();
+    expect(enc.encode(decoded as string)).toEqual(bytes);
+  });
+
+  it("returns null for invalid UTF-8", () => {
+    expect(decodeUtf8Strict(new Uint8Array([0xff, 0xfe, 0x00]))).toBeNull();
+  });
+});
 
 describe("applyUnifiedDiff", () => {
   it("applies a single-hunk modification + append byte-exactly", async () => {
