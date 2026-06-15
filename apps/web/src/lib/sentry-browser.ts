@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/tanstackstart-react";
+import { isExternalObservabilityBlockedPath } from "./external-observability";
 
 type RouterArg = Parameters<typeof Sentry.tanstackRouterBrowserTracingIntegration>[0];
 
@@ -9,8 +10,12 @@ export type BrowserSentryConfig = {
 
 let initialized = false;
 
-export function initBrowserSentry(config: BrowserSentryConfig | undefined, router: RouterArg): void {
-  if (import.meta.env.SSR || initialized) return;
+export function initBrowserSentry(
+  config: BrowserSentryConfig | undefined,
+  router: RouterArg,
+  pathname = browserPathname(),
+): void {
+  if (import.meta.env.SSR || initialized || isExternalObservabilityBlockedPath(pathname)) return;
   const dsn = config?.dsn?.trim();
   if (!dsn) return;
   try {
@@ -20,6 +25,8 @@ export function initBrowserSentry(config: BrowserSentryConfig | undefined, route
       sendDefaultPii: false,
       integrations: [Sentry.tanstackRouterBrowserTracingIntegration(router)],
       tracesSampleRate: 0.1,
+      beforeSend: (event) => (isExternalObservabilityBlockedPath(browserPathname()) ? null : event),
+      beforeSendTransaction: (event) => (isExternalObservabilityBlockedPath(browserPathname()) ? null : event),
     });
     initialized = true;
   } catch (error) {
@@ -28,7 +35,11 @@ export function initBrowserSentry(config: BrowserSentryConfig | undefined, route
   }
 }
 
-export function captureBrowserException(error: unknown): void {
-  if (import.meta.env.SSR) return;
+export function captureBrowserException(error: unknown, pathname = browserPathname()): void {
+  if (import.meta.env.SSR || isExternalObservabilityBlockedPath(pathname)) return;
   Sentry.captureException(error);
+}
+
+function browserPathname(): string | undefined {
+  return typeof window === "undefined" ? undefined : window.location.pathname;
 }
