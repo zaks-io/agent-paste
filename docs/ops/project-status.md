@@ -2,9 +2,9 @@
 
 Project start: 2026-05-18 (first commit on `main`).
 
-Last updated: 2026-06-11 (launch-state triage: latest production deploy workflow
-succeeded for remote `main` `e3be243c`; AP-254 and AP-299 are closed; AP-139 is
-the remaining human-owned production E2E evidence item).
+Last updated: 2026-06-15 (production agent ergonomics smoke found and patched
+jobs R2 binding failures plus CLI revise-title drift; AP-139 still needs
+authenticated MCP host-tool evidence before it is Done).
 See [changelog.md](./status/changelog.md) for what shipped.
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
@@ -153,9 +153,9 @@ the [changelog](./status/changelog.md).
 Feature-specific ledgers:
 
 - [Agent experience todo](./agent-experience-todo.md) - cold happy-path
-  walkthrough findings; **P0: `list_artifacts` 500s on workspaces with a draft
-  artifact** (null `revision_id` vs non-nullable contract), plus publish-returns-no-URL
-  ambiguity.
+  walkthrough findings; 2026-06-15 production pass found jobs R2 binding
+  failures and CLI revise-title drift, both patched in the AP-139 follow-up
+  branch. Authenticated MCP host-tool evidence is still outstanding.
 - [Web app todo](./web-app-todo.md) - Phase 3 web/dashboard close-out.
 - [Web CSP todo](./web-csp-todo.md) - dashboard + apex CSP hardening (script-src is
   nonce-based, browser-verified on preview; one item open: drop style `'unsafe-inline'`).

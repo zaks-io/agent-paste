@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { R2Bucket } from "../env.js";
 import { createTransactionalSqlExecutor } from "../test-helpers/sql-executor.js";
 import type { AuditEventRow } from "./audit-archive.js";
 import { archiveAuditRows, deleteAuditRowsByIds, selectExpiringAuditRows } from "./audit-archive.js";
@@ -22,9 +23,21 @@ describe("audit archive maintenance GC", () => {
   it("archives expiring audit rows to R2 before deleting them from Postgres", async () => {
     const row = sampleAuditRow();
     const callOrder: string[] = [];
-    const put = vi.fn(async () => {
+    let bucket: R2Bucket;
+    const get = vi.fn(async function (this: unknown) {
+      expect(this).toBe(bucket);
+      return null;
+    });
+    const put = vi.fn(async function (this: unknown) {
+      expect(this).toBe(bucket);
       callOrder.push("put");
     });
+    bucket = {
+      list: vi.fn(),
+      delete: vi.fn(),
+      get,
+      put,
+    };
     const executor = createTransactionalSqlExecutor(async (sql: string) => {
       if (sql.includes("from operation_events") && sql.trimStart().startsWith("select")) {
         callOrder.push("select");
@@ -37,12 +50,7 @@ describe("audit archive maintenance GC", () => {
       return { rows: [] };
     });
 
-    const result = await runMaintenanceGc(executor, "2026-05-20T00:00:00.000Z", {
-      list: vi.fn(),
-      delete: vi.fn(),
-      get: vi.fn(async () => null),
-      put,
-    });
+    const result = await runMaintenanceGc(executor, "2026-05-20T00:00:00.000Z", bucket);
 
     expect(result.discovered).toBe(1);
     expect(callOrder).toEqual(["select", "put", "delete"]);
