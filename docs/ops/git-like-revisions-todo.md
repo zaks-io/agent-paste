@@ -232,3 +232,68 @@ the read-back and the CLI diff client.
   so a broken patch never becomes a servable draft. There is therefore no
   pending-state model and no `reconstruction_status`. See the ADR 0089 Stage 4
   implementation notes.
+
+## Next phase: shared revise engine + literal multi-edit (ADR 0091)
+
+Status: design accepted (ADR 0091), not yet implemented. Lands AFTER the Stage
+1–5 foundation (PR #529) merges, so the engine is built on settled code. This
+section is the planned spec; the `docs/specs/cli.md` and `docs/mcp.md` live
+sections are updated only when the code lands (specs are current truth).
+
+**Supersedes** the "MCP `add_revision` stays text-body-only" line above: MCP gets
+a real patch-revise path, and both surfaces express edits identically.
+
+- **New package `@agent-paste/revise-core`** — pure, transport-agnostic (deps:
+  `@agent-paste/storage`, `@agent-paste/contracts` only). Importable by both the
+  Node CLI and the Worker MCP bundle.
+- **`applyEdits(body, edits[])`** — ordered literal `{oldString, newString,
+replaceAll?}`. `indexOf` matching (never a constructed `RegExp`). `not_found` if
+  absent, `not_unique` if >1 without `replaceAll`, reject empty `oldString`. Edit
+  _n_ sees edit _n−1_'s output. Pure in/out; never hashes/reads/publishes.
+- **`RevisionReader { readArtifact, readFile }`** — the read-side seam, the twin
+  of `PublishTransport`. CLI adapter over `ApiClient`; MCP adapter forwards
+  `agentView.getLatest` + `artifacts.fileContent` over service bindings.
+- **`reviseOnePath({reader, transport}, …)`** — read base identity + body →
+  `applyEdits` → `diffWithSelfCheck` → partial-manifest `runPublish` (only the
+  edited path; others inherit from `base_revision_id`).
+- **Move `diffWithSelfCheck` + the unified-diff generator** out of `apps/cli` into
+  the package (MCP cannot import `apps/cli`); the CLI working-dir revise imports
+  them from there. No second copy.
+- **Strict fail-fast** (the distinction from working-dir `publish`): `not_found` /
+  `not_unique` / binary base / oversize base / missing path / `patch_conflict` are
+  HARD errors — no silent whole-blob fallback. Only "diff not smaller than file"
+  sends a whole-file entry (still under `base_revision_id`, result-`sha256`
+  verified). A TOCTOU `patch_conflict` is retried ONCE by re-reading the current
+  base and re-applying the literal edits; if the edit no longer matches → surface
+  `not_found` (edit is stale, agent re-reads).
+- **CLI `edit <artifact-id> <path> --old <s> --new <s> [...] [--replace-all]`** —
+  repeatable old/new pairs, strict pairing, routes through `reviseOnePath` via the
+  server read (no manifest cache needed; works on a fresh machine).
+- **MCP `multi_edit { artifact_id, path, edits[] }`** — requires `read` + `publish`
+  scopes. Contracts wiring: input/output schemas, `McpToolName` enum, tool-schemas
+  maps, registry entry (forwards `agentView.getLatest` + `artifacts.fileContent`
+  then the publish chain; declares `patch_conflict`), `mcp.test.ts` registry
+  assertions.
+- **MCP `add_revision` REBUILT** — reads the base and PRESERVES the existing title
+  (fixes the bug where it overwrote it with the literal `"Revision"`; rename via
+  `update_display_metadata`). Same-entrypoint → verified patch of the body against
+  the stored entrypoint; `render_mode` change → whole-file fresh-entrypoint publish
+  (the only meaningful whole-body replace); `sha256`-equal body → no-op, no
+  revision. Idempotency key stays a pure function of tool args (the read never
+  feeds it). Regression test: title preserved, not `"Revision"`. This is the one
+  observable public-contract change — record in `docs/mcp.md` + `docs/specs/cli.md`
+  when it lands; delete tests pinning `"Revision"` (they pinned a bug).
+- **`render_mode` inheritance invariant** — finalize resolves `render_mode` as
+  `session ?? base ?? infer(entrypoint)` so a partial-manifest revise that omits
+  `render_mode` inherits the base's mode instead of silently re-inferring from the
+  entrypoint. Gated behind finalize re-validation tests.
+
+**Ship split:** PR1 = package + engine + move diff-gen + rebuild CLI/MCP onto it +
+`add_revision` title fix + `render_mode` hardening (refactor, behavior-preserving
+except the bug fix). PR2 = the `edit` + `multi_edit` verbs on top.
+
+**Done (planned):** `pnpm verify` + `test:coverage` (88/82/88/88) + a preview e2e
+against a REAL multi-file artifact — `cli:dev edit` patches one file (others
+reused, link stable), `mcporter multi_edit` patches another, `add_revision`
+preserves title + live-updates, a `render_mode` flip uses the whole-file fallback,
+a repeated identical edit is a no-op, and the viewer reflects the change live.
