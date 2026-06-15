@@ -189,7 +189,7 @@ from a signed-in Workspace instead of passing `--ephemeral`.
 | Flag                     | Purpose                                                                                                                                                    |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--artifact-id <id>`     | Publish a new revision of an existing Artifact instead of creating a new one.                                                                              |
-| `--title <text>`         | Set the title. Default: path basename.                                                                                                                     |
+| `--title <text>`         | Set the title. New Artifacts default to the path basename; revisions preserve the existing title unless this is explicit.                                  |
 | `--entrypoint <path>`    | Override the inferred entrypoint. Must be a file inside the upload.                                                                                        |
 | `--render-mode <mode>`   | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.                                                                  |
 | `--ephemeral`            | Restricted accountless fallback for non-interactive text/images/static output. Ignores stored login and environment credentials, then prints a claim link. |

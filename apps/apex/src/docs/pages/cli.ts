@@ -56,7 +56,10 @@ export const CLI_DOC: DocsPage = {
           columns: ["Flag", "Purpose"],
           rows: [
             ["`--artifact-id <id>`", "Publish a new Revision of an existing Artifact."],
-            ["`--title <text>`", "Set the display title. Defaults to the file or folder name."],
+            [
+              "`--title <text>`",
+              "Set the display title. New Artifacts default to the file or folder name; revisions preserve the existing title unless this is explicit.",
+            ],
             ["`--entrypoint <path>`", "Choose the file opened first by viewers."],
             [
               "`--render-mode <mode>`",
