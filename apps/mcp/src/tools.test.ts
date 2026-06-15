@@ -67,6 +67,44 @@ function serverPublishResult() {
   };
 }
 
+/** The base Agent View add_revision reads first to preserve title + entrypoint. */
+function baseAgentView(over: Record<string, unknown> = {}) {
+  return {
+    artifact_id: ARTIFACT_ID,
+    revision_id: REVISION_ID,
+    title: "Original Title",
+    created_at: "2026-01-01T00:00:00.000Z",
+    expires_at: "2026-12-01T00:00:00.000Z",
+    entrypoint: "content.txt",
+    private_url: "https://app.example/v/art_1",
+    revision_content_url: "https://content.example/v/token/content.txt",
+    files: [
+      { path: "content.txt", size_bytes: 4, content_type: "text/plain", url: "https://content.example/content.txt" },
+    ],
+    safety_warnings: [],
+    bundle: { status: "disabled" },
+    ...over,
+  };
+}
+
+/** SHA-256 hex of a string, matching the engine's content addressing. */
+async function sha256HexOf(text: string): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
+  return [...digest].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** The base file content add_revision reads to diff the new body against. */
+async function baseFileContent(body: string) {
+  return {
+    path: "content.txt",
+    sha256: await sha256HexOf(body),
+    size_bytes: new TextEncoder().encode(body).byteLength,
+    content_type: "text/plain",
+    is_binary: false,
+    body,
+  };
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -190,6 +228,7 @@ describe("callMcpTool", () => {
       created_at: "2026-01-01T00:00:00.000Z",
       expires_at: "2026-12-01T00:00:00.000Z",
       entrypoint: "index.md",
+      private_url: "https://app.example/v/art_1",
       revision_content_url: "https://view.example",
       files: [
         {
@@ -502,27 +541,58 @@ describe("callMcpTool", () => {
     expect(routeCall(api, 3).url).toBe("https://agent-paste.internal/v1/access-links/al_fresh/mint");
   });
 
-  it("add_revision publishes a new revision on the artifact and returns the private viewer link", async () => {
+  it("add_revision reads the base, publishes under it, and preserves the artifact title", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(null, { status: 200 })),
     );
-    const api = apiMock(["publish", "read"], Response.json(serverPublishResult()));
+    const api = apiMock(
+      ["publish", "read"],
+      Response.json(baseAgentView()),
+      Response.json(await baseFileContent("old body")),
+      Response.json(serverPublishResult()),
+    );
     const upload = uploadMockForPublish();
     const result = await callMcpTool(
       "add_revision",
-      { artifact_id: ARTIFACT_ID, body: "next", render_mode: "text" },
+      { artifact_id: ARTIFACT_ID, body: "next body", render_mode: "text" },
       auth,
       { api, upload, bearerToken: "token-write-read", jsonRpcId: 43 },
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.result).toMatchObject({ private_url: "https://app.example/v/art_1" });
-      expect(result.result).not.toHaveProperty("shared");
     }
-    // The create-session request targets the existing artifact.
+    // The create-session request targets the existing artifact, publishes under the base
+    // revision, and carries the BASE title — not the literal "Revision" the old code wrote.
     const createCall = upload.fetch.mock.calls[0]?.[0] as Request;
-    expect(await createCall.json()).toMatchObject({ artifact_id: ARTIFACT_ID });
+    const createBody = (await createCall.json()) as { artifact_id: string; base_revision_id: string; title: string };
+    expect(createBody.artifact_id).toBe(ARTIFACT_ID);
+    expect(createBody.base_revision_id).toBe(REVISION_ID);
+    expect(createBody.title).toBe("Original Title");
+  });
+
+  it("add_revision is a no-op when the new body matches the stored bytes, echoing the stable link", async () => {
+    const publishPut = vi.fn(async () => new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", publishPut);
+    const api = apiMock(
+      ["publish", "read"],
+      Response.json(baseAgentView()),
+      Response.json(await baseFileContent("same body")),
+    );
+    const upload = uploadMockForPublish();
+    const result = await callMcpTool(
+      "add_revision",
+      { artifact_id: ARTIFACT_ID, body: "same body", render_mode: "text" },
+      auth,
+      { api, upload, bearerToken: "token-write-read", jsonRpcId: 44 },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.result).toMatchObject({ title: "Original Title", private_url: "https://app.example/v/art_1" });
+    }
+    // Byte-identical body: no upload session is ever created.
+    expect(upload.fetch).not.toHaveBeenCalled();
   });
 
   it("creates a revision link", async () => {

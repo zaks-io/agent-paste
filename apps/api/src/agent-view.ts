@@ -175,7 +175,7 @@ function existingRevisionContentUrl(data: AgentViewRecord): string | undefined {
 export async function signAgentViewContentUrls(
   view: unknown,
   env: Env,
-  options?: { accessLinkId?: string; workspaceId?: string; ephemeralTier?: boolean },
+  options?: { accessLinkId?: string; workspaceId?: string; ephemeralTier?: boolean; includePrivateUrl?: boolean },
 ): Promise<unknown> {
   if (!view || typeof view !== "object") {
     return view;
@@ -183,20 +183,28 @@ export async function signAgentViewContentUrls(
 
   const data = view as AgentViewRecord;
   const publicFields = stripInternalAgentViewFields(data);
+  const workspaceId = resolveSigningWorkspaceId(data.workspace_id, options);
+  // The member viewer link (`/v/<id>`) is login-walled and member-only. Only the authenticated
+  // member route opts in (`includePrivateUrl`); the public and access-link paths also pass a
+  // `workspaceId` (to sign content tokens) but their viewer is anonymous, so they must NOT carry
+  // it. It is absent from `PublicAgentView` and never reaches the wire on those paths.
+  const privateUrl =
+    options?.includePrivateUrl && typeof data.artifact_id === "string"
+      ? { private_url: `${webBaseUrl(env)}/v/${encodeURIComponent(data.artifact_id)}` }
+      : {};
 
   if (!contentSigningSecret(env)) {
-    return { ...publicFields, revision_content_url: existingRevisionContentUrl(data) };
+    return { ...publicFields, ...privateUrl, revision_content_url: existingRevisionContentUrl(data) };
   }
 
   if (typeof data.artifact_id !== "string" || typeof data.revision_id !== "string") {
-    return { ...publicFields, revision_content_url: existingRevisionContentUrl(data) };
+    return { ...publicFields, ...privateUrl, revision_content_url: existingRevisionContentUrl(data) };
   }
 
   const artifactId = data.artifact_id;
   const revisionId = data.revision_id;
   const entrypoint = typeof data.entrypoint === "string" ? data.entrypoint : undefined;
   const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
-  const workspaceId = resolveSigningWorkspaceId(data.workspace_id, options);
   const contentAuth = buildContentSigningAuth(options, workspaceId, isEphemeralAgentView(data, options));
 
   const [files, bundle, revisionContentUrl] = await Promise.all([
@@ -216,6 +224,7 @@ export async function signAgentViewContentUrls(
 
   return {
     ...publicFields,
+    ...privateUrl,
     revision_content_url: revisionContentUrl,
     files,
     bundle,
@@ -284,7 +293,10 @@ export async function signPublishResult(
   );
   return {
     ...rest,
-    private_url: `${webBaseUrl(env)}/v/${encodeURIComponent(data.artifact_id)}`,
+    // The member viewer link (`/v/<id>`) is login-walled and member-only. Emit it only
+    // when a workspace member is the viewer; the public/share path passes no auth and must
+    // not receive it (it is absent from `PublicAgentView` and stays off the wire here).
+    ...(auth?.workspaceId ? { private_url: `${webBaseUrl(env)}/v/${encodeURIComponent(data.artifact_id)}` } : {}),
     revision_content_url: revisionContentUrl,
     agent_view_url: secret
       ? await mintAgentViewUrl({

@@ -65,7 +65,9 @@ under the CLI config dir and, on the next revise, diffs the working dir against
 that cache: unchanged files inherit by reference (not re-hashed, not re-uploaded),
 removed files become `deleted_paths`, and changed text files are sent as a
 verified unified diff against `base_revision_id` (whole blob for binary or when the
-diff is not smaller). The diff generator self-checks (applies its own diff and
+diff is not smaller). The diff generator (`diffWithSelfCheck`) lives in the shared
+`@agent-paste/revise-core` package ([ADR 0091](../adr/0091-client-side-revise-engine-and-literal-edit-tools.md)),
+the single copy both the CLI and MCP use; it self-checks (applies its own diff and
 verifies the result digest) before attaching a patch, so a generator bug degrades
 to a correct whole-blob upload, never a finalize conflict. There is no diff size
 threshold. If the cached base is no longer usable on the server (a concurrent

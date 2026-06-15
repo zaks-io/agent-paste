@@ -86,6 +86,8 @@ Authenticated `api` and `upload` routes enforce guards in a fixed order
 
 `PublicAgentView` is public to anyone with the signed token. It returns full per-file signed content URLs, not `content_prefix`, and does not include lockdown metadata. Authenticated owner/member Agent View routes may include explicit lockdown metadata for dashboard-visible locked Artifacts.
 
+The authenticated member `AgentView` additionally carries `private_url` — the login-walled clean viewer (`/v/<artifactId>`) for the Workspace Member ([ADR 0091](../adr/0091-client-side-revise-engine-and-literal-edit-tools.md)). It is **member-only**: it is absent from `PublicAgentView`, and the access-link resolve path (a public/Share-Link viewer, which still passes a `workspaceId` to sign content tokens) does not emit it — the API gates it on an explicit `includePrivateUrl` opt-in set only by the authenticated member route, so a private viewer link never reaches an anonymous viewer.
+
 `file-content` reads one stored file's decrypted plaintext for the owning Workspace Member so an agent can diff against it and revise with a unified-diff patch ([ADR 0090](../adr/0090-agent-file-read-back-api-decrypts-member-plaintext.md)). Inputs: `?path=` (required; query, not a path segment, since a file path may contain `/`) and `?revision_id=` (optional; defaults to latest). The response `ArtifactFileContent` is `{ path, sha256, size_bytes, content_type, is_binary, body? }`: `body` is the decoded UTF-8 text and is present only when the file is text and `≤ 10 MiB`. `is_binary` is byte-derived (true binary only); a text file over the inline cap returns `is_binary: false` with `body` absent (the agent fetches it via the content URL or uploads a whole blob), and an oversize file is returned as metadata **without reading R2**. This is the only `api` route that decrypts artifact bytes; the blob key is derived from the RLS-scoped row's plaintext `sha256` plus the actor's workspace, never from client input, and a missing/undecryptable blob is `storage_unavailable` (503), never `not_found`. `AgentView` file entries also carry an optional plaintext `sha256` so an agent can detect what changed before reading a file back.
 
 ## Upload Routes
@@ -132,12 +134,16 @@ Rules:
 - Single-file publishes use the file name as `entrypoint`.
 - Folder publishes require an explicit or inferred `entrypoint`.
 - `render_mode` is optional: one of `html`, `markdown`, `text`, `image`,
-  `audio`, `video`. When present it is stored on the Upload Session and copied
-  verbatim to the draft Revision at finalize, overriding inference. When absent
-  the server infers the Render Mode from the entrypoint extension via the
-  shared map in `packages/contracts/src/renderMode.ts`, falling back to `html`
-  for unknown extensions. The CLI uses the same map locally but does not fall
-  back: an unknown extension fails the publish with an error asking for an
+  `audio`, `video`. Finalize resolves the draft Revision's Render Mode as
+  `session.render_mode ?? base Revision's render_mode ?? infer(entrypoint)`
+  ([ADR 0091](../adr/0091-client-side-revise-engine-and-literal-edit-tools.md)): an explicit client value
+  on the Upload Session wins; otherwise a partial-manifest revise against a
+  `base_revision_id` **inherits the base Revision's mode** rather than re-inferring
+  from the entrypoint (so a body-only patch of a `markdown` Artifact stays
+  `markdown`); a fresh publish with no base infers from the entrypoint extension
+  via the shared map in `packages/contracts/src/renderMode.ts`, falling back to
+  `html` for unknown extensions. The CLI uses the same map locally but does not
+  fall back: an unknown extension fails the publish with an error asking for an
   explicit `--render-mode`.
 - Paths are normalized POSIX paths.
 - Max file size is `10 MB`.

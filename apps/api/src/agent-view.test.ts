@@ -57,6 +57,32 @@ describe("signAgentViewContentUrls characterization", () => {
     await expect(signAgentViewContentUrls(42, {})).resolves.toBe(42);
   });
 
+  it("emits the member private_url only when the authenticated member route opts in", async () => {
+    const view = {
+      workspace_id: workspaceId,
+      artifact_id: "art_1",
+      revision_id: "rev_1",
+      entrypoint: "index.html",
+    };
+
+    const member = (await signAgentViewContentUrls(view, signingEnv, {
+      workspaceId,
+      includePrivateUrl: true,
+    })) as { private_url?: string };
+    expect(member.private_url).toContain("/v/art_1");
+
+    // The access-link/public path passes a workspaceId for content signing but its viewer is
+    // anonymous; private_url must stay off the wire there.
+    const accessLink = (await signAgentViewContentUrls(view, signingEnv, {
+      workspaceId,
+      accessLinkId: "al_1",
+    })) as { private_url?: string };
+    expect(accessLink.private_url).toBeUndefined();
+
+    const publicView = (await signAgentViewContentUrls(view, signingEnv)) as { private_url?: string };
+    expect(publicView.private_url).toBeUndefined();
+  });
+
   it("strips workspace_id from the public response", async () => {
     const signed = (await signAgentViewContentUrls(
       {
