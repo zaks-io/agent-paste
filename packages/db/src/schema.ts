@@ -292,6 +292,13 @@ export const revisions = pgTable(
     check("revisions_bundle_status_check", sql`${table.bundleStatus} in ('pending', 'ready', 'failed', 'disabled')`),
     check("revisions_created_by_type_check", sql`${table.createdByType} in ('api_key', 'member')`),
     index("revisions_parent_idx").on(table.workspaceId, table.artifactId, table.parentRevisionId),
+    // Migration 0024 is authoritative for this constraint: it uses the PostgreSQL
+    // column-scoped `ON DELETE SET NULL (parent_revision_id)` so deleting a parent
+    // only nulls the (nullable) parent pointer, never workspace_id/artifact_id (both
+    // NOT NULL). Drizzle cannot express the column list, so this `.onDelete("set null")`
+    // is the closest ORM approximation; the snapshot it generates is drift-detection
+    // for schema.ts, not the DDL applied to the database. Do NOT "fix" the migration to
+    // match the snapshot's unscoped SET NULL — that would violate the NOT NULL columns.
     foreignKey({
       name: "revisions_parent_fk",
       columns: [table.workspaceId, table.artifactId, table.parentRevisionId],

@@ -438,14 +438,18 @@ export async function finalizeUploadSessionInEntities(
     repositoryError("upload_session_not_found");
   }
   if (session.status === "finalized") {
+    // The session row carries only the uploaded DELTA counts; against a base Revision
+    // the committed tree (merged base + delta) differs. Read the committed Revision so a
+    // retried finalize returns the same file_count/size_bytes as the first one (ADR 0089).
+    const committed = await entities.revisions.findById(session.revision_id, session.workspace_id);
     return buildFinalizeResult({
       uploadSessionId: session.id,
       artifactId: session.artifact_id,
       revisionId: session.revision_id,
       title: session.title,
       entrypoint: session.entrypoint,
-      fileCount: session.file_count,
-      sizeBytes: session.size_bytes,
+      fileCount: committed?.file_count ?? session.file_count,
+      sizeBytes: committed?.size_bytes ?? session.size_bytes,
     });
   }
   if (session.status === "expired" || new Date(session.expires_at).getTime() <= new Date(input.now).getTime()) {
