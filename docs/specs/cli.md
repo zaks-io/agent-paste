@@ -43,9 +43,9 @@ automatic; flags override detection.
 - `publish` is content-only and private: it emits one handoff link, `private_url`
   (the login-walled clean viewer at `/v/<artifactId>` for a Workspace Member) —
   the same field the MCP server returns. There is no `--share` input and no
-  `shared` output bit. Making an Artifact public is the separate `make-public`
-  command, which mints or reuses the one Share Link and prints its no-login
-  Access Link Signed URL.
+  `shared` output bit. Creating an unlisted no-login handoff is the separate
+  `make-public` command, which currently mints or reuses the one Share Link and
+  prints its no-login Access Link Signed URL.
 - Errors in `json` mode are emitted on **stderr** as
   `{ "error": { "code", "message", "docs?" } }` (no `schema_version` — it is an
   error envelope, not a result).

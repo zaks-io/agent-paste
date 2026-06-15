@@ -200,7 +200,7 @@ link publish returns. It is **permanent and stable**: the URL is derived only
 from the Artifact id with no token, signature, or expiry, and `add_revision`
 republishes into the same id, so the link never changes across revisions and
 live-updates to the latest Published Revision. It is **always private** (member
-only; publish never grants public access) and stops resolving only when the
+only; publish never grants unauthenticated access) and stops resolving only when the
 Artifact itself is deleted or swept by Auto Deletion — a property of the
 Artifact's lifetime, not the link. The `expires_at` in `PublishResult` is the
 Artifact's content lifetime, not a link expiry. The dashboard-only **Artifact
@@ -210,10 +210,11 @@ response, expires with its signed token, and does not Live Update. Direct
 `usercontent` HTML is inert raw byte delivery unless it is loaded through the
 controlled Artifact Viewer iframe. MCP publish tools (`publish_artifact`,
 `add_revision`) and CLI `publish` run the same publish path and return the same
-shape: `private_url`, title, expiry, and upload stats. Making an Artifact public
-is a separate explicit step — `make_public` (MCP) and `agent-paste make-public`
-(CLI) — which mints or reuses the one revocable **Share Link** and returns its
-public, no-login **Access Link Signed URL**. Creating a `share` Access Link is
+shape: `private_url`, title, expiry, and upload stats. Creating an unlisted
+no-login handoff is a separate explicit step — `make_public` (MCP) and
+`agent-paste make-public` (CLI) — which currently mints or reuses the one
+revocable **Share Link** and returns its no-login **Access Link Signed URL**.
+Creating a `share` Access Link is
 idempotent on the Artifact, not just on the request key: if the Artifact already
 has an active (non-revoked, unexpired) Share Link, create returns that same link
 instead of minting a duplicate, so an Artifact has at most one live Share Link.
@@ -257,10 +258,10 @@ Human operators and rotation agents use WorkOS operator auth or Cloudflare Acces
 Publishing without `--artifact-id` creates a new Artifact. Publishing with an
 existing `artifact_id` creates and publishes a new Revision for that Artifact.
 The previous `revision_content_url` continues to point at the older Revision.
-Publish never makes the Artifact public; a Share Link is created only by the
-separate `make_public` / `agent-paste make-public` step. Its Access Link Signed
-URL is the user-facing public URL. The `private_url` remains the authenticated
-clean-viewer link for Workspace members.
+Publish never creates unauthenticated access; a Share Link is created only by
+the separate `make_public` / `agent-paste make-public` step. Its Access Link
+Signed URL is the user-facing unlisted no-login URL. The `private_url` remains
+the authenticated clean-viewer link for Workspace members.
 
 Workspace-wide publish deduplication starts only for new hash-aware uploads after
 the digest-manifest contract shipped. There is no historical backfill of legacy

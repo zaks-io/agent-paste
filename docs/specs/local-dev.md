@@ -208,7 +208,7 @@ The first local vertical slice is complete when:
 1. A Workspace and local CLI credential can be created locally.
 2. `agent-paste whoami` succeeds after `pnpm cli:dev login`.
 3. CLI can publish a folder with `index.html`.
-4. Publish is content-only and private: it prints the `private_url` (`/v/<artifactId>` clean viewer) as `View`. Making an Artifact public is the separate `make-public` step (MCP `make_public`).
+4. Publish is content-only and private: it prints the `private_url` (`/v/<artifactId>` clean viewer) as `View`. Unlisted no-login sharing is the separate `make-public` step (MCP `make_public`).
 5. CLI JSON output includes `artifact_id`, `revision_id`, `private_url`, `revision_content_url`, `agent_view_url`, and `expires_at` for automation. There is no `share` input and no `shared` output.
 6. `private_url` opens the authenticated `/v/<artifactId>` clean viewer in the local harness, while `revision_content_url` serves raw Revision bytes under the content origin with direct HTML scripts disabled.
 7. `agent_view_url` returns Agent View JSON with full per-file URLs.

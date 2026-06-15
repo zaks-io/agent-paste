@@ -100,12 +100,12 @@ Publish returns:
 Publish is content-only and private. `private_url` is the login-walled clean
 viewer at `/v/<artifactId>` for the owning Workspace Member and is the only
 handoff link publish returns; there is no `share` input and no `shared` output.
-Making an Artifact public is the separate `make_public` / `agent-paste
-make-public` step, which mints or reuses the one Share Link and returns its
-no-login Access Link Signed URL. `revision_content_url` remains a direct signed
-content URL for the exact Revision. Direct `usercontent` HTML is inert raw byte
-delivery unless it is loaded through the controlled Artifact Viewer iframe. The
-content token lives in the path.
+Creating an unlisted no-login handoff is the separate `make_public` /
+`agent-paste make-public` step, which currently mints or reuses the one Share
+Link and returns its no-login Access Link Signed URL. `revision_content_url`
+remains a direct signed content URL for the exact Revision. Direct `usercontent`
+HTML is inert raw byte delivery unless it is loaded through the controlled
+Artifact Viewer iframe. The content token lives in the path.
 
 `agent_view_url` is public and signed. It returns a JSON manifest for the same revision.
 
@@ -247,5 +247,5 @@ The MVP is buildable when the API-key publish loop works end to end. Phase 3 mem
 - `agent-paste publish ./demo.html` uploads a single HTML file.
 - Human-facing publish output returns the `private_url` (`/v/<artifactId>` clean viewer) as `View`.
 - JSON/REST publish output also carries `artifact_id`, `revision_id`, `private_url`, `revision_content_url`, `agent_view_url`, and `expires_at` for automation. There is no `share` input and no `shared` output.
-- `private_url` is the authenticated `/v/<artifactId>` clean viewer; making an Artifact public is the separate `make-public` step (which mints or reuses the one Share Link's no-login Access Link Signed URL); `revision_content_url` is raw byte delivery for one Revision; and `agent_view_url` returns JSON with full per-file URLs.
+- `private_url` is the authenticated `/v/<artifactId>` clean viewer; unlisted no-login sharing is the separate `make-public` step (which currently mints or reuses the one Share Link's no-login Access Link Signed URL); `revision_content_url` is raw byte delivery for one Revision; and `agent_view_url` returns JSON with full per-file URLs.
 - Expired artifacts stop resolving and their bytes are cleaned up.
