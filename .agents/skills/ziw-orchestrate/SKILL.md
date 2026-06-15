@@ -1,6 +1,6 @@
 ---
 name: ziw-orchestrate
-description: Use to orchestrate a specific ticket set, filter, project, delivery scope, or Linear Backlog clear run by selecting startable issues, delegating to local or remote workers, calling review and integrate as steps, recording a friction log, updating the tracker, and stopping when human input or a completely blocked queue leaves no safe action.
+description: Use to orchestrate a specific ticket set, filter, project, delivery scope, or Linear Backlog clear run by selecting startable issues, delegating to local or remote workers, calling review and integrate as steps, recording friction intake, updating the tracker, and stopping when human input or a completely blocked queue leaves no safe action.
 argument-hint: "[ticket-ids|filter|project|until-clear]"
 disable-model-invocation: true
 ---
@@ -246,6 +246,26 @@ dispatching more implementation work.
 If preview state cannot be refreshed and config says previews count toward the
 cap, treat headroom as unknown and full for new dispatch. Continue only with
 actions that advance existing PRs or repair the missing config/tooling evidence.
+
+## File Footprint Dispatch
+
+Capacity headroom is necessary, not sufficient. Before dispatching more than one
+startable issue, compare the predicted file or package footprints from To Issues
+against active PRs, active worker branches, and the other candidates selected for
+this tick.
+
+- Dispatch only a non-colliding set that fits the remaining active delivery
+  headroom.
+- Treat exact files, parent directories, shared packages, generated artifacts,
+  schemas, migrations, route files, config files, and refactor-plus-test work on
+  the same seam as collisions even when the filenames are not identical.
+- If a startable ticket has no predicted footprint, route it to triage or To
+  Issues for footprint repair before fanning it out. A single explicitly requested
+  ticket may still run when no active work can collide with it.
+- Prefer the set that unlocks the most blocked dependents, drains hot seams first,
+  and keeps risk isolated. Do not fill every available slot merely because the
+  active PR/preview cap has headroom.
+- Log held tickets as `file-collision` with "held, not skipped" evidence.
 
 ## PR Closure Guard
 
@@ -687,21 +707,37 @@ never permission to merge.
 
 ## Friction Log
 
-Maintain a running, write-only log of where the loop struggled, so the system can
-be improved later. This is the one orchestrator artifact that is retrospective,
-not state. Orchestrator writes it and never reads it back to make decisions.
+Maintain a running, write-only record of where the loop struggled, so the system
+can be improved later. This is the one orchestrator artifact that is
+retrospective, not state. Orchestrator writes it and never reads it back to make
+decisions.
 
-Sink: post each entry as a comment on the configured friction-log ticket, a
-dedicated tracker ticket parked in a non-workflow state so it never enters the
-work queue. Append only; do not read the whole thread. If config names no
-friction-log ticket, create one once in the configured location, parked out of
-the work queue, and record its ID in config during the next setup refresh.
+Sink: use the configured friction intake. Supported modes:
+
+- `comments-on-dedicated-ticket`: post each entry as a comment on the configured
+  friction-log ticket, a dedicated tracker ticket parked in a non-workflow state
+  so it never enters the work queue. Append only; do not read the whole thread.
+- `ticket-per-finding`: create compact tracker tickets in the configured
+  friction intake location, usually a private team or project with an `Inbox` or
+  `Triage` state. These tickets must not carry `ready-for-agent` or enter the
+  normal delivery queue until triage converts them into concrete work.
+
+If config names no friction intake, do not create public or delivery-queue
+tickets. If a verified private location exists but the dedicated ticket is
+missing, create it once when using `comments-on-dedicated-ticket` and record its
+ID in config during the next setup refresh. Otherwise report a setup
+`config-gap`.
 
 Write entries at the loop's existing give-up, retry, and stop points: every
 escalation, every re-dispatch, every deferral for contention, and every ticket
 that bounces review. At the end of a bounded run, post one compact rollup with
 counts by category. Do not post a rollup every tick unless the run is explicitly
 unattended and config asks for that visibility.
+
+For ticket-per-finding intake, avoid one ticket per tick. Create tickets for
+actionable events, repeated patterns, or run rollups that point to an upstream
+skill or config improvement. The configured review loop, often a daily
+automation, owns dedupe, noise closure, and opening PRs for concrete fixes.
 
 When review-created tickets repeatedly enter the queue with missing kind, route,
 readiness, dependency, or file-footprint data, log `review-debt-intake` friction
@@ -746,12 +782,12 @@ To Issues footprint prediction; `stuck-worker` points at liveness timeout tuning
 Review, To Issues, triage, or setup; `merge-conflict` and `post-merge-break`
 point at slicing or serialization; `config-gap` points at setup.
 
-The friction log never replaces escalation. Items needing the user now still get
+The friction intake never replaces escalation. Items needing the user now still get
 `ready-for-human` or the configured human-attention state plus notification. The
-log is the slow retrospective channel; escalation is the fast one.
+intake is the slow retrospective channel; escalation is the fast one.
 
 Never paste secrets, diffs, customer data, signed URLs, or private logs into the
-friction log. One line of metadata, IDs, and counts only.
+friction intake. One line of metadata, IDs, and counts only.
 
 ## Stop Conditions
 
