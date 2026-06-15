@@ -119,6 +119,18 @@ SVG responses override CSP with:
 Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src data:
 ```
 
+### Sandboxed asset fetches
+
+The Artifact Viewer iframe is sandboxed without `allow-same-origin`, so browser
+scripts inside it have an opaque origin serialized as `Origin: null`. Signed
+content file `200`/`304` responses echo `Access-Control-Allow-Origin: null`
+only for that exact request origin and add `Vary: Origin`. They do not set
+credentialed CORS headers, do not echo ordinary web origins, and still require
+the requested path to be listed in the signed content token. This lets an
+uploaded `index.html` fetch sibling uploaded assets such as `data/latest.json`
+from the same signed Revision without opening a general cross-origin read
+policy.
+
 ### Framing the viewer
 
 The dashboard and Artifact Viewer render artifact content in a sandboxed iframe

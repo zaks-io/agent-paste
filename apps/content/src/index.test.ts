@@ -178,6 +178,45 @@ describe("content worker", () => {
     await expect(response.text()).resolves.toBe("<h1>ok</h1>");
   });
 
+  it("lets sandboxed artifact scripts fetch same-token JSON assets from an opaque origin", async () => {
+    const token = await signContentToken(
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["index.html", "data/latest.json"],
+        script_disabled: false,
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const stored = await encryptedArtifactObject({
+      artifactId: "art_1",
+      revisionId: "rev_1",
+      path: "data/latest.json",
+      plaintext: '{"ok":true}',
+    });
+    const env = baseContentEnv({
+      ARTIFACTS: {
+        async get(key) {
+          expect(key).toBe("artifacts/art_1/revisions/rev_1/files/data/latest.json");
+          return stored;
+        },
+      },
+    });
+
+    const response = await handleRequest(
+      new Request(`https://content.test/v/${token}/data/latest.json`, { headers: { origin: "null" } }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
+    expect(response.headers.get("access-control-allow-origin")).toBe("null");
+    expect(response.headers.get("vary")).toBe("Origin");
+    await expect(response.text()).resolves.toBe('{"ok":true}');
+  });
+
   it("lets the production app origin frame served HTML and drops X-Frame-Options", async () => {
     const token = await signContentToken(
       {
@@ -988,6 +1027,35 @@ describe("content conditional requests", () => {
     expect(conditional.headers.get("etag")).toBe(etag);
     expect(conditional.headers.get("cache-control")).toBe("private, no-cache");
     // The matching conditional request never touched R2.
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps opaque-origin CORS headers on matching 304 responses", async () => {
+    const token = await tokenFor("data/latest.json");
+    const stored = await encryptedArtifactObject({
+      artifactId: "art_1",
+      revisionId: "rev_1",
+      path: "data/latest.json",
+      plaintext: '{"ok":true}',
+    });
+    const get = vi.fn(async () => stored);
+    const env = baseContentEnv({ ARTIFACTS: { get } });
+    const first = await handleRequest(
+      new Request(`https://content.test/v/${token}/data/latest.json`, { headers: { origin: "null" } }),
+      env,
+    );
+    const etag = first.headers.get("etag");
+
+    const conditional = await handleRequest(
+      new Request(`https://content.test/v/${token}/data/latest.json`, {
+        headers: { "if-none-match": etag as string, origin: "null" },
+      }),
+      env,
+    );
+
+    expect(conditional.status).toBe(304);
+    expect(conditional.headers.get("access-control-allow-origin")).toBe("null");
+    expect(conditional.headers.get("vary")).toBe("Origin");
     expect(get).toHaveBeenCalledTimes(1);
   });
 
