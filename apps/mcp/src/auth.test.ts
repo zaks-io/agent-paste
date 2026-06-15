@@ -83,7 +83,7 @@ async function oauthFixture() {
   const publicJwk = await exportJWK(publicKey);
   publicJwk.kid = "mcp-key";
   publicJwk.alg = "RS256";
-  const token = await new SignJWT({ scope: "read share" })
+  const token = await new SignJWT({ scope: "openid profile" })
     .setProtectedHeader({ alg: "RS256", kid: "mcp-key" })
     .setIssuer(issuer)
     .setAudience(MCP_RESOURCE_INDICATOR)

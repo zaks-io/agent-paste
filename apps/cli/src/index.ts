@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   type AgentPasteAuth,
+  AgentPasteError,
   ApiClient,
   createIdempotencyKey,
   type EphemeralProvisionOptions,
@@ -26,7 +27,7 @@ import {
 } from "./cli-args.js";
 import { type Credential, deleteCredential, isCredentialExpired, loadCredential } from "./credentials.js";
 import { edit } from "./edit.js";
-import { HELP_TEXT } from "./help.js";
+import { HELP_TEXT, PUBLISH_HELP_TEXT } from "./help.js";
 import {
   contentTypeForLocalPath,
   inferPublishOptions,
@@ -39,8 +40,8 @@ import { loadManifestCache, type ManifestCacheFile, saveManifestCache } from "./
 import {
   ephemeralClaimUrl,
   formatEphemeralPublishResult,
-  formatMakePublic,
   formatPublishResult,
+  formatSetVisibility,
 } from "./publish-format.js";
 import { apiClientTransport } from "./publish-transport.js";
 import { createProgress, exitCodeFor, formatError, type OutputMode } from "./render.js";
@@ -68,9 +69,13 @@ export async function main(argv = process.argv.slice(2), client?: ApiClient) {
   // `<subcommand> --help` (e.g. `publish --help`) must print help, not fall
   // through to the subcommand and fail on a missing positional. A bare `--help`
   // parses as the command; a `--help` flag alongside any command lands here.
-  if (command === "" || command === "help" || command === "--help" || booleanFlag(parsed, "help", false)) {
-    return printHelp();
+  if (command === "help") {
+    return printHelp(parsed.positionals[0]);
   }
+  if (command === "" || command === "--help" || booleanFlag(parsed, "help", false)) {
+    return printHelp(command === "publish" ? "publish" : undefined);
+  }
+  validateKnownFlags(command, parsed);
   switch (command) {
     case "login":
       await login();
@@ -100,8 +105,8 @@ async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
         return publishEphemeral(parsed);
       }
       return publish(parsed, client);
-    case "make-public":
-      return makePublic(parsed, client);
+    case "set-visibility":
+      return setVisibility(parsed, client);
     case "pull":
       return pull(parsed, client);
     case "edit":
@@ -109,6 +114,37 @@ async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
     default:
       throw new Error(`Unknown command: ${command}`);
   }
+}
+
+const GLOBAL_FLAG_NAMES = new Set(["json", "quiet", "color", "help", "version"]);
+
+const COMMAND_FLAG_NAMES: Record<string, readonly string[]> = {
+  login: [],
+  logout: [],
+  whoami: [],
+  publish: ["artifact-id", "title", "entrypoint", "render-mode", "ephemeral"],
+  "set-visibility": [],
+  pull: ["revision-id"],
+  edit: ["edits"],
+  version: [],
+  upgrade: [],
+};
+
+function validateKnownFlags(command: string, parsed: Parsed): void {
+  const commandFlags = COMMAND_FLAG_NAMES[command];
+  if (!commandFlags) {
+    return;
+  }
+  const allowed = new Set([...GLOBAL_FLAG_NAMES, ...commandFlags]);
+  const unknown = [...parsed.flags.keys()].filter((name) => !allowed.has(name)).sort();
+  if (unknown.length === 0) {
+    return;
+  }
+  throw new AgentPasteError({
+    code: "invalid_request",
+    message: `Unknown option${unknown.length === 1 ? "" : "s"}: ${unknown.map((name) => `--${name}`).join(", ")}`,
+    status: 400,
+  });
 }
 
 // `whoami` answering "you're nobody" is a valid answer, not a failure. When no
@@ -364,8 +400,8 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
   }
 
   // Publish is content-only and private: one link to hand the user, the private
-  // viewer URL (`/v/<id>`), identical to what the MCP server returns. Going public
-  // is a separate, explicit step (`agent-paste make-public <artifact-id>`).
+  // viewer URL (`/v/<id>`), identical to what the MCP server returns. Visibility
+  // changes are explicit `agent-paste set-visibility` calls.
   return {
     ...outcome.result,
     upload_stats: {
@@ -379,20 +415,56 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
   };
 }
 
-// Make an Artifact public: create (or reuse) its revocable Share Link and mint
-// the public Access Link Signed URL. Publish stays private; this is the separate,
-// explicit verb that opts an Artifact into no-login access. Mirrors the MCP
-// make_public tool (accessLinks.create {type:"share"} then accessLinks.mint).
-async function makePublic(parsed: Parsed, client: ApiClient) {
+async function setVisibility(parsed: Parsed, client: ApiClient) {
   const artifactId = ArtifactId.parse(requiredArg(parsed, 0, "artifact-id"));
+  const visibility = requiredArg(parsed, 1, "visibility");
+  if (visibility === "private") {
+    return setPrivate(parsed, client, artifactId);
+  }
+  if (visibility === "unlisted") {
+    return setUnlisted(parsed, client, artifactId);
+  }
+  throw new AgentPasteError({
+    code: "invalid_request",
+    message: "visibility must be one of: private, unlisted",
+    status: 400,
+  });
+}
+
+async function setUnlisted(parsed: Parsed, client: ApiClient, artifactId: string) {
   const created = await client.accessLinks.create(
     artifactId,
     { type: "share" },
-    createIdempotencyKey("cli_make_public"),
+    createIdempotencyKey("cli_set_visibility"),
   );
   const minted = await client.accessLinks.mint(created.id);
-  const payload = { artifact_id: artifactId, access_link_id: created.id, public_url: minted.url };
-  return output(payload, parsed.global, formatMakePublic(outputModeFor(parsed.global), payload));
+  const payload = {
+    artifact_id: artifactId,
+    visibility: "unlisted" as const,
+    access_link_id: created.id,
+    unlisted_url: minted.url,
+  };
+  return output(payload, parsed.global, formatSetVisibility(outputModeFor(parsed.global), payload));
+}
+
+async function setPrivate(parsed: Parsed, client: ApiClient, artifactId: string) {
+  const [agentView, accessLinks] = await Promise.all([
+    client.artifacts.getAgentView(artifactId),
+    client.accessLinks.list(artifactId),
+  ]);
+  const activeLinks = accessLinks.items.filter((link) => link.revoked_at === null);
+  const revokedAccessLinkIds: string[] = [];
+  for (const link of activeLinks) {
+    await client.accessLinks.revoke(link.id);
+    revokedAccessLinkIds.push(link.id);
+  }
+  const payload = {
+    artifact_id: artifactId,
+    visibility: "private" as const,
+    private_url: agentView.private_url,
+    revoked_access_link_ids: revokedAccessLinkIds,
+  };
+  return output(payload, parsed.global, formatSetVisibility(outputModeFor(parsed.global), payload));
 }
 
 // Read one stored file's content for the owning member (ADR 0090). Default
@@ -431,8 +503,8 @@ async function pull(parsed: Parsed, client: ApiClient) {
   await writeStdout(file.body);
 }
 
-function printHelp() {
-  return writeStdout(HELP_TEXT);
+function printHelp(topic?: string) {
+  return writeStdout(topic === "publish" ? PUBLISH_HELP_TEXT : HELP_TEXT);
 }
 
 export function isMainEntrypoint(metaUrl: string, argv1: string | undefined, platform = process.platform) {

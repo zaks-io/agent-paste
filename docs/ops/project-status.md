@@ -211,16 +211,16 @@ Highest-signal gaps:
   `private_url` — the login-walled `/v/<artifactId>` clean viewer (the server
   `PublishResult` renamed `artifact_url`→`private_url` and dropped
   `access_link_url`/`shared`). Unlisted no-login sharing is the separate
-  explicit verb `make_public` (MCP) / `agent-paste make-public` (CLI), renamed
-  from `create_share_link`, which mints or reuses the one revocable Share Link
-  and returns its no-login Access Link Signed URL. ADR 0085 (one switching
+  explicit verb `set_visibility` (MCP) / `agent-paste set-visibility <artifact-id>
+unlisted` (CLI), which mints or reuses the one revocable Share Link and returns
+  `unlisted_url`. ADR 0085 (one switching
   `viewer_url` + `shared`) is superseded.
 - True Public Artifacts are planned, not shipped. ADR 0087 / AP-330 reserves
   **Public Artifact** for the future CDN-backed distribution model with a stable
   ID-only `/p/{publicId}` URL, frozen Public Version, soft Public Offline control,
   and hard Platform Lockdown path. Until that implementation lands, shipped
-  unauthenticated latest-moving handoff remains the explicit Share Link created by
-  `make_public` / `agent-paste make-public`.
+  unauthenticated latest-moving handoff remains the explicit Share Link created
+  by `set_visibility` / `agent-paste set-visibility <artifact-id> unlisted`.
 - File-bytes hash-reputation malware scanner: cancelled/removed. Llama Guard
   and Cloudflare URL Scanner still support the ephemeral advisory/abuse path
   when configured, alongside built-in warning metadata. Containment is the trust

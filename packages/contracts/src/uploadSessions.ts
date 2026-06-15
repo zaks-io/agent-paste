@@ -160,7 +160,8 @@ export const PublishResult = z.object({
   title: PlainTextTitle,
   // The PRIVATE viewer link a publish returns: a login-walled clean viewer for
   // the owning workspace member (`/v/<artifactId>`), the only link publish emits.
-  // Going public is a separate, explicit step that mints a revocable Share Link.
+  // Unlisted sharing is a separate, explicit visibility step that mints a
+  // revocable Share Link.
   private_url: UrlString,
   revision_content_url: UrlString,
   agent_view_url: UrlString,

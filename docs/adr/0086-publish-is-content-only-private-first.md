@@ -1,10 +1,10 @@
-# Publish Is Content-Only and Private-First; Going Public Is a Separate Step
+# Publish Is Content-Only and Private-First; Visibility Is a Separate Step
 
 > **Planned terminology amendment:** [ADR 0087](./0087-public-artifacts-and-unlisted-share-links.md)
 > reserves **Public Artifact** for a future CDN-backed public distribution model
 > and reclassifies the current Share Link handoff as unlisted. Until that model is
-> implemented, this ADR still describes shipped CLI/MCP behavior: `make_public`
-> and `agent-paste make-public` mint or reuse the Artifact's one Share Link.
+> implemented, this ADR still describes shipped CLI/MCP behavior: `set_visibility`
+> and `agent-paste set-visibility <artifact-id> unlisted` mint or reuse the Artifact's one Share Link.
 
 agent-paste is private-first: an **Artifact** is for its owner until they decide
 otherwise. The publish surfaces must honor that by default and never expose anything
@@ -18,17 +18,17 @@ Link** (when private) and the public **Share Link** (when shared), surfaced thro
 1. **It lied.** Because the Private Link and the Share Link are _different URLs_, the
    returned link changed when visibility changed. Revising an artifact without
    re-passing `share` reported `shared:false` and handed back a different URL, even
-   though a live public Share Link was still serving the page. The output described
+   though a live unlisted Share Link was still serving the page. The output described
    the call, not the artifact, and read as "now private" when it was not.
 2. **It defaulted to surprise.** `share` as a publish flag put visibility on the
-   content path, so making something public was one easy flag away on every publish —
-   and an agent that set it once made the artifact world-readable by URL. On a
+   content path, so creating no-login access was one easy flag away on every
+   publish. An agent that set it once made the artifact reachable by URL. On a
    private-first product, visibility does not belong on the content-publish call.
 
 ## Decision
 
 - **Publish is content-only and private-first.** `publish_artifact`, `add_revision`,
-  and `agent-paste publish` accept no visibility input and have no concept of public.
+  and `agent-paste publish` accept no visibility input.
   They return exactly one link — the **Private Link** — and the `share`/`--share`
   inputs and the `shared` output bit are removed from every surface (CLI, MCP, the
   REST `PublishRevisionRequest` body, and the shared `runPublish` module).
@@ -46,11 +46,12 @@ Link** (when private) and the public **Share Link** (when shared), surfaced thro
   is the Artifact's content lifetime, not a link expiry. The mental model: a
   permanent, private, internal link that is always there; unauthenticated sharing
   is a separate, revocable Share Link.
-- **Creating unauthenticated access is a separate, explicit verb.** `make_public`
-  (MCP) and `agent-paste make-public` (CLI), replacing `create_share_link`, mint or
-  reuse the one revocable **Share Link** (`access_links.type='share'`) and return
-  its no-login **Access Link Signed URL**. This is the only way an Artifact becomes
-  reachable without login.
+- **Visibility changes are separate, explicit verbs.** `set_visibility` (MCP) and
+  `agent-paste set-visibility <artifact-id> <private|unlisted>` (CLI)
+  hold the shipped visibility model. `unlisted` mints or reuses the one revocable **Share
+  Link** (`access_links.type='share'`) and returns its no-login **Access Link
+  Signed URL** as `unlisted_url`. `private` revokes active Access Links and
+  returns `private_url`.
 - **Revocation is independent of content.** `revoke_access_link` kills a Share Link
   (or Revision Link) without touching the Artifact, its data, its revisions, or its
   Private Link. `list_access_links` and `create_revision_link` remain, so the owner
@@ -82,15 +83,14 @@ Link** (when private) and the public **Share Link** (when shared), surfaced thro
   to `private_url`.** Pre-launch break with no compatibility shim; CLI and MCP are the
   only callers and ship in lockstep. The server `PublishResult` no longer carries
   `access_link_url`.
-- **`create_share_link` is renamed `make_public`** (MCP) with a matching
-  `agent-paste make-public` CLI command; the go-public action reads as the deliberate
-  step it is and pairs with `revoke_access_link`. No separate `revoke_public` verb is
-  added (one way to do one thing).
+- **`create_share_link` is replaced by `set_visibility`.** The command names the
+  visibility transition directly and pairs with the existing Access Link list and
+  revoke tools. No separate `revoke_public` verb is added.
 - **A new authed clean-viewer route** `/v/<artifactId>` is added to `apps/web`,
   sharing one `ArtifactLiveViewer` component with the console. It must ship before the
   publish output repoints at it.
 - **Vocabulary shrinks** to **Private Link** (what publish returns) and **Share Link**
-  (what `make_public` creates). [`CONTEXT.md`](../../CONTEXT.md) deletes **Viewer URL**,
+  (what `set_visibility unlisted` creates). [`CONTEXT.md`](../../CONTEXT.md) deletes **Viewer URL**,
   renames **Artifact URL** to **Artifact Console**, and retargets **Private Link** at
   the `/v` viewer. Amends [ADR 0084](./0084-cli-and-mcp-share-one-publish-path.md)'s
   output-shape note (`{title, private_url, expires_at, upload_stats?}`, no `shared`).
@@ -100,7 +100,7 @@ Link** (when private) and the public **Share Link** (when shared), surfaced thro
 
 ## What this ADR is not
 
-- Not a change to how a public Share Link works once created — it is the same
+- Not a change to how an unlisted Share Link works once created — it is the same
   revocable, fragment-self-auth Access Link Signed URL as before.
 - Not a removal of the management console. `/artifacts/<id>` still exists for owners in
   the dashboard; it is simply never the link handed to a user or agent.

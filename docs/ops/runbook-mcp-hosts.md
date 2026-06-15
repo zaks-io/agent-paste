@@ -113,19 +113,19 @@ and `admin` capability is **derived in `api` from the caller's Workspace Member
 scopes** (`mcp.whoami` returns the derived set), not from the token. See
 [ADR 0079](../adr/0079-mcp-scopes-derived-from-member-role-not-workos-token.md).
 
-| Member scope | Typical tools                                                                                                                                               |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `read`       | `whoami`, `list_artifacts`, `read_artifact`, `read_file`, `list_revisions`, `list_access_links`                                                             |
-| `publish`    | `publish_artifact`, `add_revision`, `multi_edit`, `delete_artifact`, `update_display_metadata`, `make_public`, `create_revision_link`, `revoke_access_link` |
-| `admin`      | No MCP tool requires it today; it is reserved for dashboard/account/workspace management.                                                                   |
+| Member scope | Typical tools                                                                                                                                                  |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `read`       | `whoami`, `list_artifacts`, `read_artifact`, `read_file`, `list_revisions`, `list_access_links`                                                                |
+| `publish`    | `publish_artifact`, `add_revision`, `multi_edit`, `delete_artifact`, `update_display_metadata`, `set_visibility`, `create_revision_link`, `revoke_access_link` |
+| `admin`      | No MCP tool requires it today; it is reserved for dashboard/account/workspace management.                                                                      |
 
 Content-changing publish chain tools (`publish_artifact`, `add_revision`,
 `multi_edit`) require **`publish read`** and are content-only and private.
-Deletion and display metadata updates require `publish`. Link management uses
-`publish` plus `read` where the tool needs to inspect the Artifact first. Members
-are provisioned with `read`, `publish`, and `admin` (`DEFAULT_MEMBER_SCOPES`), so
-today every member has full
-capability; a future read-only or share-less member is a change to that member's
+Deletion and display metadata updates require `publish`. Visibility/link
+management uses `publish` plus `read` where the tool needs to inspect the
+Artifact first. Members are provisioned with `read`, `publish`, and `admin`
+(`DEFAULT_MEMBER_SCOPES`), so today every member has full capability; a future
+read-only or publish-less member is a change to that member's
 stored scopes in `api`, with no host, token, or WorkOS change. The MCP Worker
 pre-flight-gates each tool by fetching the member's derived scopes via
 `mcp.whoami`; `api` re-enforces the member's scopes/RLS on every forwarded call.
@@ -195,7 +195,7 @@ Text-only artifact operations per ADR 0061 plus ADR 0090/0091 read/edit parity:
 
 `publish_artifact`, `add_revision`, `multi_edit`, `list_artifacts`,
 `read_artifact`, `read_file`, `list_revisions`, `delete_artifact`,
-`update_display_metadata`, `make_public`, `create_revision_link`,
+`update_display_metadata`, `set_visibility`, `create_revision_link`,
 `list_access_links`, `revoke_access_link`, `whoami`.
 
 Binary uploads, multi-file artifacts, bundle download, and lockdown controls
@@ -203,9 +203,10 @@ remain CLI/REST/dashboard territory.
 
 `publish_artifact` and `add_revision` are content-only and private (ADR 0086):
 they take no visibility input and return one link, `private_url` — the
-login-walled `/v/<artifactId>` clean viewer. To make an Artifact public, call
-`make_public` as a separate step; it mints or reuses the one Share Link and
-returns its no-login Access Link Signed URL. The publish result deliberately
+login-walled `/v/<artifactId>` clean viewer. To make an Artifact reachable
+without login, call `set_visibility` with `visibility: "unlisted"` as a separate
+step; it mints or reuses the one Share Link and returns `unlisted_url`. The
+publish result deliberately
 omits Artifact IDs, Revision IDs, `revision_content_url`, and `agent_view_url`;
 use explicit read/list/link tools when those fields are needed. Use
 `create_revision_link` only for a pinned URL to one exact Revision.
@@ -213,8 +214,8 @@ use explicit read/list/link tools when those fields are needed. Use
 ### Publish retries and share-link idempotency
 
 `publish_artifact` and `add_revision` accept an optional tool idempotency key.
-The Worker threads that key through upload and publish. The separate `make_public`
-step uses a derived `:share-link` key so a retried go-public call does not mint
+The Worker threads that key through upload and publish. The separate `set_visibility`
+step uses a derived key so a retried unlisted-visibility call does not mint
 duplicate Share Links. See
 [ADR 0061](../adr/0061-mcp-worker-with-oauth-only-via-auth0-dcr.md).
 Regression coverage: `apps/mcp/src/publish-chain.test.ts` (key forwarding) and

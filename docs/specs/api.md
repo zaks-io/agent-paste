@@ -267,15 +267,17 @@ response, expires with its signed token, and does not Live Update. Direct
 controlled Artifact Viewer iframe. MCP publish tools (`publish_artifact`,
 `add_revision`) and CLI `publish` run the same publish path and return the same
 shape: `private_url`, title, expiry, and upload stats. Creating an unlisted
-no-login handoff is a separate explicit step — `make_public` (MCP) and
-`agent-paste make-public` (CLI) — which currently mints or reuses the one
-revocable **Share Link** and returns its no-login **Access Link Signed URL**.
+no-login handoff is a separate explicit step: `set_visibility` with
+`visibility: "unlisted"` on MCP, or
+`agent-paste set-visibility <artifact-id> unlisted` on the CLI. It mints or
+reuses the one revocable **Share Link** and returns `unlisted_url`, its no-login
+**Access Link Signed URL**.
 Creating a `share` Access Link is
 idempotent on the Artifact, not just on the request key: if the Artifact already
 has an active (non-revoked, unexpired) Share Link, create returns that same link
 instead of minting a duplicate, so an Artifact has at most one live Share Link.
-Revoking it lets the next `make_public` mint a fresh one. `revision` Access Links
-are never deduped — each pins a specific Revision.
+Revoking it lets the next `set_visibility unlisted` mint a fresh one. `revision`
+Access Links are never deduped — each pins a specific Revision.
 
 ## Content Routes
 
@@ -315,9 +317,10 @@ Publishing without `--artifact-id` creates a new Artifact. Publishing with an
 existing `artifact_id` creates and publishes a new Revision for that Artifact.
 The previous `revision_content_url` continues to point at the older Revision.
 Publish never creates unauthenticated access; a Share Link is created only by
-the separate `make_public` / `agent-paste make-public` step. Its Access Link
-Signed URL is the user-facing unlisted no-login URL. The `private_url` remains
-the authenticated clean-viewer link for Workspace members.
+the separate MCP `set_visibility` / CLI
+`agent-paste set-visibility <artifact-id> unlisted` step. Its Access Link Signed
+URL is the user-facing `unlisted_url`. The `private_url` remains the
+authenticated clean-viewer link for Workspace members.
 
 Workspace-wide publish deduplication starts only for new hash-aware uploads after
 the digest-manifest contract shipped. There is no historical backfill of legacy

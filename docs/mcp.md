@@ -73,7 +73,7 @@ MCP exposes fourteen tools:
 | `list_revisions`          | List Revisions for an Artifact.                                                                            |
 | `delete_artifact`         | Delete an Artifact.                                                                                        |
 | `update_display_metadata` | Update an Artifact display title.                                                                          |
-| `make_public`             | Mint or reuse the Artifact's one Share Link and return its public, no-login Access Link Signed URL.        |
+| `set_visibility`          | Set visibility: `private` revokes active Access Links; `unlisted` returns `unlisted_url`.                  |
 | `create_revision_link`    | Create and mint a snapshot Access Link for a specific Revision.                                            |
 | `list_access_links`       | List Share Links and Revision Links for an Artifact.                                                       |
 | `revoke_access_link`      | Revoke a Share Link or Revision Link.                                                                      |
@@ -82,8 +82,10 @@ Publishing tools are content-only and private: they take no visibility input and
 return one link, `private_url` — the login-walled clean viewer at
 `/v/<artifactId>` for the owning Workspace Member. There is no `share` input and
 no `shared` output, and the result carries no `access_link_url`. To make an
-Artifact public, call `make_public` as a separate step; it mints or reuses the
-one Share Link and returns its no-login Access Link Signed URL.
+Artifact reachable without login, call `set_visibility` with
+`visibility: "unlisted"` as a separate step; it mints or reuses the one Share
+Link and returns `unlisted_url`. To remove no-login access, call `set_visibility`
+with `visibility: "private"`.
 MCP publish output intentionally omits Artifact IDs, Revision IDs,
 `revision_content_url`, and `agent_view_url`; use `list_artifacts`,
 `read_artifact`, `list_revisions`, or explicit link tools when those fields are
@@ -123,10 +125,10 @@ the source of product authorization. Capabilities come from the authenticated
 Workspace Member in `api`, using one shared scope vocabulary (the same names the
 API uses); MCP scopes are the member's stored API scopes verbatim, no translation:
 
-| Scope     | Grants                                           | Tools                                                                                                                                                       |
-| --------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `read`    | View your own Artifacts and links                | `whoami`, `list_artifacts`, `read_artifact`, `read_file`, `list_revisions`, `list_access_links`                                                             |
-| `publish` | Change your own content and manage public access | `publish_artifact`, `add_revision`, `multi_edit`, `delete_artifact`, `update_display_metadata`, `make_public`, `create_revision_link`, `revoke_access_link` |
+| Scope     | Grants                                                     | Tools                                                                                                                                                          |
+| --------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `read`    | View your own Artifacts and links                          | `whoami`, `list_artifacts`, `read_artifact`, `read_file`, `list_revisions`, `list_access_links`                                                                |
+| `publish` | Change your own content and manage visibility/access links | `publish_artifact`, `add_revision`, `multi_edit`, `delete_artifact`, `update_display_metadata`, `set_visibility`, `create_revision_link`, `revoke_access_link` |
 
 `admin` exists but is dashboard-only (account/workspace management); no MCP tool
 needs it. Today, normal Workspace members are provisioned with `read`, `publish`,
@@ -145,6 +147,17 @@ the MCP host connection.
   markdown, or static HTML/CSS. Interactive HTML/JS needs authenticated publish.
 - Artifact lifetime follows Workspace Auto Deletion policy. MCP callers do not
   choose TTL.
+
+## Removed tool names
+
+`make_public` was removed without an alias or deprecation window. Update agent
+prompts, host tool allowlists, and automation to call `set_visibility` instead:
+
+- No-login Share Link: `{ "artifact_id": "...", "visibility": "unlisted" }` —
+  response field is `unlisted_url` (not `public_url`).
+- Revoke no-login access: `{ "artifact_id": "...", "visibility": "private" }`.
+
+The MCP registry no longer advertises `make_public`; no legacy alias exists.
 
 ## Deeper References
 

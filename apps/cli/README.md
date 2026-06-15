@@ -17,6 +17,9 @@ npx @zaks-io/agent-paste publish ./report
   Expires   2026-06-20
   Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached
 
+  Update    npx @zaks-io/agent-paste publish ./report --artifact-id art_01H...
+            (revises this Artifact; same link live-updates the open page)
+
   → open https://app.agent-paste.sh/v/art_01H...
 ```
 
@@ -115,16 +118,17 @@ Revision Content URL  https://usercontent.agent-paste.sh/v/{content_token}/index
 A **Private Link** is the login-walled clean viewer at `/v/{artifact_id}` for a
 Workspace Member, and is the `View` URL publish prints. (The dashboard-only
 Artifact Console at `/artifacts/{artifact_id}` is a management page, never the
-publish handoff.) An **Access Link Signed URL** minted from a **Share Link** is a
-public, no-login URL that follows the latest Published Revision. A
+publish handoff.) An **Access Link Signed URL** minted from a **Share Link** is an
+unlisted no-login URL that follows the latest Published Revision. A
 **Revision Content URL** is a signed Content Origin URL for one exact Revision;
 it expires, does not Live Update, and direct `usercontent` HTML is inert.
 
 Publish is **content-only and private**: it returns one link, the `private_url`
 Private Link, and prints it as `View`. There is no `--share` flag. To make an
-Artifact public, run `agent-paste make-public <artifact-id>` as a separate step;
-it mints or reuses the one Share Link and prints its no-login signed URL. JSON
-output still carries diagnostic IDs and URLs for automation.
+Artifact reachable without login, run
+`agent-paste set-visibility <artifact-id> unlisted` as a separate step; it mints
+or reuses the one Share Link and prints `unlisted_url`. To remove no-login access,
+run `agent-paste set-visibility <artifact-id> private`.
 
 ## Ephemeral publish fallback
 
@@ -167,15 +171,18 @@ from a signed-in Workspace instead of passing `--ephemeral`.
 
 ## Commands
 
-| Command                                 | Purpose                                                                                                  |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `agent-paste login`                     | Sign in through browser loopback auth and store a scoped local credential.                               |
-| `agent-paste logout`                    | Revoke the stored credential when possible, then remove it locally.                                      |
-| `agent-paste whoami`                    | Show the resolved **Workspace**, actor, and granted scopes.                                              |
-| `agent-paste publish <path>`            | Walk a local file or directory, upload bytes, finalize, and print the result (content-only and private). |
-| `agent-paste make-public <artifact-id>` | Mint or reuse the Artifact's one Share Link and print its public, no-login signed URL.                   |
-| `agent-paste version`                   | Print the CLI version baked in at build time.                                                            |
-| `agent-paste upgrade [<tag>]`           | Self-update a standalone binary install: download, verify, and replace in place.                         |
+| Command                                                        | Purpose                                                                                                  |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `agent-paste help publish`                                     | Agent-oriented publish guide with mode choices, recipes, and JSON fields.                                |
+| `agent-paste login`                                            | Sign in through browser loopback auth and store a scoped local credential.                               |
+| `agent-paste logout`                                           | Revoke the stored credential when possible, then remove it locally.                                      |
+| `agent-paste whoami`                                           | Show the resolved **Workspace**, actor, and granted scopes.                                              |
+| `agent-paste publish <path>`                                   | Walk a local file or directory, upload bytes, finalize, and print the result (content-only and private). |
+| `agent-paste pull <artifact-id> <path>`                        | Read one stored file's content back from an Artifact.                                                    |
+| `agent-paste edit <artifact-id> <path>`                        | Apply literal find/replace edits to one stored file, then publish a new Revision under the same link.    |
+| `agent-paste set-visibility <artifact-id> <private\|unlisted>` | Change Artifact visibility. `unlisted` returns `unlisted_url`; `private` revokes active Access Links.    |
+| `agent-paste version`                                          | Print the CLI version baked in at build time.                                                            |
+| `agent-paste upgrade [<tag>]`                                  | Self-update a standalone binary install: download, verify, and replace in place.                         |
 
 ## Flags
 
@@ -186,6 +193,8 @@ from a signed-in Workspace instead of passing `--ephemeral`.
 | `--entrypoint <path>`    | Override the inferred entrypoint. Must be a file inside the upload.                                                                                        |
 | `--render-mode <mode>`   | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.                                                                  |
 | `--ephemeral`            | Restricted accountless fallback for non-interactive text/images/static output. Ignores stored login and environment credentials, then prints a claim link. |
+| `--revision-id <id>`     | With `pull`, read a specific Revision instead of the latest published Revision.                                                                            |
+| `--edits <file>`         | With `edit`, read the JSON edit array from a file instead of stdin.                                                                                        |
 | `--json`                 | Emit the result as JSON on stdout. Stdout becomes pure JSON and carries a stable `schema_version`.                                                         |
 | `--quiet`                | Suppress human-readable stdout output.                                                                                                                     |
 | `--color` / `--no-color` | Force rich or plain output. Default: rich on a TTY, plain when piped or when `NO_COLOR` or `CI` is set.                                                    |
@@ -208,15 +217,23 @@ stdout is exactly the publish result:
   "bundle": {
     "status": "pending",
     "retry_after_seconds": 5
+  },
+  "upload_stats": {
+    "total_files": 3,
+    "total_bytes": 42000,
+    "uploaded_files": 3,
+    "uploaded_bytes": 42000,
+    "reused_files": 0,
+    "reused_bytes": 0
   }
 }
 ```
 
 `private_url` is the login-walled `/v/{artifact_id}` clean viewer for Workspace
 members and the default `View` URL. Publish is content-only and private, so the
-result carries no `shared` field and no `access_link_url`; making the Artifact
-public is the separate `agent-paste make-public <artifact-id>` step, which prints
-the Share Link's no-login Access Link Signed URL.
+result carries no `shared` field and no `access_link_url`; no-login sharing is
+the separate `agent-paste set-visibility <artifact-id> unlisted` step, which
+prints the Share Link's `unlisted_url`.
 `revision_content_url` is served from the isolated content origin
 (`usercontent.agent-paste.sh`), is signed for the returned `revision_id`, and
 does not Live Update; direct HTML opened there is raw/inert byte delivery, not
@@ -224,9 +241,33 @@ the product viewer. `agent_view_url` is the Agent View JSON on the API origin.
 In Agent View, each file's signed content URL is `files[].url`; there is no
 `content_url` field. Do not verify a `private_url` with HTTP status alone:
 unauthenticated HTTP clients may receive the app shell or sign-in redirect state
-with HTTP 200. Use `make-public` for public browser verification, or Agent View
-`files[].url` entries for machine verification.
+with HTTP 200. Use `set-visibility <artifact-id> unlisted` for no-login browser
+verification, or Agent View `files[].url` entries for machine verification.
 `bundle` reports whether the revision archive is pending, ready, failed, or disabled.
+
+With `--json`, `set-visibility <artifact-id> unlisted` emits:
+
+```json
+{
+  "schema_version": "1",
+  "artifact_id": "art_01H...",
+  "visibility": "unlisted",
+  "access_link_id": "al_01H...",
+  "unlisted_url": "https://app.agent-paste.sh/al/0123456789ABCDEF#..."
+}
+```
+
+With `--json`, `set-visibility <artifact-id> private` emits:
+
+```json
+{
+  "schema_version": "1",
+  "artifact_id": "art_01H...",
+  "visibility": "private",
+  "private_url": "https://app.agent-paste.sh/v/art_01H...",
+  "revoked_access_link_ids": ["al_01H..."]
+}
+```
 
 With `--ephemeral`, human-readable output leads with the claim link — the URL to
 open, keep, and unlock the Artifact. The `private_url` clean viewer appears as
@@ -245,6 +286,35 @@ Open this to view, keep, and unlock your artifact:
 Agents should relay the claim link to the user, not the `private_url`.
 
 With `--json` and `--ephemeral`, the result also carries `claim_token`, `claim_url`, `workspace_id`, `api_key_id`, and `claim_token_id`.
+
+## Pull and edit
+
+`pull` reads one stored file back so an agent can inspect or edit against the
+current bytes:
+
+```sh
+agent-paste pull art_01H... index.html > index.html
+agent-paste pull art_01H... index.html --revision-id rev_01H... --json
+```
+
+Plain `pull` writes the text body to stdout. Binary or too-large files are not
+printed raw; use `--json` for metadata and fetch their bytes through the content
+URL if needed. `--quiet` does not suppress the file body because the body is the
+command result.
+
+`edit` applies the same literal find/replace shape as MCP `multi_edit`, then
+publishes a new Revision under the same stable Artifact link:
+
+```sh
+printf '[{"old_string":"old","new_string":"new"}]' |
+  agent-paste edit art_01H... index.html --json
+
+agent-paste edit art_01H... index.html --edits edits.json --json
+```
+
+Each `old_string` must match the current file exactly once unless
+`replace_all: true` is set. A non-matching or ambiguous edit fails loudly; pull
+the file first to get the exact base text.
 
 ## Inference
 

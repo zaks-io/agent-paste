@@ -136,6 +136,42 @@ describe("cli command dispatch", () => {
     );
   });
 
+  it("routes publish help to the dedicated agent guide", async () => {
+    const stdout = mockStdout();
+
+    await main(["publish", "--help"]);
+    await main(["help", "publish"]);
+
+    const outputs = stdoutValues(stdout);
+    expect(outputs).toHaveLength(2);
+    for (const help of outputs) {
+      expect(help).toContain("agent-paste publish <path>");
+      expect(help).toContain("agent-paste set-visibility <artifact_id> unlisted --json");
+      expect(help).toContain("private_url");
+      expect(help).toContain("unlisted_url");
+    }
+  });
+
+  it("documents agent-facing publish contract tokens in publish help", async () => {
+    const stdout = mockStdout();
+
+    await main(["help", "publish"]);
+
+    const help = stdoutValues(stdout).join("");
+    expect(help).toContain("agent-paste publish <path>");
+    expect(help).toContain("agent-paste publish <path> --ephemeral --json");
+    expect(help).toContain("agent-paste set-visibility <artifact_id> unlisted --json");
+    expect(help).toContain("private_url");
+    expect(help).toContain("revision_content_url");
+    expect(help).toContain("agent_view_url");
+    expect(help).toContain("bundle");
+    expect(help).toContain("upload_stats");
+    expect(help).toContain("claim_url");
+    expect(help).toContain("access_link_id");
+    expect(help).toContain("unlisted_url");
+    expect(help).not.toContain("--share");
+  });
+
   it("reports its version without resolving a client", async () => {
     const stdout = mockStdout();
 
@@ -233,6 +269,16 @@ describe("cli command dispatch", () => {
     }
 
     expect(stdoutValues(stdout)).toEqual(expect.arrayContaining([expect.stringContaining('"authenticated": false')]));
+  });
+
+  it("rejects removed publish flags before reading files or calling the API", async () => {
+    const client = fakeClient({ usagePolicy: vi.fn() });
+
+    await expect(main(["publish", "./report", "--share", "--json"], client)).rejects.toMatchObject({
+      code: "invalid_request",
+      message: "Unknown option: --share",
+    });
+    expect(client.usagePolicy).not.toHaveBeenCalled();
   });
 
   it("prints a channel-correct signed-out hint for whoami", async () => {
@@ -348,7 +394,7 @@ describe("cli command dispatch", () => {
     }
   });
 
-  it("make-public creates and mints a public Share Link for an artifact", async () => {
+  it("set-visibility unlisted creates and mints a Share Link for an artifact", async () => {
     const stdout = mockStdout();
     const accessLinkCreate = vi.fn().mockResolvedValue({
       id: accessLinkId,
@@ -362,22 +408,88 @@ describe("cli command dispatch", () => {
       accessLinks: { create: accessLinkCreate, mint: accessLinkMint },
     });
 
-    await main(["make-public", artifactId, "--json"], client);
+    await main(["set-visibility", artifactId, "unlisted", "--json"], client);
 
     expect(accessLinkCreate).toHaveBeenCalledWith(
       artifactId,
       { type: "share" },
-      expect.stringMatching(/^cli_make_public_/),
+      expect.stringMatching(/^cli_set_visibility_/),
     );
     expect(accessLinkMint).toHaveBeenCalledWith(accessLinkId);
     const payload = JSON.parse(stdoutValues(stdout).join("")) as {
       artifact_id: string;
+      visibility: string;
       access_link_id: string;
-      public_url: string;
+      unlisted_url: string;
     };
     expect(payload.artifact_id).toBe(artifactId);
+    expect(payload.visibility).toBe("unlisted");
     expect(payload.access_link_id).toBe(accessLinkId);
-    expect(payload.public_url).toBe("https://app.test/al/PUBLICLINK123456#secret");
+    expect(payload.unlisted_url).toBe("https://app.test/al/PUBLICLINK123456#secret");
+  });
+
+  it("set-visibility private revokes active access links and returns private_url", async () => {
+    const stdout = mockStdout();
+    const shareLinkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const revisionLinkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8ZA";
+    const revokedLinkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8ZB";
+    const getAgentView = vi.fn().mockResolvedValue({ private_url: "https://app.test/v/art_1" });
+    const accessLinkList = vi.fn().mockResolvedValue({
+      artifact_id: artifactId,
+      items: [
+        { id: shareLinkId, revoked_at: null },
+        { id: revisionLinkId, revoked_at: null },
+        { id: revokedLinkId, revoked_at: "2026-01-01T00:00:00.000Z" },
+      ],
+    });
+    const accessLinkRevoke = vi.fn().mockResolvedValue({ revoked_at: "2026-01-01T00:00:01.000Z" });
+    const client = fakeClient({
+      artifacts: { getAgentView },
+      accessLinks: { list: accessLinkList, revoke: accessLinkRevoke },
+    });
+
+    await main(["set-visibility", artifactId, "private", "--json"], client);
+
+    expect(getAgentView).toHaveBeenCalledWith(artifactId);
+    expect(accessLinkList).toHaveBeenCalledWith(artifactId);
+    expect(accessLinkRevoke).toHaveBeenCalledTimes(2);
+    expect(accessLinkRevoke).toHaveBeenNthCalledWith(1, shareLinkId);
+    expect(accessLinkRevoke).toHaveBeenNthCalledWith(2, revisionLinkId);
+    const payload = JSON.parse(stdoutValues(stdout).join("")) as {
+      artifact_id: string;
+      visibility: string;
+      private_url: string;
+      revoked_access_link_ids: string[];
+    };
+    expect(payload).toMatchObject({
+      artifact_id: artifactId,
+      visibility: "private",
+      private_url: "https://app.test/v/art_1",
+      revoked_access_link_ids: [shareLinkId, revisionLinkId],
+    });
+  });
+
+  it("set-visibility rejects unsupported visibility values", async () => {
+    mockStdout();
+    const getAgentView = vi.fn();
+    const create = vi.fn();
+    const list = vi.fn();
+    const mint = vi.fn();
+    const revoke = vi.fn();
+    const client = fakeClient({
+      artifacts: { getAgentView },
+      accessLinks: { create, list, mint, revoke },
+    });
+
+    await expect(main(["set-visibility", artifactId, "public", "--json"], client)).rejects.toMatchObject({
+      code: "invalid_request",
+      message: "visibility must be one of: private, unlisted",
+    });
+    expect(getAgentView).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+    expect(list).not.toHaveBeenCalled();
+    expect(mint).not.toHaveBeenCalled();
+    expect(revoke).not.toHaveBeenCalled();
   });
 
   it("skips reused upload targets and reports upload stats", async () => {

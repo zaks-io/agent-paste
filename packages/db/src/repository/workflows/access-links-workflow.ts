@@ -14,9 +14,10 @@ export async function resolveAccessLink(
 }
 
 /**
- * The make-public step reuses an artifact's one active Share Link instead of
- * minting a duplicate every call. "Active" = a non-revoked, unexpired `share`
- * link. Revision links are never deduped (each pins a specific Revision).
+ * The unlisted visibility step reuses an artifact's one active Share Link
+ * instead of minting a duplicate every call. "Active" = a non-revoked,
+ * unexpired `share` link. Revision links are never deduped (each pins a
+ * specific Revision).
  */
 async function findActiveShareLink(
   entities: { accessLinks: { listForArtifact(artifactId: string): Promise<import("../../types.js").AccessLink[]> } },

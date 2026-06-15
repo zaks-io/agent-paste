@@ -15,6 +15,8 @@ import {
   ErrorEnvelope,
   FinalizeUploadSessionResponse,
   type IdempotencyKey,
+  McpListAccessLinksOutput,
+  McpRevokeAccessLinkOutput,
   type PowChallenge,
   PublishResult,
   type PublishRevisionRequest,
@@ -118,9 +120,8 @@ export class ApiClient {
   };
 
   accessLinks = {
-    // Create an Access Link for an Artifact (e.g. a public Share Link) and mint
-    // its signed URL. Two calls, mirroring the MCP make_public path: create the
-    // link, then mint its Access Link Signed URL.
+    // Create an Access Link for an Artifact and mint its signed URL. Two calls:
+    // create the link, then mint its Access Link Signed URL.
     create: (artifactId: ArtifactId | string, body: CreateAccessLinkRequest, idempotencyKey: string) =>
       this.request(
         CreateAccessLinkResponse,
@@ -136,6 +137,19 @@ export class ApiClient {
       this.request(AccessLinkSignedUrl, this.apiBaseUrl, `/v1/access-links/${encodeURIComponent(accessLinkId)}/mint`, {
         method: "POST",
       }),
+    list: (artifactId: ArtifactId | string) =>
+      this.request(
+        McpListAccessLinksOutput,
+        this.apiBaseUrl,
+        `/v1/artifacts/${encodeURIComponent(artifactId)}/access-links`,
+      ),
+    revoke: (accessLinkId: AccessLinkId | string) =>
+      this.request(
+        McpRevokeAccessLinkOutput,
+        this.apiBaseUrl,
+        `/v1/access-links/${encodeURIComponent(accessLinkId)}/revoke`,
+        { method: "POST" },
+      ),
   };
 
   revisions = {

@@ -99,7 +99,7 @@ This pass moved the gated baseline from 2.54% to 2.45%:
 This pass moved the gated baseline from 2.45% to 2.33%:
 
 - [x] Extracted `createAndMintAccessLink` in `apps/mcp/src/tools.ts` for the
-      shared create-and-mint Access Link flow used by `make_public` (then named
+      shared create-and-mint Access Link flow used by `set_visibility` (then named
       `create_share_link`) and `create_revision_link`.
 - [x] Extracted `forwardToBinding` in `apps/mcp/src/forward.ts` for shared API
       vs Upload request construction and error mapping.

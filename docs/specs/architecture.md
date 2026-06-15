@@ -128,7 +128,7 @@ Key invariants:
 Default human handoff is the authenticated Private Link (`private_url`, the
 `/v/<artifactId>` clean viewer); publish is content-only and never creates
 unauthenticated access. Unlisted no-login handoff requires an explicit, separate
-make-public step that mints a revocable Share Link; its Access Link Signed URL
+`set-visibility unlisted` step that mints a revocable Share Link; its Access Link Signed URL
 opens the Artifact Viewer for the latest Published Revision. Direct signed
 content URLs are delivery URLs for one exact Revision.
 

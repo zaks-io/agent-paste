@@ -124,21 +124,22 @@ describe("member MCP repository operations", () => {
     expect(links?.items.filter((link) => link.type === "share")).toHaveLength(1);
   });
 
-  it("reuses the one active share link across distinct make-public calls, then mints fresh after revoke", async () => {
+  it("reuses the one active share link across distinct unlisted visibility calls, then mints fresh after revoke", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const { member, artifactId } = await memberWithPublishedArtifact(repo);
 
-    // Distinct idempotency keys: real make_public calls derive a fresh key each
-    // time, so reuse must come from the active-share-link lookup, not key replay.
+    // Distinct idempotency keys: real set_visibility unlisted calls derive a
+    // fresh key each time, so reuse must come from the active-share-link lookup,
+    // not key replay.
     const first = await repo.createMemberAccessLink({
       actor: member,
-      idempotencyKey: "make-public-1",
+      idempotencyKey: "set-visibility-unlisted-1",
       artifactId,
       type: "share",
     });
     const second = await repo.createMemberAccessLink({
       actor: member,
-      idempotencyKey: "make-public-2",
+      idempotencyKey: "set-visibility-unlisted-2",
       artifactId,
       type: "share",
     });
@@ -149,7 +150,7 @@ describe("member MCP repository operations", () => {
     await repo.revokeMemberAccessLink({ actor: member, accessLinkId: first.id });
     const third = await repo.createMemberAccessLink({
       actor: member,
-      idempotencyKey: "make-public-3",
+      idempotencyKey: "set-visibility-unlisted-3",
       artifactId,
       type: "share",
     });

@@ -1,15 +1,15 @@
 # Public Artifacts and Unlisted Share Links
 
-Status: Planned. Current shipped CLI/MCP behavior still treats `make_public` /
-`agent-paste make-public` as Share Link minting until the implementation specs
-and routes are updated.
+Status: Planned. Current shipped CLI/MCP behavior supports
+`set_visibility` / `agent-paste set-visibility <artifact-id> unlisted` for
+Share Link minting and rejects `public` until the implementation specs and routes
+are updated.
 
 ## Context
 
 ADR 0086 made publish private-first and moved unauthenticated handoff into a
-separate `make_public` step that mints the Artifact's one revocable Share Link.
-That fixed accidental public-by-flag publishing, but it reused "public" for two
-different jobs:
+separate `set_visibility` step. That fixed accidental public-by-flag publishing
+and reserved distinct visibility states for two different jobs:
 
 - unlisted, revocable handoff to a specific audience
 - broad public distribution that should survive traffic spikes and benefit from
@@ -55,11 +55,9 @@ profile. Treating both as "public" makes the product and implementation lie.
 
 ## Consequences
 
-- The current `make_public` / `agent-paste make-public` name becomes misleading:
-  it creates an unlisted Share Link today, not the future Public Artifact model.
-  A follow-up implementation should choose explicit verbs before shipping true
-  public distribution, for example `share` / `create_share_link` for unlisted and
-  `make_public` / `select_public_version` for true public.
+- The current `set_visibility` abstraction stays: `unlisted` is the shipped Share
+  Link model, and `public` remains a rejected state until the Public Artifact
+  model lands.
 - Existing shipped specs and user docs remain current until that implementation
   lands: publish is private-first, Share Link creation is explicit, and Access
   Link Signed URLs remain the only shipped no-login latest-moving handoff.
@@ -89,5 +87,4 @@ profile. Treating both as "public" makes the product and implementation lie.
 
 - Not an implementation of Public Artifacts.
 - Not a change to the current Access Link Signed URL model from ADR 0047.
-- Not a change to the current shipped `make_public` command until a follow-up
-  spec and implementation PR changes it.
+- Not an implementation of `set_visibility public`.

@@ -58,8 +58,8 @@ export const MCP_DOC: DocsPage = {
             ],
             [
               "`publish`",
-              "Change your own content and manage its public access",
-              "`publish_artifact`, `add_revision`, `multi_edit`, `delete_artifact`, `update_display_metadata`, `make_public`, `create_revision_link`, `revoke_access_link`",
+              "Change your own content and manage visibility/access links",
+              "`publish_artifact`, `add_revision`, `multi_edit`, `delete_artifact`, `update_display_metadata`, `set_visibility`, `create_revision_link`, `revoke_access_link`",
             ],
           ],
         },
@@ -96,8 +96,8 @@ export const MCP_DOC: DocsPage = {
             ["`delete_artifact`", "Delete an Artifact."],
             ["`update_display_metadata`", "Update an Artifact display title."],
             [
-              "`make_public`",
-              "Mint or reuse the Artifact's one Share Link and return its public, no-login Access Link Signed URL.",
+              "`set_visibility`",
+              "Set visibility. `private` revokes active Access Links; `unlisted` returns `unlisted_url`.",
             ],
             ["`create_revision_link`", "Create and mint a snapshot Access Link for a specific Revision."],
             ["`list_access_links`", "List Share Links and Revision Links for an Artifact."],
@@ -116,7 +116,7 @@ export const MCP_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "`publish_artifact`, `add_revision`, and `multi_edit` are content-only and private: they take no visibility input and return a single `private_url` (the login-walled `/v/<artifactId>` clean viewer for the Workspace Member), with no `shared` field. To make an Artifact public, call `make_public`; it mints or reuses the one Share Link that follows the latest Revision and returns its public, no-login Access Link Signed URL. To change a published Artifact, call `add_revision` or `multi_edit` with its `artifact_id` rather than `publish_artifact`: the `private_url` is stable and already-open viewers live-update to the new Revision, whereas a second `publish_artifact` mints a separate Artifact on a new link. Artifact IDs, Revision IDs, and content URLs are available through the read/list/link tools. The tools also accept optional idempotency keys; when omitted, the server derives stable keys from the OAuth subject, JSON-RPC id, and tool name.",
+          text: '`publish_artifact`, `add_revision`, and `multi_edit` are content-only and private: they take no visibility input and return a single `private_url` (the login-walled `/v/<artifactId>` clean viewer for the Workspace Member), with no `shared` field. To make an Artifact reachable without login, call `set_visibility` with `visibility: "unlisted"`; it mints or reuses the one Share Link that follows the latest Revision and returns `unlisted_url`. To remove no-login access, call `set_visibility` with `visibility: "private"`. To change a published Artifact, call `add_revision` or `multi_edit` with its `artifact_id` rather than `publish_artifact`: the `private_url` is stable and already-open viewers live-update to the new Revision, whereas a second `publish_artifact` mints a separate Artifact on a new link. Artifact IDs, Revision IDs, and content URLs are available through the read/list/link tools. The tools also accept optional idempotency keys; when omitted, the server derives stable keys from the OAuth subject, JSON-RPC id, and tool name.',
         },
         {
           kind: "paragraph",
