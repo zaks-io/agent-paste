@@ -114,7 +114,7 @@ Steady-state secret application is folded into the deploy. `scripts/deploy.mjs <
 - A value supplied via the environment (`PRODUCTION_<NAME>` / `PREVIEW_<NAME>`, e.g. GitHub environment secrets) is used in preference to generating one — that is how provider-issued values (`WORKOS_API_KEY`, `CF_ACCESS_AUD`) reach the Workers.
 - `node scripts/deploy.mjs local` writes independent local-only values to a gitignored `.env` for `pnpm dev:all`; roll one by deleting its line and re-running.
 
-Rotation is separate and unchanged: use `rotate-versioned-secret.mjs` / `rotate-workos-secrets.mjs`.
+Rotation is separate: use `rotate-versioned-secret.mjs` / `rotate-workos-secrets.mjs`. When using the `pnpm secrets:rotate:*` aliases, pass existing material with `--value-env <NAME>` instead of `--value` because pnpm echoes argv.
 
 ### `migrate.mjs`
 

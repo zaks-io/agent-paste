@@ -112,7 +112,7 @@ async function executePromoteOrEmergencyStep(profile, target, options, snapshot,
       "--name",
       worker,
     ]);
-    if (snapshot.secondaryBound || step === "emergency") {
+    if (secondaryBoundOnWorker(snapshot, worker)) {
       await deps.runImpl("wrangler", ["secret", "delete", profile.secondarySecretName, "--name", worker]);
     }
   }
@@ -124,6 +124,13 @@ async function executePromoteOrEmergencyStep(profile, target, options, snapshot,
     step,
     step === "emergency" ? "emergency_cutover" : "promote_collapse",
   );
+}
+
+function secondaryBoundOnWorker(snapshot, worker) {
+  if (Array.isArray(snapshot.secondaryBoundWorkers)) {
+    return snapshot.secondaryBoundWorkers.includes(worker);
+  }
+  return Boolean(snapshot.secondaryBound);
 }
 
 function secretNamesForStep(profile, step) {
@@ -146,7 +153,7 @@ async function assertSafeToWrite(profile, target, options, bindings, snapshot, d
     throw new Error(
       [
         `${profile.secondarySecretName} is already bound.`,
-        "Re-run with --value <current-v2-secret> to continue, or delete _V2 manually before regenerating.",
+        "Re-run with --value-env <ENV_VAR> to continue, or delete _V2 manually before regenerating.",
       ].join("\n"),
     );
   }
@@ -154,7 +161,7 @@ async function assertSafeToWrite(profile, target, options, bindings, snapshot, d
   if (options.step === "drop" && !profilePersistsKidInRecords(profile.id) && options.value === undefined) {
     throw new Error(
       [
-        "Drop requires --value <promoted-secret> (normally the staged v2 material).",
+        "Drop requires --value-env <ENV_VAR> with the promoted secret (normally the staged v2 material).",
         "Wrangler cannot read existing secret values back.",
       ].join("\n"),
     );
@@ -167,7 +174,7 @@ async function assertSafeToWrite(profile, target, options, bindings, snapshot, d
         `Refusing to auto-generate over existing ${profile.secondarySecretName}:`,
         ...collisions.map((name) => `  - ${name}`),
         "",
-        "Pass --value when reusing the staged secondary secret.",
+        "Pass --value-env <ENV_VAR> when reusing the staged secondary secret.",
       ].join("\n"),
     );
   }
@@ -175,7 +182,7 @@ async function assertSafeToWrite(profile, target, options, bindings, snapshot, d
   if (options.step === "emergency" && snapshot.primaryBound && !options.force && options.value === undefined) {
     throw new Error(
       [
-        `Refusing emergency overwrite of ${profile.baseSecretName} without --value and --force.`,
+        `Refusing emergency overwrite of ${profile.baseSecretName} without --value-env and --force.`,
         "Type confirmation is required on the next run with --force.",
       ].join("\n"),
     );

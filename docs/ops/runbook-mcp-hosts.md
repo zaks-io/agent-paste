@@ -108,21 +108,23 @@ Deploy order: `api` and `upload` must exist before `mcp` (service bindings). See
 Hosts authenticate via WorkOS AuthKit; they do **not** select scopes at consent.
 WorkOS AuthKit cannot issue custom OAuth scopes — the access token carries only
 AuthKit's built-in scopes (`openid`, `profile`, `email`, `offline_access`), and
-the MCP token is verified by issuer + `aud` only. A caller's `{write, read,
-share}` capability is **derived in `api` from the caller's Workspace Member
+the MCP token is verified by issuer + `aud` only. A caller's `read`, `publish`,
+and `admin` capability is **derived in `api` from the caller's Workspace Member
 scopes** (`mcp.whoami` returns the derived set), not from the token. See
 [ADR 0079](../adr/0079-mcp-scopes-derived-from-member-role-not-workos-token.md).
 
-| MCP scope | Member API scope | Typical tools                                                                    |
-| --------- | ---------------- | -------------------------------------------------------------------------------- |
-| `read`    | `read`           | `list_artifacts`, `read_artifact`, `list_revisions`, `whoami`                    |
-| `write`   | `publish`        | `publish_artifact`, `add_revision`, `delete_artifact`, `update_display_metadata` |
-| `share`   | `admin`          | `make_public`, `create_revision_link`, `list_access_links`, `revoke_access_link` |
+| Member scope | Typical tools                                                                                                                                               |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `read`       | `whoami`, `list_artifacts`, `read_artifact`, `read_file`, `list_revisions`, `list_access_links`                                                             |
+| `publish`    | `publish_artifact`, `add_revision`, `multi_edit`, `delete_artifact`, `update_display_metadata`, `make_public`, `create_revision_link`, `revoke_access_link` |
+| `admin`      | No MCP tool requires it today; it is reserved for dashboard/account/workspace management.                                                                   |
 
-Publishing tools require **`write read`** and are content-only and private.
-`share` is required only for link management, including the separate `make_public`
-go-public step. Members are provisioned
-with all three (`DEFAULT_MEMBER_SCOPES`), so today every member has full
+Content-changing publish chain tools (`publish_artifact`, `add_revision`,
+`multi_edit`) require **`publish read`** and are content-only and private.
+Deletion and display metadata updates require `publish`. Link management uses
+`publish` plus `read` where the tool needs to inspect the Artifact first. Members
+are provisioned with `read`, `publish`, and `admin` (`DEFAULT_MEMBER_SCOPES`), so
+today every member has full
 capability; a future read-only or share-less member is a change to that member's
 stored scopes in `api`, with no host, token, or WorkOS change. The MCP Worker
 pre-flight-gates each tool by fetching the member's derived scopes via
@@ -187,14 +189,14 @@ register the trailing-slash Resource Indicator in WorkOS instead. If a user
 already logged in before this fix, run `codex mcp logout agent-paste` and login
 again.
 
-## Tool surface (initial twelve)
+## Tool surface
 
-Text-only artifact operations per ADR 0061:
+Text-only artifact operations per ADR 0061 plus ADR 0090/0091 read/edit parity:
 
-`publish_artifact`, `add_revision`, `list_artifacts`, `read_artifact`,
-`list_revisions`, `delete_artifact`, `update_display_metadata`,
-`make_public`, `create_revision_link`, `list_access_links`,
-`revoke_access_link`, `whoami`.
+`publish_artifact`, `add_revision`, `multi_edit`, `list_artifacts`,
+`read_artifact`, `read_file`, `list_revisions`, `delete_artifact`,
+`update_display_metadata`, `make_public`, `create_revision_link`,
+`list_access_links`, `revoke_access_link`, `whoami`.
 
 Binary uploads, multi-file artifacts, bundle download, and lockdown controls
 remain CLI/REST/dashboard territory.
@@ -262,6 +264,25 @@ Environment overrides:
 | `AGENT_PASTE_PRODUCTION_MCP_URL`     | Production MCP base URL override             |
 | `AGENT_PASTE_MCP_SMOKE_ACCESS_TOKEN` | Bearer token for authenticated hosted checks |
 
+### mcporter operator smoke
+
+`mcporter` is useful for live hosted smoke checks because it handles OAuth and
+shows the remote tool schema:
+
+```sh
+mcporter --config ~/.agent-paste/mcporter.json auth agent-paste-prod
+mcporter --config ~/.agent-paste/mcporter.json list agent-paste-prod --schema --json
+mcporter --config ~/.agent-paste/mcporter.json call agent-paste-prod.whoami --output json
+mcporter --config ~/.agent-paste/mcporter.json call agent-paste-prod.list_artifacts --output json
+mcporter --config ~/.agent-paste/mcporter.json call agent-paste-prod.read_artifact artifact_id=art_... --output json
+mcporter --config ~/.agent-paste/mcporter.json call agent-paste-prod.read_file artifact_id=art_... path=index.html --output json
+```
+
+Pass tool input as `key=value` arguments or with `--args '{"artifact_id":"..."}'`.
+Do not use flag-shaped input such as `--artifact-id`; `mcporter call` treats tool
+arguments differently from normal CLI flags, and the server will receive an empty
+or malformed payload.
+
 ### MCP unit tests
 
 ```sh
@@ -270,15 +291,16 @@ pnpm --filter @agent-paste/mcp test
 
 ## Failure modes
 
-| Symptom                                     | Likely cause                                                         |
-| ------------------------------------------- | -------------------------------------------------------------------- |
-| `401` + `WWW-Authenticate: invalid_token`   | Missing/expired token, wrong `aud`, or missing WorkOS member row     |
-| `403` / `insufficient_scope` on tool call   | Member's role lacks required scopes for that tool (derived in `api`) |
-| `401` with API key message                  | Host sent an API key; MCP accepts OAuth only                         |
-| `401` with `workos_access_token` message    | Host sent a dashboard session token instead of MCP OAuth             |
-| `mcp_oauth_verifier_not_configured` (local) | `WORKOS_API_KEY` or JWKS URL missing on MCP Worker                   |
-| Host OAuth loop never completes             | Redirect URI not allowlisted in WorkOS or missing Resource Indicator |
-| `whoami` succeeds but publish fails         | Member's role lacks `write read`, or lacks `share` for `share: true` |
+| Symptom                                                                | Likely cause                                                                                                                               |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `401` + `WWW-Authenticate: invalid_token`                              | Missing/expired token, wrong `aud`, or missing WorkOS member row                                                                           |
+| `403` / `insufficient_scope` on tool call                              | Member's role lacks required scopes for that tool (derived in `api`)                                                                       |
+| `401` with API key message                                             | Host sent an API key; MCP accepts OAuth only                                                                                               |
+| `401` with `workos_access_token` message                               | Host sent a dashboard session token instead of MCP OAuth                                                                                   |
+| `mcp_oauth_verifier_not_configured` (local)                            | `WORKOS_API_KEY` or JWKS URL missing on MCP Worker                                                                                         |
+| Host OAuth loop never completes                                        | Redirect URI not allowlisted in WorkOS or missing Resource Indicator                                                                       |
+| `whoami` succeeds but publish fails                                    | Member's role lacks `publish read`                                                                                                         |
+| `read_artifact` succeeds but `read_file` returns `storage_unavailable` | API cannot read or decrypt the stored blob; check API R2 binding and `ARTIFACT_BYTES_ENCRYPTION_*` secret parity with upload/content/jobs. |
 
 ## Verification boundary
 

@@ -107,6 +107,16 @@ JSON output has these URL fields:
 The \`make_public\` and \`create_revision_link\` MCP tools return the minted
 link as \`url\`.
 
+Verification notes:
+
+- A \`private_url\` is login-walled app navigation. Plain HTTP clients can receive
+  the app shell or sign-in redirect state with HTTP 200; that does not prove the
+  Artifact is publicly readable.
+- For no-login browser handoff, create a Share Link with \`make-public\` /
+  \`make_public\` and return that public URL.
+- For machine verification, fetch \`agent_view_url\` and read the signed per-file
+  content URLs from \`files[].url\`; do not guess a \`content_url\` field.
+
 ## Updating published work
 
 Publishing without \`--artifact-id\` creates a new Artifact on a new link. When the
@@ -180,11 +190,14 @@ the CLI, install npm packages, or use a local keychain. MCP tools publish, read,
 revise, delete, and share Artifacts through the same Agent View model as the
 CLI.
 
+Opening \`${MCP_BASE_URL}\` directly returns endpoint metadata. Protocol calls
+use \`POST /\` with Streamable HTTP JSON-RPC and an OAuth bearer token.
+
 Connect \`${MCP_BASE_URL}\` in the host, complete OAuth, then call \`whoami\`
 first. The WorkOS user must already belong to a Workspace; dashboard sign-in or
 \`agent-paste login\` creates that member row.
 
-Twelve tools, scoped by member-derived capabilities:
+Fourteen tools, scoped by member-derived capabilities:
 
 Read (\`read\`):
 
@@ -192,9 +205,11 @@ Read (\`read\`):
   (no scope required).
 - \`list_artifacts\` - list Artifacts in the authenticated workspace.
 - \`read_artifact\` - read the latest Agent View for an Artifact.
+- \`read_file\` - read one stored file's plaintext body or metadata so you can
+  edit against the current bytes.
 - \`list_revisions\` - list Revisions for an Artifact.
 
-Write (\`write\`):
+Write (\`publish\`):
 
 - \`publish_artifact\` - publish a NEW text-only Artifact on a new \`private_url\`.
   Content-only and private; it takes no visibility input. Use it only for
@@ -205,10 +220,13 @@ Write (\`write\`):
   work — the Artifact's \`private_url\` (and any Share Link) is stable and
   live-updates open viewers, so there is no new link to send. Content-only and
   private; to make it public, call \`make_public\`.
+- \`multi_edit\` - edit one stored file with literal find/replace, then publish
+  the result as a new Revision under the same Artifact. Read the file first with
+  \`read_file\` so edits match the current bytes.
 - \`delete_artifact\` - delete an Artifact.
 - \`update_display_metadata\` - update an Artifact's display title.
 
-Links (\`share\`):
+Links (\`publish\` + \`read\` where noted):
 
 - \`make_public\` - mint or reuse the Artifact's one Share Link and return its
   public, no-login Access Link Signed URL (also needs \`read\`). This is how an

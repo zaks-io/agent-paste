@@ -21,6 +21,8 @@ npx @zaks-io/agent-paste publish ./report
 ```
 
 The npm package is `@zaks-io/agent-paste`; the installed binary is `agent-paste`.
+Examples use `npx @zaks-io/agent-paste ...` for one-shot Node runs and
+`agent-paste ...` after installation; both execute the same CLI.
 If your agent host cannot run a CLI but can connect to remote MCP, use the
 hosted MCP server instead: [`https://mcp.agent-paste.sh`](https://mcp.agent-paste.sh).
 See [`docs/mcp.md`](../../docs/mcp.md).
@@ -219,6 +221,11 @@ the Share Link's no-login Access Link Signed URL.
 (`usercontent.agent-paste.sh`), is signed for the returned `revision_id`, and
 does not Live Update; direct HTML opened there is raw/inert byte delivery, not
 the product viewer. `agent_view_url` is the Agent View JSON on the API origin.
+In Agent View, each file's signed content URL is `files[].url`; there is no
+`content_url` field. Do not verify a `private_url` with HTTP status alone:
+unauthenticated HTTP clients may receive the app shell or sign-in redirect state
+with HTTP 200. Use `make-public` for public browser verification, or Agent View
+`files[].url` entries for machine verification.
 `bundle` reports whether the revision archive is pending, ready, failed, or disabled.
 
 With `--ephemeral`, human-readable output leads with the claim link — the URL to

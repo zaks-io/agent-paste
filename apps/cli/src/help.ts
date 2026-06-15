@@ -11,6 +11,13 @@ Usage:
   agent-paste version [--json]
   agent-paste upgrade [<tag>]
 
+Auth:
+  Agents should run whoami --json before choosing a publish path. The command
+  exits 0 even when signed out; parse "authenticated": false instead of branching
+  on the exit code. If signed in, publish normally. If signed out and a human can
+  interact, run login. Use --ephemeral only when login is unavailable or explicitly
+  requested.
+
 Publish:
   --artifact-id Revise an EXISTING Artifact: publishes a new Revision under it
                 instead of creating a new Artifact. The viewer link is stable and

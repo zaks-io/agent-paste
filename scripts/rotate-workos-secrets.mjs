@@ -40,14 +40,16 @@ try {
   const target = parseTarget(positional.slice(1));
   const options = parseOptions(argv);
   const value =
-    options.value ?? (options.dryRun ? "<from-workos-dashboard>" : await resolveValue(config, target, options));
+    options.value ??
+    (options.dryRun || options.printOnly ? secretValueSummaryFor(config) : await resolveValue(config, target, options));
+  const secretValueSummary = summarizeSecretValue(config, options);
 
   const bindings = config.bindings.map((binding) => ({
     worker: workerName(binding.app, target),
     names: [config.secretName],
   }));
 
-  process.stdout.write(formatPlan(config, target, options, value));
+  process.stdout.write(formatPlan(config, target, options, secretValueSummary));
 
   if (options.dryRun || options.printOnly) {
     process.exit(0);
@@ -66,7 +68,7 @@ try {
   usage(message);
 }
 
-function formatPlan(config, target, options, valuePlaceholder) {
+function formatPlan(config, target, options, secretValueSummary) {
   const lines = [
     `agent-paste ${target} ${config.id}`,
     `Operator identity (audit): ${options.operator}`,
@@ -79,7 +81,7 @@ function formatPlan(config, target, options, valuePlaceholder) {
     lines.push(`  wrangler secret put ${config.secretName} --name ${workerName(binding.app, target)}`);
   }
   lines.push("");
-  lines.push(`Value source: ${valuePlaceholder}`);
+  lines.push(`Secret value: ${secretValueSummary}`);
   lines.push("");
   lines.push("Create or rotate the credential in the WorkOS dashboard before writing Workers.");
   lines.push("For WORKOS_CLIENT_ID swaps, also update apps/api and apps/web wrangler.jsonc vars and deploy.");
@@ -93,9 +95,24 @@ async function resolveValue(config, _target, options) {
   if (config.id === "workos-cookie-password") {
     return randomBytes(32).toString("base64url");
   }
-  throw new Error(
-    `${config.secretName} must be created in the WorkOS dashboard. Re-run with --value <dashboard-secret>.`,
-  );
+  throw new Error(`${config.secretName} must be created in the WorkOS dashboard. Re-run with --value-env <ENV_VAR>.`);
+}
+
+function secretValueSummaryFor(config) {
+  if (config.id === "workos-cookie-password") {
+    return "generated at runtime (hidden)";
+  }
+  return "from WorkOS dashboard via --value-env (hidden)";
+}
+
+function summarizeSecretValue(config, options) {
+  if (options.valueSource === "env") {
+    return `provided via ${options.valueEnvName} (hidden)`;
+  }
+  if (options.valueSource === "argv") {
+    return "provided via --value (hidden)";
+  }
+  return secretValueSummaryFor(config);
 }
 
 async function assertSafeToWrite(config, target, options, bindings) {
@@ -121,7 +138,7 @@ async function assertSafeToWrite(config, target, options, bindings) {
       `Existing ${config.secretName} bindings:`,
       ...collisions.map((name) => `  - ${name}`),
       "",
-      "Re-run with --value and --force for intentional rotation.",
+      "Re-run with --value-env and --force for intentional rotation.",
     ].join("\n"),
   );
 }
@@ -138,12 +155,34 @@ function parseOptions(argv) {
   const dryRun = argv.includes("--dry-run");
   const printOnly = argv.includes("--print-only");
   const force = argv.includes("--force");
-  const value = stringOption(argv, "--value");
+  const { value, valueSource, valueEnvName } = valueOption(argv, process.env);
   const operator = stringOption(argv, "--operator") ?? ROTATION_AGENT_OPERATOR_ID;
   if (value !== undefined && value.length === 0) {
     throw new Error("--value must be a non-empty secret.");
   }
-  return { dryRun, printOnly, force, value, operator };
+  return { dryRun, printOnly, force, value, valueSource, valueEnvName, operator };
+}
+
+function valueOption(argv, env) {
+  const argvValue = stringOption(argv, "--value");
+  const valueEnvName = stringOption(argv, "--value-env");
+  if (argvValue !== undefined && valueEnvName !== undefined) {
+    throw new Error("Pass only one of --value or --value-env.");
+  }
+  if (argvValue !== undefined && env.npm_lifecycle_event?.startsWith("secrets:rotate:")) {
+    throw new Error("Do not pass secret material through pnpm argv. Use --value-env <ENV_VAR> instead.");
+  }
+  if (valueEnvName === undefined) {
+    return { value: argvValue, valueSource: argvValue === undefined ? undefined : "argv", valueEnvName: undefined };
+  }
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(valueEnvName)) {
+    throw new Error("--value-env must name one environment variable.");
+  }
+  const value = env[valueEnvName];
+  if (value === undefined || value.length === 0) {
+    throw new Error(`Environment variable ${valueEnvName} must contain a non-empty secret.`);
+  }
+  return { value, valueSource: "env", valueEnvName };
 }
 
 function stringOption(argv, name) {
@@ -169,7 +208,8 @@ Usage:
   node scripts/rotate-workos-secrets.mjs <workos-api-key|workos-cookie-password> <preview|production> [options]
 
 Options:
-  --value     Secret from the WorkOS dashboard (required for workos-api-key).
+  --value     Secret from the WorkOS dashboard (direct node only; avoid for real secrets).
+  --value-env Environment variable containing the WorkOS secret. Required for pnpm wrappers.
   --operator  Audit identity (default: rotation-agent@platform).
   --dry-run   Print the plan without calling wrangler.
   --print-only  Same as --dry-run.

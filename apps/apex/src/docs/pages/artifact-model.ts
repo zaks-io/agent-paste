@@ -73,7 +73,7 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Agent View is JSON for machines. It includes Artifact and Revision IDs, title, entrypoint, file metadata, signed per-file URLs, and Bundle Availability. It does not inline file bytes.",
+          text: "Agent View is JSON for machines. It includes Artifact and Revision IDs, title, entrypoint, file metadata, signed per-file URLs, and Bundle Availability. It does not inline file bytes. Each file entry uses `files[].url` for the signed content URL, with `path`, `size_bytes`, `content_type`, and optional `sha256` beside it.",
         },
       ],
     },

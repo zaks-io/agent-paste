@@ -119,6 +119,7 @@ describe("cli command dispatch", () => {
     expect(stdoutValues(stdout)).toEqual(
       expect.arrayContaining([expect.stringContaining("agent-paste publish <path>")]),
     );
+    expect(stdoutValues(stdout).join("")).toContain('parse "authenticated": false');
   });
 
   it("routes a --help flag on a subcommand to help instead of running it", async () => {

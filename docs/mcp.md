@@ -11,6 +11,10 @@ Production endpoint:
 https://mcp.agent-paste.sh
 ```
 
+Opening that URL directly returns endpoint metadata for humans and agents.
+Protocol calls use `POST /` with Streamable HTTP JSON-RPC and an OAuth bearer
+token; a browser GET is not the tool transport.
+
 ## When To Use MCP
 
 Use MCP when:

@@ -44,6 +44,10 @@ as the final live page.
   JavaScript.
 - Read an artifact from agent-facing surfaces through the CLI, \`${MCP_BASE_URL}\`
   (MCP tool \`read_artifact\`), or the dashboard for humans.
+- Verification: \`private_url\` is login-walled app navigation; a plain HTTP 200
+  can be only the app shell or sign-in state. For public/no-login verification,
+  use a Share Link from make-public. For machine verification, fetch
+  \`agent_view_url\` and read signed per-file URLs from \`files[].url\`.
 - Share an artifact only when explicitly asked, through the separate make-public
   step: \`npx @zaks-io/agent-paste make-public <artifact-id>\` on the CLI, or the
   \`make_public\` MCP tool. It mints or reuses the one revocable Share Link and

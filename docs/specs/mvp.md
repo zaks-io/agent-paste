@@ -108,6 +108,10 @@ HTML is inert raw byte delivery unless it is loaded through the controlled
 Artifact Viewer iframe. The content token lives in the path.
 
 `agent_view_url` is public and signed. It returns a JSON manifest for the same revision.
+Agents should use `agent_view_url` and each file entry's `files[].url` for
+machine verification. A `private_url` is login-walled app navigation, so a plain
+HTTP client may receive an app shell or sign-in redirect state with HTTP 200;
+that status code does not prove public readability.
 
 ## Agent View
 

@@ -10,6 +10,13 @@ function joinPlanLines(lines) {
   return `${lines.join("\n")}\n`;
 }
 
+function secondaryBoundOnWorker(snapshot, worker) {
+  if (Array.isArray(snapshot.secondaryBoundWorkers)) {
+    return snapshot.secondaryBoundWorkers.includes(worker);
+  }
+  return Boolean(snapshot.secondaryBound);
+}
+
 export function formatDrainPlan(profile, target, _snapshot, operator) {
   const lines = [
     ...planHeader(profile, target, "drain", operator),
@@ -24,7 +31,7 @@ export function formatDrainPlan(profile, target, _snapshot, operator) {
   return joinPlanLines(lines);
 }
 
-export function formatStagePlan(profile, target, snapshot, operator, valuePlaceholder) {
+export function formatStagePlan(profile, target, snapshot, operator, secretValueSummary) {
   const lines = [...planHeader(profile, target, "stage", operator)];
   if (!snapshot.primaryBound) {
     lines.push("Primary secret is not bound. Use bootstrap for first deploy, not overlap rotation.");
@@ -38,7 +45,7 @@ export function formatStagePlan(profile, target, snapshot, operator, valuePlaceh
     lines.push(`  wrangler secret put ${profile.secondarySecretName} --name ${workerName(binding.app, target)}`);
   }
   lines.push("");
-  lines.push(`Planned value placeholder: ${valuePlaceholder}`);
+  lines.push(`Secret value: ${secretValueSummary}`);
   return joinPlanLines(lines);
 }
 
@@ -88,7 +95,7 @@ function formatDropPromoteCollapsePlan(profile, target) {
     lines.push(`  wrangler secret delete ${profile.secondarySecretName} --name ${worker}`);
   }
   lines.push("");
-  lines.push(`Use --value <promoted-${profile.secondarySecretName}> when reusing the staged v2 material.`);
+  lines.push(`Use --value-env <promoted-${profile.secondarySecretName}-env-var> when reusing the staged v2 material.`);
   return lines;
 }
 
@@ -99,7 +106,7 @@ export function formatDropPlan(profile, target, _snapshot, operator) {
   return joinPlanLines([...planHeader(profile, target, "drop", operator), ...body]);
 }
 
-export function formatEmergencyPlan(profile, target, snapshot, operator, valuePlaceholder) {
+export function formatEmergencyPlan(profile, target, snapshot, operator, secretValueSummary) {
   const lines = [
     ...planHeader(profile, target, "emergency", operator),
     "Emergency cutover: overwrite primary, reset kid v1, delete _V2 when present.",
@@ -111,12 +118,12 @@ export function formatEmergencyPlan(profile, target, snapshot, operator, valuePl
     lines.push(
       `  wrangler deploy --cwd apps/${binding.app} --env ${target} --var ${profile.kidVarName}:v1 --name ${worker}`,
     );
-    if (snapshot.secondaryBound) {
+    if (secondaryBoundOnWorker(snapshot, worker)) {
       lines.push(`  wrangler secret delete ${profile.secondarySecretName} --name ${worker}`);
     }
   }
   lines.push("");
-  lines.push(`Planned value placeholder: ${valuePlaceholder}`);
+  lines.push(`Secret value: ${secretValueSummary}`);
   return joinPlanLines(lines);
 }
 
@@ -128,10 +135,10 @@ const PLAN_FORMATTERS = {
   emergency: formatEmergencyPlan,
 };
 
-export function formatPlan(profile, target, step, snapshot, operator, valuePlaceholder) {
+export function formatPlan(profile, target, step, snapshot, operator, secretValueSummary) {
   const formatter = PLAN_FORMATTERS[step];
   if (!formatter) {
     throw new Error(`Unhandled step ${step}`);
   }
-  return formatter(profile, target, snapshot, operator, valuePlaceholder);
+  return formatter(profile, target, snapshot, operator, secretValueSummary);
 }

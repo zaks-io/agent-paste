@@ -27,7 +27,7 @@ export const MCP_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Production MCP runs at `https://mcp.agent-paste.sh`. The transport endpoint is `POST /` using Streamable HTTP JSON-RPC. Protected Resource Metadata is at `/.well-known/oauth-protected-resource`; the root OAuth resource is `https://mcp.agent-paste.sh/`.",
+          text: "Production MCP runs at `https://mcp.agent-paste.sh`. Opening `GET /` returns endpoint metadata for humans and agents. Protocol calls use `POST /` with Streamable HTTP JSON-RPC and an OAuth bearer token. Protected Resource Metadata is at `/.well-known/oauth-protected-resource`; the root OAuth resource is `https://mcp.agent-paste.sh/`.",
         },
         {
           kind: "paragraph",
@@ -54,12 +54,12 @@ export const MCP_DOC: DocsPage = {
             [
               "`read`",
               "View your own Artifacts and links",
-              "`whoami`, `list_artifacts`, `read_artifact`, `list_revisions`, `list_access_links`",
+              "`whoami`, `list_artifacts`, `read_artifact`, `read_file`, `list_revisions`, `list_access_links`",
             ],
             [
               "`publish`",
               "Change your own content and manage its public access",
-              "`publish_artifact`, `add_revision`, `delete_artifact`, `update_display_metadata`, `make_public`, `create_revision_link`, `revoke_access_link`",
+              "`publish_artifact`, `add_revision`, `multi_edit`, `delete_artifact`, `update_display_metadata`, `make_public`, `create_revision_link`, `revoke_access_link`",
             ],
           ],
         },
@@ -82,8 +82,16 @@ export const MCP_DOC: DocsPage = {
               "`add_revision`",
               "Revise an EXISTING Artifact: pass its artifact_id to publish a new Revision. Same stable private_url; live-updates open viewers. Use this to change published work, not publish_artifact.",
             ],
+            [
+              "`multi_edit`",
+              "Edit one stored file with literal find/replace, then publish the result as a new Revision under the same Artifact.",
+            ],
             ["`list_artifacts`", "List Artifacts in the Workspace."],
             ["`read_artifact`", "Read latest Agent View for an Artifact."],
+            [
+              "`read_file`",
+              "Read one stored file's plaintext body or metadata so an agent can edit against the current bytes.",
+            ],
             ["`list_revisions`", "List Revisions for an Artifact."],
             ["`delete_artifact`", "Delete an Artifact."],
             ["`update_display_metadata`", "Update an Artifact display title."],
@@ -108,7 +116,7 @@ export const MCP_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "`publish_artifact` and `add_revision` are content-only and private: they take no visibility input and return a single `private_url` (the login-walled `/v/<artifactId>` clean viewer for the Workspace Member), with no `shared` field. To make an Artifact public, call `make_public`; it mints or reuses the one Share Link that follows the latest Revision and returns its public, no-login Access Link Signed URL. To change a published Artifact, call `add_revision` with its `artifact_id` rather than `publish_artifact`: the `private_url` is stable and already-open viewers live-update to the new Revision, whereas a second `publish_artifact` mints a separate Artifact on a new link. Artifact IDs, Revision IDs, and content URLs are available through the read/list/link tools. The tools also accept optional idempotency keys; when omitted, the server derives stable keys from the OAuth subject, JSON-RPC id, and tool name.",
+          text: "`publish_artifact`, `add_revision`, and `multi_edit` are content-only and private: they take no visibility input and return a single `private_url` (the login-walled `/v/<artifactId>` clean viewer for the Workspace Member), with no `shared` field. To make an Artifact public, call `make_public`; it mints or reuses the one Share Link that follows the latest Revision and returns its public, no-login Access Link Signed URL. To change a published Artifact, call `add_revision` or `multi_edit` with its `artifact_id` rather than `publish_artifact`: the `private_url` is stable and already-open viewers live-update to the new Revision, whereas a second `publish_artifact` mints a separate Artifact on a new link. Artifact IDs, Revision IDs, and content URLs are available through the read/list/link tools. The tools also accept optional idempotency keys; when omitted, the server derives stable keys from the OAuth subject, JSON-RPC id, and tool name.",
         },
         {
           kind: "paragraph",
