@@ -78,25 +78,26 @@ pnpm hooks:install
 
 ### Quality
 
-| Command                  | Purpose                                                                                                                                                 |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm build`             | Run `turbo run build`.                                                                                                                                  |
-| `pnpm check`             | Run package `check` tasks where defined.                                                                                                                |
-| `pnpm lint`              | Run `turbo run lint`, including repo policy checks.                                                                                                     |
-| `pnpm typecheck`         | Run `turbo run typecheck`.                                                                                                                              |
-| `pnpm typecheck:scripts` | Type-check the root `scripts/` decision-logic tier via `tsc` against `tsconfig.scripts.json`.                                                           |
-| `pnpm test`              | Run `turbo run test`.                                                                                                                                   |
-| `pnpm test:scripts`      | Run Vitest tests for root `scripts/` helpers.                                                                                                           |
-| `pnpm test:coverage`     | Run Vitest coverage across workspace projects.                                                                                                          |
-| `pnpm knip`              | Run Knip unused file, dependency, and export checks.                                                                                                    |
-| `pnpm dupes`             | Run jscpd copy-paste duplication gate over `apps/` and `packages/`.                                                                                     |
-| `pnpm format`            | Format code with Biome and Markdown with Prettier.                                                                                                      |
-| `pnpm format:code`       | Format non-doc files with Biome.                                                                                                                        |
-| `pnpm format:code:check` | Check non-doc formatting with Biome (no writes; fails if anything is unformatted).                                                                      |
-| `pnpm format:docs`       | Format Markdown files with Prettier.                                                                                                                    |
-| `pnpm format:docs:check` | Check Markdown formatting.                                                                                                                              |
-| `pnpm verify`            | Full CI-style local verification: code + docs format checks, Knip, duplication, lint, typecheck, tests, scripts typecheck, OpenAPI check, and DB check. |
-| `pnpm ci:check`          | Alias for `pnpm verify`.                                                                                                                                |
+| Command                     | Purpose                                                                                                                                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm build`                | Run `turbo run build`.                                                                                                                                                               |
+| `pnpm check`                | Run package `check` tasks where defined.                                                                                                                                             |
+| `pnpm lint`                 | Run `turbo run lint`, including repo policy checks.                                                                                                                                  |
+| `pnpm typecheck`            | Run `turbo run typecheck`.                                                                                                                                                           |
+| `pnpm typecheck:scripts`    | Type-check the root `scripts/` decision-logic tier via `tsc` against `tsconfig.scripts.json`.                                                                                        |
+| `pnpm test`                 | Run `turbo run test`.                                                                                                                                                                |
+| `pnpm test:scripts`         | Run Vitest tests for root `scripts/` helpers.                                                                                                                                        |
+| `pnpm test:coverage`        | Run Vitest coverage across workspace projects.                                                                                                                                       |
+| `pnpm test:coverage:strict` | Like `pnpm test:coverage` but `--force`-recomputes every workspace report so a stale turbo cache cannot serve a false green on the repo-wide threshold. Used by the `pre-push` gate. |
+| `pnpm knip`                 | Run Knip unused file, dependency, and export checks.                                                                                                                                 |
+| `pnpm dupes`                | Run jscpd copy-paste duplication gate over `apps/` and `packages/`.                                                                                                                  |
+| `pnpm format`               | Format code with Biome and Markdown with Prettier.                                                                                                                                   |
+| `pnpm format:code`          | Format non-doc files with Biome.                                                                                                                                                     |
+| `pnpm format:code:check`    | Check non-doc formatting with Biome (no writes; fails if anything is unformatted).                                                                                                   |
+| `pnpm format:docs`          | Format Markdown files with Prettier.                                                                                                                                                 |
+| `pnpm format:docs:check`    | Check Markdown formatting.                                                                                                                                                           |
+| `pnpm verify`               | Full CI-style local verification: code + docs format checks, Knip, duplication, lint, typecheck, tests, scripts typecheck, OpenAPI check, and DB check.                              |
+| `pnpm ci:check`             | Alias for `pnpm verify`.                                                                                                                                                             |
 
 ### Contracts And Database
 
@@ -212,8 +213,17 @@ deploy production from a laptop.
 Lefthook is configured at the repo root. `pre-commit` runs Biome on staged
 files, Prettier on staged Markdown, `gitleaks protect --staged --redact`, and
 Turbo typecheck for packages affected since `origin/main` with a local `HEAD`
-fallback. `pre-push` runs `pnpm knip` and `pnpm test:coverage` so dead-code and
-global coverage checks run before local pushes.
+fallback. `pre-push` runs the full `pnpm verify` (format, Knip, duplication,
+lint, typecheck, tests, OpenAPI, and DB checks) plus `pnpm test:coverage:strict`
+(cache-busted coverage) so a push matches the CI `Validate` gate before it
+leaves the machine.
+
+Hooks are installed by `pnpm install` (the `prepare` script) and by
+`pnpm setup:worktree`. Installation is skipped only inside GitHub Actions
+(`GITHUB_ACTIONS`) or when `SKIP_LEFTHOOK=1` is set; it is **not** skipped in
+unattended agent VMs (Cursor / Codex) just because `CI=true`, so remote workers
+still get the `pre-push` gate. If a worker bypasses hooks, run `pnpm verify` and
+`pnpm test:coverage:strict` by hand before handing off a PR.
 
 ## Related Docs
 

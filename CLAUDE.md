@@ -55,6 +55,15 @@ task. Use `docs/agents/autonomous-loop.md` for the detailed Linear state
 contract and queue-moving/worker loop. Use `docs/agents/repo-navigation.md`
 for the repo map and common lookup paths.
 
+**Never edit the `ziw-*` skills (`.agents/skills/ziw-*`) in this repo.** They are
+synced in from the upstream `zaks-io/skills` repo (see AP-298), so any local edit
+is silently overwritten on the next refresh and your change is lost. Do not
+rewrite, hand-patch, or "fix" a skill here. If a skill needs to change, record the
+needed change as a metadata-only note in the **AP-98 orchestrator friction log**
+(`category: config-gap`, with the target skill named); the skills agent reviews
+that log and applies fixes upstream. The same rule applies to any other
+synced-in skill, not just `ziw-*`.
+
 ### Issue tracker
 
 Linear, team prefix `AP-`. See `docs/agents/issue-tracker.md`.

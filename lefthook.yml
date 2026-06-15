@@ -22,6 +22,8 @@ pre-push:
       # Cached — per-package checks are safe to cache, keep push fast.
       run: pnpm verify
     test-coverage:
-      # Per-workspace coverage reports are cacheable; the root merge/check stays
-      # uncached and enforces the repo-wide threshold on the latest artifacts.
-      run: pnpm test:coverage
+      # Force the per-workspace coverage run (`--force`) so a stale turbo cache
+      # cannot serve a false green: the root merge then enforces the repo-wide
+      # threshold on freshly recomputed artifacts, matching CI exactly. A cached
+      # `test:coverage` previously let a coverage-tipping diff push red (AP-136).
+      run: pnpm test:coverage:strict
