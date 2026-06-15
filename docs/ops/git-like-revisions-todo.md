@@ -180,19 +180,35 @@ able to FAIL the finalize call. Finalize is also where the patch gate, the only
 - Done: big-file-small-edit uploads only the diff bytes; served file is
   byte-identical to applying the patch locally; `content` unchanged.
 
-### Stage 5 - cli/mcp: the ergonomics payoff
+### Stage 5 - cli/mcp: the ergonomics payoff + agent read-back (DONE)
 
-- CLI caches the last published manifest per artifact (paths + sha256 + revision
-  id) locally. On revise: diff the working dir against the cache; send only
-  changed/added files + `deleted_paths` against `base_revision_id`. **Unchanged
-  files are not re-hashed and not re-uploaded.**
-- For a changed _text_ file above a size threshold, generate a unified diff
-  against the cached base and send the patch instead of the whole file. Below
-  threshold or binary: whole blob (cheaper than diff overhead).
-- MCP `add_revision`: accept a partial file set + optional per-file patch, same
-  contract. This is the no-shell parity surface.
-- Done: agent expresses "change one file" and the wire carries one diff; demo on
-  a multi-MB asset with a one-line edit.
+See [ADR 0089](../adr/0089-agent-file-read-back-api-decrypts-member-plaintext.md)
+for the decision record. The headline gap Stage 5 surfaced: an agent could not
+**read a stored file back** to diff against, which is the prerequisite for
+producing a correct patch when it lacks the working dir. So Stage 5 shipped both
+the read-back and the CLI diff client.
+
+- **Read-back.** `AgentViewFile` gains optional `sha256`. New member-authed `api`
+  route `GET /v1/artifacts/{id}/file-content?path=&revision_id=` returns
+  `{ path, sha256, size_bytes, content_type, is_binary, body? }` (text body when
+  UTF-8 and ≤10 MiB; oversize skips the R2 read and returns metadata; binary sets
+  `is_binary:true`, no body). `api` decrypts via `readWorkspaceBlobBytes` (the
+  Stage 4 helper) — the first `api` byte-decrypt surface, member-only, boundary
+  unchanged (ADR 0089). MCP gains a `read_file` tool forwarding to it.
+- **CLI diff client.** The CLI caches the last published manifest per artifact
+  (`paths + sha256 + revision_id`) under `configDir()`. On revise
+  (`publish --artifact-id`): diff the working dir against the cache, send only
+  changed/added files + `deleted_paths` against `base_revision_id`; unchanged
+  files inherit by omission (not re-hashed, not re-uploaded). A changed text file
+  is sent as a unified diff (`apps/cli/src/unified-diff-gen.ts`) only when the
+  generator self-check (apply locally, verify result sha) passes AND the diff is
+  smaller; otherwise whole-blob. **No size threshold** (KISS). A stale/unusable
+  cached base → drop cache, re-publish whole once. New `agent-paste pull` verb
+  reads a file back cat-like.
+- **MCP `add_revision` stays text-body-only** (ADR 0084): the patch path needs a
+  working dir, so it lives in the CLI; MCP gets read parity via `read_file`.
+- Done: `pnpm smoke:local:patch` proves the partial+patch path end to end; a
+  large file with a one-line edit uploads only the diff and serves byte-identical.
 
 ## Non-goals / deferred
 
@@ -205,10 +221,14 @@ able to FAIL the finalize call. Finalize is also where the patch gate, the only
 
 ## Open questions
 
-- Patch byte threshold for choosing diff vs whole-blob upload (measure; start
-  conservative, e.g. only diff when `diff_size < 0.5 * file_size` AND file
-  > a few hundred KB).
-- RESOLVED: reconstruction runs in `jobs` (seam-honest; `upload` is write-only
-  today, `jobs` already does the read-decrypt-transform-reencrypt-write shape).
-  Remaining sub-question: exact pending-state model for a Revision whose Publish
-  waits on reconstruction (reuse Bundle `pending` machinery vs a new state).
+- RESOLVED: no patch byte threshold. The CLI always sends a unified diff for a
+  changed text file and a whole blob for binary (KISS; no magic numbers). The
+  server byte-verifies and flags conflicts regardless of diff size, so a
+  not-worth-it diff costs a few bytes of overhead, not correctness. Add a
+  threshold only if a real large-file-frequent-edit workload proves it pays off.
+- RESOLVED: reconstruction runs SYNCHRONOUSLY at finalize in the `upload` worker,
+  not async in `jobs`. The conflict flag-back is the feature: a patch that cannot
+  apply must FAIL the same finalize call with an agent-visible `patch_conflict`,
+  so a broken patch never becomes a servable draft. There is therefore no
+  pending-state model and no `reconstruction_status`. See the ADR 0088 Stage 4
+  implementation notes.

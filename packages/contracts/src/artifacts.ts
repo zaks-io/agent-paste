@@ -1,6 +1,6 @@
-import { PageInfo } from "./common.js";
+import { Mebibytes, PageInfo } from "./common.js";
 import { ArtifactStatus } from "./enums.js";
-import { ArtifactId, FilePath, IsoDateTime, PlainTextTitle, RevisionId } from "./primitives.js";
+import { ArtifactId, FilePath, IsoDateTime, PlainTextTitle, RevisionId, Sha256Hex } from "./primitives.js";
 import { z } from "./zod.js";
 
 export const ArtifactSummary = z.object({
@@ -47,3 +47,24 @@ export const DeleteArtifactResponse = z.object({
   deleted_at: IsoDateTime,
 });
 export type DeleteArtifactResponse = z.infer<typeof DeleteArtifactResponse>;
+
+// A member reading one stored file's decrypted plaintext so an agent can diff
+// against it to produce a unified-diff patch revise (ADR 0089).
+// `is_binary` is byte-derived (true binary only); `content_type` is path-derived,
+// so they may disagree (e.g. binary saved as .txt) — `is_binary` is authoritative
+// for deciding whether `body` is patchable text. `body` is the decoded UTF-8 text
+// and is present iff the file is text AND <= 10 MiB. When `body` is absent and
+// `is_binary` is false, the file is text but too large to inline: fetch it via the
+// signed content url or upload a whole blob (never a patch). `sha256` is the
+// plaintext content address an agent declares as a patch's `base_sha256`.
+export const ArtifactFileContent = z
+  .object({
+    path: FilePath,
+    sha256: Sha256Hex,
+    size_bytes: z.number().int().nonnegative(),
+    content_type: z.string().min(1).max(200),
+    is_binary: z.boolean(),
+    body: z.string().max(Mebibytes.ten).optional(),
+  })
+  .strict();
+export type ArtifactFileContent = z.infer<typeof ArtifactFileContent>;

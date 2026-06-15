@@ -32,7 +32,9 @@ automatic; flags override detection.
   `... --json | jq` and `... > out.json` clean.
 - `--quiet` suppresses the human summary on stdout. Errors and the exit code
   still apply. `--quiet --json` still prints the JSON object (the object is the
-  point of `--json`); `--quiet` without `--json` prints nothing on success.
+  point of `--json`); `--quiet` without `--json` prints nothing on success. The
+  exception is `pull`, whose file body _is_ the result (cat-like), so `--quiet`
+  never suppresses it — otherwise `pull … --quiet > file` would write an empty file.
 
 ## JSON contract
 
@@ -43,9 +45,35 @@ automatic; flags override detection.
 - `publish` is content-only and private: it emits one handoff link, `private_url`
   (the login-walled clean viewer at `/v/<artifactId>` for a Workspace Member) —
   the same field the MCP server returns. There is no `--share` input and no
-  `shared` output bit. Creating an unlisted no-login handoff is the separate
-  `make-public` command, which currently mints or reuses the one Share Link and
-  prints its no-login Access Link Signed URL.
+  `shared` output bit. Making an Artifact public is the separate `make-public`
+  command, which mints or reuses the one Share Link and prints its no-login
+  Access Link Signed URL.
+- `pull <artifact-id> <path> [--revision-id <id>]` reads one stored file back
+  ([ADR 0089](../adr/0089-agent-file-read-back-api-decrypts-member-plaintext.md)).
+  Default output is cat-like (the raw text body to stdout, so `pull … > file`
+  works); `--json` emits `{ schema_version, path, sha256, size_bytes, is_binary,
+body? }`. A binary file has no inline body: `--json` reports `is_binary: true`
+  with no `body`, and plain mode errors (raw bytes would corrupt the stream). An
+  oversize text file likewise has no `body`; fetch it via the content URL.
+
+## Incremental revise (manifest cache + diffs)
+
+On a revise (`publish <path> --artifact-id <id>`), the CLI sends only what
+changed instead of the whole tree ([ADR 0089](../adr/0089-agent-file-read-back-api-decrypts-member-plaintext.md)).
+It caches the last published manifest per artifact (`paths + sha256 + revision_id`)
+under the CLI config dir and, on the next revise, diffs the working dir against
+that cache: unchanged files inherit by reference (not re-hashed, not re-uploaded),
+removed files become `deleted_paths`, and changed text files are sent as a
+verified unified diff against `base_revision_id` (whole blob for binary or when the
+diff is not smaller). The diff generator self-checks (applies its own diff and
+verifies the result digest) before attaching a patch, so a generator bug degrades
+to a correct whole-blob upload, never a finalize conflict. There is no diff size
+threshold. If the cached base is no longer usable on the server (a concurrent
+revise elsewhere, a retained/deleted base, or a non-inheritable base file), the
+CLI drops the cache and re-publishes the whole working directory once; a corrupt
+or schema-drifted cache is treated as a cache miss. The cache holds no bytes and
+no secrets and is written `0600`.
+
 - Errors in `json` mode are emitted on **stderr** as
   `{ "error": { "code", "message", "docs?" } }` (no `schema_version` — it is an
   error envelope, not a result).

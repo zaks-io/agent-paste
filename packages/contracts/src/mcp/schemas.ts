@@ -1,11 +1,12 @@
 import { AccessLinkSignedUrl, AccessLinkType } from "../accessLinks.js";
 import { AgentView, DisplayMetadata } from "../agentView.js";
-import { ArtifactListResponse, DeleteArtifactResponse } from "../artifacts.js";
+import { ArtifactFileContent, ArtifactListResponse, DeleteArtifactResponse } from "../artifacts.js";
 import { Mebibytes, PaginationRequest } from "../common.js";
 import {
   AccessLinkId,
   ArtifactId,
   Cursor,
+  FilePath,
   IdempotencyKey,
   IsoDateTime,
   PlainTextTitle,
@@ -69,6 +70,11 @@ export type McpListArtifactsInput = z.infer<typeof McpListArtifactsInput>;
 
 export const McpReadArtifactInput = z.object({ artifact_id: ArtifactId }).strict();
 export type McpReadArtifactInput = z.infer<typeof McpReadArtifactInput>;
+
+export const McpReadFileInput = z
+  .object({ artifact_id: ArtifactId, path: FilePath, revision_id: RevisionId.optional() })
+  .strict();
+export type McpReadFileInput = z.infer<typeof McpReadFileInput>;
 
 export const McpListRevisionsInput = z
   .object({
@@ -143,6 +149,9 @@ export type McpListArtifactsOutput = z.infer<typeof McpListArtifactsOutput>;
 export const McpReadArtifactOutput = AgentView;
 export type McpReadArtifactOutput = z.infer<typeof McpReadArtifactOutput>;
 
+export const McpReadFileOutput = ArtifactFileContent;
+export type McpReadFileOutput = z.infer<typeof McpReadFileOutput>;
+
 export const McpListRevisionsOutput = RevisionListResponse;
 export type McpListRevisionsOutput = z.infer<typeof McpListRevisionsOutput>;
 
@@ -204,6 +213,7 @@ export const McpToolName = z.enum([
   "add_revision",
   "list_artifacts",
   "read_artifact",
+  "read_file",
   "list_revisions",
   "delete_artifact",
   "update_display_metadata",

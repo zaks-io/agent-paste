@@ -36,7 +36,12 @@ export {
   migrateWorkspaceBlobsForReparent,
   type WorkspaceBlobRef,
 } from "./reparent-workspace-blobs.js";
-export { type ApplyConflictReason, type ApplyUnifiedDiffResult, applyUnifiedDiff } from "./unified-diff.js";
+export {
+  type ApplyConflictReason,
+  type ApplyUnifiedDiffResult,
+  applyUnifiedDiff,
+  decodeUtf8Strict,
+} from "./unified-diff.js";
 export {
   type ArtifactBytesSigningRing,
   type R2GetObjectBody,

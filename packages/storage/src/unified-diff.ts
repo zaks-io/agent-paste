@@ -56,7 +56,7 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 // is the obvious tool but its option type is not in every Worker TS lib config, so we
 // decode lossily then verify the decode round-trips to the same bytes — a replacement
 // character inserted for an invalid sequence re-encodes to different bytes.
-function decodeUtf8Strict(bytes: Uint8Array): string | null {
+export function decodeUtf8Strict(bytes: Uint8Array): string | null {
   const text = new TextDecoder().decode(asBufferSource(bytes));
   if (!bytesEqual(new TextEncoder().encode(text), bytes)) {
     return null;

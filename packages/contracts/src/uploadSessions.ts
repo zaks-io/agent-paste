@@ -7,14 +7,16 @@ import {
   IsoDateTime,
   PlainTextTitle,
   RevisionId,
+  Sha256Hex,
   UploadSessionId,
   UrlString,
 } from "./primitives.js";
 import { RenderMode } from "./revisions.js";
 import { z } from "./zod.js";
 
-export const Sha256Hex = z.string().regex(/^[a-f0-9]{64}$/);
-export type Sha256Hex = z.infer<typeof Sha256Hex>;
+// Re-exported from primitives so existing importers (@agent-paste/contracts
+// Sha256Hex) keep working; agentView.ts and artifacts.ts also need it.
+export { Sha256Hex } from "./primitives.js";
 
 // A changed file may arrive as a patch against a base Revision's file (ADR 0088)
 // instead of whole bytes. When present, the bytes uploaded for this file entry are

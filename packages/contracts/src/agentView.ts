@@ -6,6 +6,7 @@ import {
   PlainTextDescription,
   PlainTextTitle,
   RevisionId,
+  Sha256Hex,
   UrlString,
 } from "./primitives.js";
 import { z } from "./zod.js";
@@ -41,6 +42,11 @@ export const AgentViewFile = z.object({
   size_bytes: z.number().int().nonnegative(),
   content_type: z.string().min(1).max(200),
   url: UrlString,
+  // Plaintext content address. Optional because diff-only/draft rows have no
+  // materialized blob; an agent uses it to detect what changed before reading a
+  // file back to diff against (ADR 0089). Object is not strict, so this
+  // is a non-breaking add the MCP read_artifact safeParse already accepts.
+  sha256: Sha256Hex.optional(),
 });
 export type AgentViewFile = z.infer<typeof AgentViewFile>;
 

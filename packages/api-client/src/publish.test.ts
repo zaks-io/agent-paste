@@ -145,4 +145,35 @@ describe("runPublish", () => {
     await runPublish(transport, input({ onUploadProgress }));
     expect(onUploadProgress).toHaveBeenCalledWith({ uploadedFiles: 1, totalToUpload: 1, uploadedBytes: 11 });
   });
+
+  it("sends base_revision_id + deleted_paths for a partial-manifest revise", async () => {
+    const createUploadSession = vi.fn(fakeTransport().transport.createUploadSession);
+    const { transport } = fakeTransport({ createUploadSession });
+    await runPublish(transport, input({ baseRevisionId: REVISION_ID as never, deletedPaths: ["old.md" as never] }));
+    const body = createUploadSession.mock.calls[0]?.[0];
+    expect(body).toMatchObject({ base_revision_id: REVISION_ID, deleted_paths: ["old.md"] });
+  });
+
+  it("encodes a patched file as a diff descriptor and omits its sha256", async () => {
+    const createUploadSession = vi.fn(fakeTransport().transport.createUploadSession);
+    const { transport } = fakeTransport({ createUploadSession });
+    const patched = textFile({
+      patch: { baseSha256: "b".repeat(64) as never, resultSha256: "c".repeat(64) as never },
+    });
+    await runPublish(transport, input({ files: [patched], baseRevisionId: REVISION_ID as never }));
+    const entry = (createUploadSession.mock.calls[0]?.[0] as { files: Record<string, unknown>[] }).files[0];
+    expect(entry).toEqual({
+      path: "index.md",
+      size_bytes: 11,
+      patch: { base_sha256: "b".repeat(64), format: "unified", result_sha256: "c".repeat(64) },
+    });
+    expect(entry).not.toHaveProperty("sha256");
+  });
+
+  it("omits deleted_paths when empty", async () => {
+    const createUploadSession = vi.fn(fakeTransport().transport.createUploadSession);
+    const { transport } = fakeTransport({ createUploadSession });
+    await runPublish(transport, input({ deletedPaths: [] }));
+    expect(createUploadSession.mock.calls[0]?.[0]).not.toHaveProperty("deleted_paths");
+  });
 });

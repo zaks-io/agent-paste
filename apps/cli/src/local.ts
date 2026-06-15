@@ -148,6 +148,23 @@ export async function sha256HexForFile(absolutePath: string): Promise<LocalFileD
   return { sha256: hash.digest("hex"), sizeBytes };
 }
 
+// True iff the bytes are valid UTF-8. Mirrors the storage decodeUtf8Strict
+// round-trip check (decode then re-encode), so the CLI's text/binary decision
+// matches what the server's diff applier accepts (ADR 0089). Binary files
+// are uploaded whole; only text files are diffed.
+export function isUtf8Text(bytes: Uint8Array): boolean {
+  const reencoded = new TextEncoder().encode(new TextDecoder().decode(bytes));
+  if (reencoded.length !== bytes.length) {
+    return false;
+  }
+  for (let i = 0; i < bytes.length; i++) {
+    if (reencoded[i] !== bytes[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function isExcluded(name: string) {
   return (
     name === ".git" || name === "node_modules" || name === ".DS_Store" || name === ".env" || name.startsWith(".env.")

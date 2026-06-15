@@ -119,6 +119,26 @@ export const artifactRouteContracts = [
     errors: [...apiKeyActorReadErrors, "forbidden", "not_found", "revision_retained"],
   },
   {
+    id: "artifacts.fileContent",
+    app: "api",
+    method: "GET",
+    // The file path travels as ?path= (not a path segment): FilePath may contain
+    // '/', which route-path building encodes and Hono ':param' will not match.
+    // ?revision_id= pins the read to a specific Revision so a CLI diff base and
+    // its inherit base are the same Revision; absent => latest (ADR 0089).
+    path: "/v1/artifacts/{artifact_id}/file-content",
+    auth: "api_key_or_mcp_oauth",
+    scopes: ["read"],
+    idempotency: "none",
+    rateLimit: "actor",
+    responseSchema: "ArtifactFileContent",
+    // `forbidden` is required by the registrar guard-error invariant for any
+    // api_key_or_mcp_oauth read route (mirrors agentView.getLatest), even though
+    // this handler resolves access via getAgentView and only ever returns
+    // not_found / storage_unavailable.
+    errors: [...apiKeyActorReadErrors, "forbidden", "not_found", "storage_unavailable"],
+  },
+  {
     id: "revisions.list",
     app: "api",
     method: "GET",

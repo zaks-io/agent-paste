@@ -1,14 +1,19 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-// End-to-end smoke for ADR 0088 Stage 4 intra-file patch reconstruction. Unlike the
+// End-to-end smoke for the Git-like revision model: Stage 4 intra-file patch
+// reconstruction (ADR 0088) plus Stage 5 agent read-back (ADR 0089). Unlike the
 // unit/integration tests (which use a fake reconstructor), this drives the REAL path:
 // boots the local MVP server (real encryption ring + in-memory R2 that round-trips
 // ciphertext), publishes a base Revision with known bytes, then create-session with a
 // real `base_revision_id` + unified-diff `patch`, PUTs the diff bytes (encrypted under
 // revision AAD), finalizes (the real RevisionReconstructor decrypts the base blob,
 // applies the diff, hash-verifies, re-encrypts under blob AAD), publishes, and fetches
-// the served content asserting it is byte-identical to applying the patch locally. Also
-// asserts the conflict path: a diff whose result digest is wrong fails with patch_conflict.
+// the served content asserting it is byte-identical to applying the patch locally.
+// Stage 5: reads the stored file back through the api worker (api decrypts the member's
+// plaintext, returns body + sha256), builds a fresh diff from those served bytes (the
+// path an agent without a working copy takes), publishes it, and asserts the server
+// reconstructs that diff byte-exactly too. Also asserts the conflict path: a diff whose
+// declared result digest is wrong fails loud with patch_conflict.
 import { createHash } from "node:crypto";
 import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
@@ -142,6 +147,36 @@ try {
   const servedIndex = await fetchArtifactFile(revised, "index.html");
   assertBytesEqual(servedIndex, indexBytes, "inherited index.html still serves byte-identically");
 
+  // --- Stage 5 read-back: an agent reads the stored file + sha256 to diff against. ---
+  const readBack = await client.artifacts.readFile(revised.artifact_id, "big.txt");
+  assert(readBack.is_binary === false, "read-back of a text file reports is_binary:false");
+  assert(readBack.sha256 === sha256Hex(resultBig), "read-back sha256 is the plaintext content address");
+  assertBytesEqual(enc.encode(readBack.body), resultBig, "read-back body is byte-identical to the stored file");
+
+  // --- Stage 5 diff-from-read-back: the agent path. Build the next edit and its diff
+  // from the bytes the server handed back (not a local working copy), publish the patch
+  // against the read-back digest, and assert the server reconstructs it byte-exactly.
+  // (The CLI's own diff generator is byte-exactness-tested in apps/cli/src/unified-diff-gen.test.ts;
+  // this proves the read-back → diff → patch → content loop end to end against the live ring.) ---
+  const readBackBytes = enc.encode(readBack.body);
+  assertBytesEqual(readBackBytes, resultBig, "read-back body re-encodes to the stored bytes");
+  const nextBytes = enc.encode(readBack.body.replace("LINE FIVE HUNDRED\n", "edited via read-back\n"));
+  const readBackDiff = unifiedDiffLineSwap(500, "LINE FIVE HUNDRED", "edited via read-back", readBackBytes);
+  const cliRevised = await publishPatch(client, {
+    artifactId: revised.artifact_id,
+    baseRevisionId: revised.revision_id,
+    path: "big.txt",
+    diffBytes: enc.encode(readBackDiff),
+    baseSha256: readBack.sha256,
+    resultSha256: sha256Hex(nextBytes),
+  });
+  const servedCli = await fetchArtifactFile(cliRevised, "big.txt");
+  assertBytesEqual(
+    servedCli,
+    nextBytes,
+    "diff built from read-back bytes reconstructs byte-identically through content",
+  );
+
   // --- Conflict path: a diff whose declared result digest is wrong must fail loud. ---
   let conflict;
   try {
@@ -169,9 +204,12 @@ try {
 
   process.stdout.write(`Patch smoke passed (${target}).
 
-  Base revision:    ${base.revision_id}
-  Patched revision: ${revised.revision_id}
+  Base revision:        ${base.revision_id}
+  Patched revision:     ${revised.revision_id}
+  Read-back revision:   ${cliRevised.revision_id}
   Reconstructed big.txt served byte-exact (${resultBig.byteLength} bytes from a ${diff.length}-byte diff).
+  Read-back: big.txt body + sha256 matched the stored file.
+  Diff-from-read-back: ${readBackDiff.length}-byte diff built from served bytes reconstructed byte-exact.
   Conflict path: ${conflict.code} (${conflict.status}) — "${conflict.message}"
 
 `);

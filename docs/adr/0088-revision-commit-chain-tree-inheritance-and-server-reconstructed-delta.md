@@ -7,7 +7,7 @@ gaps stand in the way today, both recorded as the missing half of
 
 1. **No tree inheritance.** A new **Revision** must re-enumerate every path with
    its `sha256`. Workspace blob dedup ([ADR 0087](./0087-workspace-scoped-content-addressed-blob-deduplication.md))
-   skips the unchanged *bytes*, but the client still walks and hashes the whole
+   skips the unchanged _bytes_, but the client still walks and hashes the whole
    directory and sends the full manifest. The smallest change an agent can express
    is "here is the entire new tree."
 2. **No intra-file delta.** A blob is a whole file. One line changed in a 5 MB

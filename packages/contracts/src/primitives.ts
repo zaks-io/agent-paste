@@ -81,6 +81,9 @@ export const FilePath = z
   .brand<"FilePath">();
 export type FilePath = z.infer<typeof FilePath>;
 
+export const Sha256Hex = z.string().regex(/^[a-f0-9]{64}$/);
+export type Sha256Hex = z.infer<typeof Sha256Hex>;
+
 export const PlainTextTitle = z.string().trim().min(1).max(160);
 export type PlainTextTitle = z.infer<typeof PlainTextTitle>;
 

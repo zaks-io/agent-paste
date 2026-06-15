@@ -204,6 +204,9 @@ importers:
       '@agent-paste/rotation':
         specifier: workspace:*
         version: link:../../packages/rotation
+      '@agent-paste/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@agent-paste/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
