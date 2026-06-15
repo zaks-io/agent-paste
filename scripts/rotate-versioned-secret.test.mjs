@@ -50,4 +50,40 @@ describe("rotate-versioned-secret.mjs", () => {
     expect(result.stdout).toContain("secret delete API_KEY_PEPPER_V1");
     expect(result.stdout).not.toContain("reset kid to v1");
   });
+
+  it("redacts provided secret values from plan output", () => {
+    const result = spawnSync(
+      process.execPath,
+      [scriptPath, "content-signing", "preview", "--step", "stage", "--dry-run", "--value", "super-secret-value"],
+      { encoding: "utf8" },
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Secret value: provided via --value (hidden)");
+    expect(result.stdout).not.toContain("super-secret-value");
+  });
+
+  it("redacts env-provided secret values from plan output", () => {
+    const result = spawnSync(
+      process.execPath,
+      [scriptPath, "content-signing", "preview", "--step", "stage", "--dry-run", "--value-env", "ROTATION_SECRET"],
+      { encoding: "utf8", env: { ...process.env, ROTATION_SECRET: "super-secret-value" } },
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Secret value: provided via ROTATION_SECRET (hidden)");
+    expect(result.stdout).not.toContain("super-secret-value");
+  });
+
+  it("rejects --value under pnpm rotation wrappers", () => {
+    const result = spawnSync(
+      process.execPath,
+      [scriptPath, "content-signing", "preview", "--step", "stage", "--dry-run", "--value", "super-secret-value"],
+      {
+        encoding: "utf8",
+        env: { ...process.env, npm_lifecycle_event: "secrets:rotate:content-signing:preview" },
+      },
+    );
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("--value-env");
+    expect(result.stderr).not.toContain("super-secret-value");
+  });
 });

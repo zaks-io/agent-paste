@@ -14,7 +14,7 @@ share. No deploy, no repo, no bucket.
 
 ```sh
 npx @zaks-io/agent-paste publish ./report
-# -> https://app.agent-paste.sh/artifacts/art_01H...
+# -> https://app.agent-paste.sh/v/art_01H...
 ```
 
 It works from any coding agent with a shell (Claude Code, Codex, Cursor, CI),
@@ -55,16 +55,20 @@ Expected output:
 ```text
 ✓ Published "report"
 
-  View      https://app.agent-paste.sh/artifacts/art_01H...
+  View      https://app.agent-paste.sh/v/art_01H...
+  Expires   2026-06-20
   Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached
 
-  → open https://app.agent-paste.sh/artifacts/art_01H...
+  Update    npx @zaks-io/agent-paste publish ./report --artifact-id art_01H...
+            (revises this Artifact; same link live-updates the open page)
+
+  → open https://app.agent-paste.sh/v/art_01H...
 ```
 
 Want a public, shareable link? That is explicit:
 
 ```sh
-npx @zaks-io/agent-paste publish ./report --share
+npx @zaks-io/agent-paste make-public art_01H...
 ```
 
 ### No login, no human in the loop
@@ -92,8 +96,9 @@ into your Workspace. Two rules keep this path safe:
   Viewer.
 
 The npm package is [`@zaks-io/agent-paste`](./apps/cli/README.md). The installed
-command is `agent-paste`. Standalone macOS, Linux, and Windows installers are
-documented in the [CLI README](./apps/cli/README.md).
+command is `agent-paste`; examples use `npx @zaks-io/agent-paste ...` for
+one-shot runs and `agent-paste ...` after installation. Standalone macOS, Linux,
+and Windows installers are documented in the [CLI README](./apps/cli/README.md).
 
 ## MCP For Hosted Agents
 
@@ -117,16 +122,23 @@ onboarding and smoke verification.
 Three URL shapes, three jobs:
 
 ```text
-Artifact URL           https://app.agent-paste.sh/artifacts/{artifact_id}
+Private Link           https://app.agent-paste.sh/v/{artifact_id}
 Access Link Signed URL https://app.agent-paste.sh/al/{publicId}#{blob}
 Revision Content URL   https://usercontent.agent-paste.sh/v/{content_token}/index.html
 ```
 
-The Artifact URL is authenticated Workspace app navigation and is the default
-`View` URL after publish. An Access Link Signed URL is the public/shareable URL,
-minted only when a Share Link or Revision Link is explicitly created. The
-Revision Content URL is exact signed byte delivery for one Revision; direct
-`usercontent` HTML is inert and should not be presented as the live page.
+The Private Link is authenticated Workspace app navigation and is the default
+`View` URL after publish. The dashboard-only Artifact Console at
+`/artifacts/{artifact_id}` is for management, not handoff. An Access Link Signed
+URL is the public/shareable URL, minted only when a Share Link or Revision Link
+is explicitly created. The Revision Content URL is exact signed byte delivery for
+one Revision; direct `usercontent` HTML is inert and should not be presented as
+the live page.
+
+A plain HTTP status check is not enough to verify a Private Link: unauthenticated
+clients may receive the app shell or sign-in redirect state with HTTP 200. Use a
+Share Link for public browser handoff, or use Agent View and its `files[].url`
+entries for machine verification.
 
 ## Use Cases
 

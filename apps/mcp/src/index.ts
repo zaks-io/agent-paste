@@ -32,6 +32,7 @@ app.get("/.well-known/openid-configuration", (context) => authorizationServerMet
 app.get("/.well-known/oauth-authorization-server/*", (context) => authorizationServerMetadataResponse(context));
 app.get("/.well-known/openid-configuration/*", (context) => authorizationServerMetadataResponse(context));
 app.get("/openapi.json", (context) => context.json(openApiDocument()));
+app.get("/", (context) => context.json(rootMetadata(context.env)));
 app.all("/", (context) => handleMcpEndpoint(context.req.raw, context.env));
 app.notFound((context) => context.json({ error: { code: "not_found", message: "not_found" } }, 404));
 app.onError((error, context) => {
@@ -96,6 +97,20 @@ function authorizationServerMetadata(env: Env): Record<string, unknown> | null {
   };
 }
 
+function rootMetadata(env: Env): Record<string, unknown> {
+  const resource = env.MCP_RESOURCE ?? MCP_RESOURCE_INDICATOR;
+  return {
+    name: "Agent Paste MCP",
+    transport: "Streamable HTTP JSON-RPC",
+    endpoint: resource,
+    use: "Connect this URL as a remote MCP server, complete OAuth, then call whoami first.",
+    post: "POST / with an OAuth bearer token",
+    resource_metadata: `${trimTrailingSlashes(resource)}/.well-known/oauth-protected-resource`,
+    authorization_server_metadata: `${trimTrailingSlashes(resource)}/.well-known/oauth-authorization-server`,
+    docs: "https://agent-paste.sh/docs/mcp",
+  };
+}
+
 function normalizedUrl(value: string | undefined): string | null {
   if (!value) {
     return null;
@@ -119,9 +134,12 @@ function openApiDocument(): Record<string, unknown> {
     paths: {
       "/": {
         get: {
-          operationId: "mcp.streamableHttpGet",
+          operationId: "mcp.rootMetadata",
           responses: {
-            405: { description: "SSE stream not offered in stateless v1" },
+            200: {
+              description: "Human and agent-readable endpoint metadata. MCP protocol calls use POST /.",
+              content: { "application/json": { schema: { type: "object" } } },
+            },
           },
         },
         post: {

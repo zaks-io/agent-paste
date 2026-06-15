@@ -46,6 +46,42 @@ describe("parseOptions", () => {
     expect(opts).toMatchObject({ step: "stage", value: "abc", operator: "me@x", dryRun: true, force: true });
   });
 
+  it("reads secret material from --value-env", () => {
+    const opts = parseOptions(["--step", "stage", "--value-env", "ROTATION_SECRET"], {
+      ROTATION_SECRET: "env-secret",
+    });
+    expect(opts).toMatchObject({
+      value: "env-secret",
+      valueSource: "env",
+      valueEnvName: "ROTATION_SECRET",
+    });
+  });
+
+  it("rejects argv secret material under pnpm rotation scripts", () => {
+    expect(() =>
+      parseOptions(["--step", "stage", "--value", "abc"], {
+        npm_lifecycle_event: "secrets:rotate:artifact-bytes:production",
+      }),
+    ).toThrow(/--value-env/);
+  });
+
+  it("rejects both --value and --value-env", () => {
+    expect(() =>
+      parseOptions(["--step", "stage", "--value", "abc", "--value-env", "ROTATION_SECRET"], {
+        ROTATION_SECRET: "env-secret",
+      }),
+    ).toThrow(/only one/);
+  });
+
+  it("rejects empty --value-env material", () => {
+    expect(() => parseOptions(["--step", "stage", "--value-env", "ROTATION_SECRET"], {})).toThrow(/ROTATION_SECRET/);
+  });
+
+  it("rejects inherited --value-env material", () => {
+    const env = Object.create({ ROTATION_SECRET: "inherited-secret" });
+    expect(() => parseOptions(["--step", "stage", "--value-env", "ROTATION_SECRET"], env)).toThrow(/ROTATION_SECRET/);
+  });
+
   it("defaults the operator to the rotation agent identity", () => {
     expect(parseOptions(["--step", "flip"]).operator).toBe("rotation-agent@platform");
   });
@@ -143,6 +179,23 @@ describe("formatPlan", () => {
     expect(plan).toContain("wrangler secret delete CONTENT_SIGNING_SECRET_V2");
   });
 
+  it("drop (signing profile): deletes _V2 only for workers where the secondary is bound", () => {
+    const plan = formatPlan(
+      contentSigning,
+      "production",
+      "drop",
+      {
+        primaryBound: true,
+        secondaryBound: true,
+        secondaryBoundWorkers: ["agent-paste-content-production"],
+      },
+      "op",
+      "x",
+    );
+    expect(plan).toContain("wrangler secret delete CONTENT_SIGNING_SECRET_V2 --name agent-paste-content-production");
+    expect(plan).not.toContain("wrangler secret delete CONTENT_SIGNING_SECRET_V2 --name agent-paste-api-production");
+  });
+
   it("emergency: overwrites primary, resets kid v1, and deletes _V2 when bound", () => {
     const plan = formatPlan(contentSigning, "production", "emergency", boundBoth, "op", "<gen>");
     expect(plan).toContain("Emergency cutover");
@@ -153,6 +206,23 @@ describe("formatPlan", () => {
   it("emergency: skips the _V2 delete when the secondary is not bound", () => {
     const plan = formatPlan(contentSigning, "preview", "emergency", primaryOnly, "op", "<gen>");
     expect(plan).not.toContain("wrangler secret delete CONTENT_SIGNING_SECRET_V2");
+  });
+
+  it("emergency: deletes _V2 only for workers where the secondary is bound", () => {
+    const plan = formatPlan(
+      contentSigning,
+      "production",
+      "emergency",
+      {
+        primaryBound: true,
+        secondaryBound: true,
+        secondaryBoundWorkers: ["agent-paste-content-production"],
+      },
+      "op",
+      "<gen>",
+    );
+    expect(plan).toContain("wrangler secret delete CONTENT_SIGNING_SECRET_V2 --name agent-paste-content-production");
+    expect(plan).not.toContain("wrangler secret delete CONTENT_SIGNING_SECRET_V2 --name agent-paste-api-production");
   });
 
   it("throws on an unhandled step", () => {
@@ -175,7 +245,12 @@ describe("collectSnapshot", () => {
       worker === "agent-paste-content-preview" ? ["CONTENT_SIGNING_SECRET", "CONTENT_SIGNING_SECRET_V2"] : [],
     );
     const { snapshot } = await collectSnapshot(contentSigning, "preview", { listWorkerSecrets });
-    expect(snapshot).toEqual({ primaryBound: true, secondaryBound: true });
+    expect(snapshot).toEqual({
+      primaryBound: true,
+      secondaryBound: true,
+      primaryBoundWorkers: ["agent-paste-content-preview"],
+      secondaryBoundWorkers: ["agent-paste-content-preview"],
+    });
     expect(listWorkerSecrets).toHaveBeenCalledTimes(contentSigning.bindings.length);
   });
 
@@ -183,7 +258,12 @@ describe("collectSnapshot", () => {
     const { snapshot } = await collectSnapshot(apiKeyPepper, "production", {
       listWorkerSecrets: async () => [],
     });
-    expect(snapshot).toEqual({ primaryBound: false, secondaryBound: false });
+    expect(snapshot).toEqual({
+      primaryBound: false,
+      secondaryBound: false,
+      primaryBoundWorkers: [],
+      secondaryBoundWorkers: [],
+    });
   });
 });
 
@@ -312,7 +392,7 @@ describe("executeStep", () => {
     );
   });
 
-  it("emergency refuses to overwrite a bound primary without --value and --force", async () => {
+  it("emergency refuses to overwrite a bound primary without --value-env and --force", async () => {
     const deps = fakeDeps();
     await expect(
       executeStep(
@@ -322,10 +402,10 @@ describe("executeStep", () => {
         { primaryBound: true, secondaryBound: false },
         deps,
       ),
-    ).rejects.toThrow(/--value and --force/);
+    ).rejects.toThrow(/--value-env and --force/);
   });
 
-  it("emergency with --value and --force cuts over and deletes _V2", async () => {
+  it("emergency with value material and --force cuts over and deletes _V2", async () => {
     const deps = fakeDeps();
     await executeStep(
       contentSigning,
@@ -342,5 +422,44 @@ describe("executeStep", () => {
     expect(deps.appendRotationAuditRecord).toHaveBeenCalledWith(
       expect.objectContaining({ step: "emergency", action: "emergency_cutover" }),
     );
+  });
+
+  it("emergency with value material and --force skips _V2 delete when not bound", async () => {
+    const deps = fakeDeps();
+    await executeStep(
+      contentSigning,
+      "production",
+      { ...stageOptions, step: "emergency", value: "new-primary", force: true },
+      { primaryBound: false, secondaryBound: false },
+      deps,
+    );
+    expect(deps.run).not.toHaveBeenCalledWith(
+      "wrangler",
+      expect.arrayContaining(["secret", "delete", "CONTENT_SIGNING_SECRET_V2"]),
+    );
+  });
+
+  it("emergency with value material and --force deletes _V2 only from workers where it is bound", async () => {
+    const deps = fakeDeps();
+    await executeStep(
+      contentSigning,
+      "production",
+      { ...stageOptions, step: "emergency", value: "new-primary", force: true },
+      {
+        primaryBound: false,
+        secondaryBound: true,
+        secondaryBoundWorkers: ["agent-paste-content-production"],
+      },
+      deps,
+    );
+    const deleteCalls = deps.run.mock.calls.filter((call) => call[1].includes("delete"));
+    expect(deleteCalls).toHaveLength(1);
+    expect(deleteCalls[0][1]).toEqual([
+      "secret",
+      "delete",
+      "CONTENT_SIGNING_SECRET_V2",
+      "--name",
+      "agent-paste-content-production",
+    ]);
   });
 });

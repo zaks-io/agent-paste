@@ -23,11 +23,11 @@ export function parseTarget(argv) {
   return value;
 }
 
-export function parseOptions(argv) {
+export function parseOptions(argv, env = process.env) {
   const dryRun = argv.includes("--dry-run");
   const printOnly = argv.includes("--print-only");
   const force = argv.includes("--force");
-  const value = stringOption(argv, "--value");
+  const { value, valueSource, valueEnvName } = valueOption(argv, env);
   const step = stringOption(argv, "--step");
   const operator = stringOption(argv, "--operator") ?? ROTATION_AGENT_OPERATOR_ID;
   if (!step) {
@@ -39,7 +39,32 @@ export function parseOptions(argv) {
   if (value !== undefined && value.length === 0) {
     throw new Error("--value must be a non-empty secret.");
   }
-  return { dryRun, printOnly, force, value, step, operator };
+  return { dryRun, printOnly, force, value, valueSource, valueEnvName, step, operator };
+}
+
+function valueOption(argv, env) {
+  const argvValue = stringOption(argv, "--value");
+  const valueEnvName = stringOption(argv, "--value-env");
+  if (argvValue !== undefined && valueEnvName !== undefined) {
+    throw new Error("Pass only one of --value or --value-env.");
+  }
+  if (argvValue !== undefined && env.npm_lifecycle_event?.startsWith("secrets:rotate:")) {
+    throw new Error("Do not pass secret material through pnpm argv. Use --value-env <ENV_VAR> instead.");
+  }
+  if (valueEnvName === undefined) {
+    return { value: argvValue, valueSource: argvValue === undefined ? undefined : "argv", valueEnvName: undefined };
+  }
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(valueEnvName)) {
+    throw new Error("--value-env must name one environment variable.");
+  }
+  if (!Object.hasOwn(env, valueEnvName)) {
+    throw new Error(`Environment variable ${valueEnvName} must contain a non-empty secret.`);
+  }
+  const value = env[valueEnvName];
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`Environment variable ${valueEnvName} must contain a non-empty secret.`);
+  }
+  return { value, valueSource: "env", valueEnvName };
 }
 
 export function bindingsForTarget(profile, target) {
@@ -58,9 +83,19 @@ export async function collectSnapshot(profile, target, deps = {}) {
     listedByWorker.set(worker, await listSecrets(worker));
   }
   const names = new Set();
+  const primaryBoundWorkers = [];
+  const secondaryBoundWorkers = [];
   for (const listed of listedByWorker.values()) {
     for (const name of listed) {
       names.add(name);
+    }
+  }
+  for (const [worker, listed] of listedByWorker) {
+    if (listed.includes(profile.baseSecretName)) {
+      primaryBoundWorkers.push(worker);
+    }
+    if (listed.includes(profile.secondarySecretName)) {
+      secondaryBoundWorkers.push(worker);
     }
   }
   return {
@@ -68,6 +103,8 @@ export async function collectSnapshot(profile, target, deps = {}) {
     snapshot: {
       primaryBound: names.has(profile.baseSecretName),
       secondaryBound: names.has(profile.secondarySecretName),
+      primaryBoundWorkers,
+      secondaryBoundWorkers,
     },
   };
 }

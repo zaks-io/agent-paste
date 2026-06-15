@@ -32,6 +32,16 @@ export const CLI_DOC: DocsPage = {
       ],
     },
     {
+      id: "auth-checks",
+      title: "Auth checks",
+      blocks: [
+        {
+          kind: "paragraph",
+          text: "`agent-paste whoami` answers the auth state query. It exits `0` when signed out because the command ran successfully and returned a valid signed-out state. Agents and scripts should use `agent-paste whoami --json` and branch on `authenticated`, not on the process exit code.",
+        },
+      ],
+    },
+    {
       id: "flags",
       title: "Publish flags",
       blocks: [
@@ -68,6 +78,13 @@ export const CLI_DOC: DocsPage = {
           kind: "code",
           language: "text",
           code: '✓ Published "My Publication Title"\n\n  View      https://app.agent-paste.sh/v/art_01H...\n  Expires   2026-06-20\n  Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached\n\n  Update    npx @zaks-io/agent-paste publish ./report --artifact-id art_01H...\n            (revises this Artifact; same link live-updates the open page)\n\n  → open https://app.agent-paste.sh/v/art_01H...',
+        },
+        {
+          kind: "note",
+          title: "Do not verify Private Links with status code alone",
+          body: [
+            "A `private_url` opens the app viewer for a signed-in Workspace Member. Plain HTTP clients can receive the app shell or sign-in redirect state with a 200 response; that does not make the Artifact public. Use `make-public` for a no-login browser link, and use `agent_view_url` plus Agent View `files[].url` entries for machine verification.",
+          ],
         },
         {
           kind: "note",

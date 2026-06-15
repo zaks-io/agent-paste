@@ -6,7 +6,7 @@ Use this runbook for emergency or planned manual rotation. Do not use `scripts/b
 
 ## Automated overlap tooling
 
-Operator scripts implement the ADR 0045 staging → flip → drain → drop sequence. They never read secret values back from Cloudflare; capture generated or dashboard material in a password manager before closing the terminal.
+Operator scripts implement the ADR 0045 staging → flip → drain → drop sequence. They never read secret values back from Cloudflare; capture generated or dashboard material in a password manager before closing the terminal. Do not pass real secret values through `--value` when using the `pnpm secrets:rotate:*` aliases: pnpm echoes argv. Put the value in an environment variable and pass `--value-env <NAME>` instead.
 
 | Profile                  | Script entrypoint                                                              | Workers touched                    |
 | ------------------------ | ------------------------------------------------------------------------------ | ---------------------------------- |
@@ -14,7 +14,7 @@ Operator scripts implement the ADR 0045 staging → flip → drain → drop sequ
 | Upload signing           | `node scripts/rotate-versioned-secret.mjs upload-signing <env> --step <step>`  | `upload`                           |
 | API Key pepper           | `node scripts/rotate-versioned-secret.mjs api-key-pepper <env> --step <step>`  | `api`, `upload`                    |
 | Artifact-byte encryption | `node scripts/rotate-versioned-secret.mjs artifact-bytes-encryption <env> ...` | `api`, `upload`, `content`, `jobs` |
-| WorkOS API key           | `node scripts/rotate-workos-secrets.mjs workos-api-key <env> --value <secret>` | `api`, then `web`                  |
+| WorkOS API key           | `node scripts/rotate-workos-secrets.mjs workos-api-key <env> --value-env NAME` | `api`, `mcp`, `upload`, `web`      |
 | WorkOS cookie password   | `node scripts/rotate-workos-secrets.mjs workos-cookie-password <env> ...`      | `web`                              |
 
 Convenience aliases (append `--step stage|flip|drain|drop` and `--dry-run` as needed):
@@ -22,7 +22,7 @@ Convenience aliases (append `--step stage|flip|drain|drop` and `--dry-run` as ne
 ```sh
 pnpm secrets:rotate:content-signing:preview -- --step stage --dry-run
 pnpm secrets:rotate:api-key-pepper:preview -- --step flip
-pnpm secrets:rotate:workos-api-key:preview -- --dry-run --value <from-workos-dashboard>
+pnpm secrets:rotate:workos-api-key:preview -- --dry-run --value-env WORKOS_ROTATION_SECRET
 ```
 
 Steps:
@@ -30,8 +30,8 @@ Steps:
 1. **`--step stage`** — `wrangler secret put` the `*_V2` binding on every Worker in the profile. Keep the active kid var at `v1`.
 2. **`--step flip`** — `wrangler deploy --var <KID_VAR>:v2` on each Worker so new mints use kid `2`.
 3. **`--step drain`** — plan-only wait guidance (no wrangler writes). Follow the profile-specific TTL notes below.
-4. **`--step drop`** — signing profiles: promote the staged value into the primary secret, deploy `--var <KID_VAR>:v1`, then `wrangler secret delete` the `_V2` name (requires `--value <promoted-secret>`). Kid-persisting profiles (`api-key-pepper`, `artifact-bytes-encryption`): delete the primary (kid 1) secret, keep `_V2`, leave `<KID_VAR>` at `v2` (no `--value`).
-5. **`--step emergency`** — single-step cutover (invalidates overlap). Requires `--value` and `--force` with typed confirmation when overwriting an existing primary.
+4. **`--step drop`** — signing profiles: promote the staged value into the primary secret, deploy `--var <KID_VAR>:v1`, then `wrangler secret delete` the `_V2` name (requires `--value-env <promoted-secret-env-var>` when using pnpm aliases). Kid-persisting profiles (`api-key-pepper`, `artifact-bytes-encryption`): delete the primary (kid 1) secret, keep `_V2`, leave `<KID_VAR>` at `v2` (no value input).
+5. **`--step emergency`** — single-step cutover (invalidates overlap). Requires `--value-env` and `--force` with typed confirmation when overwriting an existing primary through pnpm aliases.
 
 Set `--operator <email-or-rotation-agent@platform>` for ops-log attribution. The default machine identity is `rotation-agent@platform` per ADR 0046. Mutating steps append a JSON line to `var/ops/rotation-audit.jsonl` (gitignored) with operator, profile, target, and step.
 
@@ -46,7 +46,7 @@ Set `--operator <email-or-rotation-agent@platform>` for ops-log attribution. The
 | `ACCESS_LINK_SIGNING_KEY_V1`    | api                        | Signs Access Link Signed URLs; old URLs remain valid until their `exp` or the signing kid is dropped.            |
 | `ARTIFACT_BYTES_ENCRYPTION_KEY` | api, upload, content, jobs | Required for artifact-byte encrypt/decrypt; existing R2 ciphertext stays on its original `enc_kid` per ADR 0063. |
 | `API_KEY_PEPPER_V1`             | api, upload                | Invalidates existing API Keys in the current MVP implementation.                                                 |
-| `WORKOS_API_KEY`                | api, web                   | Swaps the WorkOS server-side API credential.                                                                     |
+| `WORKOS_API_KEY`                | api, mcp, upload, web      | Swaps the WorkOS server-side API credential.                                                                     |
 | `WORKOS_CLIENT_ID`              | api, web                   | Project/client swap only; also update Wrangler vars where present.                                               |
 | `WORKOS_COOKIE_PASSWORD`        | web                        | Invalidates existing AuthKit sealed web sessions.                                                                |
 
@@ -211,14 +211,16 @@ Current status: WorkOS AuthKit is the current web auth stack. Preview and produc
 
 1. Create or rotate the API key in the WorkOS dashboard for the target environment's WorkOS project.
 2. Store the new value in the password manager.
-3. Write it to both `api` and `web` during a maintenance window. There is a short propagation window where one service can be on the new WorkOS key while the other is still on the old one, so update the backend first, then the frontend:
+3. Write it to `api`, `mcp`, `upload`, and `web` during a maintenance window. There is a short propagation window where one service can be on the new WorkOS key while another is still on the old one, so update the bearer-verifying backend services first, then the frontend:
 
    ```sh
    wrangler secret put WORKOS_API_KEY --cwd apps/api --env preview
+   wrangler secret put WORKOS_API_KEY --cwd apps/mcp --env preview
+   wrangler secret put WORKOS_API_KEY --cwd apps/upload --env preview
    wrangler secret put WORKOS_API_KEY --cwd apps/web --env preview
    ```
 
-4. Verify both services after the writes. Run `pnpm smoke:web` plus the hosted environment smoke for the target environment.
+4. Verify the WorkOS login and MCP bearer paths after the writes. Run `pnpm smoke:web`, `pnpm smoke:mcp`, plus the hosted environment smoke for the target environment.
 
 ### `WORKOS_CLIENT_ID`
 

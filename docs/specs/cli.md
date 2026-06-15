@@ -132,6 +132,13 @@ status is the durable signal. Keep this table in sync with `exitCodeFor` in
 | 5    | not found        | HTTP 404                                                                                  |
 | 6    | network / server | HTTP 5xx                                                                                  |
 
+`whoami` is the exception scripts most often trip over: a signed-out result is a
+valid auth-state answer, so `whoami --json` exits `0` and emits
+`{ "authenticated": false }` when no credential is resolvable. Scripts and agents
+must branch on the JSON field. Commands that require auth, such as `publish`
+without `--ephemeral`, still fail with the auth exit bucket when no usable
+credential exists.
+
 ## Progress
 
 `publish` reports per-file upload progress in `rich` mode only, repainting one

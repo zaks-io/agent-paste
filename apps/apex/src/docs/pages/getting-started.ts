@@ -12,7 +12,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Use `npx` when Node.js 24 is available, or install the standalone binary when you want one file with no Node runtime.",
+          text: "Use `npx @zaks-io/agent-paste ...` for one-shot Node.js 24 runs. After the standalone installer, use the installed `agent-paste ...` command; both run the same CLI.",
         },
         {
           kind: "code",
@@ -61,6 +61,10 @@ export const GETTING_STARTED_DOC: DocsPage = {
         {
           kind: "paragraph",
           text: "A publish walks a file or folder, creates an Upload Session, uploads bytes to signed upload-worker URLs, finalizes a Revision, and publishes it. Publish is content-only and private. CLI publish prints the `private_url` (`/v/<artifactId>` clean viewer) as `View`; MCP publish returns the same `private_url` and omits management IDs. CLI JSON output carries diagnostic IDs and snapshot URLs for automation. Artifact lifetime comes from Workspace policy, not a CLI flag.",
+        },
+        {
+          kind: "paragraph",
+          text: "`private_url` is login-walled app navigation. A plain `curl` may receive the web app shell with a sign-in redirect state and HTTP 200; that does not prove the Artifact is publicly readable. Verify public/no-login handoff with a Share Link from `make-public`, or verify machine access through `agent_view_url` and the signed per-file `files[].url` entries.",
         },
         {
           kind: "paragraph",

@@ -103,9 +103,16 @@ describe("mcp worker", () => {
     expect(protectedResourceSchema(doc)?.required).not.toContain("resource_name");
   });
 
-  it("returns 405 for GET on the MCP endpoint", async () => {
+  it("serves endpoint metadata for humans and agents opening the MCP URL", async () => {
     const response = await request("/");
-    expect(response.status).toBe(405);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      name: "Agent Paste MCP",
+      transport: "Streamable HTTP JSON-RPC",
+      post: "POST / with an OAuth bearer token",
+      resource_metadata: "https://mcp.agent-paste.sh/.well-known/oauth-protected-resource",
+      docs: "https://agent-paste.sh/docs/mcp",
+    });
   });
 
   it("returns a canonical not_found envelope for unknown paths", async () => {
