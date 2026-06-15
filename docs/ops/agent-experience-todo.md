@@ -41,6 +41,27 @@ The walkthrough used the connected `agent-paste` MCP server (authed as
 >   authenticated MCP tools still need a connected WorkOS/OAuth host session for
 >   `whoami`, publish/read/revise/edit, visibility, link listing, and cleanup.
 
+> **Update (2026-06-15 post-deploy pass):** production deploy run `27579713918`
+> succeeded for `49c531ec` with release security attestation, migration, Worker
+> deploy, and read-only production smoke green. The jobs R2 fix is live: fresh
+> production smoke revision bundles for `art_DZSTY830HVQ64H0C0C7Q3MHFYF`
+> reached `ready`, including `rev_KGJGR62R1DNMW78A7W3JH9REJ4`,
+> `rev_G5NHTHPCGGWA7PTWY97XBYPYH4`, and
+> `rev_G13QE0HKHVTR0VGKVMBJ6V10DS`.
+>
+> Remaining gaps:
+>
+> - **CLI release gap:** npm `@zaks-io/agent-paste@latest` is still `0.1.7`
+>   from `74a839cb`, so external agents using `npx @latest` still reproduce the
+>   title drift: `publish --artifact-id` renamed the smoke Artifact to `site`.
+>   The CLI package version must be bumped and released before this fix is live
+>   for npm/npx users.
+> - **Docs gap:** public `/docs/cli.md` omitted the real `pull` and `edit`
+>   commands even though the CLI help and README document them. Patch pending in
+>   the CLI release follow-up.
+> - **MCP gap:** authenticated MCP tool calls still need a real connected
+>   WorkOS/OAuth host session.
+
 ## P0 — `list_artifacts` 500s for any workspace that has a draft artifact
 
 `mcp__agent-paste__list_artifacts` returns `internal_error` (HTTP 500) against
