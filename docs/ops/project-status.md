@@ -2,9 +2,10 @@
 
 Project start: 2026-05-18 (first commit on `main`).
 
-Last updated: 2026-06-15 (production agent ergonomics smoke found and patched
-jobs R2 binding failures plus CLI revise-title drift; AP-139 still needs
-authenticated MCP host-tool evidence before it is Done).
+Last updated: 2026-06-15 (production agent ergonomics smoke verified the jobs
+R2 fix deployed; the CLI revise-title fix is merged but still needs a CLI npm
+release; AP-139 still needs authenticated MCP host-tool evidence before it is
+Done).
 See [changelog.md](./status/changelog.md) for what shipped.
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
@@ -79,8 +80,8 @@ Done for this section: every open item below is checked, or explicitly marked
 10. [x] **Production deploy workflow green**. Initial launch deploy completed on
         2026-06-07: `6ad04f5` deployed by manual run `27101054536` with
         migration, Worker deploy, and read-only production smoke green. Latest
-        checked deploy run `27370738483` succeeded for remote `main` `e3be243c`
-        on 2026-06-11.
+        checked deploy run `27579713918` succeeded for remote `main` `49c531ec`
+        on 2026-06-15.
 11. [x] **npm trusted publishing**. Done on 2026-06-07: operator confirmed npm
         OIDC trusted publishing is already configured for `@zaks-io/agent-paste`.
 12. [x] **Minimum public incident intake**. Done on 2026-06-07: `support@agent-paste.sh`
@@ -97,9 +98,9 @@ shape; current work is post-launch/Phase 6 hardening.
 Current `main` (`6ad04f5`) deployed to production successfully on 2026-06-07 via
 manual `Deploy Production` run `27101054536`; migration, Worker deploy, and the
 read-only production smoke passed.
-Remote `main` has since advanced; `Deploy Production` run `27370738483`
-succeeded for `e3be243c` on 2026-06-11 with the workflow's production smoke
-green.
+Remote `main` has since advanced; `Deploy Production` run `27579713918`
+succeeded for `49c531ec` on 2026-06-15 with migration, Worker deploy, release
+security attestation, and read-only production smoke green.
 
 What stands today:
 

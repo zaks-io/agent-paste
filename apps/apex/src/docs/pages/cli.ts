@@ -14,12 +14,18 @@ export const CLI_DOC: DocsPage = {
           kind: "table",
           columns: ["Command", "Purpose"],
           rows: [
+            ["`agent-paste help publish`", "Agent-oriented publish guide with mode choices, recipes, and JSON fields."],
             ["`agent-paste login`", "Sign in through browser OAuth and store a scoped local credential."],
             ["`agent-paste logout`", "Revoke the stored credential when possible, then remove it locally."],
             ["`agent-paste whoami`", "Show the resolved Workspace, actor, and granted scopes."],
             [
               "`agent-paste publish <path>`",
               "Upload files, publish a Revision, and print the result. Content-only and private.",
+            ],
+            ["`agent-paste pull <artifact-id> <path>`", "Read one stored file's content back from an Artifact."],
+            [
+              "`agent-paste edit <artifact-id> <path>`",
+              "Apply literal find/replace edits to one stored file, then publish a new Revision under the same link.",
             ],
             [
               "`agent-paste set-visibility <artifact-id> <private|unlisted>`",
@@ -60,8 +66,11 @@ export const CLI_DOC: DocsPage = {
               "`--ephemeral`",
               "Restricted accountless fallback for non-interactive text/images/static output. Ignores stored login, disables scripts while unclaimed, and prints a one-time claim link.",
             ],
+            ["`--revision-id <id>`", "With `pull`, read a specific Revision instead of the latest Published Revision."],
+            ["`--edits <file>`", "With `edit`, read the JSON edit array from a file instead of stdin."],
             ["`--json`", "Emit pure JSON on stdout. Errors still go to stderr."],
             ["`--quiet`", "Suppress human-readable stdout."],
+            ["`--color` / `--no-color`", "Force rich or plain output. Default: rich on a TTY, plain when piped."],
           ],
         },
       ],
@@ -106,6 +115,34 @@ export const CLI_DOC: DocsPage = {
           body: [
             "Agents should run `agent-paste whoami --json` before using `--ephemeral`; it exits `0` either way, so check the JSON, not the exit code. If it reports you are signed in, publish normally. Ephemeral is fine for non-interactive text, markdown, images, and static HTML/CSS. It is wrong for interactive HTML/JS because scripts stay disabled while unclaimed; after claim, interactivity runs through the controlled Artifact Viewer.",
           ],
+        },
+      ],
+    },
+    {
+      id: "pull-edit",
+      title: "Pull and edit",
+      blocks: [
+        {
+          kind: "paragraph",
+          text: "`pull` reads one stored file back so an agent can inspect or edit against the current bytes. Plain `pull` writes the text body to stdout; `--json` adds metadata such as `sha256`, `size_bytes`, `is_binary`, and `body` when the file is UTF-8 text and within the inline size limit.",
+        },
+        {
+          kind: "code",
+          language: "sh",
+          code: "agent-paste pull art_01H... index.html > current-index.html\nagent-paste pull art_01H... index.html --revision-id rev_01H... --json",
+        },
+        {
+          kind: "paragraph",
+          text: "`edit` applies the same literal find/replace shape as MCP `multi_edit`, then publishes a new Revision under the same stable Artifact link.",
+        },
+        {
+          kind: "code",
+          language: "sh",
+          code: 'printf \'[{"old_string":"old","new_string":"new"}]\' |\n  agent-paste edit art_01H... index.html --json\n\nagent-paste edit art_01H... index.html --edits edits.json --json',
+        },
+        {
+          kind: "paragraph",
+          text: "Each `old_string` must match the current file exactly once unless `replace_all: true` is set. A non-matching or ambiguous edit fails loudly; pull the file first to get the exact base text.",
         },
       ],
     },

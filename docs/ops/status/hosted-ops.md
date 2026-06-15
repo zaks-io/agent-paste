@@ -216,12 +216,20 @@ Smoke output redacts the Claim Token hash in the summary line and never logs API
 called with incorrect this reference`. Example failed revisions:
   `rev_B90MHRGD0R7VJ14TVMYCA6J4Y0` and
   `rev_SVB214MNQJ7Z6KW82DPXPGE9QZ`. Root cause: jobs code detached R2 binding
-  methods (`ARTIFACTS.get` / `ARTIFACTS.put`) before calling them. Fix is in the
-  AP-139 follow-up branch; production remains affected until deployed.
-- CLI ergonomics bug found and fixed in the same follow-up branch:
+  methods (`ARTIFACTS.get` / `ARTIFACTS.put`) before calling them. Fixed in
+  production by deploy run `27579713918` for `49c531ec`; fresh smoke bundles
+  reached `ready` for `rev_KGJGR62R1DNMW78A7W3JH9REJ4`,
+  `rev_G5NHTHPCGGWA7PTWY97XBYPYH4`, and
+  `rev_G13QE0HKHVTR0VGKVMBJ6V10DS`.
+- CLI ergonomics bug found and fixed in source:
   `publish --artifact-id` without `--title` renamed the Artifact to the local
-  temp directory basename. The CLI now reads the existing Agent View title and
-  preserves it unless `--title` is explicit.
+  temp directory basename. The source CLI now reads the existing Agent View
+  title and preserves it unless `--title` is explicit, but npm `@latest` is
+  still `0.1.7` from `74a839cb`; external `npx @latest` users still reproduce
+  the drift until a CLI version bump and release ships.
+- Public CLI docs gap found: `/docs/cli.md` omitted the real `pull` and `edit`
+  commands that agents need for read-back and literal edits. Patch pending in
+  the CLI release follow-up.
 - Authenticated MCP tool calls were not completed in this Codex session because
   no WorkOS MCP OAuth bearer token or connected MCP host session was available.
   Before AP-139 is marked done, run the live MCP tools through a real connected
