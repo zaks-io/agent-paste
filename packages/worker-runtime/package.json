@@ -24,7 +24,7 @@
     "@agent-paste/contracts": "workspace:*",
     "@agent-paste/db": "workspace:*",
     "@agent-paste/tokens": "workspace:*",
-    "@sentry/cloudflare": "^10.53.1",
+    "@sentry/cloudflare": "^10.57.0",
     "hono": "^4.12.21"
   },
   "devDependencies": {
