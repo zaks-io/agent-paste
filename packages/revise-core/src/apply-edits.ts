@@ -40,7 +40,10 @@ export function applyEdits(body: string, edits: Edit[]): ApplyEditsResult {
       current = current.split(edit.oldString).join(edit.newString);
       continue;
     }
-    const second = current.indexOf(edit.oldString, first + edit.oldString.length);
+    // Scan from first + 1, not first + oldString.length, so an overlapping second
+    // match (oldString "aa" in "aaa") is still ambiguous and fails loud rather than
+    // silently replacing at index 0. Ambiguity is the one thing this engine must refuse.
+    const second = current.indexOf(edit.oldString, first + 1);
     if (second !== -1) {
       return { ok: false, reason: "not_unique", index };
     }

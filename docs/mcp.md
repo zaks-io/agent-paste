@@ -86,8 +86,8 @@ Revision.
 
 `add_revision` runs through the shared revise engine (`@agent-paste/revise-core`,
 [ADR 0091](../adr/0091-client-side-revise-engine-and-literal-edit-tools.md)): it
-reads the base Revision, **preserves the existing title** unless the caller passes
-a new one (it no longer overwrites the title with the literal `"Revision"`; rename
+reads the base Revision and **preserves the existing title** (it takes no title
+parameter and no longer overwrites the title with the literal `"Revision"`; rename
 explicitly via `update_display_metadata`), and publishes the new body as a verified
 patch under the Artifact's stable `private_url` so already-open viewers live-update
 in place. When the new body's `sha256` equals the stored bytes it is a **no-op** —

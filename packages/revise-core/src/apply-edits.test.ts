@@ -53,9 +53,13 @@ describe("applyEdits", () => {
     expect(applyEdits("unchanged", [])).toEqual({ ok: true, body: "unchanged" });
   });
 
-  it("treats overlapping occurrences correctly for uniqueness", () => {
-    // "aa" occurs twice with overlap in "aaa" only as non-overlapping at index 0; the
-    // second search starts past the first match length, so "aaa" has one match of "aa".
-    expect(applyEdits("aaa", [{ oldString: "aa", newString: "b" }])).toEqual({ ok: true, body: "ba" });
+  it("fails not_unique on an overlapping second match (ambiguous edit)", () => {
+    // "aa" matches "aaa" at index 0 and index 1; replacing either gives a different
+    // result, so the edit is ambiguous and must fail loud rather than pick index 0.
+    expect(applyEdits("aaa", [{ oldString: "aa", newString: "b" }])).toEqual({
+      ok: false,
+      reason: "not_unique",
+      index: 0,
+    });
   });
 });

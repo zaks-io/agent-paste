@@ -4,7 +4,9 @@ Design + staged plan for making revision storage behave more like Git so agents
 can express _small changes to a file_ instead of re-submitting the whole tree,
 and so a big file getting a small edit does not re-upload the whole file.
 
-Owner: Isaac. Drafted 2026-06-14. Status: design accepted, not yet implemented.
+Owner: Isaac. Drafted 2026-06-14. Status: Stage 1–5 foundation shipped; the ADR
+0091 shared revise engine is PR1 (in review) and the `edit`/`multi_edit` verbs are
+PR2 (pending). See the "Next phase" section below for the live per-PR status.
 Driver: **agent ergonomics** (the agent saying "change just this file" cheaply
 and naturally is the point; byte savings are secondary).
 
