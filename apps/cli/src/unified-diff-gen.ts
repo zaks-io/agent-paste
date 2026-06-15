@@ -73,6 +73,12 @@ function lcsOps(base: Line[], next: Line[]): Op[] {
 
 const CONTEXT_LINES = 3;
 
+// The LCS table is (n+1)*(m+1) Int32 cells, so two very large text files would
+// allocate gigabytes and hang/crash before the whole-blob fallback. Cap the table at
+// ~8M cells (32 MB) and skip the diff above it — the patch is only a size optimization,
+// so a skipped diff degrades to a correct whole-blob upload, never a failure.
+const MAX_LCS_CELLS = 8_000_000;
+
 // A "\ No newline" marker is emitted immediately after the last line of a side when
 // that line has no terminator. The applier reads it as "the preceding emitted line
 // carries no trailing newline".
@@ -191,6 +197,9 @@ export async function diffWithSelfCheck(input: {
   }
   const base = splitLines(input.baseText);
   const next = splitLines(input.nextText);
+  if ((base.length + 1) * (next.length + 1) > MAX_LCS_CELLS) {
+    return null; // Too large to diff in bounded memory; upload the whole file instead.
+  }
   const diffText = buildDiff(base, next);
   const diffBytes = new TextEncoder().encode(diffText);
   if (diffBytes.byteLength >= input.nextBytes.byteLength) {

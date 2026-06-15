@@ -314,10 +314,16 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
   // as verified unified diffs) against the base Revision; unchanged files inherit.
   // No cache (first publish elsewhere / fresh machine) => a full whole-blob publish.
   const cache = artifactId ? await loadManifestCache(artifactId) : null;
-  const plan =
+  const built =
     artifactId && cache
       ? await buildRevisePlan({ client, artifactId, cache, files: filesWithDigest, entrypoint: inferred.entrypoint })
       : null;
+  // A no-op delta (working tree identical to the base: nothing changed, added, or
+  // deleted) cannot be sent as a partial manifest — the server requires a delta to
+  // carry at least one change. Fall back to a full whole-blob publish, which always
+  // produces a valid request and a fresh Revision (e.g. re-publishing an unchanged
+  // dir, or a metadata-only revise like --title).
+  const plan = built && built.publishFiles.length === 0 && built.deletedPaths.length === 0 ? null : built;
 
   const progress = createProgress(mode);
   const runOnce = (revise: RevisePlan | null) =>
@@ -398,8 +404,9 @@ async function makePublic(parsed: Parsed, client: ApiClient) {
 
 // Read one stored file's content for the owning member (ADR 0090). Default
 // output is cat-like: the raw text body to stdout, so `agent-paste pull <id> <path>
-//  > file` works. --json emits structured metadata; binary content is base64 in
-// json and refused in plain (raw bytes would corrupt a terminal / piped text).
+//  > file` works. --json emits structured metadata (text body inline; binary and
+// oversize files carry no body — fetch those via the content URL). Plain mode refuses
+// a binary file (raw bytes would corrupt a terminal / piped text).
 async function pull(parsed: Parsed, client: ApiClient) {
   const artifactId = ArtifactId.parse(requiredArg(parsed, 0, "artifact-id"));
   const filePath = requiredArg(parsed, 1, "path");
@@ -420,7 +427,7 @@ async function pull(parsed: Parsed, client: ApiClient) {
     );
   }
   if (file.is_binary) {
-    throw new Error(`${file.path} is binary; use --json (base64) or the content URL`);
+    throw new Error(`${file.path} is binary; use --json for metadata and fetch the bytes via the content URL`);
   }
   if (file.body === undefined) {
     throw new Error(`${file.path} is ${file.size_bytes} bytes, too large to inline; fetch via the content URL`);

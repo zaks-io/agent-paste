@@ -679,6 +679,79 @@ describe("cli command dispatch", () => {
     }
   });
 
+  it("revising an unchanged working tree falls back to a full publish, not an empty delta", async () => {
+    const { createHash } = await import("node:crypto");
+    mockStdout();
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-"));
+    try {
+      const body = "<h1>Hello</h1>";
+      await fs.writeFile(path.join(root, "index.html"), body);
+      // Cache matches the working tree exactly: nothing changed, added, or deleted, so
+      // the revise plan is a no-op delta the server would reject. The CLI must drop the
+      // base and send a full whole-blob manifest instead.
+      const manifests = path.join(configHome ?? "", "agent-paste", "manifests");
+      await fs.mkdir(manifests, { recursive: true });
+      const baseRevisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0";
+      const sha256 = createHash("sha256").update(new TextEncoder().encode(body)).digest("hex");
+      await fs.writeFile(
+        path.join(manifests, `${encodeURIComponent(artifactId)}.json`),
+        JSON.stringify({
+          revision_id: baseRevisionId,
+          files: [{ path: "index.html", sha256, size_bytes: body.length }],
+        }),
+      );
+      const create = vi.fn().mockResolvedValue({
+        upload_session_id: uploadSessionId,
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "pending",
+        expires_at: "2026-01-01T00:00:00.000Z",
+        files: [
+          {
+            status: "upload_required",
+            path: "index.html",
+            put_url: "https://upload.test/index",
+            required_headers: {},
+            expires_at: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      });
+      const finalize = vi.fn().mockResolvedValue({
+        upload_session_id: uploadSessionId,
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "draft",
+        title: "Published",
+        entrypoint: "index.html",
+        file_count: 1,
+        size_bytes: body.length,
+      });
+      const publish = vi.fn().mockResolvedValue({
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        title: "Published",
+        private_url: "https://app.test/v/art_1",
+        revision_content_url: "https://content.test/v/token/index.html",
+        agent_view_url: "https://api.test/agent-view",
+        expires_at: "2026-02-01T00:00:00.000Z",
+      });
+      const client = fakeClient({
+        usagePolicy: vi.fn().mockResolvedValue(usagePolicy),
+        uploadSessions: { create, finalize },
+        revisions: { publish },
+        putFile: vi.fn().mockResolvedValue(undefined),
+      });
+
+      await main(["publish", root, "--artifact-id", artifactId], client);
+
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(create.mock.calls[0]?.[0]).not.toHaveProperty("base_revision_id");
+      expect(create.mock.calls[0]?.[0]).toMatchObject({ files: [{ path: "index.html" }] });
+    } finally {
+      await removePublishFixture(root);
+    }
+  });
+
   it("pull writes the file body to stdout, and --quiet does not suppress it", async () => {
     const body = "line one\nline two\n";
     const readFile = vi.fn().mockResolvedValue({
@@ -715,6 +788,29 @@ describe("cli command dispatch", () => {
     const client = fakeClient({ artifacts: { readFile } });
     mockStdout();
     await expect(main(["pull", artifactId, "logo.bin"], client)).rejects.toThrow(/binary/);
+  });
+
+  it("pull refuses a too-large-to-inline text file in plain mode but emits metadata in --json", async () => {
+    // The oversize branch returns text metadata with no body (is_binary false, body
+    // undefined). Plain mode must refuse it; --json must still emit metadata sans body.
+    const oversize = {
+      path: "huge.txt",
+      sha256: "d".repeat(64),
+      size_bytes: 20_000_000,
+      content_type: "text/plain",
+      is_binary: false,
+    };
+    const client = fakeClient({ artifacts: { readFile: vi.fn().mockResolvedValue(oversize) } });
+
+    mockStdout();
+    await expect(main(["pull", artifactId, "huge.txt"], client)).rejects.toThrow(/too large to inline/);
+
+    const jsonStdout = mockStdout();
+    await main(["pull", artifactId, "huge.txt", "--json"], client);
+    const printed = JSON.parse(stdoutValues(jsonStdout).join(""));
+    expect(printed).not.toHaveProperty("body");
+    expect(printed).toMatchObject({ path: "huge.txt", is_binary: false, size_bytes: 20_000_000 });
+    jsonStdout.mockRestore();
   });
 
   it("throws on unknown commands", async () => {

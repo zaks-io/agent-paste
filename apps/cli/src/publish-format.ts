@@ -81,7 +81,10 @@ function assertClaimTokenNotInPublicUrls(result: PublishResultShape, claimUrl: s
   if (!claimToken || !claimUrl.includes("#")) {
     throw new Error("Claim URL must carry the token in the URL hash");
   }
-  if (claimUrl.includes("?") && claimUrl.includes(claimToken)) {
+  // The token legitimately lives in the hash, so checking the whole URL for it always
+  // matches. Scope the leak check to the query string (the part between ? and #).
+  const query = claimUrl.split("#")[0]?.split("?")[1] ?? "";
+  if (query.includes(claimToken)) {
     throw new Error("Claim Token must not appear in the URL query string");
   }
   if (
