@@ -5,6 +5,7 @@ import {
   deriveMcpIdempotencyKey,
   MCP_API_ERROR_HTTP_STATUS,
   McpAddRevisionInput,
+  McpMultiEditInput,
   McpPublishArtifactInput,
   McpToolName,
   McpUpdateDisplayMetadataInput,
@@ -26,10 +27,11 @@ import { IdempotencyKey } from "./primitives.js";
 import { routeContractById } from "./routes.js";
 
 describe("MCP tool registry", () => {
-  it("registers the twelve ADR 0061 tools in snake_case", () => {
+  it("registers the ADR 0061 tools in snake_case", () => {
     expect(mcpToolContracts.map((tool) => tool.name)).toEqual([
       "publish_artifact",
       "add_revision",
+      "multi_edit",
       "list_artifacts",
       "read_artifact",
       "read_file",
@@ -184,6 +186,40 @@ describe("MCP tool registry", () => {
         title: "Demo",
         body: "hello",
         render_mode: "image",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("requires publish and read for multi_edit and reads the base before the publish chain", () => {
+    const tool = mcpToolContractByName("multi_edit");
+    expect(tool.requiredScopes).toEqual(["publish", "read"]);
+    expect(tool.forwardedCalls.map((call) => call.routeId)).toEqual([
+      "agentView.getLatest",
+      "artifacts.fileContent",
+      "uploadSessions.create",
+      "uploadSessions.putFile",
+      "uploadSessions.finalize",
+      "revisions.publish",
+    ]);
+    // Decrypts a blob to apply the edits, so it can surface a transient blob-read failure.
+    expect(tool.errors).toContain("storage_unavailable");
+  });
+
+  it("validates multi_edit input: a non-empty edit array with literal old/new, rejecting empty old_string", () => {
+    const artifact_id = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    expect(
+      McpMultiEditInput.safeParse({
+        artifact_id,
+        path: "index.html",
+        edits: [{ old_string: "foo", new_string: "bar" }],
+      }).success,
+    ).toBe(true);
+    expect(McpMultiEditInput.safeParse({ artifact_id, path: "index.html", edits: [] }).success).toBe(false);
+    expect(
+      McpMultiEditInput.safeParse({
+        artifact_id,
+        path: "index.html",
+        edits: [{ old_string: "", new_string: "bar" }],
       }).success,
     ).toBe(false);
   });

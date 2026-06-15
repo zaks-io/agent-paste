@@ -55,6 +55,40 @@ automatic; flags override detection.
 body? }`. A binary file has no inline body: `--json` reports `is_binary: true`
   with no `body`, and plain mode errors (raw bytes would corrupt the stream). An
   oversize text file likewise has no `body`; fetch it via the content URL.
+- `edit <artifact-id> <path>` applies literal find/replace edits to one stored
+  file and publishes the result as a new Revision of the same Artifact (the
+  parity twin of the MCP `multi_edit` tool; see [the edit verb](#edit-literal-findreplace-revise)).
+  It emits the same JSON as a successful `publish` (the new Revision's
+  `private_url`, `artifact_id`, `upload_stats`, …). When the edits reproduce the
+  stored bytes byte-for-byte it is a no-op: `--json` emits `{ schema_version,
+artifact_id, noop: true, title, private_url }` and nothing is published.
+
+## Edit (literal find/replace revise)
+
+`edit <artifact-id> <path> [--edits <file>] [--json]` is a one-file, in-place
+revise that mirrors the MCP `multi_edit` tool ([ADR 0091](../adr/0091-client-side-revise-engine-and-literal-edit-tools.md)).
+Both surfaces share one engine (`reviseOnePath` in `@agent-paste/revise-core`):
+the CLI reads the stored file, applies the edits client-side, and publishes the
+result as a new Revision under the unchanged Artifact id — so the stable link
+live-updates instead of stranding the open page on a new Artifact.
+
+Edits are a JSON array of `{ old_string, new_string, replace_all? }`, the same
+shape as Claude's Edit tool, read from `--edits <file>` or stdin (1–100 edits,
+applied in order, each seeing the previous result). Choosing JSON over
+positional `--old`/`--new` flag pairs is deliberate: agents botch shell-quoting
+of multi-line strings and mis-pair repeated flags, and JSON keeps exact
+CLI/MCP parity on the edit contract. When neither `--edits` nor a piped stdin is
+given at an interactive TTY (no EOF to read), the command fails loud asking for
+one rather than hanging on a read that never ends.
+
+Matching is **literal and fail-loud** — never a fuzzy or whole-file fallback.
+`old_string` must be non-empty and (unless `replace_all` is true) match exactly
+once; a not-found, not-unique, or empty-`old_string` edit aborts the whole
+command before any network call with exit code `4` (validation) and an
+`invalid_edit` error code naming the offending edit index. `new_string` may be
+empty to delete the matched text. The server's stored sha256 is the source of
+truth; the client is untrusted, so a generator or apply mismatch fails the
+finalize rather than silently shipping wrong bytes.
 
 ## Incremental revise (manifest cache + diffs)
 

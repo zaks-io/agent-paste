@@ -51,6 +51,31 @@ export const mcpToolContracts = [
     errors: publishChainErrors,
   },
   {
+    name: "multi_edit",
+    description:
+      "Edit one file inside an EXISTING Artifact with literal find/replace, the same {old_string, new_string} model as Claude's Edit tool, then publish the result as a new Revision under the artifact_id. Use this to make a targeted change without resending the whole file: read the file first with read_file, then send ordered edits whose old_string matches the current bytes exactly. Each old_string must occur once (set replace_all to change every occurrence); a miss or an ambiguous match fails loud so you re-read and retry — the server never guesses. The Artifact's private_url is STABLE and already-open viewers LIVE-UPDATE to the new Revision; there is no new link to send. Content-only and PRIVATE. An edit set that reproduces the current bytes is a no-op and mints no Revision. Get the artifact_id from publish_artifact or list_artifacts.",
+    auth: "mcp_oauth",
+    requiredScopes: ["publish", "read"],
+    idempotency: "optional_override",
+    inputSchema: "multi_edit",
+    outputSchema: "multi_edit",
+    // Reads the base (agent-view + file-content) on the client, then runs the same
+    // content-only upload->publish chain as the other publish tools. read group +
+    // storage_unavailable because it decrypts a blob to apply the edits, like read_file.
+    forwardedCalls: [
+      {
+        routeId: "agentView.getLatest",
+        auth: "mcp_bearer",
+      },
+      {
+        routeId: "artifacts.fileContent",
+        auth: "mcp_bearer",
+      },
+      ...publishChainBaseForwardedCalls,
+    ],
+    errors: [...publishChainErrors, ...readErrors, "storage_unavailable"] as const,
+  },
+  {
     name: "list_artifacts",
     description: "List artifacts in the authenticated workspace.",
     auth: "mcp_oauth",

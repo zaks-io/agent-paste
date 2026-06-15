@@ -88,9 +88,17 @@ three entry points through it: the CLI `edit` verb, an MCP `multi_edit` tool, an
    added base read never feeds it.
 
 7. **`multi_edit` (MCP) and `edit` (CLI) are thin entry points.** Both take
-   `{ artifact_id, path, edits[] }` (CLI via repeatable `--old`/`--new` pairs plus
-   `--replace-all`) and call `reviseOnePath`. `multi_edit` requires both `read` and
-   `publish` scopes (it reads the base and publishes the revision).
+   `{ artifact_id, path, edits[] }` and call `reviseOnePath`. The `edits` array is
+   the one shared contract (`McpEdit` in `@agent-paste/contracts`): an ordered list
+   of `{ old_string, new_string, replace_all? }`, the same shape as Claude's Edit
+   tool. MCP receives it as the tool's `edits` argument; the CLI reads the identical
+   JSON array from `--edits <file>` or stdin — **not** from repeatable `--old`/`--new`
+   flag pairs. Flag pairs were rejected: agents reliably botch shell-quoting of
+   multi-line `old_string`/`new_string` values and mis-pair repeated flags, and a
+   bespoke flag grammar would diverge from the MCP contract. A single JSON array
+   keeps both surfaces on byte-identical input and matches the model agents already
+   produce for Claude's Edit tool. `multi_edit` requires both `read` and `publish`
+   scopes (it reads the base and publishes the revision).
 
 8. **`render_mode` inheritance invariant.** Finalize resolves a revision's
    `render_mode` as `session ?? base ?? infer(entrypoint)` so a partial-manifest

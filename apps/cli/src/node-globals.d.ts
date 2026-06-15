@@ -6,6 +6,12 @@ declare const process: {
   execPath: string;
   stdout: { write(value: string, callback?: (error?: unknown) => void): boolean; isTTY?: boolean };
   stderr: { write(value: string): void; isTTY?: boolean };
+  stdin: {
+    isTTY?: boolean;
+    on(event: "data", listener: (chunk: Uint8Array) => void): void;
+    on(event: "end", listener: () => void): void;
+    on(event: "error", listener: (error: unknown) => void): void;
+  };
   exitCode: number | undefined;
 };
 

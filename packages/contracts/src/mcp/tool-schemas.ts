@@ -13,6 +13,7 @@ import {
   McpListRevisionsOutput,
   McpMakePublicInput,
   McpMakePublicOutput,
+  McpMultiEditInput,
   McpPublishArtifactInput,
   McpPublishArtifactOutput,
   McpReadArtifactInput,
@@ -31,6 +32,7 @@ import {
 export const mcpToolInputSchemas = {
   publish_artifact: McpPublishArtifactInput,
   add_revision: McpAddRevisionInput,
+  multi_edit: McpMultiEditInput,
   list_artifacts: McpListArtifactsInput,
   read_artifact: McpReadArtifactInput,
   read_file: McpReadFileInput,
@@ -47,6 +49,7 @@ export const mcpToolInputSchemas = {
 export const mcpToolOutputSchemas = {
   publish_artifact: McpPublishArtifactOutput,
   add_revision: McpPublishArtifactOutput,
+  multi_edit: McpPublishArtifactOutput,
   list_artifacts: McpListArtifactsOutput,
   read_artifact: McpReadArtifactOutput,
   read_file: McpReadFileOutput,
