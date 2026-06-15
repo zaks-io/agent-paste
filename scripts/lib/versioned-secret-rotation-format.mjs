@@ -84,7 +84,7 @@ function formatDropKidPersistingPlan(profile, target) {
   return lines;
 }
 
-function formatDropPromoteCollapsePlan(profile, target) {
+function formatDropPromoteCollapsePlan(profile, target, snapshot) {
   const lines = ["Promote the v2 value into the primary secret, reset kid to v1, deploy, verify, then delete _V2.", ""];
   for (const binding of profile.bindings) {
     const worker = workerName(binding.app, target);
@@ -92,17 +92,19 @@ function formatDropPromoteCollapsePlan(profile, target) {
     lines.push(
       `  wrangler deploy --cwd apps/${binding.app} --env ${target} --var ${profile.kidVarName}:v1 --name ${worker}`,
     );
-    lines.push(`  wrangler secret delete ${profile.secondarySecretName} --name ${worker}`);
+    if (secondaryBoundOnWorker(snapshot, worker)) {
+      lines.push(`  wrangler secret delete ${profile.secondarySecretName} --name ${worker}`);
+    }
   }
   lines.push("");
   lines.push(`Use --value-env <promoted-${profile.secondarySecretName}-env-var> when reusing the staged v2 material.`);
   return lines;
 }
 
-export function formatDropPlan(profile, target, _snapshot, operator) {
+export function formatDropPlan(profile, target, snapshot, operator) {
   const body = profilePersistsKidInRecords(profile.id)
     ? formatDropKidPersistingPlan(profile, target)
-    : formatDropPromoteCollapsePlan(profile, target);
+    : formatDropPromoteCollapsePlan(profile, target, snapshot);
   return joinPlanLines([...planHeader(profile, target, "drop", operator), ...body]);
 }
 

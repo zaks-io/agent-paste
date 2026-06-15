@@ -57,8 +57,11 @@ function valueOption(argv, env) {
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(valueEnvName)) {
     throw new Error("--value-env must name one environment variable.");
   }
+  if (!Object.hasOwn(env, valueEnvName)) {
+    throw new Error(`Environment variable ${valueEnvName} must contain a non-empty secret.`);
+  }
   const value = env[valueEnvName];
-  if (value === undefined || value.length === 0) {
+  if (typeof value !== "string" || value.length === 0) {
     throw new Error(`Environment variable ${valueEnvName} must contain a non-empty secret.`);
   }
   return { value, valueSource: "env", valueEnvName };

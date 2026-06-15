@@ -77,6 +77,11 @@ describe("parseOptions", () => {
     expect(() => parseOptions(["--step", "stage", "--value-env", "ROTATION_SECRET"], {})).toThrow(/ROTATION_SECRET/);
   });
 
+  it("rejects inherited --value-env material", () => {
+    const env = Object.create({ ROTATION_SECRET: "inherited-secret" });
+    expect(() => parseOptions(["--step", "stage", "--value-env", "ROTATION_SECRET"], env)).toThrow(/ROTATION_SECRET/);
+  });
+
   it("defaults the operator to the rotation agent identity", () => {
     expect(parseOptions(["--step", "flip"]).operator).toBe("rotation-agent@platform");
   });
@@ -172,6 +177,23 @@ describe("formatPlan", () => {
     expect(plan).toContain("Promote the v2 value");
     expect(plan).toContain("wrangler secret put CONTENT_SIGNING_SECRET --name agent-paste-api-production");
     expect(plan).toContain("wrangler secret delete CONTENT_SIGNING_SECRET_V2");
+  });
+
+  it("drop (signing profile): deletes _V2 only for workers where the secondary is bound", () => {
+    const plan = formatPlan(
+      contentSigning,
+      "production",
+      "drop",
+      {
+        primaryBound: true,
+        secondaryBound: true,
+        secondaryBoundWorkers: ["agent-paste-content-production"],
+      },
+      "op",
+      "x",
+    );
+    expect(plan).toContain("wrangler secret delete CONTENT_SIGNING_SECRET_V2 --name agent-paste-content-production");
+    expect(plan).not.toContain("wrangler secret delete CONTENT_SIGNING_SECRET_V2 --name agent-paste-api-production");
   });
 
   it("emergency: overwrites primary, resets kid v1, and deletes _V2 when bound", () => {
