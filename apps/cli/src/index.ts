@@ -310,13 +310,16 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
   const overrides: Parameters<typeof inferPublishOptions>[2] = {};
   const title = stringFlag(parsed, "title");
   const entrypoint = stringFlag(parsed, "entrypoint");
+  const artifactIdFlag = stringFlag(parsed, "artifact-id");
+  const artifactId = artifactIdFlag ? ArtifactId.parse(artifactIdFlag) : undefined;
   // An explicit --render-mode is validated against the contract enum and
   // transmitted so the server stores it verbatim. When the flag is absent the
   // field is omitted and the server infers from the entrypoint extension
   // (same shared map as the local inference below).
   const renderMode = stringFlag(parsed, "render-mode");
   const explicitRenderMode = renderMode === undefined ? undefined : RenderMode.parse(renderMode);
-  if (title) overrides.title = title;
+  const titleOverride = title ?? (artifactId ? await existingArtifactTitle(client, artifactId) : undefined);
+  if (titleOverride !== undefined) overrides.title = titleOverride;
   if (entrypoint) overrides.entrypoint = entrypoint;
   if (explicitRenderMode) overrides.renderMode = explicitRenderMode;
   const inferred = inferPublishOptions(inputPath, files, overrides);
@@ -335,9 +338,6 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
   const wholeManifest = (): PublishFile[] => filesWithDigest.map(wholePublishFile);
   const fullTree = (): ManifestCacheFile[] =>
     filesWithDigest.map((file) => ({ path: file.path, sha256: file.sha256, size_bytes: file.sizeBytes }));
-
-  const artifactIdFlag = stringFlag(parsed, "artifact-id");
-  const artifactId = artifactIdFlag ? ArtifactId.parse(artifactIdFlag) : undefined;
 
   // On a revise with a matching local cache, send only changed/added files (some
   // as verified unified diffs) against the base Revision; unchanged files inherit.
@@ -413,6 +413,11 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
       reused_bytes: outcome.uploadStats.reusedBytes,
     },
   };
+}
+
+async function existingArtifactTitle(client: ApiClient, artifactId: string): Promise<string> {
+  const view = await client.artifacts.getAgentView(artifactId);
+  return view.title;
 }
 
 async function setVisibility(parsed: Parsed, client: ApiClient) {

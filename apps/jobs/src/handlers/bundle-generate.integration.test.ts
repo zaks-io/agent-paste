@@ -5,6 +5,7 @@ import {
 } from "@agent-paste/storage/test-helpers/encrypted-artifact-fixture";
 import { describe, expect, it, vi } from "vitest";
 import * as generateZip from "../bundle/generate-zip.js";
+import type { Env } from "../env.js";
 import { createMockSqlExecutor } from "../test-helpers/mock-sql-executor.js";
 import { handleBundleGenerateBatch, handleBundleGenerateDlqBatch } from "./bundle-generate.js";
 
@@ -248,7 +249,26 @@ describe("handleBundleGenerateBatch integration", () => {
 
   it("writes bundle.zip under the ADR 0021 key prefix", async () => {
     const ack = vi.fn();
-    const put = vi.fn(async () => {});
+    let artifacts: NonNullable<Env["ARTIFACTS"]>;
+    const get = vi.fn(async function (this: unknown) {
+      expect(this).toBe(artifacts);
+      return encryptedRevisionFile({
+        workspaceId,
+        artifactId,
+        revisionId,
+        path: "index.html",
+        plaintext: "<html></html>",
+      });
+    });
+    const put = vi.fn(async function (this: unknown) {
+      expect(this).toBe(artifacts);
+    });
+    artifacts = {
+      list: vi.fn(),
+      delete: vi.fn(),
+      get,
+      put,
+    };
     const bundleKey = `env/dev/workspaces/${workspaceId}/artifacts/${artifactId}/revisions/${revisionId}/bundle.zip`;
     await handleBundleGenerateBatch(
       [
@@ -272,19 +292,7 @@ describe("handleBundleGenerateBatch integration", () => {
           revision: { status: "published", artifact_status: "active", bundle_status: "pending" },
           files: [{ path: "index.html", r2_key: `artifacts/${artifactId}/revisions/${revisionId}/files/index.html` }],
         }),
-        ARTIFACTS: {
-          list: vi.fn(),
-          delete: vi.fn(),
-          get: async () =>
-            encryptedRevisionFile({
-              workspaceId,
-              artifactId,
-              revisionId,
-              path: "index.html",
-              plaintext: "<html></html>",
-            }),
-          put,
-        },
+        ARTIFACTS: artifacts,
       },
     );
     expect(put).toHaveBeenCalledWith(

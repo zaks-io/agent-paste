@@ -46,10 +46,10 @@ export async function archiveAuditRows(bucket: R2Bucket, rows: AuditEventRow[]):
   if (rows.length === 0) {
     return 0;
   }
-  const putObject = bucket.put;
-  if (!putObject) {
+  if (!bucket.put) {
     throw new Error("audit_archive_r2_put_unavailable");
   }
+  const putObject = bucket.put.bind(bucket);
 
   const groups = groupRowsByPartitionDate(rows);
   let archived = 0;
@@ -111,7 +111,7 @@ async function archivePartitionRows(
     }
   }
 
-  const body = sortedRows.map((row) => JSON.stringify(serializeAuditEventRow(row))).join("\n") + "\n";
+  const body = `${sortedRows.map((row) => JSON.stringify(serializeAuditEventRow(row))).join("\n")}\n`;
   await putObject(key, new TextEncoder().encode(body), {
     httpMetadata: { contentType: "application/x-ndjson" },
   });

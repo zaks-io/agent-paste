@@ -715,6 +715,79 @@ describe("cli command dispatch", () => {
     }
   });
 
+  it("preserves the existing Artifact title on revise when --title is omitted", async () => {
+    mockStdout();
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-"));
+    try {
+      await fs.writeFile(path.join(root, "index.html"), "<h1>Hello</h1>");
+      const create = vi.fn().mockResolvedValue({
+        upload_session_id: uploadSessionId,
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "pending",
+        expires_at: "2026-01-01T00:00:00.000Z",
+        files: [
+          {
+            status: "upload_required",
+            path: "index.html",
+            put_url: "https://upload.test/index",
+            required_headers: {},
+            expires_at: "2026-01-01T00:00:00.000Z",
+          },
+        ],
+      });
+      const finalize = vi.fn().mockResolvedValue({
+        upload_session_id: uploadSessionId,
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "draft",
+        title: "Original Report",
+        entrypoint: "index.html",
+        file_count: 1,
+        size_bytes: 14,
+      });
+      const publish = vi.fn().mockResolvedValue({
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        title: "Original Report",
+        private_url: "https://app.test/v/art_1",
+        revision_content_url: "https://content.test/v/token/index.html",
+        agent_view_url: "https://api.test/agent-view",
+        expires_at: "2026-02-01T00:00:00.000Z",
+      });
+      const getAgentView = vi.fn().mockResolvedValue({
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        title: "Original Report",
+        entrypoint: "index.html",
+        files: [],
+        safety_warnings: [],
+        bundle: { status: "pending", retry_after_seconds: 5 },
+        private_url: "https://app.test/v/art_1",
+      });
+      const client = fakeClient({
+        artifacts: { getAgentView },
+        usagePolicy: vi.fn().mockResolvedValue(usagePolicy),
+        uploadSessions: { create, finalize },
+        revisions: { publish },
+        putFile: vi.fn().mockResolvedValue(undefined),
+      });
+
+      await main(["publish", root, "--artifact-id", artifactId], client);
+
+      expect(getAgentView).toHaveBeenCalledWith(artifactId);
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          artifact_id: artifactId,
+          title: "Original Report",
+        }),
+        expect.stringMatching(/^cli_publish_/),
+      );
+    } finally {
+      await removePublishFixture(root);
+    }
+  });
+
   it("self-heals when finalize collapses a base-unusable error to invalid_request", async () => {
     // The base-* repository kinds reach the wire as code `invalid_request` with the kind
     // attached as the message detail (ADR 0090). This proves the CLI keys on that detail —
@@ -1021,6 +1094,19 @@ function fakeClient(overrides: Record<string, unknown> = {}): NonNullable<Parame
     revisions: {
       publish: vi.fn(),
       list: vi.fn(),
+    },
+    artifacts: {
+      getAgentView: vi.fn().mockResolvedValue({
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        title: "Published",
+        entrypoint: "index.html",
+        files: [],
+        safety_warnings: [],
+        bundle: { status: "pending", retry_after_seconds: 5 },
+        private_url: "https://app.test/v/art_1",
+      }),
+      readFile: vi.fn(),
     },
     apiKeys: {
       revokeCurrent: vi.fn(),

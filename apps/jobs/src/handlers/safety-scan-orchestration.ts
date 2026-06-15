@@ -42,8 +42,8 @@ export async function processSafetyScanMessage(
     return null;
   }
 
-  const getObject = env.ARTIFACTS?.get;
-  if (!getObject) {
+  const artifacts = env.ARTIFACTS;
+  if (!artifacts?.get) {
     throw new Error("artifacts_bucket_missing");
   }
   const encryptionRing = artifactBytesEncryptionRingFromEnv(env);
@@ -55,7 +55,7 @@ export async function processSafetyScanMessage(
     workspaceId: payload.workspace_id,
     artifactId: payload.artifact_id,
     revisionId: payload.revision_id,
-    getObject,
+    getObject: artifacts.get.bind(artifacts),
     encryptionRing,
   });
   const scanner = resolveSafetyScanner(env, payload.scanner_id);

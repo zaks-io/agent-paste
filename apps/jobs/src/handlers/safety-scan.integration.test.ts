@@ -5,6 +5,7 @@ import {
 } from "@agent-paste/storage/test-helpers/encrypted-artifact-fixture";
 import { verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
 import { describe, expect, it, vi } from "vitest";
+import type { Env } from "../env.js";
 import { createMockSqlExecutor } from "../test-helpers/mock-sql-executor.js";
 import { handleSafetyScanBatch } from "./safety-scan.js";
 
@@ -237,6 +238,16 @@ describe("handleSafetyScanBatch", () => {
     );
     const ack = vi.fn();
     const storedObject = await encryptedRevisionFile("index.html", `<form><input type="password"></form>`);
+    let artifacts: NonNullable<Env["ARTIFACTS"]>;
+    const get = vi.fn(async function (this: unknown) {
+      expect(this).toBe(artifacts);
+      return storedObject;
+    });
+    artifacts = {
+      list: vi.fn(),
+      delete: vi.fn(),
+      get,
+    };
 
     await handleSafetyScanBatch(
       [
@@ -251,11 +262,7 @@ describe("handleSafetyScanBatch", () => {
       {
         ...artifactBytesEncryptionEnv,
         DB: db,
-        ARTIFACTS: {
-          list: vi.fn(),
-          delete: vi.fn(),
-          get: async () => storedObject,
-        },
+        ARTIFACTS: artifacts,
       },
     );
 

@@ -1,6 +1,6 @@
 # Hosted Ops
 
-Last updated: 2026-06-07.
+Last updated: 2026-06-15.
 
 ## Environment
 
@@ -185,6 +185,49 @@ Secrets and skip behavior:
 - **Explicit skip:** `AGENT_PASTE_SKIP_EPHEMERAL_SMOKE=1`.
 
 Smoke output redacts the Claim Token hash in the summary line and never logs API keys or signed URL secrets.
+
+## Production agent ergonomics smoke
+
+2026-06-15 AP-139 partial pass against production:
+
+- Public docs fetched from `https://agent-paste.sh/agents.md`,
+  `https://agent-paste.sh/llms.txt`, `https://agent-paste.sh/llms-full.txt`, and
+  `https://agent-paste.sh/docs/cli.md`. The deployed docs match npm
+  `@zaks-io/agent-paste@0.1.7`: unlisted sharing is
+  `set-visibility <artifact-id> unlisted` / MCP `set_visibility`, not
+  `make-public`.
+- MCP unauthenticated entrypoints verified: `GET https://mcp.agent-paste.sh`
+  returns endpoint metadata, `/.well-known/oauth-protected-resource` returns the
+  WorkOS resource metadata, and unauthenticated JSON-RPC `POST /` returns `401`
+  with `WWW-Authenticate`.
+- Authenticated CLI path verified with `npx -y @zaks-io/agent-paste@latest`:
+  `version`, `whoami --json`, private `publish --json`, Agent View fetch,
+  signed file fetch, `set-visibility unlisted --json`, access-link resolve,
+  `set-visibility private --json` revocation, `publish --artifact-id --json`,
+  `pull --json`, `edit --json`, and `publish --ephemeral --json`.
+- Ephemeral safety checks passed: `--ephemeral` warned that stored login is
+  ignored, returned a claim link with 24 hour expiry, Agent View did not contain
+  the Claim Token, content served with `script-src 'none'`, and content carried
+  `X-Robots-Tag: noindex, nofollow`.
+- Production bug found: every fresh Bundle generated during the smoke
+  transitioned from `pending` to `failed`, and Axiom showed
+  `queue.bundle_generate.failed` plus `queue.safety_scan.failed` on
+  `agent-paste-jobs-production` with Cloudflare `Illegal invocation: function
+called with incorrect this reference`. Example failed revisions:
+  `rev_B90MHRGD0R7VJ14TVMYCA6J4Y0` and
+  `rev_SVB214MNQJ7Z6KW82DPXPGE9QZ`. Root cause: jobs code detached R2 binding
+  methods (`ARTIFACTS.get` / `ARTIFACTS.put`) before calling them. Fix is in the
+  AP-139 follow-up branch; production remains affected until deployed.
+- CLI ergonomics bug found and fixed in the same follow-up branch:
+  `publish --artifact-id` without `--title` renamed the Artifact to the local
+  temp directory basename. The CLI now reads the existing Agent View title and
+  preserves it unless `--title` is explicit.
+- Authenticated MCP tool calls were not completed in this Codex session because
+  no WorkOS MCP OAuth bearer token or connected MCP host session was available.
+  Before AP-139 is marked done, run the live MCP tools through a real connected
+  host: `whoami`, `publish_artifact`, `read_artifact`, `add_revision`,
+  `multi_edit`, `set_visibility unlisted`, `list_access_links`,
+  `set_visibility private`, and `delete_artifact`.
 
 ## Database credential boundaries
 

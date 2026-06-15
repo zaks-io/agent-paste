@@ -21,6 +21,26 @@ The walkthrough used the connected `agent-paste` MCP server (authed as
 > `create_share_link`/`share`/`access_link_url` below are the original (now
 > superseded) framing.
 
+> **Update (2026-06-15 production pass):** CLI ergonomics are much better on
+> `@zaks-io/agent-paste@0.1.7`; the core authenticated CLI loop now returns
+> `artifact_id`, `private_url`, `agent_view_url`, and stable update commands.
+> New issues found:
+>
+> - **P0 runtime:** production `agent-paste-jobs-production` fails Bundle
+>   generation and safety scans with Cloudflare `Illegal invocation` because R2
+>   methods were called with a detached `this`. Evidence in Axiom:
+>   `queue.bundle_generate.failed`, `queue.safety_scan.failed`, and
+>   `queue.bundle_generate.final_failure` for smoke revisions including
+>   `rev_B90MHRGD0R7VJ14TVMYCA6J4Y0`. Fixed in the AP-139 follow-up branch by
+>   binding R2 `get`/`put` calls in jobs.
+> - **P1 CLI ergonomics:** `publish --artifact-id` without `--title` renamed the
+>   Artifact to the local temp directory basename. Fixed in the AP-139 follow-up
+>   branch by preserving the existing Agent View title unless `--title` is
+>   explicit.
+> - **MCP gap:** unauthenticated MCP metadata and 401 behavior verified, but
+>   authenticated MCP tools still need a connected WorkOS/OAuth host session for
+>   `whoami`, publish/read/revise/edit, visibility, link listing, and cleanup.
+
 ## P0 — `list_artifacts` 500s for any workspace that has a draft artifact
 
 `mcp__agent-paste__list_artifacts` returns `internal_error` (HTTP 500) against

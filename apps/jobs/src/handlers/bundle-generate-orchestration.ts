@@ -115,12 +115,14 @@ async function resolveBundleGenerateSkipReason(
 }
 
 function resolveBundleArtifactsBinding(env: Env): BundleArtifactsBinding | null {
-  const getObject = env.ARTIFACTS?.get;
-  const putObject = env.ARTIFACTS?.put;
-  if (!getObject || !putObject) {
+  const artifacts = env.ARTIFACTS;
+  if (!artifacts?.get || !artifacts.put) {
     return null;
   }
-  return { get: getObject, put: putObject };
+  return {
+    get: artifacts.get.bind(artifacts),
+    put: artifacts.put.bind(artifacts),
+  };
 }
 
 async function loadBundleRevisionFileBytes(input: {
