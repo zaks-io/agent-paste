@@ -165,7 +165,7 @@ describe("artifacts.fileContent route", () => {
 
   it("returns storage_unavailable (not 500) when decryption fails on tampered ciphertext", async () => {
     // A corrupt/auth-tag-rejected ciphertext throws a plain Error from the ring, not a
-    // WorkspaceBlob* error. It must still degrade to 503 (retryable), never a 500 (ADR 0089).
+    // WorkspaceBlob* error. It must still degrade to 503 (retryable), never a 500 (ADR 0090).
     const plaintext = "secret\n";
     const sha = await sha256Hex(plaintext);
     const seeded = await seedEncryptedWorkspaceBlob({ workspaceId, sha256: sha, plaintext });

@@ -1,6 +1,6 @@
 # Agent File Read-Back: `api` Decrypts and Returns Member Plaintext
 
-[ADR 0088](./0088-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md)
+[ADR 0089](./0089-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md)
 gave the server everything it needs to accept a **partial-manifest publish with
 per-file unified-diff patches**, and Stage 4 made reconstruction fail loud at
 finalize (`patch_conflict`). But an agent can only _produce_ a correct unified
@@ -131,7 +131,7 @@ plaintext and its `sha256`, then diff against it.
   can leak and silently 500 the MCP parse (the class of bug behind earlier strict
   envelope / null-revision incidents). A test asserts the real handler output
   parses under the strict contract.
-- Builds on [ADR 0088](./0088-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md);
+- Builds on [ADR 0089](./0089-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md);
   amends [ADR 0063](./0063-application-layer-encryption-for-artifact-bytes.md)'s
   "decrypt-on-read is `content`-only" note (now `content` + the member read route
   in `api`). Defers Range serving, a patch threshold, and an MCP patch path.

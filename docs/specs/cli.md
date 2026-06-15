@@ -49,7 +49,7 @@ automatic; flags override detection.
   command, which mints or reuses the one Share Link and prints its no-login
   Access Link Signed URL.
 - `pull <artifact-id> <path> [--revision-id <id>]` reads one stored file back
-  ([ADR 0089](../adr/0089-agent-file-read-back-api-decrypts-member-plaintext.md)).
+  ([ADR 0090](../adr/0090-agent-file-read-back-api-decrypts-member-plaintext.md)).
   Default output is cat-like (the raw text body to stdout, so `pull … > file`
   works); `--json` emits `{ schema_version, path, sha256, size_bytes, is_binary,
 body? }`. A binary file has no inline body: `--json` reports `is_binary: true`
@@ -59,7 +59,7 @@ body? }`. A binary file has no inline body: `--json` reports `is_binary: true`
 ## Incremental revise (manifest cache + diffs)
 
 On a revise (`publish <path> --artifact-id <id>`), the CLI sends only what
-changed instead of the whole tree ([ADR 0089](../adr/0089-agent-file-read-back-api-decrypts-member-plaintext.md)).
+changed instead of the whole tree ([ADR 0090](../adr/0090-agent-file-read-back-api-decrypts-member-plaintext.md)).
 It caches the last published manifest per artifact (`paths + sha256 + revision_id`)
 under the CLI config dir and, on the next revise, diffs the working dir against
 that cache: unchanged files inherit by reference (not re-hashed, not re-uploaded),

@@ -19,7 +19,7 @@ type GuardFor<Id extends RouteId> = GuardState<Extract<(typeof routeContracts)[n
 // (a concurrent revise, a retained/GC'd base Revision, a non-blob inherited file).
 // These all collapse to the wire code `invalid_request`, so we surface the precise
 // repository kind as the error detail; the CLI keys on it to drop its manifest cache
-// and re-publish the whole tree (ADR 0089). Without this, the agent's self-heal is
+// and re-publish the whole tree (ADR 0090). Without this, the agent's self-heal is
 // indistinguishable from a genuinely malformed request and never fires.
 const BASE_UNUSABLE_KINDS = new Set<RepositoryErrorCode>([
   RepositoryErrorCode.base_revision_not_found,

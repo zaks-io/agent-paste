@@ -6,7 +6,7 @@ export function validateUpload(
   files: Array<{ path: string; size_bytes: number }>,
   usagePolicy: Pick<UsagePolicyConfig, "file_count_cap" | "file_size_cap_bytes" | "artifact_size_cap_bytes">,
   entrypoint = "index.html",
-  // A partial-manifest publish (ADR 0088) validates the uploaded delta here for
+  // A partial-manifest publish (ADR 0089) validates the uploaded delta here for
   // per-file/count caps only; the entrypoint and artifact-size cap are checked
   // against the merged tree at finalize, where the inherited paths are known.
   options: { wholeTree?: boolean } = { wholeTree: true },

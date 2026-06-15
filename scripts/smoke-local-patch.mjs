@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 // End-to-end smoke for the Git-like revision model: Stage 4 intra-file patch
-// reconstruction (ADR 0088) plus Stage 5 agent read-back (ADR 0089). Unlike the
+// reconstruction (ADR 0089) plus Stage 5 agent read-back (ADR 0090). Unlike the
 // unit/integration tests (which use a fake reconstructor), this drives the REAL path:
 // boots the local MVP server (real encryption ring + in-memory R2 that round-trips
 // ciphertext), publishes a base Revision with known bytes, then create-session with a

@@ -1,5 +1,5 @@
 // Read and write workspace content-addressed blobs through the ADR 0063 encryption
-// ring. ADR 0088 Stage 4 reconstruction (decrypt a base blob, apply a patch, store
+// ring. ADR 0089 Stage 4 reconstruction (decrypt a base blob, apply a patch, store
 // the result blob) and Bundle generation both perform exactly this encrypt-and-store
 // / decrypt-by-sha dance; these helpers are the shared ends so neither re-derives the
 // blob AAD context or the object key by hand.

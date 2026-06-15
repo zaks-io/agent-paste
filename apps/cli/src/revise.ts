@@ -80,7 +80,7 @@ async function buildChangedFile(
 
 /**
  * Build a partial-manifest revise plan by diffing the working dir against the
- * cached manifest (ADR 0089): unchanged files inherit by omission, changed
+ * cached manifest (ADR 0090): unchanged files inherit by omission, changed
  * text files are sent as verified unified diffs (whole-blob otherwise), added files
  * upload whole, and removed files become deleted_paths. `entrypoint` is never
  * deleted. Falls back to whole-blob for any file whose base cannot be diffed.
@@ -125,7 +125,7 @@ export async function buildRevisePlan(input: {
 // file). Any of these means "abandon the partial manifest and re-publish whole."
 // These do not all arrive as distinct wire codes: a patch failure surfaces as wire
 // code `patch_conflict`, but the five base-* kinds collapse to `invalid_request`
-// with the kind attached as the error message detail (ADR 0089, finalize handler).
+// with the kind attached as the error message detail (ADR 0090, finalize handler).
 // So the message-substring match below is load-bearing, not just defensive — it is
 // the only signal for the base-* kinds.
 const BASE_UNUSABLE_CODES = new Set([

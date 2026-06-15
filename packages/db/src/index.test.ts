@@ -2318,7 +2318,7 @@ function fakeReconstructor(options?: {
 }
 
 // Publish a base Revision whose files are blob-backed (sha256 set + uploaded), so
-// they are eligible to inherit forward under ADR 0088 tree inheritance.
+// they are eligible to inherit forward under ADR 0089 tree inheritance.
 async function publishBlobBackedBase(
   repo: LocalRepository,
   actor: ApiActor,
@@ -2368,7 +2368,7 @@ async function publishBlobBackedBase(
   return { artifactId: published.artifact_id, revisionId: published.revision_id };
 }
 
-describe("ADR 0088 tree inheritance", () => {
+describe("ADR 0089 tree inheritance", () => {
   it("inherits unchanged blob-backed files from the base and adds one new blob", async () => {
     const { repo, actor } = await localRepoWithApiActor();
     const base = await publishBlobBackedBase(

@@ -1,4 +1,4 @@
--- ADR 0088 Stage 3: partial-manifest publish carriers on the upload session.
+-- ADR 0089 Stage 3: partial-manifest publish carriers on the upload session.
 --
 -- upload_sessions.base_revision_id records the Revision this publish inherits
 -- from; the tree merge runs at finalize and copies it to

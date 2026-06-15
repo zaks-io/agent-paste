@@ -5,7 +5,7 @@ import { configDir } from "./credentials.js";
 
 // Per-artifact record of what the CLI last published, so a revise can diff the
 // working dir against it and send only changed/added files + deleted_paths against
-// base_revision_id (ADR 0089). Holds only paths, plaintext sha256, sizes,
+// base_revision_id (ADR 0090). Holds only paths, plaintext sha256, sizes,
 // and the base revision id — no bytes, no secrets. A stale or corrupt cache can
 // never cause a bad publish: the server re-validates base_revision_id and every
 // patch base at finalize, and the revise path drops the cache and re-publishes

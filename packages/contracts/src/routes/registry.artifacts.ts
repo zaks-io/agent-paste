@@ -125,7 +125,7 @@ export const artifactRouteContracts = [
     // The file path travels as ?path= (not a path segment): FilePath may contain
     // '/', which route-path building encodes and Hono ':param' will not match.
     // ?revision_id= pins the read to a specific Revision so a CLI diff base and
-    // its inherit base are the same Revision; absent => latest (ADR 0089).
+    // its inherit base are the same Revision; absent => latest (ADR 0090).
     path: "/v1/artifacts/{artifact_id}/file-content",
     auth: "api_key_or_mcp_oauth",
     scopes: ["read"],

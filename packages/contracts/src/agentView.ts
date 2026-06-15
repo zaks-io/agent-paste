@@ -44,7 +44,7 @@ export const AgentViewFile = z.object({
   url: UrlString,
   // Plaintext content address. Optional because diff-only/draft rows have no
   // materialized blob; an agent uses it to detect what changed before reading a
-  // file back to diff against (ADR 0089). Object is not strict, so this
+  // file back to diff against (ADR 0090). Object is not strict, so this
   // is a non-breaking add the MCP read_artifact safeParse already accepts.
   sha256: Sha256Hex.optional(),
 });

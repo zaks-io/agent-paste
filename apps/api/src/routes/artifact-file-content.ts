@@ -11,7 +11,7 @@ import { contentBaseUrl } from "../runtime.js";
 type FileContentParams = { artifactId: string; path: string; revisionId?: string };
 
 // Reads one stored file's decrypted plaintext for the owning Workspace Member so
-// an agent can diff against it and revise with a unified-diff patch (ADR 0089).
+// an agent can diff against it and revise with a unified-diff patch (ADR 0090).
 // The agent already owns the artifact and can fetch the same bytes via
 // the signed content url, so returning plaintext here adds no confidentiality
 // exposure; it just gives an agent without the working dir a base to diff.
@@ -76,7 +76,7 @@ export async function readArtifactFileContent(
     // present, well-formed blob). Every throw — missing object, bad/absent metadata,
     // an unknown kid or AAD/auth-tag rejection from the ring — is an operational or
     // crypto condition on a row we already validated, not a client error. All map to
-    // storage_unavailable (503, retryable), never a 500 (ADR 0089).
+    // storage_unavailable (503, retryable), never a 500 (ADR 0090).
     return responders.respondError("storage_unavailable");
   }
 

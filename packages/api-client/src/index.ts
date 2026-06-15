@@ -160,7 +160,7 @@ export class ApiClient {
 
   artifacts = {
     // Read one stored file's decrypted plaintext + sha256 so the caller can diff
-    // against it for a patch revise (ADR 0089). revisionId pins the read
+    // against it for a patch revise (ADR 0090). revisionId pins the read
     // to a specific Revision; omit for the latest.
     readFile: (artifactId: ArtifactId | string, path: string, revisionId?: RevisionId | string) => {
       const query = new URLSearchParams({ path });

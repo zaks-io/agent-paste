@@ -18,7 +18,7 @@ import { z } from "./zod.js";
 // Sha256Hex) keep working; agentView.ts and artifacts.ts also need it.
 export { Sha256Hex } from "./primitives.js";
 
-// A changed file may arrive as a patch against a base Revision's file (ADR 0088)
+// A changed file may arrive as a patch against a base Revision's file (ADR 0089)
 // instead of whole bytes. When present, the bytes uploaded for this file entry are
 // the diff (so the entry's size_bytes/sha256 describe the diff), base_sha256 is the
 // digest of the file in the base Revision the diff applies to, and result_sha256 is
@@ -43,7 +43,7 @@ export type UploadSessionFileInput = z.infer<typeof UploadSessionFileInput>;
 // client input. Clients (CLI, MCP) cannot request or influence artifact lifetime.
 // render_mode is an explicit client override; when absent the server infers it
 // from the entrypoint extension at publish time.
-// base_revision_id turns this into a partial-manifest publish (ADR 0088): files
+// base_revision_id turns this into a partial-manifest publish (ADR 0089): files
 // lists only changed/added paths, deleted_paths drops paths, and every other path
 // inherits from the base Revision by reference. deleted_paths and per-file patches
 // are only meaningful against a base. Structural checks live here; the stateful

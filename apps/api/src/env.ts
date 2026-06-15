@@ -25,7 +25,7 @@ export type R2GetObjectBody = {
 export type R2Bucket = {
   list(options: { prefix?: string; cursor?: string; limit?: number }): Promise<R2Objects>;
   delete(keys: string | string[]): Promise<void>;
-  // ADR 0089: the file-content read route decrypts a stored blob. This is
+  // ADR 0090: the file-content read route decrypts a stored blob. This is
   // the only read on api's R2 binding; every other api op lists or deletes.
   get(key: string): Promise<R2GetObjectBody | null>;
 };

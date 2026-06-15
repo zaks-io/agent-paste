@@ -1,6 +1,6 @@
 import { applyUnifiedDiff } from "@agent-paste/storage";
 
-// Byte-exact unified-diff generator for the CLI patch-revise path (ADR 0089).
+// Byte-exact unified-diff generator for the CLI patch-revise path (ADR 0090).
 // It must produce output the storage applier (`applyUnifiedDiff`) reconstructs
 // to the exact result bytes, so it NEVER normalizes line endings, BOM, or trailing
 // newlines: lines split on raw LF (0x0a) only, a trailing CR stays in the line

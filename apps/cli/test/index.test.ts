@@ -31,7 +31,7 @@ const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const uploadSessionId = "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const accessLinkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 
-// Sandbox the per-artifact manifest cache (ADR 0089) so publish tests do
+// Sandbox the per-artifact manifest cache (ADR 0090) so publish tests do
 // not write to the developer's real ~/.config/agent-paste.
 let configHome: string | undefined;
 let previousConfigHome: string | undefined;
@@ -604,7 +604,7 @@ describe("cli command dispatch", () => {
 
   it("self-heals when finalize collapses a base-unusable error to invalid_request", async () => {
     // The base-* repository kinds reach the wire as code `invalid_request` with the kind
-    // attached as the message detail (ADR 0089). This proves the CLI keys on that detail —
+    // attached as the message detail (ADR 0090). This proves the CLI keys on that detail —
     // rejecting on `finalize` (where base errors realistically fire), not `create`, and with
     // a bare `invalid_request` code, so it fails if the detail signal regresses.
     mockStdout();

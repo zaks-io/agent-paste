@@ -139,7 +139,7 @@ result_sha256 }` plus the diff bytes uploaded like any file body. Absence =
   `sha256` omitted from the signed PUT. Stateful validation (published base,
   same workspace/artifact, blob-backed-only inheritance, deleted-path-in-base,
   patch base match) with six new repo error codes mapped to `invalid_request`.
-  See the ADR 0088 Stage 3 implementation notes for the decisions.
+  See the ADR 0089 Stage 3 implementation notes for the decisions.
 
 ### Stage 4 - synchronous reconstruct-at-finalize (DONE)
 
@@ -182,7 +182,7 @@ able to FAIL the finalize call. Finalize is also where the patch gate, the only
 
 ### Stage 5 - cli/mcp: the ergonomics payoff + agent read-back (DONE)
 
-See [ADR 0089](../adr/0089-agent-file-read-back-api-decrypts-member-plaintext.md)
+See [ADR 0090](../adr/0090-agent-file-read-back-api-decrypts-member-plaintext.md)
 for the decision record. The headline gap Stage 5 surfaced: an agent could not
 **read a stored file back** to diff against, which is the prerequisite for
 producing a correct patch when it lacks the working dir. So Stage 5 shipped both
@@ -194,7 +194,7 @@ the read-back and the CLI diff client.
   UTF-8 and ≤10 MiB; oversize skips the R2 read and returns metadata; binary sets
   `is_binary:true`, no body). `api` decrypts via `readWorkspaceBlobBytes` (the
   Stage 4 helper) — the first `api` byte-decrypt surface, member-only, boundary
-  unchanged (ADR 0089). MCP gains a `read_file` tool forwarding to it.
+  unchanged (ADR 0090). MCP gains a `read_file` tool forwarding to it.
 - **CLI diff client.** The CLI caches the last published manifest per artifact
   (`paths + sha256 + revision_id`) under `configDir()`. On revise
   (`publish --artifact-id`): diff the working dir against the cache, send only
@@ -230,5 +230,5 @@ the read-back and the CLI diff client.
   not async in `jobs`. The conflict flag-back is the feature: a patch that cannot
   apply must FAIL the same finalize call with an agent-visible `patch_conflict`,
   so a broken patch never becomes a servable draft. There is therefore no
-  pending-state model and no `reconstruction_status`. See the ADR 0088 Stage 4
+  pending-state model and no `reconstruction_status`. See the ADR 0089 Stage 4
   implementation notes.

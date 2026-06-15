@@ -98,7 +98,7 @@ export const routeRepositorySurfaces = {
   "uploadSessions.putFile": [],
   "uploadSessions.finalize": [
     // The five base-* kinds collapse to invalid_request on the wire; declared here so
-    // this surface reflects what finalizeUploadSession can actually throw (ADR 0089).
+    // this surface reflects what finalizeUploadSession can actually throw (ADR 0090).
     "base_revision_artifact_mismatch",
     "base_revision_not_found",
     "base_revision_not_publishable",

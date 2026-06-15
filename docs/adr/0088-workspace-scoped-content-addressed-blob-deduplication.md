@@ -3,7 +3,7 @@
 Status: Accepted (retroactive). Records a decision already shipped in code and
 [`data-model.md`](../specs/data-model.md)/[`api.md`](../specs/api.md) but not
 previously captured as an ADR. Drafted because the next decision
-([ADR 0088](./0088-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md))
+([ADR 0089](./0089-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md))
 builds directly on it and an implementer should not have to reconstruct this from
 the schema and commit history.
 
@@ -70,7 +70,7 @@ Files are deduplicated within a **Workspace** by the SHA-256 of their plaintext.
   client re-declares them with their `sha256`. The dedup saves the bytes on the
   wire; it does not remove the requirement to re-enumerate the full file list, and
   the system does not detect unchanged files on its own. Closing that gap is
-  [ADR 0088](./0088-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md).
+  [ADR 0089](./0089-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md).
 - **Two storage kinds coexist.** `artifact_files.storage_kind` is `blob`
   (shared workspace object) or `revision` (legacy per-Revision object). Byte
   purge, bundle generation, and content serving treat both transparently.
@@ -90,7 +90,7 @@ Files are deduplicated within a **Workspace** by the SHA-256 of their plaintext.
 
 - Not intra-file deduplication. The unit is the whole file; one changed byte
   yields a new digest and a new blob. Sub-file delta is
-  [ADR 0088](./0088-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md).
+  [ADR 0089](./0089-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md).
 - Not a Revision-level content address or commit graph. Only individual files are
   content-addressed; Revisions remain a flat numbered list until
-  [ADR 0088](./0088-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md).
+  [ADR 0089](./0089-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md).

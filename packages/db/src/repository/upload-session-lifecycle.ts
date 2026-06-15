@@ -25,7 +25,7 @@ import { RevisionReconstructionConflict } from "../types.js";
 import { contentTypeForPath, normalizeStoragePath, objectKeyFor, validateUpload } from "../validation.js";
 import type { Entities } from "./ports.js";
 
-// ADR 0088: a unified-diff descriptor for a single changed file. The uploaded
+// ADR 0089: a unified-diff descriptor for a single changed file. The uploaded
 // bytes are the diff; jobs reconstructs the whole result blob in Stage 4.
 export type UploadSessionFilePatchInput = {
   base_sha256: string;
@@ -35,7 +35,7 @@ export type UploadSessionFilePatchInput = {
 
 export type CreateUploadSessionRequest = {
   artifact_id?: string;
-  // Base Revision to inherit unchanged files from (ADR 0088 tree inheritance).
+  // Base Revision to inherit unchanged files from (ADR 0089 tree inheritance).
   base_revision_id?: string;
   title?: string;
   entrypoint?: string;
@@ -77,7 +77,7 @@ export async function createUploadSessionInEntities(
   const entrypoint = input.request.entrypoint ?? baseArtifact?.entrypoint ?? "index.html";
   // Against a base Revision the uploaded manifest is a partial delta: validate only
   // its per-file/count caps now; the entrypoint and total-size cap are enforced on
-  // the merged tree at finalize (ADR 0088 tree inheritance).
+  // the merged tree at finalize (ADR 0089 tree inheritance).
   validateUpload(files, input.usagePolicy, entrypoint, { wholeTree: !input.request.base_revision_id });
   const artifactTtlSeconds = isEphemeralWorkspace(input.workspace)
     ? ephemeralArtifactTtlSeconds(input.usagePolicy)
@@ -201,7 +201,7 @@ type MergedTree = {
 };
 
 // Validate the patched files against the base tree and reconstruct each result blob
-// (ADR 0088 Stage 4). The diff base must match the base Revision's file (defense before
+// (ADR 0089 Stage 4). The diff base must match the base Revision's file (defense before
 // the applier re-checks the hash); a patch that cannot apply throws an agent-visible
 // conflict, failing finalize so a broken revision never reaches draft. Returns a blob
 // StoredFile per patched path to replace the diff placeholder in the merged tree.
@@ -268,7 +268,7 @@ async function reconstructPatchedFiles(input: {
   return reconstructed;
 }
 
-// ADR 0088 tree inheritance: merge the base Revision's published tree with this
+// ADR 0089 tree inheritance: merge the base Revision's published tree with this
 // session's changed/added/deleted manifest into the full tree the new Revision
 // commits. Runs at finalize (the base is a published Revision; the merge is the
 // "commit = parent tree + delta" step) and validates every stateful precondition
@@ -428,7 +428,7 @@ export async function finalizeUploadSessionInEntities(
     // Resolved lazily and only for a base-Revision merge (validateUpload on the
     // merged tree), so non-base finalizes never touch the workspace lookup.
     resolveUsagePolicy: () => Promise<UsagePolicyConfig>;
-    // Applies intra-file unified-diff patches before commit (ADR 0088 Stage 4). Only
+    // Applies intra-file unified-diff patches before commit (ADR 0089 Stage 4). Only
     // exercised when the session has patched files; absent on full-manifest finalizes.
     revisionReconstructor?: RevisionReconstructor;
   },
@@ -461,7 +461,7 @@ export async function finalizeUploadSessionInEntities(
       repositoryError("upload_incomplete");
     }
   }
-  // Tree inheritance (ADR 0088): against a base Revision the committed tree is the
+  // Tree inheritance (ADR 0089): against a base Revision the committed tree is the
   // merged base + delta, so file_count/size_bytes and the artifact_files rows come
   // from the merge (the session row counts only the changed manifest). validateUpload
   // re-checks caps + entrypoint against the real published tree (an inherited path
@@ -492,7 +492,7 @@ export async function finalizeUploadSessionInEntities(
     id: session.revision_id,
     workspace_id: session.workspace_id,
     artifact_id: session.artifact_id,
-    // Set when publishing against a base Revision (ADR 0088 tree inheritance).
+    // Set when publishing against a base Revision (ADR 0089 tree inheritance).
     parent_revision_id: parentRevisionId,
     revision_number: null,
     status: "draft",

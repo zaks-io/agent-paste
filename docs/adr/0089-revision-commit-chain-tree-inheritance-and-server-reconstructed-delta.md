@@ -3,10 +3,10 @@
 An agent that has already published an **Artifact** and wants to change one file
 should be able to say "change this one file," not re-describe the whole tree. Two
 gaps stand in the way today, both recorded as the missing half of
-[ADR 0087](./0087-workspace-scoped-content-addressed-blob-deduplication.md):
+[ADR 0088](./0088-workspace-scoped-content-addressed-blob-deduplication.md):
 
 1. **No tree inheritance.** A new **Revision** must re-enumerate every path with
-   its `sha256`. Workspace blob dedup ([ADR 0087](./0087-workspace-scoped-content-addressed-blob-deduplication.md))
+   its `sha256`. Workspace blob dedup ([ADR 0088](./0088-workspace-scoped-content-addressed-blob-deduplication.md))
    skips the unchanged _bytes_, but the client still walks and hashes the whole
    directory and sends the full manifest. The smallest change an agent can express
    is "here is the entire new tree."
@@ -67,7 +67,7 @@ change.**
 in unified diffs, so it is the ergonomic match for the driver, and it is
 reviewable. Binary files rarely take tiny edits, and a byte-splice format is
 fiddly for an agent to produce; a changed binary file just uploads a new whole
-blob (the [ADR 0087](./0087-workspace-scoped-content-addressed-blob-deduplication.md)
+blob (the [ADR 0088](./0088-workspace-scoped-content-addressed-blob-deduplication.md)
 status quo). The CLI/MCP choose patch vs whole-blob per file: patch only when the
 file is large enough and the diff is small enough to be worth it; otherwise
 whole-blob.

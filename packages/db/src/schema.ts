@@ -197,7 +197,7 @@ export const uploadSessions = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     finalizedAt: timestamp("finalized_at", { withTimezone: true }),
-    // Base Revision this publish inherits from (ADR 0088 tree inheritance). Null = full
+    // Base Revision this publish inherits from (ADR 0089 tree inheritance). Null = full
     // manifest. Copied to revisions.parent_revision_id when the merge runs at finalize.
     baseRevisionId: text("base_revision_id"),
     // Base paths this publish drops. Needed to tell a deleted path apart from an
@@ -231,7 +231,7 @@ export const uploadSessionFiles = pgTable(
     storageKind: text("storage_kind").notNull().default("revision"),
     uploadedAt: timestamp("uploaded_at", { withTimezone: true }),
     putUrlExpiresAt: timestamp("put_url_expires_at", { withTimezone: true }).notNull(),
-    // Intra-file delta descriptor (ADR 0088). When set, the uploaded bytes are a
+    // Intra-file delta descriptor (ADR 0089). When set, the uploaded bytes are a
     // unified diff against the base file; jobs reconstructs the whole result blob
     // (Stage 4). base = digest of the base Revision's file, result = digest of the
     // reconstructed whole file. Both null (whole-file upload) or both set.

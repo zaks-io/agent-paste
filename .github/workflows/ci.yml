@@ -199,7 +199,7 @@ jobs:
         if: ${{ env.RUN_CODE == 'true' }}
         run: pnpm smoke:local
 
-      # Real intra-file patch reconstruction through the in-memory harness (ADR 0088
+      # Real intra-file patch reconstruction through the in-memory harness (ADR 0089
       # stage 4): the unit tests use a fake reconstructor, so this is the only check
       # that exercises real decrypt -> apply diff -> hash-verify -> re-encrypt -> serve.
       - name: Local patch smoke

@@ -28,23 +28,13 @@ import {
   formatEphemeralPublishResult,
   formatMakePublic,
   formatPublishResult,
-  type PublishResultShape,
 } from "./publish-format.js";
 import { apiClientTransport } from "./publish-transport.js";
 
 // Re-exported for tests that import it from the CLI entrypoint.
 export { ephemeralClaimUrl } from "./publish-format.js";
 
-import {
-  createProgress,
-  exitCodeFor,
-  formatBytes,
-  formatError,
-  hyperlink,
-  type OutputMode,
-  paint,
-  resolveMode,
-} from "./render.js";
+import { createProgress, exitCodeFor, formatError, type OutputMode, resolveMode } from "./render.js";
 import { buildRevisePlan, isBaseUnusableError, type LocalFileWithDigest, type RevisePlan } from "./revise.js";
 import { commandInvocation, detectChannel, runUpdateCheck, signedOutHint } from "./update-check.js";
 import { runUpgrade } from "./upgrade.js";
@@ -406,7 +396,7 @@ async function makePublic(parsed: Parsed, client: ApiClient) {
   return output(payload, parsed.global, formatMakePublic(outputModeFor(parsed.global), payload));
 }
 
-// Read one stored file's content for the owning member (ADR 0089). Default
+// Read one stored file's content for the owning member (ADR 0090). Default
 // output is cat-like: the raw text body to stdout, so `agent-paste pull <id> <path>
 //  > file` works. --json emits structured metadata; binary content is base64 in
 // json and refused in plain (raw bytes would corrupt a terminal / piped text).

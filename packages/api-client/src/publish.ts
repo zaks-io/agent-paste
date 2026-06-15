@@ -15,7 +15,7 @@ import type {
   UploadSessionId,
 } from "@agent-paste/contracts";
 
-/** A unified-diff patch a changed file is sent as instead of whole bytes (ADR 0089). */
+/** A unified-diff patch a changed file is sent as instead of whole bytes (ADR 0090). */
 export type PublishFilePatch = {
   baseSha256: Sha256Hex;
   resultSha256: Sha256Hex;
@@ -50,7 +50,7 @@ export type PublishInput = {
   /**
    * Present => a partial-manifest publish: `files` lists only changed/added paths
    * (some possibly as patches), `deletedPaths` drops paths, and every other path
-   * inherits from this base Revision by reference (ADR 0089).
+   * inherits from this base Revision by reference (ADR 0090).
    */
   baseRevisionId?: RevisionId;
   deletedPaths?: FilePath[];

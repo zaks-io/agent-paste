@@ -228,7 +228,7 @@ jobs:
           AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN: ${{ secrets.AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN }}
         run: node scripts/smoke-hosted-ephemeral.mjs pr
 
-      # Real intra-file patch reconstruction against the deployed PR preview (ADR 0088
+      # Real intra-file patch reconstruction against the deployed PR preview (ADR 0089
       # stage 4): exercises decrypt -> apply diff -> hash-verify -> re-encrypt -> serve
       # byte-exact + the patch_conflict path through the live upload/api/content Workers.
       - name: Hosted patch reconstruction smoke

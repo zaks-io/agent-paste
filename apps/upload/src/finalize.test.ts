@@ -263,7 +263,7 @@ describe("finalizeUploadSession", () => {
 
   // The five base-unusable kinds collapse to wire code invalid_request, so the precise
   // kind must ride along as the message detail or the CLI cannot tell a stale base from
-  // a malformed request and never self-heals (ADR 0089). This is the server side of that
+  // a malformed request and never self-heals (ADR 0090). This is the server side of that
   // contract: without the detail, message would be the bare "invalid_request".
   it.each([
     "base_revision_not_found",

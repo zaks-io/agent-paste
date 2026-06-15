@@ -478,7 +478,7 @@ describe("MCP error mapping", () => {
   });
 
   it("declares patch_conflict on every tool that forwards a finalize call", () => {
-    // finalize can surface patch_conflict (ADR 0088); a tool that forwards it must
+    // finalize can surface patch_conflict (ADR 0089); a tool that forwards it must
     // declare it, or an agent sees an error its contract never advertised (it slipped
     // out of publishChain once). Scoped to patch_conflict + the finalize route rather
     // than a full superset assertion, which would relitigate the deliberate exclusion

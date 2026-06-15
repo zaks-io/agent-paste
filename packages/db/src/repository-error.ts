@@ -104,7 +104,7 @@ const repositoryErrorToAppErrorMap: Record<RepositoryErrorCode, ErrorCodeValue |
   not_found: "not_found",
   // A patch that cannot apply (base moved / hunk failed / result hash) is an
   // agent-fixable conflict, distinct from a generic invalid_request so the agent can
-  // tell "regenerate this diff" from "your request was malformed" (ADR 0088).
+  // tell "regenerate this diff" from "your request was malformed" (ADR 0089).
   patch_base_mismatch: "patch_conflict",
   patch_conflict: "patch_conflict",
   pinned_artifact_cap_exceeded: "pinned_artifact_cap_exceeded",

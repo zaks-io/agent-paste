@@ -49,7 +49,7 @@ export const DeleteArtifactResponse = z.object({
 export type DeleteArtifactResponse = z.infer<typeof DeleteArtifactResponse>;
 
 // A member reading one stored file's decrypted plaintext so an agent can diff
-// against it to produce a unified-diff patch revise (ADR 0089).
+// against it to produce a unified-diff patch revise (ADR 0090).
 // `is_binary` is byte-derived (true binary only); `content_type` is path-derived,
 // so they may disagree (e.g. binary saved as .txt) — `is_binary` is authoritative
 // for deciding whether `body` is patchable text. `body` is the decoded UTF-8 text

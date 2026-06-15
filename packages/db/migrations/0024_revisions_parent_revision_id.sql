@@ -1,6 +1,6 @@
 begin;
 
--- Revision commit chain (ADR 0088): a Revision may point at the Revision it was
+-- Revision commit chain (ADR 0089): a Revision may point at the Revision it was
 -- published against. NULL means a root (every pre-existing row is a root; no
 -- backfill). The composite self-FK references (workspace_id, artifact_id, id) so
 -- a parent is structurally guaranteed to live in the same Workspace and Artifact.
