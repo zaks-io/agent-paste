@@ -1,5 +1,11 @@
 # Publish Is Content-Only and Private-First; Going Public Is a Separate Step
 
+> **Planned terminology amendment:** [ADR 0087](./0087-public-artifacts-and-unlisted-share-links.md)
+> reserves **Public Artifact** for a future CDN-backed public distribution model
+> and reclassifies the current Share Link handoff as unlisted. Until that model is
+> implemented, this ADR still describes shipped CLI/MCP behavior: `make_public`
+> and `agent-paste make-public` mint or reuse the Artifact's one Share Link.
+
 agent-paste is private-first: an **Artifact** is for its owner until they decide
 otherwise. The publish surfaces must honor that by default and never expose anything
 by URL that the caller did not explicitly ask to expose.
@@ -35,15 +41,15 @@ Link** (when private) and the public **Share Link** (when shared), surfaced thro
   only from the Artifact id — no token, signature, or expiry — and `add_revision`
   republishes into the same id, so the link never changes across revisions and
   live-updates to the latest Published Revision. It is member-only (publish never
-  grants public access) and stops resolving only when the Artifact itself is deleted
-  or swept by Auto Deletion. The `expires_at` in the publish response is the
-  Artifact's content lifetime, not a link expiry. The mental model: a permanent,
-  private, internal link that is always there; making it public is a separate,
-  revocable Share Link.
-- **Going public is a separate, explicit verb.** `make_public` (MCP) and
-  `agent-paste make-public` (CLI), replacing `create_share_link`, mint or reuse the
-  one revocable **Share Link** (`access_links.type='share'`) and return its public,
-  no-login **Access Link Signed URL**. This is the only way an Artifact becomes
+  grants unauthenticated access) and stops resolving only when the Artifact itself
+  is deleted or swept by Auto Deletion. The `expires_at` in the publish response
+  is the Artifact's content lifetime, not a link expiry. The mental model: a
+  permanent, private, internal link that is always there; unauthenticated sharing
+  is a separate, revocable Share Link.
+- **Creating unauthenticated access is a separate, explicit verb.** `make_public`
+  (MCP) and `agent-paste make-public` (CLI), replacing `create_share_link`, mint or
+  reuse the one revocable **Share Link** (`access_links.type='share'`) and return
+  its no-login **Access Link Signed URL**. This is the only way an Artifact becomes
   reachable without login.
 - **Revocation is independent of content.** `revoke_access_link` kills a Share Link
   (or Revision Link) without touching the Artifact, its data, its revisions, or its

@@ -126,8 +126,8 @@ Key invariants:
 ## Read And Share Flow
 
 Default human handoff is the authenticated Private Link (`private_url`, the
-`/v/<artifactId>` clean viewer); publish is content-only and never makes an
-Artifact public. Public or shareable handoff requires an explicit, separate
+`/v/<artifactId>` clean viewer); publish is content-only and never creates
+unauthenticated access. Unlisted no-login handoff requires an explicit, separate
 make-public step that mints a revocable Share Link; its Access Link Signed URL
 opens the Artifact Viewer for the latest Published Revision. Direct signed
 content URLs are delivery URLs for one exact Revision.
@@ -154,7 +154,7 @@ Access Link rules:
 
 - The shareable credential lives in the URL fragment, not in the path or query
   string.
-- An Access Link Signed URL minted from a Share Link grants public access to the Artifact Viewer.
+- An Access Link Signed URL minted from a Share Link grants unlisted no-login access to the Artifact Viewer.
 - A Share Link resolves to the latest Published Revision and can Live Update
   through that viewer.
 - A Revision Link resolves to exactly one Revision and does not Live Update.

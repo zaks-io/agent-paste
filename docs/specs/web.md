@@ -51,12 +51,12 @@ On every authed request, `api` verifies the forwarded WorkOS access token and re
 
 Read-only Workspace Members can list Access Links workspace-wide and per
 Artifact. Access Link management mutations on your own Artifact - create
-(make public), mint, and revoke - require the `publish` scope: making an
-Artifact public and revoking that public access are part of the same content
-authority that creates and revises it. Workspace-wide Access Link Lockdown set
-and Lockdown lift remain `admin` (an account/workspace management action, not a
-per-Artifact one). Member `scopes` are always resolved from the database, not
-WorkOS token text.
+(create unlisted Share Link), mint, and revoke - require the `publish` scope:
+creating unlisted no-login access and revoking that access are part of the same
+content authority that creates and revises it. Workspace-wide Access Link
+Lockdown set and Lockdown lift remain `admin` (an account/workspace management
+action, not a per-Artifact one). Member `scopes` are always resolved from the
+database, not WorkOS token text.
 
 After first provisioning, `POST /v1/auth/web/callback` receives the default credential plaintext once. The dashboard stores it only in client memory for the first-run card. The secret is never persisted, never written to logs, and never retrievable from `api`.
 
