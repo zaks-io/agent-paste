@@ -6,8 +6,17 @@ export function validateUpload(
   files: Array<{ path: string; size_bytes: number }>,
   usagePolicy: Pick<UsagePolicyConfig, "file_count_cap" | "file_size_cap_bytes" | "artifact_size_cap_bytes">,
   entrypoint = "index.html",
+  // A partial-manifest publish (ADR 0089) validates the uploaded delta here for
+  // per-file/count caps only; the entrypoint and artifact-size cap are checked
+  // against the merged tree at finalize, where the inherited paths are known.
+  options: { wholeTree?: boolean } = { wholeTree: true },
 ) {
-  if (files.length === 0 || files.length > usagePolicy.file_count_cap) {
+  // A partial-manifest delta (ADR 0089) may carry zero files: a delete-only revise
+  // inherits the rest of the base tree, so only the upper bound applies here. The
+  // whole-tree publish still requires at least one file. The merged tree is re-checked
+  // at finalize with wholeTree, where the entrypoint and total-size caps run.
+  const minFiles = options.wholeTree === false ? 0 : 1;
+  if (files.length < minFiles || files.length > usagePolicy.file_count_cap) {
     repositoryError("file_count_cap_exceeded");
   }
   let total = 0;
@@ -17,10 +26,10 @@ export function validateUpload(
     }
     total += file.size_bytes;
   }
-  if (total > usagePolicy.artifact_size_cap_bytes) {
+  if (options.wholeTree !== false && total > usagePolicy.artifact_size_cap_bytes) {
     repositoryError("revision_size_cap_exceeded");
   }
-  if (!files.some((file) => file.path === entrypoint)) {
+  if (options.wholeTree !== false && !files.some((file) => file.path === entrypoint)) {
     repositoryError("entrypoint_not_in_revision");
   }
 }

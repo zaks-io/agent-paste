@@ -65,7 +65,7 @@ describe("cli ephemeral publish", () => {
       const human = String(stdout.mock.calls.at(-1)?.[0]);
       const claimUrl = ephemeralClaimUrl(claimToken);
       expect(claimUrl).toBe(`https://app.agent-paste.sh/claim#${claimToken}`);
-      const artifactUrl = "https://app.test/artifacts/art_1";
+      const artifactUrl = "https://app.test/v/art_1";
       expect(human).toContain(artifactUrl);
       expect(human).not.toContain("https://app.test/al/PUBLICLINK123456#secret");
       expect(human).not.toContain("https://content.test/v/token/index.html");
@@ -272,7 +272,7 @@ function fakePublishClient() {
     artifact_id: artifactId,
     revision_id: revisionId,
     title: "Published",
-    artifact_url: "https://app.test/artifacts/art_1",
+    private_url: "https://app.test/v/art_1",
     revision_content_url: "https://content.test/v/token/index.html",
     agent_view_url: "https://api.test/agent-view/token",
     expires_at: "2026-02-01T00:00:00.000Z",

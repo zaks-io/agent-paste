@@ -55,7 +55,7 @@ describe("smoke-ephemeral-harness", () => {
         claimWebOrigin: "https://app.preview.agent-paste.sh",
         expectedClaimTokenPrefix: "ap_ct_preview_",
       }),
-    ).rejects.toThrow(/artifact_url targets web origin/);
+    ).rejects.toThrow(/private_url targets web origin/);
   });
 
   it("checks exact revision content URL origin", async () => {
@@ -188,7 +188,7 @@ function samplePublishResult(artifactOrigin, overrides = {}) {
   return {
     artifact_id: "art_test",
     revision_id: "rev_test",
-    artifact_url: `${artifactOrigin}/artifacts/art_test`,
+    private_url: `${artifactOrigin}/v/art_test`,
     revision_content_url: revisionContentUrl,
     agent_view_url: "https://api.example.test/v1/public/agent-view/art_test",
     claim_token: "ap_ct_preview_test",

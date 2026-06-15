@@ -12,6 +12,19 @@ export const pathEnumParam = (name: string, values: readonly [string, ...string[
     param: { name, in: "path", required: true, description },
   });
 
+export const queryStringParam = (name: string, description: string) =>
+  z.string().openapi({
+    param: { name, in: "query", required: true, description },
+  });
+
+export const queryOptionalStringParam = (name: string, description: string) =>
+  z
+    .string()
+    .optional()
+    .openapi({
+      param: { name, in: "query", required: false, description },
+    });
+
 export const queryCursorParam = (name: string, description: string) =>
   Cursor.openapi({
     param: { name, in: "query", required: false, description },
@@ -34,6 +47,8 @@ export type ApiPathHelpers = {
   params: typeof params;
   pathStringParam: typeof pathStringParam;
   pathEnumParam: typeof pathEnumParam;
+  queryStringParam: typeof queryStringParam;
+  queryOptionalStringParam: typeof queryOptionalStringParam;
   queryCursorParam: typeof queryCursorParam;
   queryPageSizeParam: typeof queryPageSizeParam;
   idempotencyKeyHeader: typeof idempotencyKeyHeader;
@@ -45,6 +60,8 @@ export function createApiPathHelpers(): ApiPathHelpers {
     params,
     pathStringParam,
     pathEnumParam,
+    queryStringParam,
+    queryOptionalStringParam,
     queryCursorParam,
     queryPageSizeParam,
     idempotencyKeyHeader,

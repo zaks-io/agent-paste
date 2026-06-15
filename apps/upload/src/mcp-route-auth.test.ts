@@ -87,7 +87,7 @@ describe("Upload MCP route-boundary auth", () => {
 
   describe("uploadSessions.create", () => {
     it("accepts a signed MCP member token at the route boundary", async () => {
-      const fixture = await mcpTokenFixture({ scope: "write" });
+      const fixture = await mcpTokenFixture({ scope: "read" });
       stubMcpFetch(fixture.publicJwk);
       const session = sessionRecord();
       let createCalled = false;
@@ -199,7 +199,7 @@ describe("Upload MCP route-boundary auth", () => {
     });
 
     it("forbids signed MCP tokens when no workspace member exists", async () => {
-      const fixture = await mcpTokenFixture({ scope: "write" });
+      const fixture = await mcpTokenFixture({ scope: "read" });
       stubMcpFetch(fixture.publicJwk);
 
       const response = await handleRequest(
@@ -228,7 +228,7 @@ describe("Upload MCP route-boundary auth", () => {
 
   describe("uploadSessions.finalize", () => {
     it("accepts a signed MCP member token at the route boundary", async () => {
-      const fixture = await mcpTokenFixture({ scope: "write" });
+      const fixture = await mcpTokenFixture({ scope: "read" });
       stubMcpFetch(fixture.publicJwk);
       const finalized = {
         upload_session_id: sessionId,
@@ -338,7 +338,7 @@ describe("Upload MCP route-boundary auth", () => {
     });
 
     it("forbids signed MCP tokens when no workspace member exists", async () => {
-      const fixture = await mcpTokenFixture({ scope: "write" });
+      const fixture = await mcpTokenFixture({ scope: "read" });
       stubMcpFetch(fixture.publicJwk);
 
       const response = await handleRequest(

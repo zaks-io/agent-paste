@@ -1,5 +1,6 @@
 import "@tanstack/react-start/server-only";
 
+import { shouldDisableOptionalAnalytics } from "@agent-paste/brand";
 import type {
   BillingInvoiceListResponse,
   BillingStatusResponse,
@@ -21,7 +22,7 @@ import { type OperatorEventSearch, operatorEventsQueryString } from "../lib/oper
 import { apiFetchOrEmpty } from "./api-client";
 import { getServerAuth } from "./authkit";
 import { hasOperatorRole } from "./env";
-import { getWebEnv } from "./runtime";
+import { getRequestHeaderValue, getWebEnv } from "./runtime";
 import { turnstileSiteKey } from "./turnstile";
 
 const RECENT_LIMIT = 6;
@@ -33,10 +34,12 @@ function emptyFallback<T>(): LoaderFallback<T> {
 
 export function loadRootEnv() {
   const env = getWebEnv();
+  const optionalAnalyticsDisabled = shouldDisableOptionalAnalytics({ getHeader: getRequestHeaderValue });
   return {
     webBaseUrl: env.WEB_BASE_URL,
     sentry: { dsn: env.SENTRY_DSN, environment: env.AGENT_PASTE_ENV },
-    analyticsToken: env.CF_WEB_ANALYTICS_TOKEN,
+    analyticsToken: optionalAnalyticsDisabled ? undefined : env.CF_WEB_ANALYTICS_TOKEN,
+    optionalAnalyticsDisabled,
   };
 }
 

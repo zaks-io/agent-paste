@@ -258,7 +258,7 @@ describe("usage policy read surface", () => {
       type: "api_key" as const,
       id: ephemeral.api_key.id,
       workspace_id: ephemeral.workspace.id,
-      scopes: ["write", "read"] as const,
+      scopes: ["publish", "read"] as const,
     };
     await expect(repo.getUsagePolicy(ephemeralActor)).resolves.toMatchObject({
       daily_new_artifact_allowance: DAILY_NEW_ARTIFACT_ALLOWANCE_EPHEMERAL,

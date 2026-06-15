@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as HealthzRouteImport } from './routes/healthz'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as VArtifactIdRouteImport } from './routes/v.$artifactId'
 import { Route as AlPublicIdRouteImport } from './routes/al.$publicId'
 import { Route as AuthedSettingsRouteImport } from './routes/_authed.settings'
 import { Route as AuthedKeysRouteImport } from './routes/_authed.keys'
@@ -42,6 +43,11 @@ const AuthedRoute = AuthedRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VArtifactIdRoute = VArtifactIdRouteImport.update({
+  id: '/v/$artifactId',
+  path: '/v/$artifactId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AlPublicIdRoute = AlPublicIdRouteImport.update({
@@ -145,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/keys': typeof AuthedKeysRoute
   '/settings': typeof AuthedSettingsRoute
   '/al/$publicId': typeof AlPublicIdRoute
+  '/v/$artifactId': typeof VArtifactIdRoute
   '/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
   '/api/access-links/resolve': typeof ApiAccessLinksResolveRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
@@ -166,6 +173,7 @@ export interface FileRoutesByTo {
   '/keys': typeof AuthedKeysRoute
   '/settings': typeof AuthedSettingsRoute
   '/al/$publicId': typeof AlPublicIdRoute
+  '/v/$artifactId': typeof VArtifactIdRoute
   '/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
   '/api/access-links/resolve': typeof ApiAccessLinksResolveRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
@@ -189,6 +197,7 @@ export interface FileRoutesById {
   '/_authed/keys': typeof AuthedKeysRoute
   '/_authed/settings': typeof AuthedSettingsRoute
   '/al/$publicId': typeof AlPublicIdRoute
+  '/v/$artifactId': typeof VArtifactIdRoute
   '/_authed/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
   '/api/access-links/resolve': typeof ApiAccessLinksResolveRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
@@ -212,6 +221,7 @@ export interface FileRouteTypes {
     | '/keys'
     | '/settings'
     | '/al/$publicId'
+    | '/v/$artifactId'
     | '/artifacts/$artifactId'
     | '/api/access-links/resolve'
     | '/api/auth/callback'
@@ -233,6 +243,7 @@ export interface FileRouteTypes {
     | '/keys'
     | '/settings'
     | '/al/$publicId'
+    | '/v/$artifactId'
     | '/artifacts/$artifactId'
     | '/api/access-links/resolve'
     | '/api/auth/callback'
@@ -255,6 +266,7 @@ export interface FileRouteTypes {
     | '/_authed/keys'
     | '/_authed/settings'
     | '/al/$publicId'
+    | '/v/$artifactId'
     | '/_authed/artifacts/$artifactId'
     | '/api/access-links/resolve'
     | '/api/auth/callback'
@@ -270,6 +282,7 @@ export interface RootRouteChildren {
   AuthedRoute: typeof AuthedRouteWithChildren
   HealthzRoute: typeof HealthzRoute
   AlPublicIdRoute: typeof AlPublicIdRoute
+  VArtifactIdRoute: typeof VArtifactIdRoute
   ApiAccessLinksResolveRoute: typeof ApiAccessLinksResolveRoute
   ApiAuthCallbackRoute: typeof ApiAuthCallbackRoute
   ApiAuthSignInRoute: typeof ApiAuthSignInRoute
@@ -299,6 +312,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/v/$artifactId': {
+      id: '/v/$artifactId'
+      path: '/v/$artifactId'
+      fullPath: '/v/$artifactId'
+      preLoaderRoute: typeof VArtifactIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/al/$publicId': {
@@ -457,6 +477,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthedRoute: AuthedRouteWithChildren,
   HealthzRoute: HealthzRoute,
   AlPublicIdRoute: AlPublicIdRoute,
+  VArtifactIdRoute: VArtifactIdRoute,
   ApiAccessLinksResolveRoute: ApiAccessLinksResolveRoute,
   ApiAuthCallbackRoute: ApiAuthCallbackRoute,
   ApiAuthSignInRoute: ApiAuthSignInRoute,

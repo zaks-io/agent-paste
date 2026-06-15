@@ -57,47 +57,62 @@ Host-specific OAuth and redirect notes live in
 
 MCP exposes twelve tools:
 
-| Tool                      | Purpose                                                                         |
-| ------------------------- | ------------------------------------------------------------------------------- |
-| `whoami`                  | Return the authenticated member, Workspace, and derived scopes.                 |
-| `publish_artifact`        | Publish a new text-only Artifact without creating a public link by default.     |
-| `add_revision`            | Add and publish a text-only Revision without creating a public link by default. |
-| `list_artifacts`          | List Artifacts in the Workspace.                                                |
-| `read_artifact`           | Read the latest Agent View for an Artifact.                                     |
-| `list_revisions`          | List Revisions for an Artifact.                                                 |
-| `delete_artifact`         | Delete an Artifact.                                                             |
-| `update_display_metadata` | Update an Artifact display title.                                               |
-| `create_share_link`       | Create a Share Link and mint its Access Link Signed URL.                        |
-| `create_revision_link`    | Create and mint a snapshot Access Link for a specific Revision.                 |
-| `list_access_links`       | List Share Links and Revision Links for an Artifact.                            |
-| `revoke_access_link`      | Revoke a Share Link or Revision Link.                                           |
+| Tool                      | Purpose                                                                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `whoami`                  | Return the authenticated member, Workspace, and derived scopes.                                            |
+| `publish_artifact`        | Publish a new text-only Artifact. Content-only and private.                                                |
+| `add_revision`            | Revise an Artifact in place: publish a text-only Revision under the same stable link. Preserves the title. |
+| `list_artifacts`          | List Artifacts in the Workspace.                                                                           |
+| `read_artifact`           | Read the latest Agent View for an Artifact.                                                                |
+| `list_revisions`          | List Revisions for an Artifact.                                                                            |
+| `delete_artifact`         | Delete an Artifact.                                                                                        |
+| `update_display_metadata` | Update an Artifact display title.                                                                          |
+| `make_public`             | Mint or reuse the Artifact's one Share Link and return its public, no-login Access Link Signed URL.        |
+| `create_revision_link`    | Create and mint a snapshot Access Link for a specific Revision.                                            |
+| `list_access_links`       | List Share Links and Revision Links for an Artifact.                                                       |
+| `revoke_access_link`      | Revoke a Share Link or Revision Link.                                                                      |
 
-Publishing tools default `share` to `false`. They do not create or reuse Share
-Links unless the user explicitly asks for a public/shareable Access Link. When
-`share: true`, `publish_artifact` creates a Share Link and `add_revision` reuses
-an active Share Link when one exists, creating one only when needed. Return
-`access_link_url` only for that explicit share flow.
+Publishing tools are content-only and private: they take no visibility input and
+return one link, `private_url` — the login-walled clean viewer at
+`/v/<artifactId>` for the owning Workspace Member. There is no `share` input and
+no `shared` output, and the result carries no `access_link_url`. To make an
+Artifact public, call `make_public` as a separate step; it mints or reuses the
+one Share Link and returns its no-login Access Link Signed URL.
 MCP publish output intentionally omits Artifact IDs, Revision IDs,
-`artifact_url`, `revision_content_url`, and `agent_view_url`; use
-`list_artifacts`, `read_artifact`, `list_revisions`, or explicit link tools when
-those fields are needed. Use `create_revision_link` only when the reader must see
-one exact Revision.
+`revision_content_url`, and `agent_view_url`; use `list_artifacts`,
+`read_artifact`, `list_revisions`, or explicit link tools when those fields are
+needed. Use `create_revision_link` only when the reader must see one exact
+Revision.
+
+`add_revision` runs through the shared revise engine (`@agent-paste/revise-core`,
+[ADR 0091](../adr/0091-client-side-revise-engine-and-literal-edit-tools.md)): it
+reads the base Revision and **preserves the existing title** (it takes no title
+parameter and no longer overwrites the title with the literal `"Revision"`; rename
+explicitly via `update_display_metadata`), and publishes the new body as a verified
+patch under the Artifact's stable `private_url` so already-open viewers live-update
+in place. When the new body's `sha256` equals the stored bytes it is a **no-op** —
+no Revision is minted and the call echoes the unchanged link, title, and expiry. A
+`render_mode` change publishes a whole-file fresh-entrypoint Revision (the one
+meaningful whole-body replace). When the call's entrypoint is not in the base tree
+it falls back to a whole-file publish under the same Artifact. The Revision inherits
+the base's Render Mode unless the call sets one.
 
 ## Capabilities
 
 MCP uses OAuth for authentication, but agent-paste does not trust OAuth scopes as
 the source of product authorization. Capabilities come from the authenticated
-Workspace Member in `api`:
+Workspace Member in `api`, using one shared scope vocabulary (the same names the
+API uses); MCP scopes are the member's stored API scopes verbatim, no translation:
 
-| MCP capability | Backed by member scope | Typical tools                                                                          |
-| -------------- | ---------------------- | -------------------------------------------------------------------------------------- |
-| `read`         | `read`                 | `list_artifacts`, `read_artifact`, `list_revisions`, `whoami`                          |
-| `write`        | `publish`              | `publish_artifact`, `add_revision`, `delete_artifact`, `update_display_metadata`       |
-| `share`        | `admin`                | `create_share_link`, `create_revision_link`, `list_access_links`, `revoke_access_link` |
+| Scope     | Grants                                           | Tools                                                                                                                                         |
+| --------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `read`    | View your own Artifacts and links                | `whoami`, `list_artifacts`, `read_artifact`, `list_revisions`, `list_access_links`                                                            |
+| `publish` | Change your own content and manage public access | `publish_artifact`, `add_revision`, `delete_artifact`, `update_display_metadata`, `make_public`, `create_revision_link`, `revoke_access_link` |
 
-Today, normal Workspace members are provisioned with the full set. Future
-read-only or share-limited roles can change in the database without changing the
-MCP host connection.
+`admin` exists but is dashboard-only (account/workspace management); no MCP tool
+needs it. Today, normal Workspace members are provisioned with `read`, `publish`,
+and `admin`. Future read-only roles can change in the database without changing
+the MCP host connection.
 
 ## Limits
 

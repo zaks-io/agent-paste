@@ -16,6 +16,7 @@ const state = vi.hoisted(() => ({
   apiFetchOrEmpty: vi.fn(),
   apiFetch: vi.fn(),
   turnstileSiteKey: vi.fn(() => "turnstile-site-key"),
+  requestHeaders: {} as Record<string, string | undefined>,
 }));
 
 vi.mock("@tanstack/react-start", () => ({
@@ -56,6 +57,7 @@ vi.mock("../src/server/runtime", () => ({
     CF_WEB_ANALYTICS_TOKEN: "analytics-token",
   }),
   getRequestId: () => state.requestId,
+  getRequestHeaderValue: (name: string) => state.requestHeaders[name.toLowerCase()],
 }));
 
 vi.mock("../src/server/api-client", async () => {
@@ -119,6 +121,7 @@ describe("web RPC bridge", () => {
     state.apiFetchOrEmpty.mockResolvedValue({ data: { ok: true }, empty: false, error: null });
     state.apiFetch.mockResolvedValue({ ok: true });
     state.turnstileSiteKey.mockReturnValue("turnstile-site-key");
+    state.requestHeaders = {};
   });
 
   it("returns the web health payload", async () => {

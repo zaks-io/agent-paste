@@ -47,7 +47,7 @@ export async function authenticatedAgentView(
   }
 
   return getBoundResponders(context).respondJson(
-    await signAgentViewContentUrls(view, env, { workspaceId: actor.workspace_id }),
+    await signAgentViewContentUrls(view, env, { workspaceId: actor.workspace_id, includePrivateUrl: true }),
   );
 }
 
@@ -88,7 +88,6 @@ export async function publishRevision(
         idempotencyKey: guard.idempotencyKey,
         artifactId: params.artifactId ?? "",
         revisionId: params.revisionId ?? "",
-        share: guard.body.share,
       }),
     { respondError: guard.respondError as ContractRespondError },
   );

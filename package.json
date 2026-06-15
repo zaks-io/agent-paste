@@ -51,6 +51,7 @@
     "migrate:live": "pnpm migrate:production",
     "prepare": "node scripts/install-hooks.mjs",
     "smoke:local": "pnpm build && node scripts/smoke-local-mvp.mjs",
+    "smoke:local:patch": "pnpm build && node scripts/smoke-local-patch.mjs",
     "smoke:ci:postgres": "pnpm build && node scripts/smoke-ci-postgres.mjs",
     "smoke:preview": "pnpm build && node scripts/smoke-hosted.mjs preview",
     "smoke:preview:ephemeral": "pnpm build && node scripts/smoke-hosted-ephemeral.mjs preview",

@@ -22,6 +22,8 @@ export const uploadSessionQueries = {
       expiresAt: new Date(row.expires_at),
       createdAt: new Date(row.created_at),
       finalizedAt: row.finalized_at ? new Date(row.finalized_at) : null,
+      baseRevisionId: row.base_revision_id ?? null,
+      deletedPaths: row.deleted_paths ?? [],
     });
   },
 
@@ -65,6 +67,8 @@ export const uploadSessionFileQueries = {
       uploadedAt: file.uploaded_at ? new Date(file.uploaded_at) : null,
       // putUrlExpiresAt is notNull in schema; fall back to "now" rather than producing an Invalid Date.
       putUrlExpiresAt: file.put_url_expires_at ? new Date(file.put_url_expires_at) : new Date(),
+      patchBaseSha256: file.patch_base_sha256 ?? null,
+      patchResultSha256: file.patch_result_sha256 ?? null,
     });
   },
 
@@ -125,6 +129,8 @@ function mapUploadSession(row: typeof uploadSessions.$inferSelect): UploadSessio
     expires_at: row.expiresAt.toISOString(),
     created_at: row.createdAt.toISOString(),
     finalized_at: row.finalizedAt ? row.finalizedAt.toISOString() : null,
+    base_revision_id: row.baseRevisionId ?? null,
+    deleted_paths: row.deletedPaths ?? [],
   };
 }
 
@@ -140,5 +146,7 @@ function mapUploadSessionFile(row: typeof uploadSessionFiles.$inferSelect): Stor
     storage_kind: (row.storageKind ?? "revision") as StoredFileStorageKind,
     uploaded_at: row.uploadedAt ? row.uploadedAt.toISOString() : null,
     put_url_expires_at: row.putUrlExpiresAt.toISOString(),
+    patch_base_sha256: row.patchBaseSha256 ?? null,
+    patch_result_sha256: row.patchResultSha256 ?? null,
   };
 }

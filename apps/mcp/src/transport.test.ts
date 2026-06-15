@@ -246,7 +246,7 @@ describe("MCP streamable HTTP transport", () => {
             name: "Personal",
             created_at: "2026-05-20T12:00:00.000Z",
           },
-          scopes: ["read", "share"],
+          scopes: ["read", "publish"],
         });
       },
     };
@@ -472,10 +472,11 @@ describe("MCP streamable HTTP transport", () => {
       "add_revision",
       "list_artifacts",
       "read_artifact",
+      "read_file",
       "list_revisions",
       "delete_artifact",
       "update_display_metadata",
-      "create_share_link",
+      "make_public",
       "create_revision_link",
       "list_access_links",
       "revoke_access_link",

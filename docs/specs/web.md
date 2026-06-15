@@ -14,13 +14,14 @@ The `web` Worker uses TanStack Start and serves `app.agent-paste.sh`. It owns no
 | `/api/auth/sign-in`       | none             | Start WorkOS AuthKit Authorization Code + PKCE login.                                               |
 | `/api/auth/sign-out`      | session          | Clear the AuthKit session through POST-only sign-out.                                               |
 | `/api/auth/callback`      | none             | Complete WorkOS AuthKit Authorization Code + PKCE flow and establish the session.                   |
+| `/.well-known/gpc.json`   | none             | Declare Global Privacy Control support for optional web analytics.                                  |
 | `/al/{publicId}`          | none             | Artifact Viewer opened by an Access Link. Reads fragment and calls `POST /v1/access-links/resolve`. |
 | `/dashboard`              | dashboard member | Workspace overview.                                                                                 |
 | `/artifacts`              | dashboard member | Artifact list.                                                                                      |
 | `/artifacts/{artifactId}` | dashboard member | Authenticated Artifact detail and management: revisions, links, warnings, bundle state.             |
 | `/keys`                   | dashboard member | Credential list, reveal-once creation flow, and revocation.                                         |
 | `/audit`                  | dashboard member | Audit Event list.                                                                                   |
-| `/settings`               | dashboard member | Workspace name and Auto Deletion setting.                                                           |
+| `/settings`               | dashboard member | Workspace name, Auto Deletion setting, and optional web analytics preference.                       |
 | `/admin`                  | operator         | Operator-only dashboard.                                                                            |
 
 `/al/*` must not import WorkOS/AuthKit session modules. A lint rule should enforce this.
@@ -49,10 +50,13 @@ No token, authorization code, PKCE verifier, state, or one-time credential secre
 On every authed request, `api` verifies the forwarded WorkOS access token and resolves the caller's identity. The dashboard client's WorkOS JWT Template emits a `zaks-io:email` claim, so `api` reads the email straight from the verified token (the `sub` is the authoritative user id) and does **not** call the WorkOS user API. CLI and MCP tokens have no such template and fall back to `GET /user_management/users/{id}`. Member `scopes` (in-workspace authorization) always come from the database, never the token; operator status comes from the WorkOS `role` claim. See [ADR 0082](../adr/0082-identity-in-token-authorization-in-db.md). The residual ~1–2.7s sometimes seen on low-traffic authed routes is cold isolate + cold Hyperdrive connection warmup (it disappears under continuous traffic), not the auth path.
 
 Read-only Workspace Members can list Access Links workspace-wide and per
-Artifact. Access Link management mutations - create, mint, revoke, Access Link
-Lockdown set, and Access Link Lockdown lift - require the current API-side
-representation of the share capability: the member `admin` scope resolved from
-the database, not WorkOS token text.
+Artifact. Access Link management mutations on your own Artifact - create
+(create unlisted Share Link), mint, and revoke - require the `publish` scope:
+creating unlisted no-login access and revoking that access are part of the same
+content authority that creates and revises it. Workspace-wide Access Link
+Lockdown set and Lockdown lift remain `admin` (an account/workspace management
+action, not a per-Artifact one). Member `scopes` are always resolved from the
+database, not WorkOS token text.
 
 After first provisioning, `POST /v1/auth/web/callback` receives the default credential plaintext once. The dashboard stores it only in client memory for the first-run card. The secret is never persisted, never written to logs, and never retrievable from `api`.
 
@@ -147,6 +151,16 @@ Fields:
   contract accepts the platform syntactic ceiling of 90 and repository policy
   enforces the effective per-workspace bound.
 - Read-only Usage Policy caps.
+- Privacy choices card for optional Cloudflare Web Analytics:
+  - `Sec-GPC: 1` disables the beacon.
+  - `DNT: 1` disables the beacon as a courtesy.
+  - `agp_analytics=off` disables the beacon for this browser.
+  - `agp_analytics=on` re-enables the beacon only when no browser-level GPC/DNT
+    signal is active.
+  - The preference does not disable authentication/session cookies, theme
+    preference, security logs, abuse-prevention records, billing records, audit
+    events, Sentry error monitoring, or Artifact publish/read telemetry needed
+    to operate the service.
 
 ## Artifact Viewer
 

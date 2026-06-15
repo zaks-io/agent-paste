@@ -4,6 +4,7 @@ import type { Repository } from "../repository/interface.js";
 import type { ApiKeyActor, HyperdriveBinding, RepositoryOptions } from "../types.js";
 import { createHyperdriveExecutor } from "./executor.js";
 import { reparentBlobMigratorFromEnv } from "./reparent-blob-migrator.js";
+import { revisionReconstructorFromEnv } from "./revision-reconstructor.js";
 import { createPostgresServices } from "./services.js";
 
 export type WorkerPostgresEnv = {
@@ -62,6 +63,22 @@ export function createPostgresRuntime<TEnv extends WorkerPostgresEnv>(
     migratorEnv.ARTIFACT_BYTES_ENCRYPTION_KID = env.ARTIFACT_BYTES_ENCRYPTION_KID;
   }
   const reparentBlobMigrator = reparentBlobMigratorFromEnv(migratorEnv);
+  const reconstructorEnv: Parameters<typeof revisionReconstructorFromEnv>[0] = {};
+  if (env.ARTIFACTS) {
+    reconstructorEnv.ARTIFACTS = env.ARTIFACTS as NonNullable<
+      Parameters<typeof revisionReconstructorFromEnv>[0]["ARTIFACTS"]
+    >;
+  }
+  if (migratorEnv.ARTIFACT_BYTES_ENCRYPTION_KEY) {
+    reconstructorEnv.ARTIFACT_BYTES_ENCRYPTION_KEY = migratorEnv.ARTIFACT_BYTES_ENCRYPTION_KEY;
+  }
+  if (migratorEnv.ARTIFACT_BYTES_ENCRYPTION_KEY_V2) {
+    reconstructorEnv.ARTIFACT_BYTES_ENCRYPTION_KEY_V2 = migratorEnv.ARTIFACT_BYTES_ENCRYPTION_KEY_V2;
+  }
+  if (migratorEnv.ARTIFACT_BYTES_ENCRYPTION_KID) {
+    reconstructorEnv.ARTIFACT_BYTES_ENCRYPTION_KID = migratorEnv.ARTIFACT_BYTES_ENCRYPTION_KID;
+  }
+  const revisionReconstructor = revisionReconstructorFromEnv(reconstructorEnv);
   const services = createPostgresServices({
     executor: createHyperdriveExecutor(env.DB),
     apiKeyPepper,
@@ -69,6 +86,7 @@ export function createPostgresRuntime<TEnv extends WorkerPostgresEnv>(
     apiKeyEnv: env.API_KEY_ENV ?? "preview",
     billingEnabled: isBillingEnabled(env.BILLING_ENABLED),
     ...(reparentBlobMigrator ? { reparentBlobMigrator } : {}),
+    ...(revisionReconstructor ? { revisionReconstructor } : {}),
     ...serviceUrls,
   });
   return { auth: services.auth, db: options.pickDb(services) };

@@ -17,6 +17,7 @@ import {
   TYPE,
 } from "./tokens.js";
 
+export * from "./privacy-preferences.js";
 export * from "./theme-cookie.js";
 export * from "./tokens.js";
 

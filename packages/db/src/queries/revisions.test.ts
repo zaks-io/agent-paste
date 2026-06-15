@@ -51,6 +51,14 @@ describe("revisionQueries", () => {
     expect(db.writes.length).toBeGreaterThan(0);
   });
 
+  it("round-trips the parent revision pointer through findById", async () => {
+    const db = fakeDrizzle([[revisionRow({ id: "rev_child", parentRevisionId: "rev_parent" })]]);
+    await expect(revisionQueries.findById(db, "rev_child")).resolves.toMatchObject({
+      id: "rev_child",
+      parent_revision_id: "rev_parent",
+    });
+  });
+
   it("returns null or false for missing rows", async () => {
     const db = fakeDrizzle([[], [], [], [{ max: 0 }], []]);
     await expect(revisionQueries.findById(db, "missing")).resolves.toBeNull();
@@ -72,6 +80,7 @@ function revisionEntity(overrides: Partial<Revision> = {}): Revision {
     id: "rev_pub",
     workspace_id: "workspace_1",
     artifact_id: "artifact_1",
+    parent_revision_id: null,
     revision_number: 1,
     status: "published",
     entrypoint: "index.html",
@@ -94,6 +103,7 @@ function revisionRow(
   overrides: Partial<{
     id: string;
     status: string;
+    parentRevisionId: string | null;
     revisionNumber: number | null;
     publishedAt: Date | null;
     bundleStatusUpdatedAt: Date | null;
@@ -104,6 +114,7 @@ function revisionRow(
     id: "rev_pub",
     workspaceId: "workspace_1",
     artifactId: "artifact_1",
+    parentRevisionId: null,
     revisionNumber: 1,
     status: "published",
     entrypoint: "index.html",

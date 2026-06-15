@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { UpdateDisplayMetadataRequest } from "./accessLinks.js";
 import {
-  apiScopesToMcpScopes,
   buildMcpToolList,
   deriveMcpIdempotencyKey,
+  MCP_API_ERROR_HTTP_STATUS,
   McpAddRevisionInput,
   McpPublishArtifactInput,
   McpToolName,
@@ -14,7 +14,6 @@ import {
   mcpIdempotencySegment,
   mcpProtectedResourceMetadata,
   mcpPublishAccessLinkIdempotencyKey,
-  mcpScopesToApiScopes,
   mcpTokenHasRequiredScopes,
   mcpToolContractByName,
   mcpToolContracts,
@@ -33,10 +32,11 @@ describe("MCP tool registry", () => {
       "add_revision",
       "list_artifacts",
       "read_artifact",
+      "read_file",
       "list_revisions",
       "delete_artifact",
       "update_display_metadata",
-      "create_share_link",
+      "make_public",
       "create_revision_link",
       "list_access_links",
       "revoke_access_link",
@@ -54,30 +54,29 @@ describe("MCP tool registry", () => {
     expect(listed.tools.every((tool) => tool.inputSchema.type === "object")).toBe(true);
   });
 
-  it("describes publish sharing as explicit opt-in", () => {
+  it("exposes no share input on publish tools (content-only, private)", () => {
     const listed = buildMcpToolList();
-    const publish = listed.tools.find((tool) => tool.name === "publish_artifact");
-    const addRevision = listed.tools.find((tool) => tool.name === "add_revision");
-    expect(publish?.description).toContain("Do not create a Share Link by default");
-    expect(publish?.description).toContain("Set share:true only when the user explicitly asks");
-    expect(addRevision?.description).toContain("Do not create or reuse Share Links by default");
-    expect(addRevision?.description).toContain("Set share:true only when the user explicitly asks");
-
-    const publishProperties = (publish?.inputSchema.properties ?? {}) as Record<string, { default?: unknown }>;
-    expect(publishProperties.share?.default).toBe(false);
-    expect(McpPublishArtifactInput.parse({ title: "Demo", body: "hello", render_mode: "text" }).share).toBe(false);
+    for (const name of ["publish_artifact", "add_revision"] as const) {
+      const tool = listed.tools.find((entry) => entry.name === name);
+      const properties = (tool?.inputSchema.properties ?? {}) as Record<string, unknown>;
+      expect(properties).not.toHaveProperty("share");
+    }
     expect(
-      McpAddRevisionInput.parse({
+      McpPublishArtifactInput.safeParse({ title: "Demo", body: "hello", render_mode: "text", share: true }).success,
+    ).toBe(false);
+    expect(
+      McpAddRevisionInput.safeParse({
         artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
         body: "hello",
         render_mode: "text",
-      }).share,
+        share: true,
+      }).success,
     ).toBe(false);
   });
 
-  it("requires write and read for publish tools", () => {
-    expect(mcpToolContractByName("publish_artifact").requiredScopes).toEqual(["write", "read"]);
-    expect(mcpToolContractByName("add_revision").requiredScopes).toEqual(["write", "read"]);
+  it("requires publish and read for publish tools", () => {
+    expect(mcpToolContractByName("publish_artifact").requiredScopes).toEqual(["publish", "read"]);
+    expect(mcpToolContractByName("add_revision").requiredScopes).toEqual(["publish", "read"]);
   });
 
   it("advertises Access Link failures on publish tools", () => {
@@ -88,44 +87,28 @@ describe("MCP tool registry", () => {
     }
   });
 
-  it("threads publish chains through upload, publish, and optional Share Link routes", () => {
+  it("threads both publish tools through the same upload->publish chain, with no Share Link routes", () => {
+    const expected = [
+      "uploadSessions.create",
+      "uploadSessions.putFile",
+      "uploadSessions.finalize",
+      "revisions.publish",
+    ];
     const publish = mcpToolContractByName("publish_artifact");
-    expect(publish.forwardedCalls.map((call) => call.routeId)).toEqual([
-      "uploadSessions.create",
-      "uploadSessions.putFile",
-      "uploadSessions.finalize",
-      "revisions.publish",
-      "accessLinks.create",
-      "accessLinks.mint",
-    ]);
     const addRevision = mcpToolContractByName("add_revision");
-    expect(addRevision.forwardedCalls.map((call) => call.routeId)).toEqual([
-      "uploadSessions.create",
-      "uploadSessions.putFile",
-      "uploadSessions.finalize",
-      "revisions.publish",
-      "accessLinks.list",
-      "accessLinks.create",
-      "accessLinks.mint",
-    ]);
-    const optionalAccessLinkCalls = [...publish.forwardedCalls, ...addRevision.forwardedCalls].filter((call) =>
-      call.routeId.startsWith("accessLinks."),
-    );
-    expect(optionalAccessLinkCalls.every((call) => "optional" in call && call.optional)).toBe(true);
-    expect(
-      [...publish.forwardedCalls, ...addRevision.forwardedCalls].every(
-        (call) => call.auth === "mcp_bearer" || call.auth === "signed_upload_url",
-      ),
-    ).toBe(true);
+    expect(publish.forwardedCalls.map((call) => call.routeId)).toEqual(expected);
+    // add_revision runs the SAME content-only chain — publish never touches access links.
+    expect(addRevision.forwardedCalls.map((call) => call.routeId)).toEqual(expected);
+    const allCalls = [...publish.forwardedCalls, ...addRevision.forwardedCalls];
+    expect(allCalls.some((call) => call.routeId.startsWith("accessLinks."))).toBe(false);
+    expect(allCalls.every((call) => call.auth === "mcp_bearer" || call.auth === "signed_upload_url")).toBe(true);
   });
 
-  it("labels optional publish-chain share-link creates with derived idempotency keys, not same_as_tool", () => {
+  it("does not forward to any access-link route from the publish tools (publish is content-only)", () => {
     for (const toolName of ["publish_artifact", "add_revision"] as const) {
       const tool = mcpToolContractByName(toolName);
-      const accessLinkCreates = tool.forwardedCalls.filter((call) => call.routeId === "accessLinks.create");
-      expect(accessLinkCreates).toHaveLength(1);
-      expect(accessLinkCreates[0]?.idempotencyKey).toBe("derived_share_link");
-      expect(accessLinkCreates.every((call) => call.idempotencyKey !== "same_as_tool")).toBe(true);
+      const accessLinkCalls = tool.forwardedCalls.filter((call) => call.routeId.startsWith("accessLinks."));
+      expect(accessLinkCalls).toHaveLength(0);
     }
   });
 
@@ -236,18 +219,8 @@ describe("MCP auth and idempotency helpers", () => {
   });
 
   it("checks delegated scope subsets", () => {
-    expect(mcpTokenHasRequiredScopes(["write", "read", "share"], ["read"])).toBe(true);
-    expect(mcpTokenHasRequiredScopes(["read"], ["write"])).toBe(false);
-  });
-
-  it("maps delegated MCP scopes to API route scopes", () => {
-    expect(mcpScopesToApiScopes(["write", "read", "share"])).toEqual(["publish", "read", "admin"]);
-    expect(mcpScopesToApiScopes(["read"])).toEqual(["read"]);
-  });
-
-  it("maps member API scopes to delegated MCP scopes", () => {
-    expect(apiScopesToMcpScopes(["publish", "read", "admin"])).toEqual(["write", "read", "share"]);
-    expect(apiScopesToMcpScopes(["read"])).toEqual(["read"]);
+    expect(mcpTokenHasRequiredScopes(["read", "publish", "admin"], ["read"])).toBe(true);
+    expect(mcpTokenHasRequiredScopes(["read"], ["publish"])).toBe(false);
   });
 
   it("derives the optional publish share-link idempotency key from the tool key", () => {
@@ -290,21 +263,11 @@ describe("MCP auth and idempotency helpers", () => {
       }).success,
     ).toBe(true);
     expect(
-      McpPublishArtifactInput.safeParse({
-        title: "Demo",
-        body: "hello",
-        render_mode: "text",
-        idempotency_key: maxKey,
-        share: true,
-      }).success,
-    ).toBe(true);
-    expect(
       McpAddRevisionInput.safeParse({
         artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
         body: "hello",
         render_mode: "text",
         idempotency_key: maxKey,
-        share: true,
       }).success,
     ).toBe(true);
   });
@@ -470,6 +433,33 @@ describe("MCP error mapping", () => {
     });
   });
 
+  it("maps a patch_conflict to 422, not the 500 fallback", () => {
+    const mapped = mapApiErrorToMcp({
+      code: "patch_conflict",
+      message: "patch_conflict: app.js: result_hash_mismatch",
+      requestId: "req_patch",
+    });
+    expect(mapped).toMatchObject({ code: "patch_conflict", httpStatus: 422 });
+    // The actionable detail (path + reason) rides the message through to the agent.
+    expect(mapped.message).toContain("app.js");
+  });
+
+  it("has an HTTP status for every error a forwarded MCP tool can surface", () => {
+    // A missing entry silently falls back to 500, masking a real client-actionable
+    // error (the list_artifacts null-revision class of bug). Guard the whole surface.
+    const reachable = new Set<keyof typeof MCP_API_ERROR_HTTP_STATUS>();
+    for (const tool of mcpToolContracts) {
+      for (const call of tool.forwardedCalls) {
+        for (const code of routeContractById(call.routeId).errors) {
+          reachable.add(code);
+        }
+      }
+    }
+    for (const code of reachable) {
+      expect(MCP_API_ERROR_HTTP_STATUS[code], `missing MCP HTTP status for ${code}`).toBeDefined();
+    }
+  });
+
   it("maps protocol auth and scope failures", () => {
     expect(mapMcpProtocolError("invalid_token", "invalid_token")).toMatchObject({
       code: "invalid_token",
@@ -485,6 +475,20 @@ describe("MCP error mapping", () => {
     const envelope = toMcpJsonRpcError(mapMcpProtocolError("insufficient_scope", "Actor lacks share scope"));
     expect(envelope.data?.code).toBe("insufficient_scope");
     expect(envelope.message).toBe("Actor lacks share scope");
+  });
+
+  it("declares patch_conflict on every tool that forwards a finalize call", () => {
+    // finalize can surface patch_conflict (ADR 0089); a tool that forwards it must
+    // declare it, or an agent sees an error its contract never advertised (it slipped
+    // out of publishChain once). Scoped to patch_conflict + the finalize route rather
+    // than a full superset assertion, which would relitigate the deliberate exclusion
+    // of signed-PUT and auth codes from tool error groups.
+    for (const tool of mcpToolContracts) {
+      const forwardsFinalize = tool.forwardedCalls.some((call) => call.routeId === "uploadSessions.finalize");
+      if (forwardsFinalize) {
+        expect(tool.errors, `${tool.name} forwards finalize but omits patch_conflict`).toContain("patch_conflict");
+      }
+    }
   });
 });
 

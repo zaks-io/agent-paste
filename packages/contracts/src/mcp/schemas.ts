@@ -1,11 +1,12 @@
 import { AccessLinkSignedUrl, AccessLinkType } from "../accessLinks.js";
 import { AgentView, DisplayMetadata } from "../agentView.js";
-import { ArtifactListResponse, DeleteArtifactResponse } from "../artifacts.js";
+import { ArtifactFileContent, ArtifactListResponse, DeleteArtifactResponse } from "../artifacts.js";
 import { Mebibytes, PaginationRequest } from "../common.js";
 import {
   AccessLinkId,
   ArtifactId,
   Cursor,
+  FilePath,
   IdempotencyKey,
   IsoDateTime,
   PlainTextTitle,
@@ -21,7 +22,7 @@ import { MCP_DELEGATED_SCOPES } from "./constants.js";
 export const McpScope = z.enum(MCP_DELEGATED_SCOPES);
 export type McpScope = z.infer<typeof McpScope>;
 
-// scopes_supported advertises AuthKit's OAuth scopes (not the write/read/share
+// scopes_supported advertises AuthKit's OAuth scopes (not the read/publish/admin
 // capability vocabulary). The MCP client SDK reads this and sends it at
 // /authorize; it must be AuthKit-supported scopes or the SDK falls back to its
 // own default and AuthKit returns invalid_scope. Capability is still derived in
@@ -41,20 +42,12 @@ export const McpPublishRenderMode = z.enum(["text", "markdown", "html"]);
 export type McpPublishRenderMode = z.infer<typeof McpPublishRenderMode>;
 
 const mcpTextBody = z.string().min(1).max(Mebibytes.ten);
-const mcpPublishShareDefault = z
-  .boolean()
-  .optional()
-  .default(false)
-  .describe(
-    "Defaults to false. Set true only when the user explicitly asks for a public/shareable Access Link: the tool creates or reuses a Share Link and returns its Access Link Signed URL as access_link_url.",
-  );
 
 export const McpPublishArtifactInput = z
   .object({
     title: PlainTextTitle,
     body: mcpTextBody,
     render_mode: McpPublishRenderMode,
-    share: mcpPublishShareDefault,
     idempotency_key: IdempotencyKey.optional(),
   })
   .strict();
@@ -62,10 +55,11 @@ export type McpPublishArtifactInput = z.infer<typeof McpPublishArtifactInput>;
 
 export const McpAddRevisionInput = z
   .object({
-    artifact_id: ArtifactId,
+    artifact_id: ArtifactId.describe(
+      "The existing Artifact to revise (from a publish_artifact response or list_artifacts). The new Revision publishes under this Artifact's stable private_url, which live-updates any already-open viewer.",
+    ),
     body: mcpTextBody,
     render_mode: McpPublishRenderMode,
-    share: mcpPublishShareDefault,
     idempotency_key: IdempotencyKey.optional(),
   })
   .strict();
@@ -76,6 +70,11 @@ export type McpListArtifactsInput = z.infer<typeof McpListArtifactsInput>;
 
 export const McpReadArtifactInput = z.object({ artifact_id: ArtifactId }).strict();
 export type McpReadArtifactInput = z.infer<typeof McpReadArtifactInput>;
+
+export const McpReadFileInput = z
+  .object({ artifact_id: ArtifactId, path: FilePath, revision_id: RevisionId.optional() })
+  .strict();
+export type McpReadFileInput = z.infer<typeof McpReadFileInput>;
 
 export const McpListRevisionsInput = z
   .object({
@@ -96,8 +95,8 @@ export const McpUpdateDisplayMetadataInput = z
   .strict();
 export type McpUpdateDisplayMetadataInput = z.infer<typeof McpUpdateDisplayMetadataInput>;
 
-export const McpCreateShareLinkInput = z.object({ artifact_id: ArtifactId }).strict();
-export type McpCreateShareLinkInput = z.infer<typeof McpCreateShareLinkInput>;
+export const McpMakePublicInput = z.object({ artifact_id: ArtifactId }).strict();
+export type McpMakePublicInput = z.infer<typeof McpMakePublicInput>;
 
 export const McpCreateRevisionLinkInput = z
   .object({
@@ -128,15 +127,16 @@ export const McpUploadStats = z
   .strict();
 export type McpUploadStats = z.infer<typeof McpUploadStats>;
 
-// MCP publish output is intentionally narrower than the REST PublishResult. The
-// tool result is usually fed back into an assistant response, so it exposes only
-// the user-facing live URL plus minimal publish metadata. Artifact IDs, Revision
-// IDs, direct content URLs, and Agent View URLs remain available through
-// explicit list/read/link tools.
+// Publishing returns one link to hand back to the user: private_url. It opens the
+// Artifact in a login-walled browser viewer (`/v/<id>`) — publish is content-only
+// and private, with no public concept. This matches the CLI, which runs the same
+// publish path. To make an Artifact reachable without login, call make_public.
+// Artifact/Revision IDs and content URLs remain available through the explicit
+// list/read/link tools.
 export const McpPublishArtifactOutput = z
   .object({
     title: PlainTextTitle,
-    access_link_url: UrlString.optional(),
+    private_url: UrlString,
     expires_at: IsoDateTime,
     upload_stats: McpUploadStats.optional(),
   })
@@ -149,6 +149,9 @@ export type McpListArtifactsOutput = z.infer<typeof McpListArtifactsOutput>;
 export const McpReadArtifactOutput = AgentView;
 export type McpReadArtifactOutput = z.infer<typeof McpReadArtifactOutput>;
 
+export const McpReadFileOutput = ArtifactFileContent;
+export type McpReadFileOutput = z.infer<typeof McpReadFileOutput>;
+
 export const McpListRevisionsOutput = RevisionListResponse;
 export type McpListRevisionsOutput = z.infer<typeof McpListRevisionsOutput>;
 
@@ -158,8 +161,8 @@ export type McpDeleteArtifactOutput = z.infer<typeof McpDeleteArtifactOutput>;
 export const McpUpdateDisplayMetadataOutput = DisplayMetadata;
 export type McpUpdateDisplayMetadataOutput = z.infer<typeof McpUpdateDisplayMetadataOutput>;
 
-export const McpCreateShareLinkOutput = AccessLinkSignedUrl;
-export type McpCreateShareLinkOutput = z.infer<typeof McpCreateShareLinkOutput>;
+export const McpMakePublicOutput = AccessLinkSignedUrl;
+export type McpMakePublicOutput = z.infer<typeof McpMakePublicOutput>;
 
 export const McpCreateRevisionLinkOutput = AccessLinkSignedUrl;
 export type McpCreateRevisionLinkOutput = z.infer<typeof McpCreateRevisionLinkOutput>;
@@ -210,10 +213,11 @@ export const McpToolName = z.enum([
   "add_revision",
   "list_artifacts",
   "read_artifact",
+  "read_file",
   "list_revisions",
   "delete_artifact",
   "update_display_metadata",
-  "create_share_link",
+  "make_public",
   "create_revision_link",
   "list_access_links",
   "revoke_access_link",

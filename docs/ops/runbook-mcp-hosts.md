@@ -113,14 +113,15 @@ share}` capability is **derived in `api` from the caller's Workspace Member
 scopes** (`mcp.whoami` returns the derived set), not from the token. See
 [ADR 0079](../adr/0079-mcp-scopes-derived-from-member-role-not-workos-token.md).
 
-| MCP scope | Member API scope | Typical tools                                                                          |
-| --------- | ---------------- | -------------------------------------------------------------------------------------- |
-| `read`    | `read`           | `list_artifacts`, `read_artifact`, `list_revisions`, `whoami`                          |
-| `write`   | `publish`        | `publish_artifact`, `add_revision`, `delete_artifact`, `update_display_metadata`       |
-| `share`   | `admin`          | `create_share_link`, `create_revision_link`, `list_access_links`, `revoke_access_link` |
+| MCP scope | Member API scope | Typical tools                                                                    |
+| --------- | ---------------- | -------------------------------------------------------------------------------- |
+| `read`    | `read`           | `list_artifacts`, `read_artifact`, `list_revisions`, `whoami`                    |
+| `write`   | `publish`        | `publish_artifact`, `add_revision`, `delete_artifact`, `update_display_metadata` |
+| `share`   | `admin`          | `make_public`, `create_revision_link`, `list_access_links`, `revoke_access_link` |
 
-Publishing tools require **`write read`**. `share` is required only for link
-management or for publish calls that set `share: true`. Members are provisioned
+Publishing tools require **`write read`** and are content-only and private.
+`share` is required only for link management, including the separate `make_public`
+go-public step. Members are provisioned
 with all three (`DEFAULT_MEMBER_SCOPES`), so today every member has full
 capability; a future read-only or share-less member is a change to that member's
 stored scopes in `api`, with no host, token, or WorkOS change. The MCP Worker
@@ -192,28 +193,27 @@ Text-only artifact operations per ADR 0061:
 
 `publish_artifact`, `add_revision`, `list_artifacts`, `read_artifact`,
 `list_revisions`, `delete_artifact`, `update_display_metadata`,
-`create_share_link`, `create_revision_link`, `list_access_links`,
+`make_public`, `create_revision_link`, `list_access_links`,
 `revoke_access_link`, `whoami`.
 
 Binary uploads, multi-file artifacts, bundle download, and lockdown controls
 remain CLI/REST/dashboard territory.
 
-`publish_artifact` and `add_revision` default `share` to `false` and do not
-create or reuse Share Links by default. Set `share: true` only when the user
-explicitly asks for a public/shareable Access Link. Then `publish_artifact`
-creates a Share Link; `add_revision` reuses an active Share Link when one exists
-and only creates one when needed. They return the signed Access Link Signed URL
-minted from that Share Link as `access_link_url`. The publish result deliberately
-omits Artifact IDs, Revision IDs, `artifact_url`, `revision_content_url`, and
-`agent_view_url`; use explicit read/list/link tools when those fields are
-needed. Use `create_revision_link` only for a pinned URL to one exact Revision.
+`publish_artifact` and `add_revision` are content-only and private (ADR 0086):
+they take no visibility input and return one link, `private_url` — the
+login-walled `/v/<artifactId>` clean viewer. To make an Artifact public, call
+`make_public` as a separate step; it mints or reuses the one Share Link and
+returns its no-login Access Link Signed URL. The publish result deliberately
+omits Artifact IDs, Revision IDs, `revision_content_url`, and `agent_view_url`;
+use explicit read/list/link tools when those fields are needed. Use
+`create_revision_link` only for a pinned URL to one exact Revision.
 
 ### Publish retries and share-link idempotency
 
 `publish_artifact` and `add_revision` accept an optional tool idempotency key.
-The Worker threads that key through upload and publish. When `share: true`, the
-optional Share Link create uses a derived `:share-link` key so a retried publish
-does not mint duplicate Share Links. See
+The Worker threads that key through upload and publish. The separate `make_public`
+step uses a derived `:share-link` key so a retried go-public call does not mint
+duplicate Share Links. See
 [ADR 0061](../adr/0061-mcp-worker-with-oauth-only-via-auth0-dcr.md).
 Regression coverage: `apps/mcp/src/publish-chain.test.ts` (key forwarding) and
 `packages/db/src/member-mcp-operations.test.ts` (repository dedup).

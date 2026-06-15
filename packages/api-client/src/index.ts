@@ -1,5 +1,11 @@
 import {
+  type AccessLinkId,
+  AccessLinkSignedUrl,
+  AgentView,
+  ArtifactFileContent,
   type ArtifactId,
+  type CreateAccessLinkRequest,
+  CreateAccessLinkResponse,
   type CreateApiKeyRequest,
   CreateApiKeyResponse,
   type CreateUploadSessionRequest,
@@ -111,6 +117,27 @@ export class ApiClient {
       ),
   };
 
+  accessLinks = {
+    // Create an Access Link for an Artifact (e.g. a public Share Link) and mint
+    // its signed URL. Two calls, mirroring the MCP make_public path: create the
+    // link, then mint its Access Link Signed URL.
+    create: (artifactId: ArtifactId | string, body: CreateAccessLinkRequest, idempotencyKey: string) =>
+      this.request(
+        CreateAccessLinkResponse,
+        this.apiBaseUrl,
+        `/v1/artifacts/${encodeURIComponent(artifactId)}/access-links`,
+        {
+          method: "POST",
+          body,
+          idempotencyKey,
+        },
+      ),
+    mint: (accessLinkId: AccessLinkId | string) =>
+      this.request(AccessLinkSignedUrl, this.apiBaseUrl, `/v1/access-links/${encodeURIComponent(accessLinkId)}/mint`, {
+        method: "POST",
+      }),
+  };
+
   revisions = {
     publish: (
       artifactId: ArtifactId | string,
@@ -130,6 +157,27 @@ export class ApiClient {
       ),
     list: (artifactId: ArtifactId | string) =>
       this.request(RevisionListResponse, this.apiBaseUrl, `/v1/artifacts/${encodeURIComponent(artifactId)}/revisions`),
+  };
+
+  artifacts = {
+    // Resolve a base revision's identity (revision_id, entrypoint, title, file tree)
+    // from the Agent View — the read half of a patch revise (ADR 0091).
+    getAgentView: (artifactId: ArtifactId | string) =>
+      this.request(AgentView, this.apiBaseUrl, `/v1/artifacts/${encodeURIComponent(artifactId)}/agent-view`),
+    // Read one stored file's decrypted plaintext + sha256 so the caller can diff
+    // against it for a patch revise (ADR 0090). revisionId pins the read
+    // to a specific Revision; omit for the latest.
+    readFile: (artifactId: ArtifactId | string, path: string, revisionId?: RevisionId | string) => {
+      const query = new URLSearchParams({ path });
+      if (revisionId) {
+        query.set("revision_id", String(revisionId));
+      }
+      return this.request(
+        ArtifactFileContent,
+        this.apiBaseUrl,
+        `/v1/artifacts/${encodeURIComponent(artifactId)}/file-content?${query.toString()}`,
+      );
+    },
   };
 
   ephemeral = {
@@ -388,3 +436,12 @@ export type EphemeralProvisionOptions = {
 export function createIdempotencyKey(prefix = "cli"): IdempotencyKey {
   return `${prefix}_${crypto.randomUUID()}` as IdempotencyKey;
 }
+
+export {
+  type PublishFile,
+  type PublishInput,
+  type PublishOutcome,
+  type PublishTransport,
+  runPublish,
+  type UploadStats,
+} from "./publish.js";

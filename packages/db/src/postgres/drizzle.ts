@@ -2,6 +2,7 @@ import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres, { type Sql } from "postgres";
 import * as schema from "../schema.js";
 import type { HyperdriveBinding, SqlExecutor, SqlValue } from "../types.js";
+import { withConnectRetry, withTransactionConnectRetry } from "./connect-retry.js";
 
 export type DrizzleDb = PostgresJsDatabase<typeof schema>;
 
@@ -35,7 +36,7 @@ export function createHyperdriveConnection(binding: HyperdriveBinding | string):
 }
 
 export function createDrizzleConnection(client: Sql): DrizzleConnection {
-  return wrap(client, drizzle(client, { schema }));
+  return wrap(client, drizzle(client, { schema }), true);
 }
 
 type UnsafeClient = {
@@ -45,17 +46,25 @@ type UnsafeClient = {
 // drizzle(client, …) reads client.options.parsers; postgres-js TransactionSql does not
 // expose that. Route nested transactions through drizzle.transaction() so the tx-bound
 // DrizzleDb + its session.client are produced by drizzle itself.
-function wrap(client: UnsafeClient, drizzleDb: DrizzleDb): DrizzleConnection {
+function wrap(client: UnsafeClient, drizzleDb: DrizzleDb, retry: boolean): DrizzleConnection {
+  // A single query is safe to retry on any connect-class failure; a transaction
+  // only on an establishment failure (see connect-retry.ts). The tx-bound wrapper
+  // (retry: false) never retries: its connection is already open.
+  const identity = <T>(run: () => Promise<T>) => run();
+  const queryGuard = retry ? withConnectRetry : identity;
+  const txGuard = retry ? withTransactionConnectRetry : identity;
   const sql: SqlExecutor = {
     async query<Row = Record<string, unknown>>(query: string, params: readonly SqlValue[] = []) {
-      const rows = (await client.unsafe(query, params as readonly unknown[])) as unknown;
+      const rows = (await queryGuard(() => client.unsafe(query, params as readonly unknown[]))) as unknown;
       return { rows: rows as Row[] };
     },
     async transaction<T>(run: (tx: SqlExecutor) => Promise<T>) {
-      return drizzleDb.transaction(async (txDb) => {
-        const txClient = (txDb as unknown as { session: { client: UnsafeClient } }).session.client;
-        return run(wrap(txClient, txDb as unknown as DrizzleDb).sql);
-      }) as Promise<T>;
+      return txGuard(() =>
+        drizzleDb.transaction(async (txDb) => {
+          const txClient = (txDb as unknown as { session: { client: UnsafeClient } }).session.client;
+          return run(wrap(txClient, txDb as unknown as DrizzleDb, false).sql);
+        }),
+      ) as Promise<T>;
     },
   };
   drizzleByExecutor.set(sql, drizzleDb);
@@ -65,10 +74,12 @@ function wrap(client: UnsafeClient, drizzleDb: DrizzleDb): DrizzleConnection {
     // DrizzleConnection.transaction hands callers the full wrapped connection (sql + drizzle)
     // so they can run typed queries; SqlExecutor.transaction sticks to the SqlExecutor contract.
     async transaction<T>(run: (tx: DrizzleConnection) => Promise<T>) {
-      return drizzleDb.transaction(async (txDb) => {
-        const txClient = (txDb as unknown as { session: { client: UnsafeClient } }).session.client;
-        return run(wrap(txClient, txDb as unknown as DrizzleDb));
-      }) as Promise<T>;
+      return txGuard(() =>
+        drizzleDb.transaction(async (txDb) => {
+          const txClient = (txDb as unknown as { session: { client: UnsafeClient } }).session.client;
+          return run(wrap(txClient, txDb as unknown as DrizzleDb, false));
+        }),
+      ) as Promise<T>;
     },
   };
 }

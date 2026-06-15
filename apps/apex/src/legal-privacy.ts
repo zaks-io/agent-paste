@@ -6,7 +6,7 @@ export const PRIVACY: LegalDocument = {
   eyebrow: "Privacy and data protection",
   description: "How agent-paste collects, uses, stores, protects, and shares service data.",
   lead: "This policy explains what information Zaks.io, LLC processes when providing the agent-paste hosted service, why we process it, how we protect it, and the choices you have.",
-  effectiveDate: "June 4, 2026",
+  effectiveDate: "June 14, 2026",
   sections: [
     {
       id: "information-we-collect",
@@ -118,7 +118,11 @@ export const PRIVACY: LegalDocument = {
       blocks: [
         {
           kind: "paragraph",
-          text: "The apex marketing pages are designed not to set cookies. The dashboard uses session cookies and related authentication data to keep you signed in and protect the login flow. Browser or provider security controls may also set technical cookies needed for authentication or abuse prevention.",
+          text: "The service uses first-party functional cookies for authentication, login protection, theme preference, and privacy choices. The shared theme and optional analytics preference cookies may be set from either the apex marketing site or dashboard so your choices carry across agent-paste.sh and app.agent-paste.sh.",
+        },
+        {
+          kind: "paragraph",
+          text: "Cloudflare Web Analytics is optional and cookieless. We skip that beacon when your browser sends Sec-GPC: 1, when it sends DNT: 1, or when this browser has the optional analytics preference set to off. These choices do not disable authentication, security, billing, audit, abuse-prevention, error-monitoring, or Artifact publish/read telemetry needed to operate the service.",
         },
       ],
     },
@@ -128,7 +132,7 @@ export const PRIVACY: LegalDocument = {
       blocks: [
         {
           kind: "paragraph",
-          text: "You can manage credentials, Access Links, Workspace settings, and Artifact lifecycle settings in the dashboard where those features are available. You can also delete content or revoke links when you no longer want them accessible.",
+          text: "You can manage credentials, Access Links, Workspace settings, Artifact lifecycle settings, and optional web analytics in the dashboard where those features are available. You can also delete content or revoke links when you no longer want them accessible.",
         },
         {
           kind: "paragraph",

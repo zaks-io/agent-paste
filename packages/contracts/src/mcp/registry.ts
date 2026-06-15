@@ -25,64 +25,29 @@ const publishChainBaseForwardedCalls = [
   },
 ] as const satisfies readonly McpForwardedCall[];
 
-const publishArtifactForwardedCalls = [
-  ...publishChainBaseForwardedCalls,
-  {
-    routeId: "accessLinks.create",
-    auth: "mcp_bearer",
-    idempotencyKey: "derived_share_link",
-    optional: true,
-  },
-  {
-    routeId: "accessLinks.mint",
-    auth: "mcp_bearer",
-    optional: true,
-  },
-] as const satisfies readonly McpForwardedCall[];
-
-const addRevisionForwardedCalls = [
-  ...publishChainBaseForwardedCalls,
-  {
-    routeId: "accessLinks.list",
-    auth: "mcp_bearer",
-    optional: true,
-  },
-  {
-    routeId: "accessLinks.create",
-    auth: "mcp_bearer",
-    idempotencyKey: "derived_share_link",
-    optional: true,
-  },
-  {
-    routeId: "accessLinks.mint",
-    auth: "mcp_bearer",
-    optional: true,
-  },
-] as const satisfies readonly McpForwardedCall[];
-
 export const mcpToolContracts = [
   {
     name: "publish_artifact",
     description:
-      "Publish a new text-only Artifact. Do not create a Share Link by default. The output intentionally omits Artifact IDs, Revision IDs, artifact_url, revision_content_url, and agent_view_url; use explicit read/list/link tools when those are needed. Set share:true only when the user explicitly asks for a public/shareable Access Link; then return access_link_url.",
+      "Publish a NEW text-only Artifact: creates a new Artifact with its own private_url, a login-walled browser viewer you hand to the user. Publish is content-only and PRIVATE — there is no share param. Use this only for something not yet published. To CHANGE something you already published, do NOT call this again — call add_revision with the existing artifact_id instead, so the user's open private_url live-updates in place. Re-publishing an edit here mints a different Artifact on a different link and strands the page the user already has open. To make an Artifact reachable without login, call make_public, which returns a separate public link. Keep the artifact_id from the response so you can revise later; IDs and content URLs are also available via the read/list/link tools.",
     auth: "mcp_oauth",
-    requiredScopes: ["write", "read"],
+    requiredScopes: ["publish", "read"],
     idempotency: "optional_override",
     inputSchema: "publish_artifact",
     outputSchema: "publish_artifact",
-    forwardedCalls: publishArtifactForwardedCalls,
+    forwardedCalls: publishChainBaseForwardedCalls,
     errors: publishChainErrors,
   },
   {
     name: "add_revision",
     description:
-      "Add and publish a text-only Revision. Do not create or reuse Share Links by default. The output intentionally omits Artifact IDs, Revision IDs, artifact_url, revision_content_url, and agent_view_url; use explicit read/list/link tools when those are needed. Set share:true only when the user explicitly asks for a public/shareable Access Link; then reuse an active Share Link when possible or create one and return access_link_url.",
+      "Edit/update an EXISTING Artifact: adds and publishes a new Revision under the artifact_id you pass. This is how you change something already published. The Artifact's private_url is STABLE and already-open viewers LIVE-UPDATE to this new Revision — there is no new link to send. Content-only and PRIVATE: there is no share param. Use this, NOT publish_artifact, whenever the user wants to revise, fix, or extend work you already published; calling publish_artifact instead would create a separate Artifact on a new link and strand the page the user already has open. Get the artifact_id from the publish_artifact response or list_artifacts. To make an Artifact reachable without login, call make_public. IDs and content URLs are also available via the read/list/link tools.",
     auth: "mcp_oauth",
-    requiredScopes: ["write", "read"],
+    requiredScopes: ["publish", "read"],
     idempotency: "optional_override",
     inputSchema: "add_revision",
     outputSchema: "add_revision",
-    forwardedCalls: addRevisionForwardedCalls,
+    forwardedCalls: publishChainBaseForwardedCalls,
     errors: publishChainErrors,
   },
   {
@@ -118,6 +83,27 @@ export const mcpToolContracts = [
     errors: readErrors,
   },
   {
+    name: "read_file",
+    description:
+      "Read one file's stored content from an Artifact so you can edit it and revise. Returns the decoded text body plus its sha256 for text files up to 10 MiB; for binary or larger files it returns sha256/size/is_binary with no body (fetch those via the file url or re-upload whole). Use the returned body as the base when producing an edited Revision; the sha256 is the exact base the server validates a diff against.",
+    auth: "mcp_oauth",
+    requiredScopes: ["read"],
+    idempotency: "none",
+    inputSchema: "read_file",
+    outputSchema: "read_file",
+    forwardedCalls: [
+      {
+        routeId: "artifacts.fileContent",
+        auth: "mcp_bearer",
+      },
+    ],
+    // read group + storage_unavailable: reading a file decrypts a blob, which the
+    // base read tools never do, so this tool can surface a transient blob-read
+    // failure the others cannot. Declared so the MCP forward maps it to 503
+    // instead of the 500 fallback.
+    errors: [...readErrors, "storage_unavailable"] as const,
+  },
+  {
     name: "list_revisions",
     description: "List revisions for an artifact.",
     auth: "mcp_oauth",
@@ -137,7 +123,7 @@ export const mcpToolContracts = [
     name: "delete_artifact",
     description: "Delete an artifact.",
     auth: "mcp_oauth",
-    requiredScopes: ["write"],
+    requiredScopes: ["publish"],
     idempotency: "none",
     inputSchema: "delete_artifact",
     outputSchema: "delete_artifact",
@@ -153,7 +139,7 @@ export const mcpToolContracts = [
     name: "update_display_metadata",
     description: "Update artifact display title (description updates are not supported in this phase).",
     auth: "mcp_oauth",
-    requiredScopes: ["write"],
+    requiredScopes: ["publish"],
     idempotency: "none",
     inputSchema: "update_display_metadata",
     outputSchema: "update_display_metadata",
@@ -166,14 +152,14 @@ export const mcpToolContracts = [
     errors: ["forbidden", "invalid_request", "not_found", "artifact_not_found", "database_unavailable"] as const,
   },
   {
-    name: "create_share_link",
+    name: "make_public",
     description:
-      "Create a Share Link and mint its Access Link Signed URL. This is the link to give users when they ask for the live page; it follows the latest Published Revision.",
+      "Make an Artifact public: create (or reuse) its revocable Share Link and return the public no-login URL. This is the only way an Artifact becomes reachable without login. Revoke it with revoke_access_link.",
     auth: "mcp_oauth",
-    requiredScopes: ["read", "share"],
+    requiredScopes: ["publish", "read"],
     idempotency: "derived",
-    inputSchema: "create_share_link",
-    outputSchema: "create_share_link",
+    inputSchema: "make_public",
+    outputSchema: "make_public",
     forwardedCalls: [
       {
         routeId: "accessLinks.create",
@@ -192,7 +178,7 @@ export const mcpToolContracts = [
     description:
       "Create and mint a snapshot Access Link for one specific Revision. Use only when the user explicitly asks for a fixed Revision, not for the live page.",
     auth: "mcp_oauth",
-    requiredScopes: ["read", "share"],
+    requiredScopes: ["publish", "read"],
     idempotency: "derived",
     inputSchema: "create_revision_link",
     outputSchema: "create_revision_link",
@@ -213,7 +199,7 @@ export const mcpToolContracts = [
     name: "list_access_links",
     description: "List Share Links and Revision Links for an artifact.",
     auth: "mcp_oauth",
-    requiredScopes: ["read", "share"],
+    requiredScopes: ["publish", "read"],
     idempotency: "none",
     inputSchema: "list_access_links",
     outputSchema: "list_access_links",
@@ -229,7 +215,7 @@ export const mcpToolContracts = [
     name: "revoke_access_link",
     description: "Revoke a Share Link or Revision Link.",
     auth: "mcp_oauth",
-    requiredScopes: ["share"],
+    requiredScopes: ["publish"],
     idempotency: "none",
     inputSchema: "revoke_access_link",
     outputSchema: "revoke_access_link",

@@ -32,3 +32,8 @@ export function getRequestId(): string {
   if (existing && existing.length > 0) return existing;
   return crypto.randomUUID();
 }
+
+export function getRequestHeaderValue(name: string): string | undefined {
+  const value = getRequestHeader(name);
+  return value && value.length > 0 ? value : undefined;
+}

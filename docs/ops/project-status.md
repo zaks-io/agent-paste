@@ -152,6 +152,10 @@ the [changelog](./status/changelog.md).
 
 Feature-specific ledgers:
 
+- [Agent experience todo](./agent-experience-todo.md) - cold happy-path
+  walkthrough findings; **P0: `list_artifacts` 500s on workspaces with a draft
+  artifact** (null `revision_id` vs non-nullable contract), plus publish-returns-no-URL
+  ambiguity.
 - [Web app todo](./web-app-todo.md) - Phase 3 web/dashboard close-out.
 - [Web CSP todo](./web-csp-todo.md) - dashboard + apex CSP hardening (script-src is
   nonce-based, browser-verified on preview; one item open: drop style `'unsafe-inline'`).
@@ -201,12 +205,22 @@ Highest-signal gaps:
 - Live Updates deferred polish (AP-166): Access Link Lockdown live disconnect
   hook, operator-tunable viewer cap. The feature itself is shipped (AP-25 +
   AP-164).
-- Hosted agent publish handoff shipped in AP-299/PR #475 and was tightened on
-  2026-06-11: publish results distinguish `artifact_url` (authenticated app
-  viewer/navigation) from `revision_content_url` (one-Revision content URL).
-  MCP publish/add-revision no longer create or reuse Share Links by default;
-  callers must set `share: true` or use link-management tools when the user
-  explicitly asks for a public/shareable `access_link_url`.
+- Hosted agent publish handoff shipped in AP-299/PR #475. Per ADR 0086, publish
+  is now **content-only and private**: `publish_artifact`, `add_revision`, and
+  `agent-paste publish` take no visibility input and return one link,
+  `private_url` — the login-walled `/v/<artifactId>` clean viewer (the server
+  `PublishResult` renamed `artifact_url`→`private_url` and dropped
+  `access_link_url`/`shared`). Unlisted no-login sharing is the separate
+  explicit verb `make_public` (MCP) / `agent-paste make-public` (CLI), renamed
+  from `create_share_link`, which mints or reuses the one revocable Share Link
+  and returns its no-login Access Link Signed URL. ADR 0085 (one switching
+  `viewer_url` + `shared`) is superseded.
+- True Public Artifacts are planned, not shipped. ADR 0087 / AP-330 reserves
+  **Public Artifact** for the future CDN-backed distribution model with a stable
+  ID-only `/p/{publicId}` URL, frozen Public Version, soft Public Offline control,
+  and hard Platform Lockdown path. Until that implementation lands, shipped
+  unauthenticated latest-moving handoff remains the explicit Share Link created by
+  `make_public` / `agent-paste make-public`.
 - File-bytes hash-reputation malware scanner: cancelled/removed. Llama Guard
   and Cloudflare URL Scanner still support the ephemeral advisory/abuse path
   when configured, alongside built-in warning metadata. Containment is the trust

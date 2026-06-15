@@ -15,10 +15,17 @@ export const SHARING_DOC: DocsPage = {
           columns: ["Link", "Use"],
           rows: [
             ["Access Link", "Revocable grant family for unauthenticated read access."],
-            ["Share Link", "Access Link type that follows the latest Published Revision."],
+            [
+              "Share Link",
+              "Access Link type that follows the latest Published Revision; created only by the make-public step.",
+            ],
             ["Revision Link", "Snapshot Access Link pinned to one specific Revision."],
-            ["Artifact URL", "Authenticated Artifact detail URL for Workspace management."],
-            ["Access Link Signed URL", "URL minted from an Access Link. Return one only after explicit sharing."],
+            [
+              "Private Link",
+              "Login-walled clean viewer (`/v/<artifactId>`) for a Workspace Member; the `private_url` publish returns.",
+            ],
+            ["Artifact Console", "Dashboard-only management page (`/artifacts/<id>`); never returned by publish."],
+            ["Access Link Signed URL", "URL minted from an Access Link. Returned by make-public for a Share Link."],
             [
               "Revision Content URL",
               "Direct signed `usercontent.agent-paste.sh/v/...` byte URL for one specific Revision; direct HTML there is inert.",
@@ -56,7 +63,7 @@ export const SHARING_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "MCP can create Share Links and Revision Links, list links, and revoke links for authenticated members. CLI publish can create a Share Link only when called with `--share`; ongoing link listing and revocation stay in the dashboard or MCP.",
+          text: "MCP can create Share Links (via `make_public`) and Revision Links, list links, and revoke links for authenticated members. On the CLI, `agent-paste make-public <artifact-id>` creates the Share Link; publish itself is content-only and never creates one. Ongoing link listing and revocation stay in the dashboard or MCP.",
         },
         {
           kind: "note",
@@ -73,7 +80,7 @@ export const SHARING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "A Workspace Member opens the authenticated Artifact URL by default. When a user explicitly asks for a public/shareable page, use CLI `--share` or MCP `share:true`/`create_share_link`, then return `access_link_url`. Use Agent View when an agent needs file trees, metadata, or signed per-file URLs.",
+          text: "A Workspace Member opens the `private_url` clean viewer (`/v/<artifactId>`) by default. When a user explicitly asks for a public/shareable page, run the separate make-public step — `agent-paste make-public <artifact-id>` on the CLI, or the `make_public` MCP tool (returns it as `url`) — to mint or reuse the public Share Link. Use Agent View when an agent needs file trees, metadata, or signed per-file URLs.",
         },
       ],
     },

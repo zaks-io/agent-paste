@@ -11,8 +11,15 @@
 // Cross-surface theme persistence (shared cookie on .agent-paste.sh). Re-exported
 // from brand so apps depend only on @agent-paste/ui for the design system.
 export {
+  buildOptionalAnalyticsCookie,
   buildThemeCookie,
+  hasBrowserPrivacySignal,
+  OPTIONAL_ANALYTICS_COOKIE,
+  type OptionalAnalyticsPreference,
+  optionalAnalyticsCookieDomain,
+  readOptionalAnalyticsCookie,
   readThemeCookie,
+  shouldDisableOptionalAnalytics,
   THEME_COOKIE,
   type ThemePreference,
   themeCookieDomain,

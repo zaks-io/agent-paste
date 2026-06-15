@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
   },
   apiFetchOrEmpty: vi.fn(),
   turnstileSiteKey: vi.fn(() => "turnstile-site-key"),
+  requestHeaders: {} as Record<string, string | undefined>,
 }));
 
 vi.mock("@tanstack/react-start", () => ({
@@ -43,6 +44,7 @@ vi.mock("../src/server/runtime", () => ({
     AGENT_PASTE_ENV: "dev",
     CF_WEB_ANALYTICS_TOKEN: "analytics-token",
   }),
+  getRequestHeaderValue: (name: string) => state.requestHeaders[name.toLowerCase()],
 }));
 
 vi.mock("../src/server/turnstile", () => ({
@@ -75,6 +77,7 @@ describe("web server loaders", () => {
     state.apiFetchOrEmpty.mockReset();
     state.apiFetchOrEmpty.mockResolvedValue({ data: { ok: true }, empty: false, error: null });
     state.turnstileSiteKey.mockReturnValue("turnstile-site-key");
+    state.requestHeaders = {};
   });
 
   it("exposes root env and auth without calling the API", async () => {
@@ -82,11 +85,22 @@ describe("web server loaders", () => {
       webBaseUrl: "https://app.test",
       sentry: { dsn: "https://sentry.test/dsn", environment: "dev" },
       analyticsToken: "analytics-token",
+      optionalAnalyticsDisabled: false,
     });
     await expect(loadRootAuth()).resolves.toEqual({
       signedIn: true,
       signInHref: "https://app.test/api/auth/sign-in",
     });
+  });
+
+  it("suppresses root analytics when GPC, DNT, or the site preference opts out", () => {
+    for (const headers of [{ "sec-gpc": "1" }, { dnt: "1" }, { cookie: "agp_analytics=off" }]) {
+      state.requestHeaders = headers;
+      expect(loadRootEnv()).toMatchObject({
+        analyticsToken: undefined,
+        optionalAnalyticsDisabled: true,
+      });
+    }
   });
 
   it("resolves authed identity from the token without an API call", () => {

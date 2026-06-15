@@ -61,6 +61,7 @@ export {
 } from "./postgres/executor.js";
 export { reparentBlobMigratorFromEnv } from "./postgres/reparent-blob-migrator.js";
 export { PostgresRepository } from "./postgres/repository.js";
+export { revisionReconstructorFromEnv } from "./postgres/revision-reconstructor.js";
 export { type RlsScope, rlsExecutor } from "./postgres/rls.js";
 export { createPostgresServices } from "./postgres/services.js";
 export {
@@ -106,6 +107,10 @@ export type {
   PlatformActor,
   ReparentBlobMigrator,
   RepositoryOptions,
+  RevisionReconstructionConflictReason,
+  RevisionReconstructionRequest,
+  RevisionReconstructionResult,
+  RevisionReconstructor,
   SafetyWarning,
   SafetyWarningScope,
   SafetyWarningSeverity,
@@ -123,6 +128,7 @@ export type {
   WorkspaceMemberActor,
   WorkspacePlan,
 } from "./types.js";
+export { RevisionReconstructionConflict } from "./types.js";
 export {
   buildCreateUploadSessionWireResponse,
   type ObjectStoragePort,

@@ -45,22 +45,21 @@ export const MCP_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "WorkOS AuthKit tokens carry standard OAuth scopes. agent-paste derives MCP capabilities from the authenticated Workspace Member in `api`: `read`, `write`, and `share`.",
+          text: "WorkOS AuthKit tokens carry standard OAuth scopes. agent-paste derives capabilities from the authenticated Workspace Member in `api`, using one shared scope vocabulary: `read` and `publish` (`admin` is dashboard-only and no MCP tool needs it).",
         },
         {
           kind: "table",
-          columns: ["MCP scope", "Backed by", "Typical tools"],
+          columns: ["Scope", "Grants", "Tools"],
           rows: [
-            ["`read`", "member `read`", "`whoami`, `list_artifacts`, `read_artifact`, `list_revisions`"],
             [
-              "`write`",
-              "member `publish`",
-              "`publish_artifact`, `add_revision`, `delete_artifact`, `update_display_metadata`",
+              "`read`",
+              "View your own Artifacts and links",
+              "`whoami`, `list_artifacts`, `read_artifact`, `list_revisions`, `list_access_links`",
             ],
             [
-              "`share`",
-              "member `admin`",
-              "`create_share_link`, `create_revision_link`, `list_access_links`, `revoke_access_link`",
+              "`publish`",
+              "Change your own content and manage its public access",
+              "`publish_artifact`, `add_revision`, `delete_artifact`, `update_display_metadata`, `make_public`, `create_revision_link`, `revoke_access_link`",
             ],
           ],
         },
@@ -75,17 +74,23 @@ export const MCP_DOC: DocsPage = {
           columns: ["Tool", "Purpose"],
           rows: [
             ["`whoami`", "Return authenticated member, Workspace, and derived scopes."],
-            ["`publish_artifact`", "Publish a new text-only Artifact without creating a public link by default."],
+            [
+              "`publish_artifact`",
+              "Publish a NEW text-only Artifact (new private_url). Content-only and private. To change published work, use add_revision instead.",
+            ],
             [
               "`add_revision`",
-              "Add and publish a new text-only Revision without creating or reusing a Share Link by default.",
+              "Revise an EXISTING Artifact: pass its artifact_id to publish a new Revision. Same stable private_url; live-updates open viewers. Use this to change published work, not publish_artifact.",
             ],
             ["`list_artifacts`", "List Artifacts in the Workspace."],
             ["`read_artifact`", "Read latest Agent View for an Artifact."],
             ["`list_revisions`", "List Revisions for an Artifact."],
             ["`delete_artifact`", "Delete an Artifact."],
             ["`update_display_metadata`", "Update an Artifact display title."],
-            ["`create_share_link`", "Create a Share Link and mint its Access Link Signed URL."],
+            [
+              "`make_public`",
+              "Mint or reuse the Artifact's one Share Link and return its public, no-login Access Link Signed URL.",
+            ],
             ["`create_revision_link`", "Create and mint a snapshot Access Link for a specific Revision."],
             ["`list_access_links`", "List Share Links and Revision Links for an Artifact."],
             ["`revoke_access_link`", "Revoke a Share Link or Revision Link."],
@@ -103,7 +108,7 @@ export const MCP_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "`publish_artifact` and `add_revision` default `share` to `false` and do not create or reuse Share Links by default. Set `share: true` only when the user explicitly asks for a public/shareable Access Link; then `publish_artifact` creates a Share Link and `add_revision` reuses an active Share Link when possible, creating one only when needed, and returns `access_link_url`. MCP publish output intentionally omits Artifact IDs, Revision IDs, `artifact_url`, `revision_content_url`, and `agent_view_url`; use explicit read/list/link tools when those fields are needed. The tools also accept optional idempotency keys. When omitted, the server derives stable keys from the OAuth subject, JSON-RPC id, and tool name.",
+          text: "`publish_artifact` and `add_revision` are content-only and private: they take no visibility input and return a single `private_url` (the login-walled `/v/<artifactId>` clean viewer for the Workspace Member), with no `shared` field. To make an Artifact public, call `make_public`; it mints or reuses the one Share Link that follows the latest Revision and returns its public, no-login Access Link Signed URL. To change a published Artifact, call `add_revision` with its `artifact_id` rather than `publish_artifact`: the `private_url` is stable and already-open viewers live-update to the new Revision, whereas a second `publish_artifact` mints a separate Artifact on a new link. Artifact IDs, Revision IDs, and content URLs are available through the read/list/link tools. The tools also accept optional idempotency keys; when omitted, the server derives stable keys from the OAuth subject, JSON-RPC id, and tool name.",
         },
         {
           kind: "paragraph",

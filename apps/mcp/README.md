@@ -40,29 +40,31 @@ Twelve tools, gated by MCP capabilities (`read`, `write`, `share`) derived by
 standard OAuth scopes; they do not directly grant these capabilities. Canonical
 contract: [`packages/contracts/src/mcp/registry.ts`](../../packages/contracts/src/mcp/registry.ts).
 
-| Tool                      | Scopes        | Purpose                                                                |
-| ------------------------- | ------------- | ---------------------------------------------------------------------- |
-| `whoami`                  | (none)        | Authenticated member, workspace, and derived scopes.                   |
-| `list_artifacts`          | `read`        | List Artifacts in the workspace.                                       |
-| `read_artifact`           | `read`        | Latest Agent View for an Artifact.                                     |
-| `list_revisions`          | `read`        | List Revisions for an Artifact.                                        |
-| `publish_artifact`        | `write, read` | Publish a new text Artifact without creating a public link by default. |
-| `add_revision`            | `write, read` | Add and publish a Revision without creating a public link by default.  |
-| `delete_artifact`         | `write`       | Delete an Artifact.                                                    |
-| `update_display_metadata` | `write`       | Update an Artifact's display title.                                    |
-| `create_share_link`       | `read, share` | Create a Share Link and mint its Access Link Signed URL.               |
-| `create_revision_link`    | `read, share` | Create and mint a snapshot Access Link for a specific Revision.        |
-| `list_access_links`       | `read, share` | List an Artifact's Share Links and Revision Links.                     |
-| `revoke_access_link`      | `share`       | Revoke a Share Link or Revision Link.                                  |
+| Tool                      | Scopes        | Purpose                                                                                         |
+| ------------------------- | ------------- | ----------------------------------------------------------------------------------------------- |
+| `whoami`                  | (none)        | Authenticated member, workspace, and derived scopes.                                            |
+| `list_artifacts`          | `read`        | List Artifacts in the workspace.                                                                |
+| `read_artifact`           | `read`        | Latest Agent View for an Artifact.                                                              |
+| `list_revisions`          | `read`        | List Revisions for an Artifact.                                                                 |
+| `publish_artifact`        | `write, read` | Publish a new text Artifact. Content-only and private.                                          |
+| `add_revision`            | `write, read` | Add and publish a Revision. Content-only and private.                                           |
+| `delete_artifact`         | `write`       | Delete an Artifact.                                                                             |
+| `update_display_metadata` | `write`       | Update an Artifact's display title.                                                             |
+| `make_public`             | `read, share` | Mint or reuse the Artifact's Share Link and return its public, no-login Access Link Signed URL. |
+| `create_revision_link`    | `read, share` | Create and mint a snapshot Access Link for a specific Revision.                                 |
+| `list_access_links`       | `read, share` | List an Artifact's Share Links and Revision Links.                                              |
+| `revoke_access_link`      | `share`       | Revoke a Share Link or Revision Link.                                                           |
 
-`publish_artifact` and `add_revision` default `share` to `false`.
-They do not create or reuse Share Links unless the user explicitly asks for a
-public/shareable Access Link. When `share: true`, return `access_link_url`; it is
-the Access Link Signed URL minted from the Share Link. The publish output
-intentionally omits Artifact IDs, Revision IDs,
-`artifact_url`, `revision_content_url`, and `agent_view_url`; use
-`list_artifacts`, `read_artifact`, `list_revisions`, or explicit link tools when
-those fields are needed.
+`publish_artifact` and `add_revision` are **content-only and private**: they take
+no visibility input and return one link, `private_url` — the login-walled clean
+viewer at `/v/<artifactId>` for the owning Workspace Member. There is no `share`
+input and no `shared` output, and the result carries no `access_link_url`. To
+make an Artifact public, call `make_public` as a separate step; it mints or
+reuses the one Share Link and returns its no-login Access Link Signed URL. The
+publish output intentionally omits Artifact IDs, Revision IDs,
+`revision_content_url`, and `agent_view_url`; use `list_artifacts`,
+`read_artifact`, `list_revisions`, or explicit link tools when those fields are
+needed.
 
 ## Local verification
 

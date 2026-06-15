@@ -8,6 +8,10 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./dist/src/index.js"
+    },
+    "./publish": {
+      "types": "./src/publish.ts",
+      "import": "./dist/src/publish.js"
     }
   },
   "scripts": {

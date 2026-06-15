@@ -1,13 +1,33 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import type { routeContracts } from "@agent-paste/contracts";
 import { FinalizeUploadSessionResponse } from "@agent-paste/contracts";
-import { observeUploadSessionForFinalize, type Repository, repositoryErrorToAppError } from "@agent-paste/db";
+import {
+  isRepositoryError,
+  observeUploadSessionForFinalize,
+  type Repository,
+  RepositoryErrorCode,
+  repositoryErrorToAppError,
+} from "@agent-paste/db";
 import { type GuardState, getBoundResponders, type Principal } from "@agent-paste/worker-runtime";
 import type { AppContext } from "./env.js";
 import { uploadSessionActor } from "./upload-actor.js";
 
 type RouteId = (typeof routeContracts)[number]["id"];
 type GuardFor<Id extends RouteId> = GuardState<Extract<(typeof routeContracts)[number], { id: Id }>>;
+
+// A cached partial-manifest base can become unusable between publish and finalize
+// (a concurrent revise, a retained/GC'd base Revision, a non-blob inherited file).
+// These all collapse to the wire code `invalid_request`, so we surface the precise
+// repository kind as the error detail; the CLI keys on it to drop its manifest cache
+// and re-publish the whole tree (ADR 0090). Without this, the agent's self-heal is
+// indistinguishable from a genuinely malformed request and never fires.
+const BASE_UNUSABLE_KINDS = new Set<RepositoryErrorCode>([
+  RepositoryErrorCode.base_revision_not_found,
+  RepositoryErrorCode.base_revision_not_publishable,
+  RepositoryErrorCode.base_revision_artifact_mismatch,
+  RepositoryErrorCode.deleted_path_not_in_base,
+  RepositoryErrorCode.inherited_path_not_blob_backed,
+]);
 
 export async function finalizeUploadSession(
   context: AppContext,
@@ -53,10 +73,28 @@ export async function finalizeUploadSession(
     }
     const repositoryCode = repositoryErrorToAppError(error);
     if (repositoryCode) {
-      return getBoundResponders(context).respondError(repositoryCode);
+      return getBoundResponders(context).respondError(repositoryCode, finalizeErrorDetail(repositoryCode, error));
     }
     throw error;
   }
 
   return getBoundResponders(context).respondJson(FinalizeUploadSessionResponse.parse(result));
+}
+
+// The error detail attached to a finalize failure so the agent can act on it.
+// A patch conflict carries the path + failure reason on the error cause so the agent
+// learns which file to regenerate (its message is already `patch_conflict: <path>: <reason>`).
+// A base-unusable kind is surfaced by name so the CLI can self-heal (see BASE_UNUSABLE_KINDS).
+// Anything else falls through to the wire code's default message.
+function finalizeErrorDetail(repositoryCode: string, error: unknown): string | undefined {
+  if (!isRepositoryError(error)) {
+    return undefined;
+  }
+  if (repositoryCode === "patch_conflict" && error.cause instanceof Error) {
+    return error.cause.message;
+  }
+  if (BASE_UNUSABLE_KINDS.has(error.kind)) {
+    return error.kind;
+  }
+  return undefined;
 }

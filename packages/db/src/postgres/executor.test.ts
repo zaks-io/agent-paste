@@ -43,4 +43,48 @@ describe("createPostgresExecutor", () => {
     ]);
     expect(rootQueries).toEqual([]);
   });
+
+  // The cold-start connect retry lives on the top-level executor query path; a
+  // transient connect failure on the first call must not surface to the caller.
+  it("transparently retries a cold-start connect failure on the first query", async () => {
+    let attempts = 0;
+    const sql = {
+      options: { parsers: {}, serializers: {} },
+      async unsafe() {
+        attempts += 1;
+        if (attempts === 1) {
+          throw Object.assign(new Error("Timed out while creating a new server connection."), {
+            code: "CONNECT_TIMEOUT",
+          });
+        }
+        return [{ ok: true }];
+      },
+    };
+
+    const executor = createPostgresExecutor(sql as unknown as Sql);
+    const { rows } = await executor.query("select 1");
+
+    expect(rows).toEqual([{ ok: true }]);
+    expect(attempts).toBe(2);
+  });
+
+  // A transaction must not retry a mid-flight connection drop: the drop can fire
+  // after COMMIT, so re-running the callback could double-apply writes.
+  it("does not retry a transaction when the connection drops mid-flight", async () => {
+    let begins = 0;
+    const sql = {
+      options: { parsers: {}, serializers: {} },
+      async unsafe() {
+        return [];
+      },
+      async begin() {
+        begins += 1;
+        throw Object.assign(new Error("write CONNECTION_CLOSED 10.0.0.1:5432"), { code: "CONNECTION_CLOSED" });
+      },
+    };
+
+    const executor = createPostgresExecutor(sql as unknown as Sql);
+    await expect(executor.transaction(async () => "never")).rejects.toMatchObject({ code: "CONNECTION_CLOSED" });
+    expect(begins).toBe(1);
+  });
 });
