@@ -64,7 +64,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "`private_url` is login-walled app navigation. A plain `curl` may receive the web app shell with a sign-in redirect state and HTTP 200; that does not prove the Artifact is publicly readable. Verify public/no-login handoff with a Share Link from `make-public`, or verify machine access through `agent_view_url` and the signed per-file `files[].url` entries.",
+          text: "`private_url` is login-walled app navigation. A plain `curl` may receive the web app shell with a sign-in redirect state and HTTP 200; that does not prove the Artifact is publicly readable. Verify public/no-login handoff with a Share Link from `agent-paste set-visibility <artifact-id> unlisted`, or verify machine access through `agent_view_url` and the signed per-file `files[].url` entries.",
         },
         {
           kind: "paragraph",

@@ -148,6 +148,18 @@ the MCP host connection.
 - Artifact lifetime follows Workspace Auto Deletion policy. MCP callers do not
   choose TTL.
 
+## Removed tools (migration)
+
+`make_public` was removed without an alias or deprecation window. Update agent
+prompts, host tool allowlists, and automation to call `set_visibility` instead:
+
+- No-login Share Link: `{ "artifact_id": "...", "visibility": "unlisted" }` —
+  response field is `unlisted_url` (not `public_url`).
+- Revoke no-login access: `{ "artifact_id": "...", "visibility": "private" }`.
+
+The MCP registry no longer advertises `make_public`; there is no compatibility
+shim.
+
 ## Deeper References
 
 - [`apps/mcp/README.md`](../apps/mcp/README.md): Worker endpoints and implementation map.
