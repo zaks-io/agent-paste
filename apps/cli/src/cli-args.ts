@@ -113,7 +113,7 @@ export async function output(value: unknown, global: GlobalFlags, human = JSON.s
   if (global.json) {
     const payload =
       value && typeof value === "object" && !Array.isArray(value)
-        ? { schema_version: SCHEMA_VERSION, ...(value as Record<string, unknown>) }
+        ? { ...(value as Record<string, unknown>), schema_version: SCHEMA_VERSION }
         : { schema_version: SCHEMA_VERSION, value };
     await writeStdout(`${JSON.stringify(payload, null, 2)}\n`);
   } else if (!global.quiet) {

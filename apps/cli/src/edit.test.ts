@@ -48,23 +48,28 @@ describe("readEdits", () => {
   });
 
   it("rejects malformed JSON before any network call", async () => {
-    await expect(editsFromFile("not json")).rejects.toThrow(/JSON array/);
+    const error = await editsFromFile("not json").catch((e: unknown) => e);
+    expect(exitCodeFor(error)).toBe(EXIT_VALIDATION);
+    expect(formatError("json", error)).toContain("invalid_edit");
   });
 
   it("rejects an empty edits array", async () => {
-    await expect(editsFromFile("[]")).rejects.toThrow(/non-empty JSON array/);
+    const error = await editsFromFile("[]").catch((e: unknown) => e);
+    expect(exitCodeFor(error)).toBe(EXIT_VALIDATION);
+    expect(formatError("json", error)).toContain("invalid_edit");
   });
 
   it("rejects an empty old_string (fail-loud, never a whole-file replace)", async () => {
-    await expect(editsFromFile(JSON.stringify([{ old_string: "", new_string: "x" }]))).rejects.toThrow(
-      /non-empty JSON array/,
-    );
+    const error = await editsFromFile(JSON.stringify([{ old_string: "", new_string: "x" }])).catch((e: unknown) => e);
+    expect(exitCodeFor(error)).toBe(EXIT_VALIDATION);
+    expect(formatError("json", error)).toContain("invalid_edit");
+    expect((error as { editIndex?: number }).editIndex).toBe(0);
   });
 
   it("rejects an object payload that is not an array of edits", async () => {
-    await expect(editsFromFile(JSON.stringify({ old_string: "a", new_string: "b" }))).rejects.toThrow(
-      /non-empty JSON array/,
-    );
+    const error = await editsFromFile(JSON.stringify({ old_string: "a", new_string: "b" })).catch((e: unknown) => e);
+    expect(exitCodeFor(error)).toBe(EXIT_VALIDATION);
+    expect(formatError("json", error)).toContain("invalid_edit");
   });
 });
 

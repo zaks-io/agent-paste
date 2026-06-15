@@ -79,7 +79,11 @@ async function addRevisionWithNewEntrypoint(
     return addRevisionError(error);
   }
   const file = await textPublishInput(input, idempotencyKey, base.title);
-  return publishViaSharedModule(deps, { ...file, artifactId: input.artifact_id });
+  return publishViaSharedModule(deps, {
+    ...file,
+    artifactId: input.artifact_id,
+    baseRevisionId: base.revision_id,
+  });
 }
 
 /** Map an add_revision throw (forward, revise, or unexpected) to a tool error envelope. */

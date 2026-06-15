@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import { type ApiClient, createIdempotencyKey, runPublish as runSharedPublish } from "@agent-paste/api-client";
 import { ArtifactId, FilePath, McpEdit } from "@agent-paste/contracts";
-import { type Edit, reviseOnePath } from "@agent-paste/revise-core";
+import { type Edit, ReviseError, reviseOnePath } from "@agent-paste/revise-core";
 import { output, outputModeFor, type Parsed, requiredArg, shellQuote, stringFlag } from "./cli-args.js";
 import { formatEditNoop, formatPublishResult } from "./publish-format.js";
 import { apiClientTransport } from "./publish-transport.js";
@@ -65,11 +65,22 @@ export async function readEdits(parsed: Parsed): Promise<Edit[]> {
   try {
     json = JSON.parse(raw);
   } catch {
-    throw new Error("edit: --edits / stdin must be a JSON array of { old_string, new_string, replace_all? }");
+    throwEditContractError("edit: --edits / stdin must be a JSON array of { old_string, new_string, replace_all? }");
   }
   const validated = McpEdit.array().min(1).max(100).safeParse(json);
   if (!validated.success) {
-    throw new Error(
+    const emptyOldString = validated.error.issues.find(
+      (issue) =>
+        issue.code === "too_small" &&
+        issue.path.length >= 2 &&
+        issue.path[1] === "old_string" &&
+        typeof issue.path[0] === "number",
+    );
+    if (emptyOldString && typeof emptyOldString.path[0] === "number") {
+      const index = emptyOldString.path[0];
+      throwEditContractError(`edit ${index} empty_old_string`, index);
+    }
+    throwEditContractError(
       "edit: invalid edits — expected a non-empty JSON array of { old_string, new_string, replace_all? }",
     );
   }
@@ -78,6 +89,11 @@ export async function readEdits(parsed: Parsed): Promise<Edit[]> {
     newString: e.new_string,
     ...(e.replace_all === true ? { replaceAll: true } : {}),
   }));
+}
+
+/** Pre-network edit payload failures use ReviseError so render.ts buckets them as exit 4 / invalid_edit. */
+function throwEditContractError(message: string, editIndex?: number): never {
+  throw new ReviseError("empty_old_string", message, editIndex);
 }
 
 function readStdin(): Promise<string> {
