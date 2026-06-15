@@ -195,7 +195,8 @@ describe("MVP route registry", () => {
   });
 
   it("keeps Access Link management guarded by the right scopes", () => {
-    const scopesFor = (id: string) => routeContracts.find((route) => route.id === id)?.scopes;
+    const routeFor = (id: string) => routeContracts.find((route) => route.id === id);
+    const scopesFor = (id: string) => routeFor(id)?.scopes;
 
     expect(
       Object.fromEntries(
@@ -234,6 +235,19 @@ describe("MVP route registry", () => {
       "accessLinks.mint": ["publish"],
       "accessLinks.list": ["publish"],
       "accessLinks.revoke": ["publish"],
+    });
+    expect(
+      Object.fromEntries(
+        ["accessLinks.create", "accessLinks.mint", "accessLinks.list", "accessLinks.revoke"].map((id) => [
+          id,
+          routeFor(id)?.auth,
+        ]),
+      ),
+    ).toEqual({
+      "accessLinks.create": "api_key_or_mcp_oauth",
+      "accessLinks.mint": "api_key_or_mcp_oauth",
+      "accessLinks.list": "api_key_or_mcp_oauth",
+      "accessLinks.revoke": "api_key_or_mcp_oauth",
     });
   });
 

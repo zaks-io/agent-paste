@@ -8,6 +8,7 @@ const mcpJwksUrl = "https://tenant.authkit.app/oauth2/jwks";
 const mcpIssuer = "https://tenant.authkit.app";
 const workspaceId = "00000000-0000-4000-8000-000000000001";
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+const accessLinkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 let mcpKeyPairPromise: ReturnType<typeof generateKeyPair> | undefined;
 
 const memberActor = {
@@ -278,6 +279,95 @@ describe("API MCP route-boundary auth", () => {
 
       expect(response.status).toBe(403);
       await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
+    });
+  });
+
+  describe("api_key_or_mcp_oauth parity on access link routes", () => {
+    const createAccessLinkUrl = `https://api.test/v1/artifacts/${artifactId}/access-links`;
+    const mintAccessLinkUrl = `https://api.test/v1/access-links/${accessLinkId}/mint`;
+
+    function accessLinksDb(): NonNullable<Env["DB"]> {
+      return {
+        async getWhoami() {
+          throw new Error("getWhoami should not run in access link auth tests");
+        },
+        async createMemberAccessLink({ actor, artifactId: createdArtifactId, idempotencyKey, type }) {
+          expect(actor).toMatchObject({ type: "api_key", workspace_id: workspaceId });
+          expect(createdArtifactId).toBe(artifactId);
+          expect(idempotencyKey).toBe("idem-access-link-create");
+          expect(type).toBe("share");
+          return {
+            id: accessLinkId,
+            type: "share",
+            artifact_id: artifactId,
+            revision_id: null,
+            created_at: "2026-01-01T00:00:00.000Z",
+          };
+        },
+        async mintMemberAccessLink({ actor, accessLinkId: mintedAccessLinkId }) {
+          expect(actor).toMatchObject({ type: "api_key", workspace_id: workspaceId });
+          expect(mintedAccessLinkId).toBe(accessLinkId);
+          return { url: "https://app.agent-paste.sh/al/ABCDEFGHJKLMNP12#signed" };
+        },
+      } as NonNullable<Env["DB"]>;
+    }
+
+    function apiKeyEnv(scopes: readonly string[]): Env {
+      return {
+        ...allowRateLimits(),
+        ACCESS_LINK_SIGNING_KEY_V1: "access-link-secret",
+        AUTH: {
+          async verifyApiKey(token) {
+            return token === "ok" ? { type: "api_key", id: "key_1", workspace_id: workspaceId, scopes } : null;
+          },
+        },
+        DB: accessLinksDb(),
+      };
+    }
+
+    it("accepts API keys for the CLI make-public create and mint calls", async () => {
+      const env = apiKeyEnv(["publish", "read"]);
+      const createResponse = await handleRequest(
+        new Request(createAccessLinkUrl, {
+          method: "POST",
+          headers: {
+            authorization: "Bearer ok",
+            "content-type": "application/json",
+            "idempotency-key": "idem-access-link-create",
+          },
+          body: JSON.stringify({ type: "share" }),
+        }),
+        env,
+      );
+      expect(createResponse.status).toBe(201);
+      await expect(createResponse.json()).resolves.toMatchObject({ id: accessLinkId, type: "share" });
+
+      const mintResponse = await handleRequest(
+        new Request(mintAccessLinkUrl, { method: "POST", headers: { authorization: "Bearer ok" } }),
+        env,
+      );
+      expect(mintResponse.status).toBe(200);
+      await expect(mintResponse.json()).resolves.toMatchObject({
+        url: "https://app.agent-paste.sh/al/ABCDEFGHJKLMNP12#signed",
+      });
+    });
+
+    it("returns forbidden for API keys without publish scope on make-public calls", async () => {
+      const createResponse = await handleRequest(
+        new Request(createAccessLinkUrl, {
+          method: "POST",
+          headers: {
+            authorization: "Bearer ok",
+            "content-type": "application/json",
+            "idempotency-key": "idem-access-link-create",
+          },
+          body: JSON.stringify({ type: "share" }),
+        }),
+        apiKeyEnv(["read"]),
+      );
+
+      expect(createResponse.status).toBe(403);
+      await expect(createResponse.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
     });
   });
 });
