@@ -400,7 +400,31 @@ export function responseHeadersForPath(
   if (payload.noindex === true) {
     headers.set("x-robots-tag", NOINDEX_HEADER);
   }
+  applyOpaqueOriginCors(headers, request);
   return headers;
+}
+
+function applyOpaqueOriginCors(headers: Headers, request?: Request): void {
+  if (request?.headers.get("origin") !== "null") {
+    return;
+  }
+  headers.set("access-control-allow-origin", "null");
+  appendVary(headers, "Origin");
+}
+
+function appendVary(headers: Headers, value: string): void {
+  const current = headers.get("vary");
+  if (!current) {
+    headers.set("vary", value);
+    return;
+  }
+  if (current === "*") {
+    return;
+  }
+  const exists = current.split(",").some((item) => item.trim().toLowerCase() === value.toLowerCase());
+  if (!exists) {
+    headers.set("vary", `${current}, ${value}`);
+  }
 }
 
 export function isTrustedViewerFrameRequest(request: Request | undefined, frameAncestors: readonly string[]): boolean {

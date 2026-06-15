@@ -169,6 +169,33 @@ describe("serve-object response headers", () => {
     expect(headers.get("content-disposition")).toBe('attachment; filename="bundle.zip"');
   });
 
+  it("allows opaque-origin sandbox fetches without opening ordinary browser origins", () => {
+    const opaqueHeaders = responseHeadersForPath(
+      "data/latest.json",
+      4,
+      basePayload(),
+      ETAG,
+      [],
+      new Request("https://usercontent.agent-paste.sh/v/token/data/latest.json", {
+        headers: { origin: "null" },
+      }),
+    );
+    expect(opaqueHeaders.get("access-control-allow-origin")).toBe("null");
+    expect(opaqueHeaders.get("vary")).toBe("Origin");
+
+    const appOriginHeaders = responseHeadersForPath(
+      "data/latest.json",
+      4,
+      basePayload(),
+      ETAG,
+      [],
+      new Request("https://usercontent.agent-paste.sh/v/token/data/latest.json", {
+        headers: { origin: "https://app.agent-paste.sh" },
+      }),
+    );
+    expect(appOriginHeaders.get("access-control-allow-origin")).toBeNull();
+  });
+
   it("sets the etag on file and bundle responses", () => {
     expect(responseHeadersForPath("notes.txt", 4, basePayload(), ETAG).get("etag")).toBe(ETAG);
     expect(bundleResponseHeaders(100, false, ETAG).get("etag")).toBe(ETAG);
