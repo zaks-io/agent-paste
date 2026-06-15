@@ -78,6 +78,28 @@ describe("CreateUploadSessionRequest partial-manifest + patch", () => {
     expect(result.success).toBe(false);
   });
 
+  it("accepts a delete-only delta (empty files) against a base revision", () => {
+    const parsed = CreateUploadSessionRequest.parse(
+      baseRequest({
+        base_revision_id: baseRevisionId,
+        deleted_paths: ["old/page.html"],
+        files: [],
+      }),
+    );
+    expect(parsed.files).toEqual([]);
+    expect(parsed.deleted_paths).toEqual(["old/page.html"]);
+  });
+
+  it("rejects a base delta with no changed files and no deletions", () => {
+    const result = CreateUploadSessionRequest.safeParse(baseRequest({ base_revision_id: baseRevisionId, files: [] }));
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an empty files manifest without base_revision_id", () => {
+    const result = CreateUploadSessionRequest.safeParse(baseRequest({ files: [] }));
+    expect(result.success).toBe(false);
+  });
+
   it("rejects deleted_paths with no base_revision_id", () => {
     const result = CreateUploadSessionRequest.safeParse(baseRequest({ deleted_paths: ["gone.html"] }));
     expect(result.success).toBe(false);

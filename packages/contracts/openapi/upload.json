@@ -355,7 +355,6 @@
                 "size_bytes"
               ]
             },
-            "minItems": 1,
             "maxItems": 100
           }
         },
@@ -994,7 +993,6 @@
                         "size_bytes"
                       ]
                     },
-                    "minItems": 1,
                     "maxItems": 100
                   }
                 },

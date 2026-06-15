@@ -2521,6 +2521,46 @@ describe("ADR 0089 tree inheritance", () => {
     expect(finalized.file_count).toBe(2);
   });
 
+  it("finalizes a delete-only delta with no uploaded files", async () => {
+    const { repo, actor } = await localRepoWithApiActor();
+    const base = await publishBlobBackedBase(
+      repo,
+      actor,
+      "delete-only",
+      [
+        { path: "index.html", size_bytes: 12, sha256: sha("a") },
+        { path: "b.css", size_bytes: 20, sha256: sha("b") },
+        { path: "c.js", size_bytes: 30, sha256: sha("c") },
+      ],
+      "2026-01-01T00:00:00.000Z",
+    );
+    const session = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "idem-delete-only-create",
+      request: {
+        artifact_id: base.artifactId,
+        base_revision_id: base.revisionId,
+        title: "delete-only",
+        entrypoint: "index.html",
+        deleted_paths: ["c.js"],
+        files: [],
+      },
+      now: "2026-01-02T00:00:00.000Z",
+    });
+    expect(session.files).toEqual([]);
+    const finalized = await repo.finalizeUploadSession({
+      actor,
+      idempotencyKey: "idem-delete-only-finalize",
+      sessionId: session.upload_session_id,
+      observedFiles: [],
+      now: "2026-01-02T00:00:02.000Z",
+    });
+    const files = [...repo.artifactFiles.values()].filter((file) => file.revision_id === finalized.revision_id);
+    expect(files.map((file) => file.path).sort()).toEqual(["b.css", "index.html"]);
+    expect(finalized.file_count).toBe(2);
+    expect(repo.revisions.get(finalized.revision_id)?.parent_revision_id).toBe(base.revisionId);
+  });
+
   it("inherits the entrypoint when it is unchanged", async () => {
     const { repo, actor } = await localRepoWithApiActor();
     const base = await publishBlobBackedBase(

@@ -58,10 +58,20 @@ export const CreateUploadSessionRequest = z
     entrypoint: FilePath,
     render_mode: RenderMode.optional(),
     deleted_paths: z.array(FilePath).max(100).optional(),
-    files: z.array(UploadSessionFileInput).min(1).max(100),
+    // A whole publish needs at least one file; a partial-manifest delta against a base
+    // may send zero files (a delete-only revise inherits the rest), so the min(1) check
+    // is conditional and lives in the superRefine below, not on the array.
+    files: z.array(UploadSessionFileInput).max(100),
   })
   .superRefine((request, ctx) => {
     if (request.base_revision_id === undefined) {
+      if (request.files.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["files"],
+          message: "files must contain at least one entry without base_revision_id",
+        });
+      }
       if (request.deleted_paths !== undefined) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -77,6 +87,14 @@ export const CreateUploadSessionRequest = z
           message: "patch requires base_revision_id",
         });
       }
+    } else if (request.files.length === 0 && (request.deleted_paths?.length ?? 0) === 0) {
+      // A partial-manifest delta must change something: zero files AND zero deletions
+      // would commit a Revision identical to its base, which is a client mistake.
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["files"],
+        message: "a base_revision_id delta needs at least one changed file or deleted path",
+      });
     }
     const deleted = new Set(request.deleted_paths ?? []);
     if (deleted.size !== (request.deleted_paths?.length ?? 0)) {
