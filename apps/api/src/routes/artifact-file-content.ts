@@ -46,15 +46,18 @@ export async function readArtifactFileContent(
   }
 
   // Oversize files are not inlined: return metadata only and skip the R2 read so a
-  // large file never forces a full decrypt into memory. body absent + is_binary
-  // false tells the agent "text, too big to inline — fetch via url / whole-blob".
+  // large file never forces a full decrypt into memory. body is absent either way;
+  // is_binary is inferred from the stored content type (we never read the bytes here),
+  // so an oversize binary is not mislabeled as text. Clients key on body===undefined to
+  // fetch via url / upload whole, so the flag is advisory on this branch.
   if (file.size_bytes > Mebibytes.ten) {
+    const isBinaryByType = typeof file.content_type === "string" ? !file.content_type.startsWith("text/") : true;
     return responders.respondJson({
       path: file.path,
       sha256: file.sha256,
       size_bytes: file.size_bytes,
       content_type: file.content_type,
-      is_binary: false,
+      is_binary: isBinaryByType,
     });
   }
 

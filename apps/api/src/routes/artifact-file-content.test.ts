@@ -124,6 +124,40 @@ describe("artifacts.fileContent route", () => {
     expect(json.body).toBeUndefined();
   });
 
+  it("flags oversize binary as is_binary from content type without reading R2", async () => {
+    let getCalled = false;
+    const env: Env = {
+      ...testArtifactBytesEncryptionEnv,
+      ARTIFACTS: {
+        async get() {
+          getCalled = true;
+          return null;
+        },
+        async list() {
+          return { objects: [], truncated: false };
+        },
+        async delete() {},
+      },
+    };
+    const sha = await sha256Hex("placeholder");
+    const file = {
+      path: "huge.bin",
+      sha256: sha,
+      size_bytes: 11 * 1024 * 1024,
+      content_type: "application/octet-stream",
+    };
+
+    const response = await readArtifactFileContent(contextFor({ env }), apiPrincipal(), dbWithFile(file), {
+      artifactId: ARTIFACT_ID,
+      path: "huge.bin",
+    });
+
+    const json = await responseJson<{ is_binary: boolean; body?: string }>(response);
+    expect(getCalled).toBe(false);
+    expect(json.is_binary).toBe(true);
+    expect(json.body).toBeUndefined();
+  });
+
   it("404s when the path is not in the artifact or the row has no sha256", async () => {
     const env: Env = { ...testArtifactBytesEncryptionEnv, ARTIFACTS: fakeR2() };
     const missing = await readArtifactFileContent(contextFor({ env }), apiPrincipal(), dbWithFile(null), {
