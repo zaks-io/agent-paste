@@ -350,7 +350,7 @@ describe("API MCP route-boundary auth", () => {
       };
     }
 
-    it("accepts API keys for the CLI make-public create and mint calls", async () => {
+    it("accepts API keys for set-visibility unlisted create and mint calls", async () => {
       const env = apiKeyEnv(["publish", "read"]);
       const createResponse = await handleRequest(
         new Request(createAccessLinkUrl, {
@@ -400,7 +400,7 @@ describe("API MCP route-boundary auth", () => {
       });
     });
 
-    it("returns forbidden for API keys without publish scope on make-public calls", async () => {
+    it("returns forbidden for API keys without publish scope on set-visibility calls", async () => {
       const createResponse = await handleRequest(
         new Request(createAccessLinkUrl, {
           method: "POST",

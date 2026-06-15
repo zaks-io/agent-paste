@@ -128,13 +128,13 @@ no secrets and is written `0600`.
   `{ "error": { "code", "message", "docs?" } }` (no `schema_version` — it is an
   error envelope, not a result).
 
-## Removed commands (migration)
+## Removed command names
 
 `make-public` was removed without an alias or deprecation window. Update agents,
 scripts, and pinned command lists to use `set-visibility <artifact-id> unlisted`
 for no-login Share Links and `set-visibility <artifact-id> private` to revoke
 active Access Links. Unlisted JSON output uses `unlisted_url` (not `public_url`).
-There is no compatibility shim.
+There is no legacy alias.
 
 ## Exit codes
 
