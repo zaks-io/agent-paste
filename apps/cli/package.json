@@ -40,7 +40,7 @@
     "@agent-paste/contracts": "workspace:*",
     "@agent-paste/revise-core": "workspace:*",
     "@agent-paste/storage": "workspace:*",
-    "esbuild": "^0.28.0",
+    "esbuild": "^0.28.1",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
