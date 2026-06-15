@@ -1075,6 +1075,10 @@
               }
             ]
           },
+          "private_url": {
+            "type": "string",
+            "format": "uri"
+          },
           "lockdown": {
             "type": "object",
             "properties": {
@@ -1165,7 +1169,8 @@
           "entrypoint",
           "revision_content_url",
           "files",
-          "bundle"
+          "bundle",
+          "private_url"
         ]
       },
       "ArtifactFileContent": {

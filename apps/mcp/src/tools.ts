@@ -1,4 +1,10 @@
-import { type PublishFile, type PublishInput, type PublishOutcome, runPublish } from "@agent-paste/api-client/publish";
+import {
+  type PublishFile,
+  type PublishInput,
+  type PublishOutcome,
+  type PublishTransport,
+  runPublish,
+} from "@agent-paste/api-client/publish";
 import {
   AccessLinkSignedUrl,
   AgentView,
@@ -34,6 +40,7 @@ import {
   mcpToolContractByName,
   mcpToolInputSchemas,
 } from "@agent-paste/contracts";
+import { ReviseError, reviseWholeBody } from "@agent-paste/revise-core";
 import type { McpAuthContext } from "./auth.js";
 import {
   type ApiServiceBinding,
@@ -42,6 +49,7 @@ import {
   type UploadServiceBinding,
 } from "./forward.js";
 import { ForwardError, serviceBindingTransport } from "./publish-transport.js";
+import { serviceBindingReader } from "./revision-reader.js";
 import { zodIssueMetadata } from "./zod-issue-metadata.js";
 
 export type McpToolDeps = {
@@ -182,8 +190,80 @@ async function callAddRevision(
   deps: McpToolDeps,
 ): Promise<McpToolResult> {
   const idempotencyKey = resolveIdempotencyKey("add_revision", input, auth, deps, input.idempotency_key);
-  const base = await textPublishInput(input, idempotencyKey);
-  return publishViaSharedModule(deps, { ...base, artifactId: input.artifact_id });
+  const reader = serviceBindingReader(deps);
+  const path = mcpEntrypointForRenderMode(input.render_mode);
+
+  // The verified incremental revise: the engine reads the base, diffs the new body
+  // against the stored entrypoint bytes, and publishes a checked patch (or the whole
+  // file under the base revision), preserving the artifact's title + tree. It reads the
+  // base exactly once and hands it back on a no-op, so there is no second read here.
+  let result: Awaited<ReturnType<typeof reviseWholeBody>>;
+  try {
+    result = await reviseWholeBody(
+      { reader, transport: serviceBindingTransport(deps), publish: runPublish },
+      {
+        artifactId: input.artifact_id,
+        path,
+        nextText: input.body,
+        idempotencyKey,
+        // No renderMode: the entrypoint is unchanged, so the mode inherits from the base
+        // revision at finalize (ADR 0091 render_mode inheritance invariant).
+      },
+    );
+  } catch (error) {
+    // A render_mode that changes the entrypoint (e.g. html -> markdown) has no matching
+    // file to patch: fall back to a whole-file publish under the base, still preserving
+    // the base title. Every other revise failure maps to an error envelope.
+    if (error instanceof ReviseError && error.reason === "path_not_in_base") {
+      return addRevisionWithNewEntrypoint(reader, input, idempotencyKey, deps);
+    }
+    return addRevisionError(error);
+  }
+  if (result.noop) {
+    // Byte-identical body: no revision minted. Echo the stable member viewer link from
+    // the base the engine already read, so the agent still gets the link to hand back
+    // (the live page already shows this content). Reused stats: nothing was uploaded.
+    return shapePublishOutput({
+      title: result.base.title,
+      privateUrl: result.base.private_url,
+      expiresAt: result.base.expires_at,
+      uploadStats: { totalFiles: 0, totalBytes: 0, uploadedFiles: 0, uploadedBytes: 0, reusedFiles: 0, reusedBytes: 0 },
+    });
+  }
+  return shapePublishOutput(result.outcome);
+}
+
+/** Whole-file publish under the base for a revision whose render_mode changes the entrypoint. */
+async function addRevisionWithNewEntrypoint(
+  reader: ReturnType<typeof serviceBindingReader>,
+  input: McpAddRevisionInput,
+  idempotencyKey: IdempotencyKey,
+  deps: McpToolDeps,
+): Promise<McpToolResult> {
+  let base: AgentView;
+  try {
+    base = await reader.readArtifact(input.artifact_id);
+  } catch (error) {
+    return addRevisionError(error);
+  }
+  const file = await textPublishInput(input, idempotencyKey, base.title);
+  return publishViaSharedModule(deps, { ...file, artifactId: input.artifact_id });
+}
+
+/** Map an add_revision throw (forward, revise, or unexpected) to a tool error envelope. */
+function addRevisionError(error: unknown): McpToolResult {
+  if (error instanceof ForwardError) {
+    return { ok: false, error: error.mapped };
+  }
+  if (error instanceof ReviseError) {
+    // A non-matching whole-body revise is an internal fault here, not a client error:
+    // add_revision replaces the whole entrypoint, so the only ReviseError reachable is a
+    // base that is binary/oversize or a tree that lost the entrypoint mid-flight.
+    console.error("mcp: add_revision revise failed", { reason: error.reason });
+    return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
+  }
+  console.error("mcp: add_revision failed", { error });
+  return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
 }
 
 /** Run the shared publish module and shape the result into the MCP output, preserving mapped errors. */
@@ -201,6 +281,13 @@ async function publishViaSharedModule(deps: McpToolDeps, input: PublishInput): P
     console.error("mcp: publish failed", { error });
     return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
   }
+  return shapePublishOutput(outcome);
+}
+
+/** Shape a publish outcome (or a no-op echo) into the MCP publish output envelope. */
+function shapePublishOutput(
+  outcome: Pick<PublishOutcome, "title" | "privateUrl" | "expiresAt" | "uploadStats">,
+): McpToolResult {
   const parsed = McpPublishArtifactOutput.safeParse({
     title: outcome.title,
     private_url: outcome.privateUrl,
@@ -225,10 +312,16 @@ async function publishViaSharedModule(deps: McpToolDeps, input: PublishInput): P
   return { ok: true, result: parsed.data };
 }
 
-/** Build the single-file PublishInput from an MCP text-publish request. */
+/**
+ * Build the single-file PublishInput from an MCP text-publish request. `baseTitle`
+ * is the existing artifact's title for the add_revision path: a revision has no title
+ * field, so it preserves the base title instead of overwriting it. `"Revision"` is the
+ * last-resort fallback only when there is neither an explicit title nor a base.
+ */
 async function textPublishInput(
   input: { title?: string; body: string; render_mode: McpPublishRenderMode },
   idempotencyKey: IdempotencyKey,
+  baseTitle?: string,
 ): Promise<PublishInput> {
   const entrypoint = mcpEntrypointForRenderMode(input.render_mode);
   const bytes = new TextEncoder().encode(input.body);
@@ -240,15 +333,10 @@ async function textPublishInput(
     contentType: contentTypeForEntrypoint(entrypoint),
     read: () => bytes,
   };
+  const title = ("title" in input && input.title ? input.title : (baseTitle ?? "Revision")) as PublishInput["title"];
   return {
     files: [file],
-    // add_revision has no title field, so it falls back to "Revision". The
-    // create-session request title is required, and the server writes the
-    // artifact title from it on publish, so this renames the artifact to
-    // "Revision" on every add_revision. Pre-existing behavior, tracked for a
-    // follow-up fix (make the session title optional so it preserves the
-    // existing artifact title for revisions).
-    title: ("title" in input && input.title ? input.title : "Revision") as PublishInput["title"],
+    title,
     entrypoint,
     idempotencyKey,
   };

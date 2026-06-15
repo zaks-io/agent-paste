@@ -195,6 +195,10 @@ type MergedTree = {
   fileCount: number;
   sizeBytes: number;
   parentRevisionId: string;
+  // The base Revision's render_mode. A revise that does not set its own mode inherits
+  // this instead of re-inferring from the entrypoint, so an explicit mode chosen on the
+  // original publish survives every later revision (ADR 0091 inheritance invariant).
+  baseRenderMode: RenderMode;
   // Patched files reconstructed into NEW content-addressed blobs. Their content_blobs
   // rows must be registered at finalize so the refcount protects them from GC.
   reconstructedBlobs: StoredFile[];
@@ -360,6 +364,7 @@ async function mergeBaseRevisionTree(
     fileCount: files.length,
     sizeBytes: files.reduce((sum, file) => sum + file.size_bytes, 0),
     parentRevisionId: baseRevisionId,
+    baseRenderMode: base.render_mode,
     reconstructedBlobs: [...reconstructed.values()],
   };
 }
@@ -501,8 +506,9 @@ export async function finalizeUploadSessionInEntities(
     revision_number: null,
     status: "draft",
     entrypoint: session.entrypoint,
-    // Explicit client choice (stored on the session) wins; otherwise infer.
-    render_mode: session.render_mode ?? inferRenderMode(session.entrypoint),
+    // Explicit client choice (stored on the session) wins; a revise with no explicit mode
+    // inherits the base Revision's mode; otherwise infer from the entrypoint (ADR 0091).
+    render_mode: session.render_mode ?? merged?.baseRenderMode ?? inferRenderMode(session.entrypoint),
     file_count: treeFileCount,
     size_bytes: treeSizeBytes,
     bundle_status: "disabled",

@@ -235,10 +235,12 @@ the read-back and the CLI diff client.
 
 ## Next phase: shared revise engine + literal multi-edit (ADR 0091)
 
-Status: design accepted (ADR 0091), not yet implemented. Lands AFTER the Stage
-1–5 foundation (PR #529) merges, so the engine is built on settled code. This
-section is the planned spec; the `docs/specs/cli.md` and `docs/mcp.md` live
-sections are updated only when the code lands (specs are current truth).
+Status: PR1 DONE (engine package + MCP `add_revision` rebuild + `render_mode`
+inheritance hardening + `private_url` on the authed `AgentView`); PR2 (CLI `edit`
+verb + MCP `multi_edit` tool) NOT yet implemented. Built on the settled Stage 1–5
+foundation. The `docs/specs/cli.md` and `docs/mcp.md` live sections track what has
+shipped (specs are current truth); the `edit`/`multi_edit` verbs are described as
+planned until PR2 lands.
 
 **Supersedes** the "MCP `add_revision` stays text-body-only" line above: MCP gets
 a real patch-revise path, and both surfaces express edits identically.
@@ -288,9 +290,16 @@ replaceAll?}`. `indexOf` matching (never a constructed `RegExp`). `not_found` if
   `render_mode` inherits the base's mode instead of silently re-inferring from the
   entrypoint. Gated behind finalize re-validation tests.
 
-**Ship split:** PR1 = package + engine + move diff-gen + rebuild CLI/MCP onto it +
-`add_revision` title fix + `render_mode` hardening (refactor, behavior-preserving
-except the bug fix). PR2 = the `edit` + `multi_edit` verbs on top.
+**Ship split:** PR1 (DONE) = package + engine (`applyEdits`, `RevisionReader`,
+`reviseOnePath`/`reviseWholeBody`, moved `diffWithSelfCheck` + diff-gen) + MCP
+`add_revision` rebuilt onto `reviseWholeBody` (title preserved, no-op on
+sha-equal body, fresh-entrypoint fallback on `render_mode` change) + `render_mode`
+inheritance hardening at finalize + `private_url` added to the authed `AgentView`
+contract (member-only; absent from `PublicAgentView` and the access-link path).
+The CLI working-dir revise now imports `diffWithSelfCheck` from the package (the
+single copy), but is NOT yet on the `reviseOnePath`/`RevisionReader` engine — its
+manifest-cache diff path is otherwise unchanged, and the CLI `RevisionReader`
+adapter lands with PR2. PR2 = the `edit` + `multi_edit` verbs on top.
 
 **Done (planned):** `pnpm verify` + `test:coverage` (88/82/88/88) + a preview e2e
 against a REAL multi-file artifact — `cli:dev edit` patches one file (others

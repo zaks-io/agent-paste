@@ -263,6 +263,8 @@ describe("AP-91 shared API route helpers", () => {
         revision_content_url: "https://old.test/v/art.rev/docs%2Findex.html",
       },
       { API_BASE_URL: "https://api.test", CONTENT_BASE_URL: "https://content.test", WEB_BASE_URL: "https://app.test" },
+      // Publish is always by an authenticated member, so the result carries the member private_url.
+      { workspaceId: "00000000-0000-4000-8000-000000000001" },
     )) as { private_url: string; revision_content_url: string; agent_view_url: string };
     expect(signed.private_url).toBe("https://app.test/v/art_1");
     expect(signed.revision_content_url).toBe("https://content.test/v/art_1.rev_1/docs/index.html");

@@ -57,20 +57,20 @@ Host-specific OAuth and redirect notes live in
 
 MCP exposes twelve tools:
 
-| Tool                      | Purpose                                                                                             |
-| ------------------------- | --------------------------------------------------------------------------------------------------- |
-| `whoami`                  | Return the authenticated member, Workspace, and derived scopes.                                     |
-| `publish_artifact`        | Publish a new text-only Artifact. Content-only and private.                                         |
-| `add_revision`            | Add and publish a text-only Revision. Content-only and private.                                     |
-| `list_artifacts`          | List Artifacts in the Workspace.                                                                    |
-| `read_artifact`           | Read the latest Agent View for an Artifact.                                                         |
-| `list_revisions`          | List Revisions for an Artifact.                                                                     |
-| `delete_artifact`         | Delete an Artifact.                                                                                 |
-| `update_display_metadata` | Update an Artifact display title.                                                                   |
-| `make_public`             | Mint or reuse the Artifact's one Share Link and return its public, no-login Access Link Signed URL. |
-| `create_revision_link`    | Create and mint a snapshot Access Link for a specific Revision.                                     |
-| `list_access_links`       | List Share Links and Revision Links for an Artifact.                                                |
-| `revoke_access_link`      | Revoke a Share Link or Revision Link.                                                               |
+| Tool                      | Purpose                                                                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `whoami`                  | Return the authenticated member, Workspace, and derived scopes.                                            |
+| `publish_artifact`        | Publish a new text-only Artifact. Content-only and private.                                                |
+| `add_revision`            | Revise an Artifact in place: publish a text-only Revision under the same stable link. Preserves the title. |
+| `list_artifacts`          | List Artifacts in the Workspace.                                                                           |
+| `read_artifact`           | Read the latest Agent View for an Artifact.                                                                |
+| `list_revisions`          | List Revisions for an Artifact.                                                                            |
+| `delete_artifact`         | Delete an Artifact.                                                                                        |
+| `update_display_metadata` | Update an Artifact display title.                                                                          |
+| `make_public`             | Mint or reuse the Artifact's one Share Link and return its public, no-login Access Link Signed URL.        |
+| `create_revision_link`    | Create and mint a snapshot Access Link for a specific Revision.                                            |
+| `list_access_links`       | List Share Links and Revision Links for an Artifact.                                                       |
+| `revoke_access_link`      | Revoke a Share Link or Revision Link.                                                                      |
 
 Publishing tools are content-only and private: they take no visibility input and
 return one link, `private_url` — the login-walled clean viewer at
@@ -83,6 +83,19 @@ MCP publish output intentionally omits Artifact IDs, Revision IDs,
 `read_artifact`, `list_revisions`, or explicit link tools when those fields are
 needed. Use `create_revision_link` only when the reader must see one exact
 Revision.
+
+`add_revision` runs through the shared revise engine (`@agent-paste/revise-core`,
+[ADR 0091](../adr/0091-client-side-revise-engine-and-literal-edit-tools.md)): it
+reads the base Revision, **preserves the existing title** unless the caller passes
+a new one (it no longer overwrites the title with the literal `"Revision"`; rename
+explicitly via `update_display_metadata`), and publishes the new body as a verified
+patch under the Artifact's stable `private_url` so already-open viewers live-update
+in place. When the new body's `sha256` equals the stored bytes it is a **no-op** —
+no Revision is minted and the call echoes the unchanged link, title, and expiry. A
+`render_mode` change publishes a whole-file fresh-entrypoint Revision (the one
+meaningful whole-body replace). When the call's entrypoint is not in the base tree
+it falls back to a whole-file publish under the same Artifact. The Revision inherits
+the base's Render Mode unless the call sets one.
 
 ## Capabilities
 

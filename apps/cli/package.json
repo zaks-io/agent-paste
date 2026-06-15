@@ -38,6 +38,7 @@
   "devDependencies": {
     "@agent-paste/api-client": "workspace:*",
     "@agent-paste/contracts": "workspace:*",
+    "@agent-paste/revise-core": "workspace:*",
     "@agent-paste/storage": "workspace:*",
     "esbuild": "^0.28.0",
     "typescript": "catalog:",

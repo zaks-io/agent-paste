@@ -406,6 +406,7 @@ describe("MVP schemas", () => {
         expires_at: "2026-06-19T12:00:00.000Z",
         entrypoint: "index.html",
         revision_content_url: "https://usercontent.agent-paste.sh/v/token/index.html",
+        private_url: "https://app.agent-paste.sh/v/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
         files: [
           {
             path: "index.html",
@@ -472,6 +473,7 @@ describe("MVP schemas", () => {
         expires_at: "2026-06-19T12:00:00.000Z",
         entrypoint: "index.html",
         revision_content_url: "https://usercontent.agent-paste.sh/v/token/index.html",
+        private_url: "https://app.agent-paste.sh/v/art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
         files: [
           {
             path: "index.html",

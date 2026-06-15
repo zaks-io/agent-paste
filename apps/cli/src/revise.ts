@@ -1,8 +1,8 @@
 import { promises as fs } from "node:fs";
 import type { ApiClient, PublishFile } from "@agent-paste/api-client";
+import { diffWithSelfCheck } from "@agent-paste/revise-core";
 import { contentTypeForLocalPath, isUtf8Text, type LocalFile } from "./local.js";
 import type { ManifestCache, ManifestCacheFile } from "./manifest-cache.js";
-import { diffWithSelfCheck } from "./unified-diff-gen.js";
 
 export type LocalFileWithDigest = LocalFile & { sha256: string };
 
