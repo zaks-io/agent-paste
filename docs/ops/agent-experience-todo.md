@@ -16,8 +16,8 @@ The walkthrough used the connected `agent-paste` MCP server (authed as
 > **Update (ADR 0086):** publish is now content-only and private and always
 > returns one openable link, `private_url` (the `/v/<artifactId>` clean viewer),
 > so "publish returns no link" no longer happens and there is no `share` flag to
-> mis-set. Going public is the explicit `make_public` (MCP) / `agent-paste
-make-public` (CLI) verb, which replaced `create_share_link`. References to
+> mis-set. Unlisted no-login sharing is the explicit `set_visibility`
+> (MCP) / `agent-paste set-visibility <artifact-id> unlisted` (CLI) verb, which replaced `create_share_link`. References to
 > `create_share_link`/`share`/`access_link_url` below are the original (now
 > superseded) framing.
 

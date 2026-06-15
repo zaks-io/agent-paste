@@ -5,10 +5,11 @@ export const AGENTS_MD = `# agent-paste for agents
 agent-paste gives AI agents a durable, addressable place to publish work
 products. Publish is content-only and private: it returns one \`private_url\` to
 hand the user — the login-walled clean viewer at \`/v/<artifactId>\` for the
-owning Workspace Member. To make an Artifact public, run the separate make-public
-step (\`agent-paste make-public\` on the CLI, \`make_public\` on MCP), which returns
-the public no-login Share Link. Do not send users to the Revision Content URL as
-the final live page.
+owning Workspace Member. To make an Artifact reachable without login, set
+visibility to \`unlisted\` (\`agent-paste set-visibility <artifact-id> unlisted\`
+on the CLI, \`set_visibility\` with \`visibility: "unlisted"\` on MCP), which returns
+\`unlisted_url\`. Do not send users to the Revision Content URL as the final live
+page.
 
 This document is the longer-form companion to [/llms.txt](/llms.txt). It is
 written for an agent reading the apex domain at request time.
@@ -42,10 +43,10 @@ agent-paste has three objects an agent needs to know:
   Revision. It opens the Artifact
   Viewer at \`${APP_BASE_URL}/al/{public_id}#...\`, follows the latest Published
   Revision, and can be revoked without deleting the Artifact. It is created only
-  by the make-public step, never by publish.
+  by setting visibility to \`unlisted\`, never by publish.
 - **Access Link Signed URL** - The URL string minted from an Access Link. The
-  one minted from a Share Link is the public, no-login live page URL, returned by
-  the make-public step.
+  one minted from a Share Link is the unlisted no-login live page URL, returned as
+  \`unlisted_url\`.
 
 ## CLI quickstart
 
@@ -63,9 +64,9 @@ If \`whoami\` reports you are signed in, publish normally. If not and the user c
 interact, run \`npx @zaks-io/agent-paste login\` once, then publish. Login runs a
 browser OAuth flow and stores its own scoped local credential, so there is
 nothing to copy or paste. Publish is content-only and private: it returns the
-\`private_url\` clean viewer as \`View\`. Making an Artifact public is the separate
-\`npx @zaks-io/agent-paste make-public <artifact-id>\` step, used only when the
-user asks for a public/shareable URL. JSON output also carries diagnostic
+\`private_url\` clean viewer as \`View\`. Unlisted no-login sharing is the separate
+\`npx @zaks-io/agent-paste set-visibility <artifact-id> unlisted\` step, used only
+when the user asks for a shareable no-login URL. JSON output also carries diagnostic
 Artifact IDs, Revision IDs, and snapshot URLs for automation.
 
 \`\`\`
@@ -104,16 +105,16 @@ JSON output has these URL fields:
   delivery rather than the product viewer.
 - \`agent_view_url\` - machine-readable Agent View JSON for tools.
 
-The \`make_public\` and \`create_revision_link\` MCP tools return the minted
-link as \`url\`.
+MCP \`set_visibility\` with \`visibility: "unlisted"\` returns \`unlisted_url\`.
+\`create_revision_link\` returns its minted snapshot link as \`url\`.
 
 Verification notes:
 
 - A \`private_url\` is login-walled app navigation. Plain HTTP clients can receive
   the app shell or sign-in redirect state with HTTP 200; that does not prove the
-  Artifact is publicly readable.
-- For no-login browser handoff, create a Share Link with \`make-public\` /
-  \`make_public\` and return that public URL.
+  Artifact is reachable without login.
+- For no-login browser handoff, set visibility to \`unlisted\` and return
+  \`unlisted_url\`.
 - For machine verification, fetch \`agent_view_url\` and read the signed per-file
   content URLs from \`files[].url\`; do not guess a \`content_url\` field.
 
@@ -132,11 +133,11 @@ an edit as a fresh Artifact strands the link the user already has open. Keep the
 \`artifact_id\` from each publish (the CLI \`Update\` hint, the JSON \`artifact_id\`
 field, or \`list_artifacts\`) so you can revise.
 
-If the user asks for a public/shareable link, run the separate make-public step:
-\`npx @zaks-io/agent-paste make-public <artifact-id>\` on the CLI, or the
-\`make_public\` MCP tool. It mints or reuses the Artifact's one Share Link and
-returns its public, no-login Access Link Signed URL (as \`url\` on MCP). Publish
-itself never makes an Artifact public. Do not return the
+If the user asks for a shareable no-login link, run:
+\`npx @zaks-io/agent-paste set-visibility <artifact-id> unlisted\` on the CLI, or
+the MCP \`set_visibility\` tool with \`visibility: "unlisted"\`. It mints or reuses
+the Artifact's one Share Link and returns \`unlisted_url\`. Publish itself never
+creates unauthenticated access. Do not return the
 \`usercontent.agent-paste.sh/v/...\` Revision Content URL as the final answer.
 
 ## Ephemeral publish fallback
@@ -214,23 +215,25 @@ Write (\`publish\`):
 - \`publish_artifact\` - publish a NEW text-only Artifact on a new \`private_url\`.
   Content-only and private; it takes no visibility input. Use it only for
   something not yet published; to change published work use \`add_revision\`
-  instead. To make it public, call \`make_public\` afterward.
+  instead. To share it without login, call \`set_visibility\` with
+  \`visibility: "unlisted"\` afterward.
 - \`add_revision\` - revise an EXISTING Artifact: add and publish a new Revision
   under its \`artifact_id\`. Use this, not \`publish_artifact\`, to change published
   work — the Artifact's \`private_url\` (and any Share Link) is stable and
   live-updates open viewers, so there is no new link to send. Content-only and
-  private; to make it public, call \`make_public\`.
+  private; to share it without login, call \`set_visibility\` with
+  \`visibility: "unlisted"\`.
 - \`multi_edit\` - edit one stored file with literal find/replace, then publish
   the result as a new Revision under the same Artifact. Read the file first with
   \`read_file\` so edits match the current bytes.
 - \`delete_artifact\` - delete an Artifact.
 - \`update_display_metadata\` - update an Artifact's display title.
 
-Links (\`publish\` + \`read\` where noted):
+Visibility and links (\`publish\` + \`read\` where noted):
 
-- \`make_public\` - mint or reuse the Artifact's one Share Link and return its
-  public, no-login Access Link Signed URL (also needs \`read\`). This is how an
-  Artifact becomes reachable without login, and the link to give users.
+- \`set_visibility\` - set an Artifact to \`private\` or \`unlisted\`.
+  \`private\` revokes active Access Links and returns \`private_url\`; \`unlisted\`
+  mints or reuses the Share Link and returns \`unlisted_url\`.
 - \`create_revision_link\` - create and mint a snapshot Access Link for a
   specific Revision (also needs \`read\`). Use only when the user asked for a
   fixed Revision.

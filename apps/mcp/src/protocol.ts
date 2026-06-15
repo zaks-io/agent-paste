@@ -22,7 +22,8 @@ const MCP_LIFECYCLE_INSTRUCTIONS =
   "so a revision needs no new link. Publishing again for an edit makes a separate Artifact on a different link " +
   "and strands the user's open page. Keep the artifact_id from each publish_artifact response (or use " +
   "list_artifacts) so you can revise. Artifacts are private by default; to make one reachable without login, " +
-  "call make_public, which returns a separate revocable public link.";
+  "call set_visibility with visibility: 'unlisted', which returns unlisted_url. To remove no-login access, " +
+  "call set_visibility with visibility: 'private'.";
 
 export function handleMcpProtocolMethod(input: {
   method: string;

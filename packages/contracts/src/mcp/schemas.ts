@@ -133,8 +133,11 @@ export const McpUpdateDisplayMetadataInput = z
   .strict();
 export type McpUpdateDisplayMetadataInput = z.infer<typeof McpUpdateDisplayMetadataInput>;
 
-export const McpMakePublicInput = z.object({ artifact_id: ArtifactId }).strict();
-export type McpMakePublicInput = z.infer<typeof McpMakePublicInput>;
+export const McpVisibility = z.enum(["private", "unlisted"]);
+export type McpVisibility = z.infer<typeof McpVisibility>;
+
+export const McpSetVisibilityInput = z.object({ artifact_id: ArtifactId, visibility: McpVisibility }).strict();
+export type McpSetVisibilityInput = z.infer<typeof McpSetVisibilityInput>;
 
 export const McpCreateRevisionLinkInput = z
   .object({
@@ -166,10 +169,10 @@ export const McpUploadStats = z
 export type McpUploadStats = z.infer<typeof McpUploadStats>;
 
 // Publishing returns one link to hand back to the user: private_url. It opens the
-// Artifact in a login-walled browser viewer (`/v/<id>`) — publish is content-only
-// and private, with no public concept. This matches the CLI, which runs the same
-// publish path. To make an Artifact reachable without login, call make_public.
-// Artifact/Revision IDs and content URLs remain available through the explicit
+// Artifact in a login-walled browser viewer (`/v/<id>`). Publish is content-only
+// and private, with no visibility input. This matches the CLI, which runs the
+// same publish path. To change unauthenticated access, call set_visibility.
+// Artifact/Revision IDs and content URLs remain available through explicit
 // list/read/link tools.
 export const McpPublishArtifactOutput = z
   .object({
@@ -199,8 +202,31 @@ export type McpDeleteArtifactOutput = z.infer<typeof McpDeleteArtifactOutput>;
 export const McpUpdateDisplayMetadataOutput = DisplayMetadata;
 export type McpUpdateDisplayMetadataOutput = z.infer<typeof McpUpdateDisplayMetadataOutput>;
 
-export const McpMakePublicOutput = AccessLinkSignedUrl;
-export type McpMakePublicOutput = z.infer<typeof McpMakePublicOutput>;
+export const McpSetVisibilityPrivateOutput = z
+  .object({
+    artifact_id: ArtifactId,
+    visibility: z.literal("private"),
+    private_url: UrlString,
+    revoked_access_link_ids: z.array(AccessLinkId).max(100),
+  })
+  .strict();
+export type McpSetVisibilityPrivateOutput = z.infer<typeof McpSetVisibilityPrivateOutput>;
+
+export const McpSetVisibilityUnlistedOutput = z
+  .object({
+    artifact_id: ArtifactId,
+    visibility: z.literal("unlisted"),
+    access_link_id: AccessLinkId,
+    unlisted_url: UrlString,
+  })
+  .strict();
+export type McpSetVisibilityUnlistedOutput = z.infer<typeof McpSetVisibilityUnlistedOutput>;
+
+export const McpSetVisibilityOutput = z.discriminatedUnion("visibility", [
+  McpSetVisibilityPrivateOutput,
+  McpSetVisibilityUnlistedOutput,
+]);
+export type McpSetVisibilityOutput = z.infer<typeof McpSetVisibilityOutput>;
 
 export const McpCreateRevisionLinkOutput = AccessLinkSignedUrl;
 export type McpCreateRevisionLinkOutput = z.infer<typeof McpCreateRevisionLinkOutput>;
@@ -256,7 +282,7 @@ export const McpToolName = z.enum([
   "list_revisions",
   "delete_artifact",
   "update_display_metadata",
-  "make_public",
+  "set_visibility",
   "create_revision_link",
   "list_access_links",
   "revoke_access_link",

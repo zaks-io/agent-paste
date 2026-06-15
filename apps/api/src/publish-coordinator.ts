@@ -10,9 +10,9 @@ import { enforceNewArtifactWriteAllowance, releaseNewArtifactWriteAllowance } fr
 
 type PublishResult = Awaited<ReturnType<Repository["publishRevision"]>>;
 
-// Publish is content-only and private. It never mints a Share Link or makes an
-// Artifact public — that is a separate, explicit step (make_public). So the
-// coordinator carries no `share` input and no access-link signing.
+// Publish is content-only and private. It never mints a Share Link or creates
+// unauthenticated access. Visibility changes are separate explicit steps, so
+// the coordinator carries no `share` input and no access-link signing.
 export type PublishCoordinatorInput = {
   actor: ApiActor;
   idempotencyKey: string;

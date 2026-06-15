@@ -8,9 +8,10 @@ Publish-handoff model (ADR 0086): publish is content-only and private. Publish
 results return one link, `private_url` — the login-walled `/v/<artifactId>` clean
 viewer — alongside the exact content-origin Revision content
 (`revision_content_url`). There is no `share` input and no `shared` output, and
-the result carries no `access_link_url`. Going public is the separate `make_public`
-(MCP) / `agent-paste make-public` (CLI) verb, which mints or reuses the one Share
-Link and returns its no-login Access Link Signed URL. MCP publish output
+the result carries no `access_link_url`. Unlisted no-login sharing is the
+separate `set_visibility` (MCP) / `agent-paste set-visibility <artifact-id>
+unlisted` (CLI) verb, which mints or reuses the one Share Link and returns
+`unlisted_url`. MCP publish output
 deliberately omits Artifact IDs, Revision IDs, `revision_content_url`, and
 `agent_view_url`; explicit read/list/link tools remain available for management,
 sharing, and pinned-Revision flows. (This supersedes the AP-299/PR #475 + 2026-06-11

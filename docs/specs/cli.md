@@ -42,12 +42,26 @@ automatic; flags override detection.
   version is `"1"`. Consumers should branch on it; new fields may be added
   within a version, but field removals or renames bump it.
 - Object payloads are emitted as `{ "schema_version": "1", ...fields }`.
-- `publish` is content-only and private: it emits one handoff link, `private_url`
-  (the login-walled clean viewer at `/v/<artifactId>` for a Workspace Member) —
-  the same field the MCP server returns. There is no `--share` input and no
-  `shared` output bit. Making an Artifact public is the separate `make-public`
-  command, which mints or reuses the one Share Link and prints its no-login
-  Access Link Signed URL.
+- `publish --json` is content-only and private. It emits
+  `{ schema_version, artifact_id, revision_id, title, private_url,
+revision_content_url, agent_view_url, expires_at, bundle, upload_stats }`.
+  `private_url` is the login-walled clean viewer at `/v/<artifactId>` for a
+  Workspace Member, the same field the MCP server returns. It is the only link
+  publish creates. `revision_content_url` is a signed URL for one exact Revision
+  file, not a live share link. `agent_view_url` returns file metadata and signed
+  per-file URLs. `upload_stats` is `{ total_files, total_bytes, uploaded_files,
+uploaded_bytes, reused_files, reused_bytes }`.
+- There is no `--share` input and no `shared` output bit. No-login unlisted
+  sharing is the separate `set-visibility <artifact-id> unlisted` command, which
+  mints or reuses the one Share Link and prints `unlisted_url`.
+- `set-visibility <artifact-id> unlisted --json` emits
+  `{ schema_version, artifact_id, visibility, access_link_id, unlisted_url }`.
+  `unlisted_url` is the no-login Access Link Signed URL for the Artifact's Share
+  Link and follows later publishes. Browser rendering depends on the URL
+  fragment; a plain HTTP fetch cannot verify the final rendered page.
+- `set-visibility <artifact-id> private --json` revokes active Access Links and
+  emits `{ schema_version, artifact_id, visibility, private_url,
+revoked_access_link_ids }`.
 - `pull <artifact-id> <path> [--revision-id <id>]` reads one stored file back
   ([ADR 0090](../adr/0090-agent-file-read-back-api-decrypts-member-plaintext.md)).
   Default output is cat-like (the raw text body to stdout, so `pull … > file`
@@ -153,6 +167,22 @@ The published CLI has **zero runtime dependencies** — it is bundled with esbui
 and all tooling lives in `devDependencies`. Rich output is therefore hand-rolled
 ANSI in `apps/cli/src/render.ts` rather than a `chalk`/`ora`-style library, to
 keep the install small and the supply chain clean.
+
+## Agent publish help
+
+`agent-paste help publish` is the CLI's agent-oriented prompt for publish mode
+selection. `agent-paste publish --help` prints the same guide. The guide must
+lead with mode choice and exact commands before longer flag descriptions:
+
+| Mode      | Current shipped meaning                                                                                     | Command sequence                                                                                    | Agent returns                                    |
+| --------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| Private   | Default authenticated publish. Login-walled `private_url`; no unauthenticated access.                       | `agent-paste publish <path> --json`                                                                 | `private_url` only when the recipient can log in |
+| Unlisted  | No-login Share Link that follows later publishes and can be revoked.                                        | `agent-paste publish <path> --json` then `agent-paste set-visibility <artifact_id> unlisted --json` | `unlisted_url`                                   |
+| Ephemeral | Accountless publish for no-login environments. Short-lived, claimable, and script-disabled while unclaimed. | `agent-paste publish <path> --ephemeral --json`                                                     | `claim_url`, not `private_url`                   |
+
+The guide should tell agents to run `whoami --json` before choosing
+`--ephemeral`, to use `--artifact-id` when revising an existing Artifact, and to
+avoid handing `revision_content_url` back as the final live page.
 
 ## Publish human output
 

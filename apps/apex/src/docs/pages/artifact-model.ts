@@ -30,7 +30,7 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
             ["Access Link", "A revocable grant family for unauthenticated read access."],
             [
               "Share Link",
-              "Access Link type that follows the latest Published Revision; created only by the make-public step.",
+              "Access Link type that follows the latest Published Revision; created by `set-visibility unlisted`.",
             ],
             ["Revision Link", "A snapshot Access Link pinned to one specific Revision."],
             ["Bundle", "A downloadable archive generated from a complete Revision file tree."],
@@ -44,7 +44,7 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Publish creates stable Artifact and Revision IDs and is content-only and private. The default post-publish `View` (`private_url`) is the login-walled `/v/<artifactId>` clean viewer for a Workspace Member. Public/shareable handoff is the separate make-public step (`agent-paste make-public`, MCP `make_public`), which mints or reuses the one Share Link and returns its public, no-login Access Link Signed URL opening the controlled Artifact Viewer. The direct `usercontent.agent-paste.sh/v/...` URL is the Revision Content URL for one exact Revision and is raw byte delivery, not the product viewer.",
+          text: 'Publish creates stable Artifact and Revision IDs and is content-only and private. The default post-publish `View` (`private_url`) is the login-walled `/v/<artifactId>` clean viewer for a Workspace Member. Unlisted no-login handoff is `agent-paste set-visibility <artifact-id> unlisted` on the CLI, or MCP `set_visibility` with `visibility: "unlisted"`; it mints or reuses the one Share Link and returns `unlisted_url` opening the controlled Artifact Viewer. The direct `usercontent.agent-paste.sh/v/...` URL is the Revision Content URL for one exact Revision and is raw byte delivery, not the product viewer.',
         },
         {
           kind: "code",

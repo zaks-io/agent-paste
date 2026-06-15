@@ -108,14 +108,30 @@ export function formatEditNoop(mode: OutputMode, payload: { title: string; priva
   ].join("\n");
 }
 
-export function formatMakePublic(mode: OutputMode, payload: { public_url: string }): string {
+export type SetVisibilityResultShape =
+  | { visibility: "private"; private_url: string; revoked_access_link_ids: readonly string[] }
+  | { visibility: "unlisted"; unlisted_url: string; access_link_id: string };
+
+export function formatSetVisibility(mode: OutputMode, payload: SetVisibilityResultShape): string {
   const label = (text: string) => paint(mode, "dim", text);
+  if (payload.visibility === "private") {
+    const count = payload.revoked_access_link_ids.length;
+    return [
+      `${paint(mode, "green", "✓")} Visibility set to private`,
+      "",
+      `  ${label("View")}      ${hyperlink(mode, payload.private_url)}`,
+      `  ${label("Revoked")}   ${count} active Access Link${count === 1 ? "" : "s"}`,
+      "",
+      paint(mode, "cyan", `  → open ${payload.private_url}`),
+    ].join("\n");
+  }
+
   return [
-    `${paint(mode, "green", "✓")} Public link created`,
+    `${paint(mode, "green", "✓")} Visibility set to unlisted`,
     "",
-    `  ${label("Public")}    ${hyperlink(mode, payload.public_url)}`,
+    `  ${label("Unlisted")}  ${hyperlink(mode, payload.unlisted_url)}`,
     `            ${label("(anyone with this link can open it, no login; revoke to take it down)")}`,
     "",
-    paint(mode, "cyan", `  → open ${payload.public_url}`),
+    paint(mode, "cyan", `  → open ${payload.unlisted_url}`),
   ].join("\n");
 }

@@ -11,7 +11,7 @@ import { loadAuthedSessionFn } from "../rpc/web-loaders";
  * Login-walled to the owning workspace member but renders only the live viewer
  * — no dashboard sidebar, no access-link management chrome. The dashboard
  * console at `/artifacts/<id>` is the management surface; this is the handoff
- * link. Going public is a separate, explicit step (Share Link).
+ * link. Unlisted sharing is a separate, explicit visibility step (Share Link).
  */
 export const Route = createFileRoute("/v/$artifactId")({
   loader: async ({ context, params, location }) => {

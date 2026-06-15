@@ -32,9 +32,10 @@ committing temporary files, creating a gist, or deploying to a preview host.
 | Embed artifact handoff      | A product needs artifact storage and a manifest protocol without building the whole platform itself.         | Expose CLI, MCP, Agent View, and documented contracts that can be built on by another platform.          |
 
 For the iteration use case, no-login shareable browser URLs must come from an
-explicit unlisted Share Link, minted by the separate make-public step
-(`agent-paste make-public`, MCP `make_public`); publish itself is content-only
-and private and never creates unauthenticated access. The direct
+explicit unlisted Share Link, minted by the separate `set-visibility unlisted`
+step (`agent-paste set-visibility <artifact-id> unlisted`, MCP `set_visibility`
+with `visibility: "unlisted"`); publish itself is content-only and private and
+never creates unauthenticated access. The direct
 `revision_content_url` is exact Revision content; it is useful for one-shot
 inspection but it does not advance when the agent publishes a later Revision.
 The `private_url` (`/v/<artifactId>` clean viewer) is the default authenticated

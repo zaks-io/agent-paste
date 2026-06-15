@@ -72,7 +72,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "For a public/shareable link that follows later publishes, run the separate make-public step — `agent-paste make-public <artifact-id>` on the CLI, or the `make_public` MCP tool — to mint or reuse the public Share Link. Publish itself never makes an Artifact public. The direct `usercontent.agent-paste.sh/v/...` URL points at one Revision, does not Live Update, and direct HTML opened there is inert raw byte delivery. The `private_url` clean viewer is the default Workspace view publish returns.",
+          text: 'For an unlisted no-login link that follows later publishes, run `agent-paste set-visibility <artifact-id> unlisted` on the CLI, or MCP `set_visibility` with `visibility: "unlisted"`, to mint or reuse the Share Link and return `unlisted_url`. Publish itself never creates unauthenticated access. The direct `usercontent.agent-paste.sh/v/...` URL points at one Revision, does not Live Update, and direct HTML opened there is inert raw byte delivery. The `private_url` clean viewer is the default Workspace view publish returns.',
         },
       ],
     },

@@ -477,7 +477,7 @@ describe("MCP streamable HTTP transport", () => {
       "list_revisions",
       "delete_artifact",
       "update_display_metadata",
-      "make_public",
+      "set_visibility",
       "create_revision_link",
       "list_access_links",
       "revoke_access_link",

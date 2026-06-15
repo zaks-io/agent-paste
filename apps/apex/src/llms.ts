@@ -9,10 +9,11 @@ const LLMS_TXT_BASE = `# agent-paste
 agent-paste gives agents a stable, addressable place to publish work products.
 An Artifact is a folder of one or more files. Publish is content-only and
 private: it returns the private_url clean viewer (\`/v/<artifactId>\`) as View
-plus an Agent View manifest another agent can read. Making an Artifact public is
-the separate make-public step (\`agent-paste make-public\` on the CLI,
-\`make_public\` on MCP). Do not send users to the usercontent Revision Content URL
-as the final live page.
+plus an Agent View manifest another agent can read. To make an Artifact reachable
+without login, set visibility to \`unlisted\` (\`agent-paste set-visibility
+<artifact-id> unlisted\` on the CLI, \`set_visibility\` with
+\`visibility: "unlisted"\` on MCP), then return \`unlisted_url\`. Do not send users
+to the usercontent Revision Content URL as the final live page.
 
 ## What you can do here
 
@@ -45,20 +46,20 @@ as the final live page.
 - Read an artifact from agent-facing surfaces through the CLI, \`${MCP_BASE_URL}\`
   (MCP tool \`read_artifact\`), or the dashboard for humans.
 - Verification: \`private_url\` is login-walled app navigation; a plain HTTP 200
-  can be only the app shell or sign-in state. For public/no-login verification,
-  use a Share Link from make-public. For machine verification, fetch
-  \`agent_view_url\` and read signed per-file URLs from \`files[].url\`.
-- Share an artifact only when explicitly asked, through the separate make-public
-  step: \`npx @zaks-io/agent-paste make-public <artifact-id>\` on the CLI, or the
-  \`make_public\` MCP tool. It mints or reuses the one revocable Share Link and
-  returns its minted Access Link Signed URL. A human opens it at
-  \`${APP_BASE_URL}/al/{public_id}#...\`. Revoke it without deleting the
+  can be only the app shell or sign-in state. For no-login verification, use a
+  Share Link from \`set-visibility <artifact-id> unlisted\`. For machine
+  verification, fetch \`agent_view_url\` and read signed per-file URLs from
+  \`files[].url\`.
+- Share an artifact only when explicitly asked, through the separate visibility
+  step: \`npx @zaks-io/agent-paste set-visibility <artifact-id> unlisted\` on the
+  CLI, or MCP \`set_visibility\` with \`visibility: "unlisted"\`. It mints or
+  reuses the one revocable Share Link and returns \`unlisted_url\`. A human opens
+  it at \`${APP_BASE_URL}/al/{public_id}#...\`. Revoke it without deleting the
   underlying Artifact.
 - Publish is content-only and private on every surface; there is no \`--share\`
-  flag and no \`share\` input. Run the make-public step only when the user
-  explicitly asks for a public/shareable link, then return the resulting public
-  Share Link. Do not return \`usercontent.agent-paste.sh/v/...\` as the final live
-  page.
+  flag and no \`share\` input. Run the unlisted visibility step only when the user
+  explicitly asks for a shareable no-login link, then return \`unlisted_url\`. Do
+  not return \`usercontent.agent-paste.sh/v/...\` as the final live page.
 
 ## Entry points
 
@@ -88,10 +89,11 @@ bearer token.
   for one exact Revision. It expires, does not Live Update, and direct HTML there
   is inert raw byte delivery rather than the product viewer.
 - Share Link - Access Link type that follows the latest Published Revision for
-  the Artifact Viewer. Created only by the make-public step, never by publish.
+  the Artifact Viewer. Created only by setting visibility to \`unlisted\`, never
+  by publish.
 - Access Link Signed URL - the URL string minted from an Access Link. The one
-  minted from a Share Link is the public, no-login link the make-public step
-  returns.
+  minted from a Share Link is the unlisted no-login link returned as
+  \`unlisted_url\`.
 
 ## Longer agent guide
 

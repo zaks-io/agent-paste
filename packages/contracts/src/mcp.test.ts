@@ -7,6 +7,7 @@ import {
   McpAddRevisionInput,
   McpMultiEditInput,
   McpPublishArtifactInput,
+  McpSetVisibilityInput,
   McpToolName,
   McpUpdateDisplayMetadataInput,
   mapApiErrorToMcp,
@@ -38,7 +39,7 @@ describe("MCP tool registry", () => {
       "list_revisions",
       "delete_artifact",
       "update_display_metadata",
-      "make_public",
+      "set_visibility",
       "create_revision_link",
       "list_access_links",
       "revoke_access_link",
@@ -72,6 +73,28 @@ describe("MCP tool registry", () => {
         body: "hello",
         render_mode: "text",
         share: true,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("advertises only shipped set_visibility values", () => {
+    const listed = buildMcpToolList();
+    const tool = listed.tools.find((entry) => entry.name === "set_visibility");
+    const serializedSchema = JSON.stringify(tool?.inputSchema ?? {});
+
+    expect(serializedSchema).toContain('"private"');
+    expect(serializedSchema).toContain('"unlisted"');
+    expect(serializedSchema).not.toContain('"public"');
+    expect(
+      McpSetVisibilityInput.safeParse({
+        artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        visibility: "private",
+      }).success,
+    ).toBe(true);
+    expect(
+      McpSetVisibilityInput.safeParse({
+        artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+        visibility: "public",
       }).success,
     ).toBe(false);
   });

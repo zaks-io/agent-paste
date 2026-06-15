@@ -29,7 +29,7 @@ export const RevisionListResponse = z.object({
 export type RevisionListResponse = z.infer<typeof RevisionListResponse>;
 
 // Publishing a Revision carries CONTENT ONLY — no visibility input. An Artifact
-// is private by default; going public is a separate, explicit step that mints a
-// revocable Share Link. The body is empty and optional.
+// is private by default; unlisted sharing is a separate, explicit visibility
+// step that mints a revocable Share Link. The body is empty and optional.
 export const PublishRevisionRequest = z.object({}).strict();
 export type PublishRevisionRequest = z.infer<typeof PublishRevisionRequest>;

@@ -5,9 +5,9 @@
 > that as a `shared` boolean. In practice that conflated "which URL" with "is it
 > public," so a revise that did not re-assert `share` reported `shared:false` and
 > handed back a different URL — a confusing, dishonest output, and a default that
-> made artifacts public when the caller did not ask. ADR 0086 makes publish
-> content-only and private, returns one private viewer link, and moves "go public"
-> to a separate explicit, revocable step.
+> created no-login access when the caller did not ask. ADR 0086 makes publish
+> content-only and private, returns one private viewer link, and moves unlisted
+> sharing to a separate explicit, revocable step.
 
 An agent's core job on this product is "publish an **Artifact**, get back a link."
 The link is the deliverable. So the publish surfaces must return _a link the
@@ -55,8 +55,8 @@ through to find the link.
   makes the agent understand four URL fields and the grant model to find the one
   link, and it tempts the agent to hand out the wrong one (e.g. an authenticated
   `artifact_url` that the recipient can't open, or an `access_link_url` the user
-  didn't intend to make public).
-- **Make every publish auto-mint a public Share Link.** Rejected. It violates
+  didn't intend to create).
+- **Make every publish auto-mint an unlisted Share Link.** Rejected. It violates
   "no surprises" — an agent publishing a draft would make it world-readable by
   URL without anyone asking. Private-by-default is the safe default; sharing is
   an explicit, single, reversible bit.

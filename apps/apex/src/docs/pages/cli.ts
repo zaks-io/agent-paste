@@ -22,8 +22,8 @@ export const CLI_DOC: DocsPage = {
               "Upload files, publish a Revision, and print the result. Content-only and private.",
             ],
             [
-              "`agent-paste make-public <artifact-id>`",
-              "Mint or reuse the Artifact's one Share Link and print its public, no-login signed URL.",
+              "`agent-paste set-visibility <artifact-id> <private|unlisted>`",
+              "Change visibility. `unlisted` returns `unlisted_url`; `private` revokes active Access Links.",
             ],
             ["`agent-paste version`", "Print the CLI version baked into the package or binary."],
             ["`agent-paste upgrade [<tag>]`", "Self-update a standalone binary install."],
@@ -83,14 +83,14 @@ export const CLI_DOC: DocsPage = {
           kind: "note",
           title: "Do not verify Private Links with status code alone",
           body: [
-            "A `private_url` opens the app viewer for a signed-in Workspace Member. Plain HTTP clients can receive the app shell or sign-in redirect state with a 200 response; that does not make the Artifact public. Use `make-public` for a no-login browser link, and use `agent_view_url` plus Agent View `files[].url` entries for machine verification.",
+            "A `private_url` opens the app viewer for a signed-in Workspace Member. Plain HTTP clients can receive the app shell or sign-in redirect state with a 200 response; that does not make the Artifact reachable without login. Use `set-visibility <artifact-id> unlisted` for a no-login browser link, and use `agent_view_url` plus Agent View `files[].url` entries for machine verification.",
           ],
         },
         {
           kind: "note",
-          title: "Going public is a separate step",
+          title: "Unlisted sharing is a separate step",
           body: [
-            "Publish is content-only and private; `private_url` is the login-walled `/v/<artifactId>` clean viewer. When a human needs a public/shareable URL that follows later publishes, run `agent-paste make-public <artifact-id>`; it mints or reuses the one Share Link and prints its public, no-login signed URL. `revision_content_url` is raw signed byte delivery for one Revision.",
+            "Publish is content-only and private; `private_url` is the login-walled `/v/<artifactId>` clean viewer. When a human needs a no-login URL that follows later publishes, run `agent-paste set-visibility <artifact-id> unlisted`; it mints or reuses the one unlisted Share Link and returns `unlisted_url`. `set-visibility <artifact-id> private` revokes active Access Links. `revision_content_url` is raw signed byte delivery for one Revision.",
           ],
         },
         {

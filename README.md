@@ -37,9 +37,9 @@ Every publish gives you:
 - **Lifecycle controls**: Workspace Auto Deletion policy, so generated work does
   not live forever by accident.
 
-Nothing is public unless you make it public. Content is served from an isolated
-Content Origin with signed URLs, and a public Share Link is minted only when you
-explicitly create one.
+No-login access is explicit. Content is served from an isolated Content Origin
+with signed URLs, and an unlisted Share Link is minted only when you explicitly
+set visibility to `unlisted`.
 
 ## Quick Start
 
@@ -65,10 +65,10 @@ Expected output:
   → open https://app.agent-paste.sh/v/art_01H...
 ```
 
-Want a public, shareable link? That is explicit:
+Want a shareable no-login link? That is explicit:
 
 ```sh
-npx @zaks-io/agent-paste make-public art_01H...
+npx @zaks-io/agent-paste set-visibility art_01H... unlisted
 ```
 
 ### No login, no human in the loop
@@ -130,15 +130,15 @@ Revision Content URL   https://usercontent.agent-paste.sh/v/{content_token}/inde
 The Private Link is authenticated Workspace app navigation and is the default
 `View` URL after publish. The dashboard-only Artifact Console at
 `/artifacts/{artifact_id}` is for management, not handoff. An Access Link Signed
-URL is the public/shareable URL, minted only when a Share Link or Revision Link
-is explicitly created. The Revision Content URL is exact signed byte delivery for
-one Revision; direct `usercontent` HTML is inert and should not be presented as
-the live page.
+URL is the unlisted no-login URL, minted only when a Share Link or Revision Link
+is explicitly created. The Revision Content URL is exact signed byte delivery
+for one Revision; direct `usercontent` HTML is inert and should not be presented
+as the live page.
 
 A plain HTTP status check is not enough to verify a Private Link: unauthenticated
 clients may receive the app shell or sign-in redirect state with HTTP 200. Use a
-Share Link for public browser handoff, or use Agent View and its `files[].url`
-entries for machine verification.
+Share Link from `set-visibility unlisted` for no-login browser handoff, or use
+Agent View and its `files[].url` entries for machine verification.
 
 ## Use Cases
 

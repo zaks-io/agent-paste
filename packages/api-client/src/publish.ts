@@ -106,7 +106,8 @@ export type PublishTransport = {
  * The one publish path shared by the CLI and the MCP server: create an upload
  * session, upload the files the server does not already have, finalize, and
  * publish the revision. Publish is content-only and private — it returns one
- * link, the private viewer URL (`/v/<id>`). Going public is a separate step.
+ * link, the private viewer URL (`/v/<id>`). Unlisted sharing is a separate
+ * visibility step.
  */
 export async function runPublish(transport: PublishTransport, input: PublishInput): Promise<PublishOutcome> {
   const session = await transport.createUploadSession(buildCreateSessionRequest(input), input.idempotencyKey);
