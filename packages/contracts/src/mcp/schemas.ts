@@ -65,6 +65,44 @@ export const McpAddRevisionInput = z
   .strict();
 export type McpAddRevisionInput = z.infer<typeof McpAddRevisionInput>;
 
+// One literal old/new replacement, the same shape as Claude's Edit/MultiEdit
+// tools. Matching is LITERAL (no regex): old_string must occur exactly once in
+// the base unless replace_all is set. Bounded to the same 10 MiB ceiling as a
+// publish body so a single oversize string cannot blow the request up.
+export const McpEdit = z
+  .object({
+    old_string: z
+      .string()
+      .min(1)
+      .max(Mebibytes.ten)
+      .describe("Exact text to find in the file. Must match once unless replace_all is true."),
+    new_string: z.string().max(Mebibytes.ten).describe("Text to replace it with (may be empty to delete the match)."),
+    replace_all: z
+      .boolean()
+      .optional()
+      .describe("Replace every occurrence instead of requiring a single unique match."),
+  })
+  .strict();
+export type McpEdit = z.infer<typeof McpEdit>;
+
+export const McpMultiEditInput = z
+  .object({
+    artifact_id: ArtifactId.describe(
+      "The existing Artifact to edit (from a publish_artifact response or list_artifacts). The edited Revision publishes under this Artifact's stable private_url, which live-updates any already-open viewer.",
+    ),
+    path: FilePath.describe(
+      "The stored file to edit within the Artifact (e.g. the entrypoint). Read it first with read_file to get the exact base text the edits must match.",
+    ),
+    edits: z
+      .array(McpEdit)
+      .min(1)
+      .max(100)
+      .describe("Ordered literal edits applied in sequence; each sees the result of the previous one."),
+    idempotency_key: IdempotencyKey.optional(),
+  })
+  .strict();
+export type McpMultiEditInput = z.infer<typeof McpMultiEditInput>;
+
 export const McpListArtifactsInput = PaginationRequest.pick({ cursor: true }).strict();
 export type McpListArtifactsInput = z.infer<typeof McpListArtifactsInput>;
 
@@ -211,6 +249,7 @@ export type McpWhoamiResponse = z.infer<typeof McpWhoamiResponse>;
 export const McpToolName = z.enum([
   "publish_artifact",
   "add_revision",
+  "multi_edit",
   "list_artifacts",
   "read_artifact",
   "read_file",

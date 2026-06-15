@@ -96,6 +96,18 @@ function assertClaimTokenNotInPublicUrls(result: PublishResultShape, claimUrl: s
   }
 }
 
+// An edit whose result reproduces the stored bytes mints no Revision. Report the
+// no-op plainly and echo the stable link so the agent still has it to hand back —
+// the live page already shows this content.
+export function formatEditNoop(mode: OutputMode, payload: { title: string; private_url: string }): string {
+  const label = (text: string) => paint(mode, "dim", text);
+  return [
+    `${paint(mode, "dim", "•")} No change to ${paint(mode, "bold", `"${payload.title}"`)} (edits reproduce the stored content)`,
+    "",
+    `  ${label("View")}      ${hyperlink(mode, payload.private_url)}`,
+  ].join("\n");
+}
+
 export function formatMakePublic(mode: OutputMode, payload: { public_url: string }): string {
   const label = (text: string) => paint(mode, "dim", text);
   return [

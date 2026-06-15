@@ -595,6 +595,86 @@ describe("callMcpTool", () => {
     expect(upload.fetch).not.toHaveBeenCalled();
   });
 
+  it("multi_edit applies literal edits to the base file and publishes under the base revision", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 200 })),
+    );
+    const api = apiMock(
+      ["publish", "read"],
+      Response.json(baseAgentView()),
+      Response.json(await baseFileContent("old body")),
+      Response.json(serverPublishResult()),
+    );
+    const upload = uploadMockForPublish();
+    const result = await callMcpTool(
+      "multi_edit",
+      { artifact_id: ARTIFACT_ID, path: "content.txt", edits: [{ old_string: "old", new_string: "new" }] },
+      auth,
+      { api, upload, bearerToken: "token-write-read", jsonRpcId: 51 },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.result).toMatchObject({ private_url: "https://app.example/v/art_1" });
+    }
+    // Publishes under the existing artifact + base revision, preserving the base title.
+    const createBody = (await (upload.fetch.mock.calls[0]?.[0] as Request).json()) as {
+      artifact_id: string;
+      base_revision_id: string;
+      title: string;
+    };
+    expect(createBody.artifact_id).toBe(ARTIFACT_ID);
+    expect(createBody.base_revision_id).toBe(REVISION_ID);
+    expect(createBody.title).toBe("Original Title");
+  });
+
+  it("multi_edit is a no-op when the edits reproduce the stored bytes, echoing the stable link", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 200 })),
+    );
+    const api = apiMock(
+      ["publish", "read"],
+      Response.json(baseAgentView()),
+      Response.json(await baseFileContent("same body")),
+    );
+    const upload = uploadMockForPublish();
+    const result = await callMcpTool(
+      "multi_edit",
+      // Replace "same" with "same": the result equals the stored bytes.
+      { artifact_id: ARTIFACT_ID, path: "content.txt", edits: [{ old_string: "same", new_string: "same" }] },
+      auth,
+      { api, upload, bearerToken: "token-write-read", jsonRpcId: 52 },
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.result).toMatchObject({ title: "Original Title", private_url: "https://app.example/v/art_1" });
+    }
+    expect(upload.fetch).not.toHaveBeenCalled();
+  });
+
+  it("multi_edit surfaces a non-matching edit as a client invalid_request, not internal_error", async () => {
+    const api = apiMock(
+      ["publish", "read"],
+      Response.json(baseAgentView()),
+      Response.json(await baseFileContent("old body")),
+    );
+    const upload = uploadMockForPublish();
+    const result = await callMcpTool(
+      "multi_edit",
+      { artifact_id: ARTIFACT_ID, path: "content.txt", edits: [{ old_string: "absent", new_string: "x" }] },
+      auth,
+      { api, upload, bearerToken: "token-write-read", jsonRpcId: 53 },
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("invalid_request");
+      expect(result.error.message).toContain("not_found");
+    }
+    // The edit never matched, so no upload session is created.
+    expect(upload.fetch).not.toHaveBeenCalled();
+  });
+
   it("creates a revision link", async () => {
     const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
     const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";

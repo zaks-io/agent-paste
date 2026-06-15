@@ -130,7 +130,23 @@ export const EXIT_NETWORK = 6;
 // status is the durable signal and avoids pinning code names that drift.
 // 429 (rate-limit + write-allowance) is EXIT_QUOTA so agents back off. Documented
 // in docs/specs/cli.md — keep the two in sync.
+// A revise-engine failure (edit old_string not_found / not_unique / base_not_text /
+// path_not_in_base) is a caller-input error, so it buckets as EXIT_VALIDATION like a
+// 422 — scripts branch on "your edit did not match" the same as a rejected request.
+// Matched structurally (name + reason) so render.ts stays free of a revise-core import.
+function isReviseError(error: unknown): error is { name: "ReviseError"; reason: string } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { name?: unknown }).name === "ReviseError" &&
+    typeof (error as { reason?: unknown }).reason === "string"
+  );
+}
+
 export function exitCodeFor(error: unknown): number {
+  if (isReviseError(error)) {
+    return EXIT_VALIDATION;
+  }
   if (!(error instanceof AgentPasteError)) {
     return EXIT_GENERIC;
   }
@@ -161,8 +177,7 @@ function resolveErrorMessage(error: unknown): string {
 }
 
 export function formatError(mode: OutputMode, error: unknown): string {
-  const asError = error instanceof Error ? error : new Error(String(error));
-  const code = error instanceof AgentPasteError ? error.code : "cli_error";
+  const code = error instanceof AgentPasteError ? error.code : isReviseError(error) ? "invalid_edit" : "cli_error";
   const docs = error instanceof AgentPasteError ? error.docs : undefined;
   const message = resolveErrorMessage(error);
   if (mode === "json") {

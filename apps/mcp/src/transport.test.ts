@@ -470,6 +470,7 @@ describe("MCP streamable HTTP transport", () => {
     expect(tools.map((tool) => tool.name)).toEqual([
       "publish_artifact",
       "add_revision",
+      "multi_edit",
       "list_artifacts",
       "read_artifact",
       "read_file",

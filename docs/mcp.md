@@ -55,15 +55,17 @@ Host-specific OAuth and redirect notes live in
 
 ## What Agents Can Do
 
-MCP exposes twelve tools:
+MCP exposes fourteen tools:
 
 | Tool                      | Purpose                                                                                                    |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `whoami`                  | Return the authenticated member, Workspace, and derived scopes.                                            |
 | `publish_artifact`        | Publish a new text-only Artifact. Content-only and private.                                                |
 | `add_revision`            | Revise an Artifact in place: publish a text-only Revision under the same stable link. Preserves the title. |
+| `multi_edit`              | Edit one file in an Artifact with literal find/replace (the Claude Edit model), publish it as a Revision.  |
 | `list_artifacts`          | List Artifacts in the Workspace.                                                                           |
 | `read_artifact`           | Read the latest Agent View for an Artifact.                                                                |
+| `read_file`               | Read one stored file's bytes back (member plaintext) so you can edit against the current content.          |
 | `list_revisions`          | List Revisions for an Artifact.                                                                            |
 | `delete_artifact`         | Delete an Artifact.                                                                                        |
 | `update_display_metadata` | Update an Artifact display title.                                                                          |
@@ -97,6 +99,19 @@ meaningful whole-body replace). When the call's entrypoint is not in the base tr
 it falls back to a whole-file publish under the same Artifact. The Revision inherits
 the base's Render Mode unless the call sets one.
 
+`multi_edit` is the targeted-edit twin of `add_revision`, the parity match for the
+CLI `edit` verb. It takes an `artifact_id`, a `path`, and an ordered `edits` array
+of `{ old_string, new_string, replace_all? }` — the same shape as Claude's Edit
+tool — and runs through the same `@agent-paste/revise-core` engine: it reads the
+named file, applies the literal edits client-side, and publishes the result as a
+Revision under the Artifact's stable `private_url`, preserving the title. Matching
+is **literal and fail-loud**: each `old_string` must be non-empty and match exactly
+once (set `replace_all` to change every occurrence); a not-found or ambiguous match
+returns an `invalid_request` (HTTP 400) naming the offending edit index instead of
+guessing, so the agent re-reads with `read_file` and retries. The server's stored
+sha256 is the source of truth. Edits that reproduce the current bytes are a no-op
+that mints no Revision and echoes the unchanged link, title, and expiry.
+
 ## Capabilities
 
 MCP uses OAuth for authentication, but agent-paste does not trust OAuth scopes as
@@ -104,10 +119,10 @@ the source of product authorization. Capabilities come from the authenticated
 Workspace Member in `api`, using one shared scope vocabulary (the same names the
 API uses); MCP scopes are the member's stored API scopes verbatim, no translation:
 
-| Scope     | Grants                                           | Tools                                                                                                                                         |
-| --------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `read`    | View your own Artifacts and links                | `whoami`, `list_artifacts`, `read_artifact`, `list_revisions`, `list_access_links`                                                            |
-| `publish` | Change your own content and manage public access | `publish_artifact`, `add_revision`, `delete_artifact`, `update_display_metadata`, `make_public`, `create_revision_link`, `revoke_access_link` |
+| Scope     | Grants                                           | Tools                                                                                                                                                       |
+| --------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `read`    | View your own Artifacts and links                | `whoami`, `list_artifacts`, `read_artifact`, `read_file`, `list_revisions`, `list_access_links`                                                             |
+| `publish` | Change your own content and manage public access | `publish_artifact`, `add_revision`, `multi_edit`, `delete_artifact`, `update_display_metadata`, `make_public`, `create_revision_link`, `revoke_access_link` |
 
 `admin` exists but is dashboard-only (account/workspace management); no MCP tool
 needs it. Today, normal Workspace members are provisioned with `read`, `publish`,
