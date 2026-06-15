@@ -92,6 +92,11 @@ domain behavior, and performance work without benchmarks.
   tracker evidence satisfies the PR closure guard; draft or in-progress PRs are
   never closed just to make room. Age, draft status, and capacity pressure are
   not abandonment evidence.
+- Capacity headroom is still gated by file footprint. Before fanning out
+  startable work, Orchestrator compares predicted file or package footprints
+  against active PRs, active worker branches, and selected candidates. It holds
+  sibling hot-seam collisions as `file-collision` and routes missing footprints to
+  triage or To Issues instead of filling spare slots blindly.
 - If the refreshed scope is completely blocked, Orchestrator stops the recurring
   loop for that scope instead of waking forever. Completely blocked means there
   are no startable tickets, PRs or previews to advance, stuck workers to nudge,
@@ -144,6 +149,10 @@ Outside-scope PRs and previews still consume repo capacity; if Orchestrator lack
 authority to change them, it reports a capacity blocker instead of dispatching
 more work. It must not close a draft, active, recently updated, or
 unclear-ownership PR merely to reduce the footprint.
+When headroom exists, Orchestrator still compares predicted footprints before
+dispatch. Shared files, parent directories, generated artifacts, migrations,
+route files, config files, and refactor/test work on the same seam are
+serialization signals, not spare slots to fill.
 
 A direct user request to handle one ticket is delegated authority to orchestrate
 that ticket only. The agent should move that one issue through configured states
@@ -271,9 +280,17 @@ is needed.
 
 Orchestrator-local files, run logs, checkpoints, and the dispatch ledger are only
 scratch state. They can speed up polling or avoid duplicate work, but agents must
-refresh the systems of record before acting. The friction log is retrospective,
-not state: append-only comments on a parked ticket, never read back to decide
-anything.
+refresh the systems of record before acting. The friction intake is
+retrospective, not state: append-only comments on a parked ticket or
+ticket-per-finding intake in a private tracker team or project, never read back
+to decide anything.
+
+When config uses ticket-per-finding intake, raw friction tickets must land
+outside the delivery queue, usually in an `Inbox` or `Triage` state without
+`ready-for-agent`. Agent-created friction tickets are evidence for later system
+improvement. A configured review loop, often a daily automation, groups
+duplicates, closes noise, and turns actionable patterns into small PRs against
+the skill or repo config that caused the friction.
 
 ## Instruction Trust Boundaries
 
