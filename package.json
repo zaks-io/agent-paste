@@ -98,7 +98,13 @@
   },
   "pnpm": {
     "overrides": {
-      "@esbuild-kit/core-utils>esbuild": "^0.25.12"
+      "@esbuild-kit/core-utils>esbuild": "^0.25.12",
+      "@babel/core": "^7.29.7",
+      "@cloudflare/vite-plugin>ws": "^8.21.0",
+      "jsdom>ws": "^8.21.0",
+      "miniflare>ws": "^8.21.0",
+      "puppeteer-core>ws": "^8.21.0",
+      "xmlbuilder2>js-yaml": "^4.2.0"
     }
   },
   "optionalDependencies": {
