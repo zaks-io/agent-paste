@@ -56,7 +56,9 @@ One-time tokens that promote an **Ephemeral Workspace** ([0075](../adr/0075-agen
 | `last_used_at` | `TIMESTAMPTZ NULL`                        |                                             |
 | `created_at`   | `TIMESTAMPTZ NOT NULL`                    |                                             |
 
-Stored credentials grant the publish/read capability needed by the public CLI. Granular scopes are future work.
+Stored credentials carry explicit `read`, `publish`, and `admin` scopes. The
+public CLI uses `read` and `publish`; management surfaces mint and enforce the
+same scope vocabulary for API keys and Workspace Members.
 
 ### `artifacts`
 
