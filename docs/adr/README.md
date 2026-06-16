@@ -89,7 +89,7 @@ These practices are part of the current architecture, not optional implementatio
 - Untrusted content is served only from the isolated content origin. Direct R2 read URLs are never returned per [ADR 0001](./0001-private-artifact-storage-behind-controlled-origin.md).
 - Content responses use defense-in-depth headers: CSP, `Referrer-Policy`, `Permissions-Policy`, `X-Content-Type-Options: nosniff`, and iframe sandboxing per [ADR 0030](./0030-mvp-execution-policy-cdn-allowlisted-csp.md). Cloudflare's security-header example covers the same header family: <https://developers.cloudflare.com/workers/examples/security-headers/>.
 - Served content type is derived from a fixed extension allowlist, not the agent-provided upload MIME type. Unknown extensions download as `application/octet-stream`; SVG gets a tighter per-response CSP per [ADR 0042](./0042-strict-extension-based-served-content-type.md).
-- Application-layer encryption for artifact bytes is deferred out of the CLI-first MVP per [ADR 0066](./0066-cli-first-mvp-contract-narrowing.md). The MVP safety baseline is private R2, isolated content serving, signed content tokens, and no direct R2 URLs. [ADR 0063](./0063-application-layer-encryption-for-artifact-bytes.md) remains the future direction when that work is promoted.
+- Application-layer encryption for Artifact bytes is active per [ADR 0063](./0063-application-layer-encryption-for-artifact-bytes.md) and the current specs. The original CLI-first MVP deferral in [ADR 0066](./0066-cli-first-mvp-contract-narrowing.md) is historical; private R2, isolated content serving, signed content tokens, and no direct R2 URLs remain part of the safety baseline.
 
 ### Operator and Admin Access
 
