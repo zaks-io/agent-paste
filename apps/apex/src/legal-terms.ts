@@ -6,7 +6,7 @@ export const TERMS: LegalDocument = {
   eyebrow: "Hosted service terms",
   description: "The terms that govern access to the agent-paste hosted service.",
   lead: "These terms govern your use of the agent-paste hosted service, including the dashboard, API, MCP server, CLI-backed hosted workflows, Access Links, and published Artifacts.",
-  effectiveDate: "June 4, 2026",
+  effectiveDate: "June 16, 2026",
   sections: [
     {
       id: "service",
@@ -15,6 +15,10 @@ export const TERMS: LegalDocument = {
         {
           kind: "paragraph",
           text: "agent-paste is infrastructure for publishing and sharing agent-generated work products. The hosted service is provided by Zaks.io, LLC. The source code is licensed separately under Apache-2.0. These terms apply to the hosted service, not to your rights under the open source license.",
+        },
+        {
+          kind: "paragraph",
+          text: "By accessing or using the hosted service, you agree to these terms. If you use the service for an organization, you represent that you have authority to bind that organization.",
         },
         {
           kind: "paragraph",
@@ -34,6 +38,10 @@ export const TERMS: LegalDocument = {
           kind: "paragraph",
           text: "The service is currently offered only in the United States. Do not use the hosted service if you are outside the United States.",
         },
+        {
+          kind: "paragraph",
+          text: "You may not use the service if you are barred from using it under applicable law, including U.S. sanctions or export-control restrictions.",
+        },
       ],
     },
     {
@@ -47,6 +55,10 @@ export const TERMS: LegalDocument = {
         {
           kind: "paragraph",
           text: "Automation credentials are meant for controlled agent and workflow use. Do not embed them in public repositories, published Artifacts, client-side code, browser-visible pages, or logs.",
+        },
+        {
+          kind: "paragraph",
+          text: "If you direct an agent, MCP host, CI job, script, or other automated tool to use the service, you are responsible for that tool's actions as if you performed them yourself.",
         },
       ],
     },
@@ -62,6 +74,10 @@ export const TERMS: LegalDocument = {
           kind: "paragraph",
           text: "You are responsible for ensuring you have the rights and permissions needed to publish, share, and process the content you submit.",
         },
+        {
+          kind: "paragraph",
+          text: "The service is not designed for regulated or high-risk data. Do not publish secrets, credentials, payment card data, protected health information, government identifiers, or other sensitive regulated data unless Zaks.io, LLC has approved that use in writing and you have the required rights and safeguards.",
+        },
       ],
     },
     {
@@ -72,7 +88,9 @@ export const TERMS: LegalDocument = {
         {
           kind: "list",
           items: [
+            "child sexual abuse material, sexual exploitation, or non-consensual intimate content",
             "malware, credential theft, phishing, spam, fraud, or deceptive impersonation",
+            "violent threats, unlawful harassment, or content intended to facilitate physical harm",
             "content that violates law, privacy rights, intellectual property rights, or a person's safety",
             "attempts to bypass limits, authentication, authorization, rate limits, revocation, or abuse-response controls",
             "testing against accounts, Workspaces, Artifacts, Access Links, or systems you do not own or have permission to test",
@@ -83,6 +101,10 @@ export const TERMS: LegalDocument = {
           kind: "paragraph",
           text: "We may suspend access, remove or disable content, revoke credentials, or preserve records when needed to protect the service, users, third parties, or the public.",
         },
+        {
+          kind: "paragraph",
+          text: "Abuse, phishing, takedown, or intellectual-property complaints can be sent to support@agent-paste.sh. Security reports should follow the Security Policy.",
+        },
       ],
     },
     {
@@ -91,7 +113,11 @@ export const TERMS: LegalDocument = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Access Links, Revision Links, and claim links are bearer-style sharing mechanisms. Anyone with a valid link may be able to access the content or action the link permits until it expires, is revoked, or is otherwise disabled.",
+          text: "Private Links are for authenticated Workspace Members. Access Link Signed URLs, Revision Content URLs, and claim links are bearer-style mechanisms. Anyone with a valid link may be able to access the content or action the link permits until it expires, is revoked, or is otherwise disabled.",
+        },
+        {
+          kind: "paragraph",
+          text: "Authenticated publish is private by default. Unlisted no-login access requires an explicit sharing step, such as creating a Share Link, except that accountless ephemeral publish creates an unlisted Share Link so the agent can return a usable no-login link immediately.",
         },
         {
           kind: "paragraph",
@@ -125,7 +151,15 @@ export const TERMS: LegalDocument = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Some features may require payment or a paid Plan. Pricing, limits, renewal terms, and cancellation details will be shown where you subscribe or manage billing. Taxes may apply.",
+          text: "Some features may require payment or a paid Plan. Pricing, limits, renewal terms, taxes, and cancellation details will be shown where you subscribe or manage billing. Stripe is the payment processor for paid Plans.",
+        },
+        {
+          kind: "paragraph",
+          text: "Paid Plans renew automatically for the interval you select unless canceled. You can manage or cancel a paid Plan through the Stripe Customer Portal from the billing page, or by contacting support@agent-paste.sh if portal access is unavailable.",
+        },
+        {
+          kind: "paragraph",
+          text: "Cancellation stops future renewal charges. Unless the checkout or billing portal says otherwise, cancellation takes effect at the end of the current paid period. Fees are non-refundable except where required by law or expressly stated at checkout or in the billing portal.",
         },
       ],
     },
@@ -141,6 +175,10 @@ export const TERMS: LegalDocument = {
           kind: "paragraph",
           text: "You are responsible for evaluating whether the service is appropriate for your data, compliance duties, uptime needs, and security requirements.",
         },
+        {
+          kind: "paragraph",
+          text: "Zaks.io, LLC does not inspect, endorse, or certify uploaded content as safe, accurate, lawful, or suitable for any particular use.",
+        },
       ],
     },
     {
@@ -154,6 +192,34 @@ export const TERMS: LegalDocument = {
         {
           kind: "paragraph",
           text: "To the maximum extent permitted by law, Zaks.io, LLC's total liability for claims relating to the hosted service is limited to the amount you paid for the service in the three months before the event giving rise to the claim, or 100 USD if you did not pay for the service.",
+        },
+      ],
+    },
+    {
+      id: "termination",
+      title: "Termination",
+      blocks: [
+        {
+          kind: "paragraph",
+          text: "You may stop using the service at any time. We may suspend or terminate access, credentials, Artifacts, links, or Workspaces if you violate these terms, create legal or security risk, fail to pay amounts due, or if continuing the service is no longer practical for us.",
+        },
+        {
+          kind: "paragraph",
+          text: "Termination does not waive any amounts owed, legal obligations, or rights that by their nature should survive termination, including content rights needed to complete deletion, security, abuse-response, audit, disclaimer, liability, and dispute terms.",
+        },
+      ],
+    },
+    {
+      id: "governing-law",
+      title: "Governing law",
+      blocks: [
+        {
+          kind: "paragraph",
+          text: "These terms are governed by California law and applicable U.S. federal law, without regard to conflict-of-law rules.",
+        },
+        {
+          kind: "paragraph",
+          text: "Except where prohibited by law, claims relating to the hosted service must be brought in the state or federal courts located in Sacramento County, California, and each party consents to those courts.",
         },
       ],
     },

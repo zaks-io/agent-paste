@@ -92,6 +92,8 @@ describe("apex shell", () => {
 
   it("renders the operating company attribution in the footer", () => {
     const footer = html.match(/<footer[\s\S]*?<\/footer>/)?.[0] ?? "";
+    expect(footer).toContain("Source code is Apache-2.0");
+    expect(footer).toContain("Hosted service operated by");
     expect(footer).toContain("Zaks.io, LLC");
     expect(footer).toContain('href="https://zaks.io"');
     expect(footer).not.toContain("Apache-2.0 (c) zaks-io");
