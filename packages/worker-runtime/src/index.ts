@@ -4,7 +4,11 @@ export {
   type ArtifactEvent,
   type ArtifactEventKind,
   artifactEventDataPoint,
+  type FunnelEvent,
+  type FunnelEventKind,
+  funnelEventDataPoint,
   writeArtifactEvent,
+  writeFunnelEvent,
 } from "./analytics.js";
 export {
   type ApiKeyAuthEnv,

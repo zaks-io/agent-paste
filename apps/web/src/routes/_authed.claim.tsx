@@ -6,10 +6,12 @@ import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Input } from "../components/ui/Input";
 import { PageHeader } from "../components/ui/PageHeader";
 import {
+  claimCodeFromLocationSearch,
   claimRedemptionErrorMessage,
   claimSuccessPath,
   claimTokenFromLocationHash,
   clearClaimTokenFromLocation,
+  consumePendingClaimCode,
   consumePendingClaimToken,
 } from "../lib/claim-redemption";
 import { readCspNonce } from "../lib/csp-nonce-client";
@@ -51,18 +53,38 @@ function resolveInitialClaimToken(): string {
   return consumePendingClaimToken() ?? "";
 }
 
+function resolveInitialClaimCode(): string {
+  return claimCodeFromLocationSearch() ?? consumePendingClaimCode() ?? "";
+}
+
+function useClaimRequestState() {
+  const [claimToken, setClaimToken] = useState("");
+  const [claimCode, setClaimCode] = useState("");
+
+  useLayoutEffect(() => {
+    setClaimToken(resolveInitialClaimToken());
+    setClaimCode(resolveInitialClaimCode());
+  }, []);
+
+  return { claimCode, claimToken, setClaimToken };
+}
+
+function claimMutationData(claimToken: string, turnstileToken: string, claimCode: string) {
+  return {
+    claim_token: claimToken.trim(),
+    turnstile_token: turnstileToken,
+    ...(claimCode ? { claim_code: claimCode } : {}),
+  };
+}
+
 function ClaimPage() {
   const { turnstileSiteKey: siteKey, billing, usagePolicy } = Route.useLoaderData();
   const navigate = useNavigate();
-  const [claimToken, setClaimToken] = useState("");
+  const { claimCode, claimToken, setClaimToken } = useClaimRequestState();
   const [turnstileToken, setTurnstileToken] = useState<string | null>(siteKey ? null : LOCAL_TURNSTILE_BYPASS_TOKEN);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<{ message: string; requestId?: string } | null>(null);
   const [success, setSuccess] = useState<{ artifactIds: string[] } | null>(null);
-
-  useLayoutEffect(() => {
-    setClaimToken(resolveInitialClaimToken());
-  }, []);
 
   useEffect(() => {
     if (!siteKey) {
@@ -128,7 +150,7 @@ function ClaimPage() {
     setError(null);
     try {
       const result = await claimEphemeralFn({
-        data: { claim_token: claimToken.trim(), turnstile_token: turnstileToken },
+        data: claimMutationData(claimToken, turnstileToken, claimCode),
       });
       if (result.error) {
         setError({

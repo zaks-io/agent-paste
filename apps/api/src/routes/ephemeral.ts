@@ -1,7 +1,8 @@
 import { buildErrorBody, getRequestId, REQUEST_ID_HEADER } from "@agent-paste/auth";
+import { ClaimCode } from "@agent-paste/contracts";
 import type { Repository } from "@agent-paste/db";
 import { DEFAULT_POW_CHALLENGE_TTL_SECONDS, issuePowChallenge, verifyPowSolution } from "@agent-paste/tokens/pow";
-import { getBoundResponders } from "@agent-paste/worker-runtime";
+import { getBoundResponders, writeFunnelEvent } from "@agent-paste/worker-runtime";
 import type { AppContext } from "../env.js";
 import { consumeEphemeralProvisionGate } from "../ephemeral-provision-gate.js";
 import { webMemberActor } from "../principals.js";
@@ -20,7 +21,13 @@ export async function ephemeralProvisionRoute(
   }
 
   const body = guard.body;
+  const claimCode = validClaimCode(body.claim_code);
   if (!body.challenge || !body.solution) {
+    writeFunnelEvent(env.FUNNEL_EVENTS, {
+      kind: "ephemeral_provision_started",
+      surface: "api",
+      claimCode,
+    });
     return powRequiredResponse(context, powSecret);
   }
 
@@ -45,12 +52,18 @@ export async function ephemeralProvisionRoute(
     DEFAULT_POW_CHALLENGE_TTL_SECONDS,
   );
   if (!gateDecision) {
-    return provisionUnavailableResponse(context);
+    return provisionUnavailableResponse(context, claimCode);
   }
   if (!gateDecision.allowed && gateDecision.reason === "duplicate_nonce") {
     return getBoundResponders(context).respondError("pow_invalid");
   }
   if (!gateDecision.allowed) {
+    writeFunnelEvent(env.FUNNEL_EVENTS, {
+      kind: "ephemeral_provision_rate_limited",
+      surface: "api",
+      claimCode,
+      status: gateDecision.reason,
+    });
     return getBoundResponders(context).respondError("ephemeral_provision_rate_limited", {
       headers: { "Retry-After": retryAfterSeconds(gateDecision.retry_after_seconds) },
     });
@@ -58,6 +71,13 @@ export async function ephemeralProvisionRoute(
 
   const result = await db.createEphemeralWorkspace({
     idempotencyKey: `ephemeral-provision:${challenge.nonce}`,
+  });
+  writeFunnelEvent(env.FUNNEL_EVENTS, {
+    kind: "ephemeral_workspace_created",
+    surface: "api",
+    claimCode,
+    workspaceId: result.workspace.id,
+    claimTokenId: result.claim_token.id,
   });
 
   return getBoundResponders(context).respondJson(
@@ -85,17 +105,33 @@ export async function ephemeralClaimRoute(
 
   return runIdempotent(
     context,
-    () =>
-      db.claimEphemeralWorkspace({
+    async () => {
+      const result = await db.claimEphemeralWorkspace({
         actor,
         claimTokenSecret: guard.body.claim_token,
         idempotencyKey: guard.idempotencyKey,
-      }),
+      });
+      writeFunnelEvent(context.env.FUNNEL_EVENTS, {
+        kind: "link_claimed",
+        surface: "api",
+        claimCode: validClaimCode(guard.body.claim_code),
+        workspaceId: result.source_workspace_id,
+        claimTokenId: result.claim_token_id,
+        artifactCount: result.artifact_ids.length,
+      });
+      return result;
+    },
     { successStatus: 200 },
   );
 }
 
-function provisionUnavailableResponse(context: AppContext): Response {
+function provisionUnavailableResponse(context: AppContext, claimCode?: string): Response {
+  writeFunnelEvent(context.env.FUNNEL_EVENTS, {
+    kind: "ephemeral_provision_unavailable",
+    surface: "api",
+    claimCode,
+    status: "gate_unavailable",
+  });
   return getBoundResponders(context).respondError("ephemeral_provision_unavailable", {
     headers: { "Retry-After": "60" },
   });
@@ -103,6 +139,14 @@ function provisionUnavailableResponse(context: AppContext): Response {
 
 function retryAfterSeconds(value: number): string {
   return String(Math.max(1, Math.ceil(value)));
+}
+
+function validClaimCode(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = ClaimCode.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
 }
 
 // Verification trusts the difficulty signed into the challenge, so this knob only

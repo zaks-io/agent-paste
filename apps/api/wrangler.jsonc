@@ -45,6 +45,10 @@
     {
       "binding": "ARTIFACT_EVENTS",
       "dataset": "agent_paste_artifact_events_dev"
+    },
+    {
+      "binding": "FUNNEL_EVENTS",
+      "dataset": "agent_paste_funnel_events_dev"
     }
   ],
   "kv_namespaces": [
@@ -211,6 +215,10 @@
         {
           "binding": "ARTIFACT_EVENTS",
           "dataset": "agent_paste_artifact_events_preview"
+        },
+        {
+          "binding": "FUNNEL_EVENTS",
+          "dataset": "agent_paste_funnel_events_preview"
         }
       ],
       "kv_namespaces": [
@@ -372,6 +380,10 @@
         {
           "binding": "ARTIFACT_EVENTS",
           "dataset": "agent_paste_artifact_events_production"
+        },
+        {
+          "binding": "FUNNEL_EVENTS",
+          "dataset": "agent_paste_funnel_events_production"
         }
       ],
       "kv_namespaces": [

@@ -1259,6 +1259,12 @@
       "EphemeralProvisionRequest": {
         "type": "object",
         "properties": {
+          "claim_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "challenge": {
             "type": "object",
             "properties": {
@@ -1445,6 +1451,12 @@
       "EphemeralClaimRequest": {
         "type": "object",
         "properties": {
+          "claim_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "claim_token": {
             "type": "string",
             "minLength": 1

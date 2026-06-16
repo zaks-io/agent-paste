@@ -11,6 +11,7 @@ import { ephemeralProvisionRoute } from "../src/routes/ephemeral.js";
 import { contextFor, guardFor, responseJson } from "./route-test-helpers.js";
 
 const powSecret = "test-ephemeral-pow-secret";
+const claimCode = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
 
 beforeEach(() => {
   resetMemoryEphemeralProvisionGate();
@@ -37,6 +38,62 @@ describe("ephemeral provision gate route", () => {
     });
     expect(createEphemeralWorkspace).toHaveBeenCalledWith({
       idempotencyKey: `ephemeral-provision:${challenge.nonce}`,
+    });
+  });
+
+  it("records claim-code-attributed provision events", async () => {
+    const { body } = await validPowBody();
+    const writeDataPoint = vi.fn();
+    const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
+
+    const response = await ephemeralProvisionRoute(
+      contextFor({ env: provisionEnv({ FUNNEL_EVENTS: { writeDataPoint } }) }),
+      { createEphemeralWorkspace } as never,
+      guardFor({ ...body, claim_code: claimCode }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(writeDataPoint).toHaveBeenCalledWith({
+      indexes: [claimCode],
+      blobs: [
+        "ephemeral_workspace_created",
+        "api",
+        claimCode,
+        "00000000-0000-4000-8000-000000000099",
+        "",
+        "ct_ephemeral",
+        "",
+        "",
+      ],
+      doubles: [1, 0],
+    });
+  });
+
+  it("ignores malformed claim codes for provision telemetry", async () => {
+    const { body } = await validPowBody();
+    const writeDataPoint = vi.fn();
+    const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
+
+    const response = await ephemeralProvisionRoute(
+      contextFor({ env: provisionEnv({ FUNNEL_EVENTS: { writeDataPoint } }) }),
+      { createEphemeralWorkspace } as never,
+      guardFor({ ...body, claim_code: "bad" }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(writeDataPoint).toHaveBeenCalledWith({
+      indexes: ["00000000-0000-4000-8000-000000000099"],
+      blobs: [
+        "ephemeral_workspace_created",
+        "api",
+        "",
+        "00000000-0000-4000-8000-000000000099",
+        "",
+        "ct_ephemeral",
+        "",
+        "",
+      ],
+      doubles: [1, 0],
     });
   });
 

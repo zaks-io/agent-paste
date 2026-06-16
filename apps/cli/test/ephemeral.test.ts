@@ -29,6 +29,7 @@ const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const uploadSessionId = "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const claimToken = "ap_ct_preview_claimsecret000000000000000000_abc";
 const ephemeralApiKey = "ap_pk_preview_0123456789ABCDEF_ephemeralpublishsecret";
+const claimCode = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -95,6 +96,52 @@ describe("cli ephemeral publish", () => {
       });
       const createArg = vi.mocked(publishClient.uploadSessions.create).mock.calls[0]?.[0];
       expect(createArg).not.toHaveProperty("ttl_seconds");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("passes claim code through provision and the claim URL", async () => {
+    const stdout = mockStdout();
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    vi.stubEnv("AGENT_PASTE_WEB_URL", "https://app.agent-paste.sh");
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-activation-"));
+    try {
+      await fs.writeFile(path.join(root, "index.html"), "<h1>Ephemeral</h1>");
+      const provision = vi.fn().mockResolvedValue(provisionedCredentials());
+
+      await publishEphemeral(parsedPublishArgs(root, { "claim-code": ` ${claimCode} ` }), {
+        provision,
+        createPublishClient: () => fakePublishClient(),
+      });
+
+      expect(provision).toHaveBeenCalledWith({ claimCode });
+      const human = String(stdout.mock.calls.at(-1)?.[0]);
+      expect(human).toContain(`https://app.agent-paste.sh/claim?claim_code=${claimCode}#${claimToken}`);
+      expect(human).not.toContain(`?${claimToken}`);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("ignores invalid claim codes instead of failing ephemeral publish", async () => {
+    const stdout = mockStdout();
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    vi.stubEnv("AGENT_PASTE_WEB_URL", "https://app.agent-paste.sh");
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-invalid-claim-code-"));
+    try {
+      await fs.writeFile(path.join(root, "index.html"), "<h1>Ephemeral</h1>");
+      const provision = vi.fn().mockResolvedValue(provisionedCredentials());
+
+      await publishEphemeral(parsedPublishArgs(root, { "claim-code": "bad" }), {
+        provision,
+        createPublishClient: () => fakePublishClient(),
+      });
+
+      expect(provision).toHaveBeenCalledWith({});
+      const human = String(stdout.mock.calls.at(-1)?.[0]);
+      expect(human).toContain(`https://app.agent-paste.sh/claim#${claimToken}`);
+      expect(human).not.toContain("claim_code=");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
@@ -222,13 +269,20 @@ describe("ephemeralClaimUrl", () => {
     expect(ephemeralClaimUrl(claimToken)).toBe(`https://app.agent-paste.sh/claim#${claimToken}`);
     expect(ephemeralClaimUrl(claimToken)).not.toContain("?");
   });
+
+  it("keeps the claim code in query and the claim token in the hash", () => {
+    vi.stubEnv("AGENT_PASTE_WEB_URL", "https://app.agent-paste.sh/");
+    expect(ephemeralClaimUrl(claimToken, claimCode)).toBe(
+      `https://app.agent-paste.sh/claim?claim_code=${claimCode}#${claimToken}`,
+    );
+  });
 });
 
-function parsedPublishArgs(root: string) {
+function parsedPublishArgs(root: string, flags: Record<string, string | boolean> = {}) {
   return {
     command: ["publish"],
     positionals: [root],
-    flags: new Map<string, string | boolean>(),
+    flags: new Map<string, string | boolean>(Object.entries(flags)),
     global: { json: false, quiet: false },
   };
 }

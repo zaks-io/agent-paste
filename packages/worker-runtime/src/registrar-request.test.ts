@@ -18,6 +18,11 @@ const bodyContract = {
   errors: ["invalid_request"],
 } as RouteContract;
 
+const claimContract = {
+  ...bodyContract,
+  requestSchema: "EphemeralClaimRequest",
+} as RouteContract;
+
 function contextFor(raw: Request): Context {
   return { req: { raw } } as unknown as Context;
 }
@@ -50,6 +55,38 @@ describe("parseRequestBody request-body cap", () => {
     const result = await parseRequestBody(contextFor(raw), bodyContract);
 
     expect(result.ok).toBe(true);
+  });
+
+  it("ignores non-string claim codes on ephemeral provision requests", async () => {
+    const raw = new Request("https://worker.test/test", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ claim_code: 123 }),
+    });
+
+    const result = await parseRequestBody(contextFor(raw), bodyContract);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.claim_code).toBeUndefined();
+  });
+
+  it("ignores null claim codes on ephemeral claim requests", async () => {
+    const raw = new Request("https://worker.test/test", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        claim_code: null,
+        claim_token: "ap_ct_preview_testsecret000000_abc",
+      }),
+    });
+
+    const result = await parseRequestBody(contextFor(raw), claimContract);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.claim_code).toBeUndefined();
+    expect(result.value.claim_token).toBe("ap_ct_preview_testsecret000000_abc");
   });
 
   it("rejects a body whose content-length exceeds the cap before reading it", async () => {

@@ -1,5 +1,10 @@
 import { z } from "./zod.js";
 
+const OptionalClaimCodeInput = z.preprocess(
+  (value) => (typeof value === "string" ? value : undefined),
+  z.string().trim().optional(),
+);
+
 export const PowChallenge = z
   .object({
     nonce: z.string().min(1),
@@ -25,6 +30,7 @@ export type PowSolution = z.infer<typeof PowSolution>;
  */
 export const EphemeralProvisionRequest = z
   .object({
+    claim_code: OptionalClaimCodeInput,
     challenge: PowChallenge.optional(),
     solution: PowSolution.optional(),
   })
@@ -64,6 +70,7 @@ export type EphemeralProvisionResponse = z.infer<typeof EphemeralProvisionRespon
 
 export const EphemeralClaimRequest = z
   .object({
+    claim_code: OptionalClaimCodeInput,
     claim_token: z.string().min(1),
   })
   .strict();

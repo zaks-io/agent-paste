@@ -20,6 +20,55 @@ import {
   type ThemeState,
 } from "@agent-paste/ui";
 
+const CLAIM_CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+function browserAnalyticsSignalActive() {
+  return (
+    (navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl === true ||
+    navigator.doNotTrack === "1"
+  );
+}
+
+function optionalAnalyticsOff() {
+  return browserAnalyticsSignalActive() || readOptionalAnalyticsCookie(document.cookie) === "off";
+}
+
+function claimCode() {
+  return `clm_${encodeCrockford(Date.now(), 10)}${randomCrockford(16)}`;
+}
+
+function encodeCrockford(value: number, length: number) {
+  let remaining = Math.max(0, Math.floor(value));
+  let output = "";
+  for (let index = 0; index < length; index += 1) {
+    output = CLAIM_CODE_ALPHABET.charAt(remaining % 32) + output;
+    remaining = Math.floor(remaining / 32);
+  }
+  return output;
+}
+
+function randomCrockford(length: number) {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => CLAIM_CODE_ALPHABET.charAt(byte % 32)).join("");
+}
+
+function promptWithClaimCode(prompt: string, id: string) {
+  return `${prompt}\n\nWhen you publish with agent-paste, include --claim-code ${id}.`;
+}
+
+function trackPromptCopied(id: string, promptVariant: string) {
+  if (optionalAnalyticsOff()) {
+    return;
+  }
+  void fetch("/__funnel/events", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ event: "prompt_copied", claim_code: id, prompt_variant: promptVariant }),
+    keepalive: true,
+  }).catch(() => {});
+}
+
 // Sticky-state toggle for the shared topbar.
 (() => {
   const bar = document.getElementById("topbar");
@@ -66,14 +115,9 @@ import {
   const toggle = document.getElementById("analytics-toggle") as HTMLButtonElement | null;
   if (!toggle) return;
 
-  const browserSignalActive = () =>
-    (navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl === true ||
-    navigator.doNotTrack === "1";
-  const sitePreference = () => readOptionalAnalyticsCookie(document.cookie);
-  const analyticsOff = () => browserSignalActive() || sitePreference() === "off";
   const paint = () => {
-    const off = analyticsOff();
-    const browserSignal = browserSignalActive();
+    const off = optionalAnalyticsOff();
+    const browserSignal = browserAnalyticsSignalActive();
     toggle.textContent = off ? "Analytics off" : "Analytics on";
     toggle.setAttribute("aria-pressed", String(off));
     toggle.disabled = browserSignal;
@@ -82,7 +126,7 @@ import {
 
   paint();
   toggle.addEventListener("click", () => {
-    const next = analyticsOff() ? "on" : "off";
+    const next = optionalAnalyticsOff() ? "on" : "off";
     try {
       // biome-ignore lint/suspicious/noDocumentCookie: preference must be readable by the next SSR request on both public surfaces.
       document.cookie = buildOptionalAnalyticsCookie(next, location.hostname, location.protocol === "https:");
@@ -131,12 +175,15 @@ import {
     el.addEventListener("click", async () => {
       const text = el.getAttribute("data-clipboard");
       if (!text) return;
+      const promptVariant = el.getAttribute("data-claim-prompt-variant");
+      const id = promptVariant ? claimCode() : undefined;
+      const clipboardText = id ? promptWithClaimCode(text, id) : text;
       try {
         if (supportsClipboard) {
-          await navigator.clipboard.writeText(text);
+          await navigator.clipboard.writeText(clipboardText);
         } else {
           const ta = document.createElement("textarea");
-          ta.value = text;
+          ta.value = clipboardText;
           ta.setAttribute("readonly", "");
           ta.style.position = "fixed";
           ta.style.opacity = "0";
@@ -144,6 +191,9 @@ import {
           ta.select();
           document.execCommand("copy");
           document.body.removeChild(ta);
+        }
+        if (id && promptVariant) {
+          trackPromptCopied(id, promptVariant);
         }
         el.setAttribute("data-copied", "true");
         setTimeout(() => el.removeAttribute("data-copied"), FLASH_MS);

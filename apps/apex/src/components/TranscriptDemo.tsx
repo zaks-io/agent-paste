@@ -1,4 +1,11 @@
-import { EXAMPLE_PROMPT, EXAMPLE_STATIC_PAGE_PATH, SIGN_IN_URL, TRANSCRIPT, type TranscriptLine } from "../copy";
+import {
+  EXAMPLE_PROMPT,
+  EXAMPLE_PROMPT_VARIANT,
+  EXAMPLE_STATIC_PAGE_PATH,
+  SIGN_IN_URL,
+  TRANSCRIPT,
+  type TranscriptLine,
+} from "../copy";
 
 // The home demo: a flat, hairline-bordered transcript shell (style-guide §8.1)
 // showing one agent publish session. Terminal *behavior* (mono, prompt carets,
@@ -46,6 +53,7 @@ function Line({ line }: { line: TranscriptLine }) {
           type="button"
           className="t-line group flex w-full items-start gap-3 text-left bg-transparent border-0 cursor-pointer"
           data-clipboard={EXAMPLE_PROMPT}
+          data-claim-prompt-variant={EXAMPLE_PROMPT_VARIANT}
           aria-label={`Copy the prompt to paste into your agent: ${EXAMPLE_PROMPT}`}
         >
           <span className="min-w-0 whitespace-pre-wrap leading-relaxed">

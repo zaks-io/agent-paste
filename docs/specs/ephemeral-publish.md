@@ -53,6 +53,13 @@ flow itself reuses the existing authenticated **Upload Session** and **Publish**
 routes with the provisioned credential; no separate upload or publish endpoints
 are introduced.
 
+Both routes accept an optional `claim_code` string for analytics correlation.
+The claim code public shape is `clm_` plus the same 26-character Crockford ULID
+body used by other public IDs. It is not identity, auth, idempotency, billing,
+or ownership state. It must not change provision, publish, claim, or entitlement
+behavior. Malformed claim-code strings are ignored for telemetry rather than
+failing the product flow.
+
 **Upload Worker** (`content` and `upload`):
 Unchanged. `content` stays DB-free ([ADR 0028](../adr/0028-signed-url-tokens-for-content-gateway-authorization.md)); ephemeral status is carried on rows the authenticated paths already load.
 
@@ -90,10 +97,29 @@ Hosts the claim/upgrade UI. Turnstile guards these human surfaces only.
 
 ## Claim Flow
 
-1. An authenticated **Workspace Member** calls `POST /v1/ephemeral/claim` with `{ claim_token }`.
+1. An authenticated **Workspace Member** calls `POST /v1/ephemeral/claim` with `{ claim_token }` and may include `{ claim_code }` when the claim URL carried it.
 2. `api` verifies the token is valid, unredeemed, and not expired.
 3. Under `runCommand`: **reparents** the ephemeral tenant's **Artifacts** into the claiming member's existing **Personal Workspace** (single-workspace-per-member is preserved - claim does not create a standalone tenant the member must juggle in a multi-workspace dashboard the product does not yet have), raises the surviving content to the destination workspace's `free` tier, marks the source **Ephemeral Workspace** consumed, marks the **Claim Token** redeemed, emits an **Audit Event**. The reparent is the single-core write ([ADR 0070](../adr/0070-repository-core-ports-and-adapters.md)) and re-stamps `workspace_id` so RLS continues to hold against the destination tenant.
 4. A redeemed or expired token fails closed as not-found ([ADR 0036](../adr/0036-error-envelope-and-generic-404-boundary.md)). No retained **Claim Token** means the **Artifact** cannot be promoted and reaches **Auto Deletion**; it must be re-published to gain an owner.
+
+## Claim-Code Funnel Telemetry
+
+The marketing-to-claim funnel is tracked in Workers Analytics Engine through the
+`FUNNEL_EVENTS` binding. The current event contract is:
+
+- `prompt_copied` when the apex marketing page copies the install/publish prompt;
+- `ephemeral_provision_started` when API provision receives the claim code;
+- `ephemeral_workspace_created` when an Ephemeral Workspace and Claim Token are minted;
+- `ephemeral_provision_rate_limited` and `ephemeral_provision_unavailable` for failed provision gate outcomes;
+- `ephemeral_publish_created` when the first ephemeral publish finalizes;
+- `link_claimed` when a Claim Token reparents Artifacts into a Personal Workspace.
+
+The CLI accepts `--claim-code <clm_...>`, then passes it through provision,
+publish, and the claim URL. The Claim Token remains in the URL hash only; the
+claim code can be placed in the claim URL query string because it is non-secret
+telemetry. The apex marketing page records `prompt_variant` only on
+`prompt_copied`, keyed by the same claim code, so future LaunchDarkly assignment
+can plug in without changing the event schema.
 
 ## Write Allowance and Tiers
 

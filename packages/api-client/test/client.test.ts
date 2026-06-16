@@ -1,3 +1,4 @@
+import { CLAIM_CODE_HEADER } from "@agent-paste/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type AgentPasteError, ApiClient } from "../src/index.js";
 
@@ -26,6 +27,7 @@ const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const uploadSessionId = "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const apiKeyId = "key_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const apiKeySecret = "ap_pk_production_0123456789ABCDEF_abcdefghijklmnopqrstuvwxyzABCDEF";
+const claimCode = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -230,6 +232,22 @@ describe("ApiClient", () => {
     await expect(calls[0]?.text()).resolves.toBe("");
     expect(result.private_url.endsWith(`/v/${artifactId}`)).toBe(true);
     expect(result).not.toHaveProperty("access_link_url");
+  });
+
+  it("applies default headers to public API requests", async () => {
+    const calls: Request[] = [];
+    const client = authedClient({
+      apiBaseUrl: "https://api.example.test/",
+      defaultHeaders: { [CLAIM_CODE_HEADER]: claimCode },
+      fetch: async (input, init) => {
+        calls.push(new Request(input, init));
+        return Response.json(publishResult());
+      },
+    });
+
+    await client.revisions.publish(artifactId, revisionId, "idem_publish");
+
+    expect(calls[0]?.headers.get(CLAIM_CODE_HEADER)).toBe(claimCode);
   });
 
   it("revokes the current API key with API-key auth", async () => {

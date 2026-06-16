@@ -53,9 +53,14 @@ export function formatPublishResult(mode: OutputMode, result: PublishResultShape
   ].join("\n");
 }
 
-export function ephemeralClaimUrl(claimToken: string): string {
+export function ephemeralClaimUrl(claimToken: string, claimCode?: string): string {
   const base = (process.env.AGENT_PASTE_WEB_URL ?? "https://app.agent-paste.sh").replace(/\/+$/, "");
-  return `${base}/claim#${claimToken}`;
+  const params = new URLSearchParams();
+  if (claimCode) {
+    params.set("claim_code", claimCode);
+  }
+  const query = params.size > 0 ? `?${params.toString()}` : "";
+  return `${base}/claim${query}#${claimToken}`;
 }
 
 export function formatEphemeralPublishResult(mode: OutputMode, result: PublishResultShape, claimUrl: string): string {

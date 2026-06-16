@@ -43,7 +43,7 @@ vi.mock("../src/rpc/web-mutations", () => ({
   LOCAL_TURNSTILE_BYPASS_TOKEN: "local-turnstile-bypass",
 }));
 
-import { PENDING_CLAIM_TOKEN_STORAGE_KEY } from "../src/lib/claim-redemption";
+import { PENDING_CLAIM_CODE_STORAGE_KEY, PENDING_CLAIM_TOKEN_STORAGE_KEY } from "../src/lib/claim-redemption";
 import { Route } from "../src/routes/_authed.claim";
 import { VALID_TOKEN } from "./claim-fixtures";
 
@@ -64,6 +64,7 @@ const usagePolicy = {
   daily_new_artifact_allowance: 100,
   lifetime_revision_ceiling: 100,
 };
+const claimCode = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
 
 describe("ClaimPage", () => {
   beforeEach(() => {
@@ -174,6 +175,33 @@ describe("ClaimPage", () => {
     await waitFor(() => expect(screen.getByLabelText("Claim token")).toHaveValue(VALID_TOKEN));
     expect(window.location.hash).toBe("");
     expect(sessionStorage.getItem(PENDING_CLAIM_TOKEN_STORAGE_KEY)).toBeNull();
+  });
+
+  it("sends claim code from query or pending storage with the claim request", async () => {
+    state.claimEphemeralFn.mockResolvedValue({
+      data: {
+        destination_workspace_id: "00000000-0000-4000-8000-000000000001",
+        source_workspace_id: "00000000-0000-4000-8000-000000000099",
+        artifact_ids: ["art_test"],
+        claim_token_id: "ct_test",
+      },
+      error: null,
+    });
+    window.history.replaceState({}, "", `/claim?claim_code=${claimCode}`);
+
+    render(<Route.component />);
+    fireEvent.change(screen.getByLabelText("Claim token"), { target: { value: VALID_TOKEN } });
+    fireEvent.click(screen.getByRole("button", { name: "Claim content" }));
+
+    await waitFor(() => expect(state.claimEphemeralFn).toHaveBeenCalled());
+    expect(state.claimEphemeralFn).toHaveBeenCalledWith({
+      data: {
+        claim_code: claimCode,
+        claim_token: VALID_TOKEN,
+        turnstile_token: "local-turnstile-bypass",
+      },
+    });
+    expect(sessionStorage.getItem(PENDING_CLAIM_CODE_STORAGE_KEY)).toBeNull();
   });
 
   it("stamps the CSP nonce on the injected Turnstile loader script", async () => {
