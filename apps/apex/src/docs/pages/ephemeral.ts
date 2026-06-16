@@ -29,8 +29,8 @@ export const EPHEMERAL_DOC: DocsPage = {
           items: [
             "An agent runs `agent-paste publish <path> --ephemeral`.",
             "The CLI provisions an Ephemeral Workspace, then publishes through the normal Upload Session flow.",
-            "Human-readable output leads with a one-time claim link shaped `https://app.agent-paste.sh/claim#ap_ct_...` — relay this link to the user, not the `private_url`.",
-            "A signed-in human opens the claim link to view, keep, and move the Artifact into their Personal Workspace.",
+            "Human-readable output leads with `unlisted_url`, a working no-login Share Link. Relay this link for immediate viewing, not the `private_url`.",
+            "A signed-in human opens the `claim_url` to keep, unlock interactivity, and move the Artifact into their Personal Workspace.",
           ],
         },
       ],

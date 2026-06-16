@@ -146,10 +146,10 @@ moment, and let the thesis be the depth a reader reaches second.
 
 **Lead use case.** A coding agent (Claude Code, Codex) builds an HTML page, a
 viz, a quick prototype. The user should not need to know the publish command.
-They prompt the agent: "Plan a weekend in San Diego and post the link to
-agent-paste.sh." The agent reads the docs, uses CLI or MCP, publishes the work,
-and returns an **Access Link** you open and send to whoever you want: a friend, a
-channel, another agent.
+They prompt the agent: "Build a one-page project handoff, publish it with
+agent-paste.sh, and give me the link." The agent reads the docs, uses CLI or MCP,
+publishes the work, and returns a link you can open, share, or claim when the
+work needs ownership, revision, or JavaScript.
 
 **Hero headline:** _Your agent built it. Open it anywhere._
 
@@ -202,7 +202,7 @@ The engineer wiring an agent, a CLI, or a CI job to publish its output.
 - **Pitch:** one `publish` call returns stable links. Scoped keys cap what each
   agent can do. No bucket, no build, no infra to babysit.
 - **Reach:** Hacker News, X, the docs, MCP directories, the CLI itself.
-- This is the first group that pays. The $5/month plan is sized to a single
+- This is the first group that pays. The $12/month Pro plan is sized to a single
   developer's willingness to pay (longer retention, more live artifacts, Live
   Updates), not to a procurement process.
 
@@ -423,11 +423,12 @@ blue.
 
 On-brand set pieces. Each one shows the thesis instead of asserting it.
 
-- **The agent-prompt transcript.** A user asks: "Plan a weekend in San Diego and
-  post the link to agent-paste.sh." The agent reads `/agents.md`, builds the
-  page, publishes through CLI or MCP (content-only and private), then runs the
-  `set-visibility unlisted` step and returns the unlisted Share Link. The hero should use this.
-  Keep setup commands below the proof object.
+- **The agent-prompt transcript.** A user asks: "Build a one-page project
+  handoff, publish it with agent-paste.sh, and give me the link." The agent reads
+  `/agents.md`, builds the page, publishes through CLI or MCP, and returns a link
+  to open right away. Claiming to keep and unlock the work is a later step the
+  user asks for, not part of the first reply. The hero should use this. Keep
+  setup commands below the proof object.
 - **A live artifact that updates itself.** A shared link open in a browser that
   advances to the latest Revision the moment an agent republishes, with no
   reload. Live Updates, shown not told.
@@ -470,13 +471,14 @@ Things that have shown up in drafts. Do not do them.
 ## 12. Go-to-Market Posture & Constraints
 
 - **Business model:** open-core (Apache-2.0 lean) plus a hosted paid plan. A free
-  tier to try (and for agents to use), and one paid plan at **$5/month** to start.
-  Hold team and embedder/platform pricing until usage justifies them; do not
-  publish a tier matrix before then.
-- **Pricing is provisional.** The $5/month figure is a launch starting point set
-  2026-05-26, not a committed forever-price. It is fine to state it in public copy,
-  but keep the copy able to change without contradicting itself, and never imply
-  permanence ("lifetime," locked-in annual rates, and so on).
+  tier to try (and for agents to use), and one paid plan, Pro at **$12/month**
+  (or $120/year). Hold team and embedder/platform pricing until usage justifies
+  them; do not publish a tier matrix before then.
+- **Pricing is provisional.** The $12/month figure is the shipped Pro price
+  (`packages/plans` is the source of truth), not a committed forever-price. It is
+  fine to state it in public copy, but keep the copy able to change without
+  contradicting itself, and never imply permanence ("lifetime," locked-in annual
+  rates, and so on).
 - **Goal:** the platform covers its own infrastructure (a low bar, roughly
   $25 to $50/month, helped by R2's no-egress pricing). This is a self-sustaining
   product, not a growth-at-all-costs one. Let the calm posture reflect that.

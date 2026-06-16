@@ -27,15 +27,16 @@ committing temporary files, creating a gist, or deploying to a preview host.
 | Watch an agent iterate      | An agent is refining the same work product across multiple publishes.                                        | Let an open viewer advance to the latest Published Revision when Live Updates are available.             |
 | Hand off between tools      | Work made in one agent tool needs to move to a human or another agent in another tool.                       | Provide a human browser view and a machine-readable Agent View so the next tool does not scrape.         |
 | Share a one-off artifact    | Generated work needs to be dropped into a channel, issue, PR, or customer thread for review.                 | Host the handoff without turning it into permanent hosting or a social surface.                          |
-| Run unattended              | An agent has no stored credential and no human available for browser login at publish time.                  | Allow `--ephemeral` publish, return the claim handoff, and let a human claim it later.                   |
+| Run unattended              | An agent has no stored credential and no human available for browser login at publish time.                  | Allow `--ephemeral` publish, return the immediate `unlisted_url`, and let a human claim it later.        |
 | Govern agent output         | A team needs to know what agents published, when it expires, and how to revoke access if needed.             | Attach Artifacts to Workspaces, Access Links, Audit Events, Auto Deletion, and lockdown controls.        |
 | Embed artifact handoff      | A product needs artifact storage and a manifest protocol without building the whole platform itself.         | Expose CLI, MCP, Agent View, and documented contracts that can be built on by another platform.          |
 
-For the iteration use case, no-login shareable browser URLs must come from an
-explicit unlisted Share Link, minted by the separate `set-visibility unlisted`
-step (`agent-paste set-visibility <artifact-id> unlisted`, MCP `set_visibility`
-with `visibility: "unlisted"`); publish itself is content-only and private and
-never creates unauthenticated access. The direct
+For the iteration use case, authenticated no-login shareable browser URLs must
+come from an explicit unlisted Share Link, minted by the separate
+`set-visibility unlisted` step (`agent-paste set-visibility <artifact-id>
+unlisted`, MCP `set_visibility` with `visibility: "unlisted"`). Accountless
+`--ephemeral` publish is the exception: it auto-creates that unlisted Share Link
+and returns `unlisted_url` immediately. The direct
 `revision_content_url` is exact Revision content; it is useful for one-shot
 inspection but it does not advance when the agent publishes a later Revision.
 The `private_url` (`/v/<artifactId>` clean viewer) is the default authenticated

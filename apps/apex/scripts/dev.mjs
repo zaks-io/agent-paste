@@ -100,7 +100,7 @@ async function handleRequest(server, req, res, next) {
 
   const html = await server.transformIndexHtml(url.pathname, render(routePath, DEV_ASSETS));
   res.statusCode = 200;
-  setNodeHeaders(res, apexSecurityHeaders());
+  setNodeHeaders(res, devSecurityHeaders(apexSecurityHeaders()));
   res.setHeader("content-type", "text/html; charset=utf-8");
   res.end(req.method === "HEAD" ? undefined : html);
 }
@@ -228,6 +228,30 @@ function setNodeHeaders(res, headers) {
   new Headers(headers).forEach((value, name) => {
     res.setHeader(name, value);
   });
+}
+
+// Vite's dev middleware injects an inline React-refresh preamble and HMR client
+// (plus inline styles) that the strict production CSP blocks, which stops the app
+// from hydrating. This relaxes ONLY the CSP, ONLY in this dev server, so the local
+// preview is actually interactive. Production headers (src/security-headers.ts) and
+// their tests are untouched: nothing here runs in the deployed Worker.
+function devSecurityHeaders(headers) {
+  const relaxed = new Headers(headers);
+  relaxed.set(
+    "content-security-policy",
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com",
+      "style-src 'self' 'unsafe-inline'",
+      "font-src 'self' data:",
+      "img-src 'self' data:",
+      "base-uri 'none'",
+      "frame-ancestors 'none'",
+      "object-src 'none'",
+      "connect-src 'self' ws: wss: https://cloudflareinsights.com",
+    ].join("; "),
+  );
+  return relaxed;
 }
 
 function normalizeRoutePath(pathname) {

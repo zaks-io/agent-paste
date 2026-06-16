@@ -147,8 +147,9 @@ If `whoami` reports you are signed in, publish normally without `--ephemeral`.
 If not and interactive auth is possible, run `agent-paste login` first. Use
 `--ephemeral` only when no login is available, or when the user explicitly asks
 for accountless publish. The CLI self-provisions a short-lived **Workspace**,
-publishes, and prints a one-time **Claim Token** as a claim link. Use this path
-for non-interactive work such as text, markdown, images, and static HTML/CSS.
+publishes, and prints a working no-login `unlisted_url` plus a one-time
+`claim_url`. Use this path for non-interactive work such as text, markdown,
+images, and static HTML/CSS.
 
 ```sh
 npx @zaks-io/agent-paste publish ./report --ephemeral
@@ -157,8 +158,9 @@ npx @zaks-io/agent-paste publish ./report --ephemeral
 `--ephemeral` ignores any stored login credential or environment-provided
 credential. It is a restricted tier for unclaimed work, not the Free Plan. The
 Artifact lives for at most **24 hours** (the ephemeral TTL ceiling) and then
-auto-deletes. To keep it, a signed-in human opens the claim link to reparent the
-Artifact into their Personal Workspace.
+auto-deletes. Hand the `unlisted_url` to recipients for immediate viewing. To
+keep it, a signed-in human opens the claim link to reparent the Artifact into
+their Personal Workspace.
 
 The Claim Token rides the URL **hash** only (`/claim#<token>`): never the query string, and never the `private_url`, `revision_content_url`, or `agent_view_url`. The claim link points at `AGENT_PASTE_WEB_URL` (default `https://app.agent-paste.sh`).
 
@@ -186,18 +188,18 @@ from a signed-in Workspace instead of passing `--ephemeral`.
 
 ## Flags
 
-| Flag                     | Purpose                                                                                                                                                    |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--artifact-id <id>`     | Publish a new revision of an existing Artifact instead of creating a new one.                                                                              |
-| `--title <text>`         | Set the title. New Artifacts default to the path basename; revisions preserve the existing title unless this is explicit.                                  |
-| `--entrypoint <path>`    | Override the inferred entrypoint. Must be a file inside the upload.                                                                                        |
-| `--render-mode <mode>`   | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.                                                                  |
-| `--ephemeral`            | Restricted accountless fallback for non-interactive text/images/static output. Ignores stored login and environment credentials, then prints a claim link. |
-| `--revision-id <id>`     | With `pull`, read a specific Revision instead of the latest published Revision.                                                                            |
-| `--edits <file>`         | With `edit`, read the JSON edit array from a file instead of stdin.                                                                                        |
-| `--json`                 | Emit the result as JSON on stdout. Stdout becomes pure JSON and carries a stable `schema_version`.                                                         |
-| `--quiet`                | Suppress human-readable stdout output.                                                                                                                     |
-| `--color` / `--no-color` | Force rich or plain output. Default: rich on a TTY, plain when piped or when `NO_COLOR` or `CI` is set.                                                    |
+| Flag                     | Purpose                                                                                                                                                                       |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--artifact-id <id>`     | Publish a new revision of an existing Artifact instead of creating a new one.                                                                                                 |
+| `--title <text>`         | Set the title. New Artifacts default to the path basename; revisions preserve the existing title unless this is explicit.                                                     |
+| `--entrypoint <path>`    | Override the inferred entrypoint. Must be a file inside the upload.                                                                                                           |
+| `--render-mode <mode>`   | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.                                                                                     |
+| `--ephemeral`            | Restricted accountless fallback for non-interactive text/images/static output. Ignores stored login and environment credentials, then prints `unlisted_url` plus `claim_url`. |
+| `--revision-id <id>`     | With `pull`, read a specific Revision instead of the latest published Revision.                                                                                               |
+| `--edits <file>`         | With `edit`, read the JSON edit array from a file instead of stdin.                                                                                                           |
+| `--json`                 | Emit the result as JSON on stdout. Stdout becomes pure JSON and carries a stable `schema_version`.                                                                            |
+| `--quiet`                | Suppress human-readable stdout output.                                                                                                                                        |
+| `--color` / `--no-color` | Force rich or plain output. Default: rich on a TTY, plain when piped or when `NO_COLOR` or `CI` is set.                                                                       |
 
 ## Output
 
@@ -269,23 +271,26 @@ With `--json`, `set-visibility <artifact-id> private` emits:
 }
 ```
 
-With `--ephemeral`, human-readable output leads with the claim link — the URL to
-open, keep, and unlock the Artifact. The `private_url` clean viewer appears as
-`View (works after claiming)`:
+With `--ephemeral`, human-readable output leads with the working no-login
+`unlisted_url`; the claim link is the keep/upgrade path:
 
 ```text
-Open this to view, keep, and unlock your artifact:
-  Claim    https://app.agent-paste.sh/claim#ap_ct_...
+Hand this link to anyone. No login, static page, expires soon:
+  Link     https://app.agent-paste.sh/al/0123456789ABCDEF#...
   Expires  2026-06-13
 
-  View     https://app.agent-paste.sh/v/art_01H... (works after claiming)
+Log in and open this to keep it, make it interactive, and own it:
+  Claim    https://app.agent-paste.sh/claim#ap_ct_...
 
-  → open https://app.agent-paste.sh/claim#ap_ct_...
+  → open https://app.agent-paste.sh/al/0123456789ABCDEF#...
 ```
 
-Agents should relay the claim link to the user, not the `private_url`.
+Agents should relay `unlisted_url` for immediate viewing and `claim_url` when the
+human wants to keep, own, or unlock interactivity. Never relay `private_url` from
+an unclaimed ephemeral publish.
 
-With `--json` and `--ephemeral`, the result also carries `claim_token`, `claim_url`, `workspace_id`, `api_key_id`, and `claim_token_id`.
+With `--json` and `--ephemeral`, the result also carries `unlisted_url`,
+`claim_token`, `claim_url`, `workspace_id`, `api_key_id`, and `claim_token_id`.
 
 ## Pull and edit
 

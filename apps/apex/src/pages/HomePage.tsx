@@ -10,7 +10,10 @@ import {
   LOGIN_CMD,
   MCP_BASE_URL,
   PUBLISH_CMD,
+  PUBLISH_EPHEMERAL_CMD,
   SIGN_IN_URL,
+  SOURCE_BADGE_LABEL,
+  SOURCE_REPOSITORY,
 } from "../copy";
 
 // The hero CTA is a bespoke interaction (brightness-up on hover, press nudge on
@@ -68,10 +71,11 @@ function CommandBox({ cmd, label, prompt = "$" }: { cmd: string; label?: string;
 }
 
 // Left pane: the sticky hero. Eyebrow, the display headline with the one accent
-// word, the lead, and the CTA row.
+// word, the lead, a directive pointing at the single copyable prompt in the demo,
+// an honest status line, and the secondary links.
 function HeroPane() {
   return (
-    <section className="flex flex-col items-start py-[clamp(40px,6vh,72px)] pb-12 border-b border-rule min-w-0 min-[900px]:sticky min-[900px]:top-[var(--head-h)] min-[900px]:self-start min-[900px]:min-h-[calc(100vh-var(--head-h))] min-[900px]:[padding:var(--pane-pad-y)_var(--pane-gutter)_64px_0] min-[900px]:border-b-0 min-[900px]:border-r min-[900px]:border-rule min-[900px]:justify-center">
+    <section className="pane-left flex flex-col items-start py-[clamp(40px,6vh,72px)] pb-12 border-b border-rule min-w-0 min-[900px]:sticky min-[900px]:top-[var(--head-h)] min-[900px]:self-start min-[900px]:min-h-[calc(100vh-var(--head-h))] min-[900px]:[padding:var(--pane-pad-y)_var(--pane-gutter)_64px_0] min-[900px]:border-b-0 min-[900px]:border-r min-[900px]:border-rule min-[900px]:justify-center">
       <p className="reveal d1 inline-flex items-center gap-2 font-mono text-mono-sm tracking-eyebrow uppercase text-subtle mb-8">
         <span className="dot w-[6px] h-[6px] rounded-full bg-accent flex-none" aria-hidden="true" />
         {HERO.eyebrow}
@@ -84,8 +88,21 @@ function HeroPane() {
       <p className="reveal d3 text-lg leading-relaxed text-muted mb-8 max-w-[52ch] min-[900px]:text-lg min-[900px]:max-w-[38ch]">
         {HERO.lead}
       </p>
+      <p className="reveal d4 text-base leading-relaxed text-muted mb-5 max-w-[52ch]">
+        {HERO.heroAction}{" "}
+        <a className="text-foreground underline decoration-rule-strong hover:decoration-accent" href="#demo">
+          See the session
+        </a>
+        .
+      </p>
+      <p className="reveal d4 font-mono text-mono leading-normal text-subtle mb-6 max-w-[52ch]">{HERO.status}</p>
       <div className="reveal d4 flex items-center gap-6 flex-wrap">
-        <HeroCta href={SIGN_IN_URL}>{HERO.primary.label}</HeroCta>
+        <a
+          className="font-ui text-base text-muted py-1 transition-colors duration-200 ease-out hover:text-foreground"
+          href={SIGN_IN_URL}
+        >
+          {HERO.secondary.label}
+        </a>
         <a
           className="font-ui text-base text-muted py-1 transition-colors duration-200 ease-out hover:text-foreground"
           href="/docs"
@@ -93,6 +110,12 @@ function HeroPane() {
           data-agent-guide="/agents.md"
         >
           Read the docs
+        </a>
+        <a
+          className="font-mono text-mono-sm text-subtle py-1 transition-colors duration-200 ease-out hover:text-foreground"
+          href={SOURCE_REPOSITORY.href}
+        >
+          {SOURCE_BADGE_LABEL}
         </a>
       </div>
     </section>
@@ -134,25 +157,33 @@ function DemoBlock() {
         Tell the agent. Get the <span className="text-accent">link</span>.
       </h2>
       <p className="text-base leading-relaxed text-muted mb-8 max-w-[46ch]">
-        Give the agent the job and agent-paste.sh. It reads the docs, uses CLI or MCP, and returns an Access Link a
-        person can open or another agent can resolve.
+        Copy the prompt below and paste it into a shell-capable agent. It reads the docs, publishes the folder it
+        builds, and hands back a link you can open right away. When you want to keep it, revise it, or run JavaScript,
+        ask the agent to claim it and sign in free.
       </p>
       <TranscriptDemo />
     </div>
   );
 }
 
-// The shell setup beat: the two commands in the order a shell-capable agent can
-// run them. Login first (browser OAuth, no key to paste), then publish.
+// The shell setup beat. Lead with the accountless publish (the front door: no
+// login, hands back a working link), then the login + publish pair for the
+// upgrade to interactive, kept, owned work.
 function CommandBlock() {
   return (
     <div className={`reveal d4 ${BLOCK}`} id="how">
       <div className={MARKER}>Shell-capable agents</div>
       <p className="text-base leading-relaxed text-muted mb-6 max-w-[46ch]">
-        If the agent has a shell, it can run the publish command itself. Sign in once over browser OAuth; after that,
-        the agent handles the publish and returns the link.
+        If the agent has a shell, it runs the publish itself. With no account it returns an unlisted URL to a static
+        page in seconds.
       </p>
       <div className="flex flex-col gap-3">
+        <CommandBox cmd={PUBLISH_EPHEMERAL_CMD} />
+      </div>
+      <p className="mt-6 text-base leading-relaxed text-muted max-w-[46ch]">
+        To keep the work, run JavaScript, and own it, log in for free once over browser OAuth, then publish.
+      </p>
+      <div className="mt-4 flex flex-col gap-3">
         <CommandBox cmd={LOGIN_CMD} />
         <CommandBox cmd={PUBLISH_CMD} />
       </div>
@@ -204,8 +235,9 @@ function McpBlock() {
     <div className={`reveal d6 ${BLOCK}`} id="mcp">
       <div className={MARKER}>No shell? Connect from any chat</div>
       <p className="text-base leading-relaxed text-muted mb-6 max-w-[46ch]">
-        In a web chat with no terminal, like ChatGPT, Claude, or Gemini, add the server once. The agent can publish,
-        read, and create Share Links from there.
+        In a web chat with no terminal, like ChatGPT, Claude, or Gemini, add the server once and sign in free. The agent
+        then publishes, reads, and shares from there. The accountless path above is the shell route; chat connects after
+        a free login.
       </p>
       <div className="flex items-center justify-between gap-4 border border-rule-strong rounded-sm bg-surface px-4 py-4 font-mono text-base [font-feature-settings:'zero']">
         <code className="font-mono whitespace-nowrap overflow-x-auto flex-1 min-w-0">
@@ -242,20 +274,20 @@ function McpBlock() {
 function ClosingBlock() {
   return (
     <div className={`reveal d6 ${BLOCK}`} id="docs">
-      <div className={MARKER}>Start signed in, or fallback accountless</div>
+      <div className={MARKER}>Install the CLI</div>
       <div className="flex flex-col gap-3">
         <CommandBox label="macOS / Linux" cmd={INSTALL_SH_CMD} />
         <CommandBox label="Windows" prompt=">" cmd={INSTALL_PS1_CMD} />
       </div>
       <p className="text-base leading-relaxed text-subtle mt-4 mb-8 max-w-[52ch]">
-        <b className="text-foreground font-semibold">Free to start.</b> Add{" "}
+        <b className="text-foreground font-semibold">Try it with no account.</b> An{" "}
         <code className="font-mono text-[0.9em] text-foreground bg-surface-3 px-1 py-px rounded-sm [font-feature-settings:'zero']">
           --ephemeral
         </code>{" "}
-        only when no login is available: text, images, static HTML, no JS, kept for 24 hours, with a one-time link to
-        claim it into your Workspace.
+        publish takes text, images, and static HTML with no JS and returns a link you can open right away. When you want
+        to keep it longer or run JavaScript, claim it: a free login that moves the work into your account.
       </p>
-      <HeroCta href={SIGN_IN_URL}>Get started free</HeroCta>
+      <HeroCta href={SIGN_IN_URL}>Open the dashboard</HeroCta>
     </div>
   );
 }

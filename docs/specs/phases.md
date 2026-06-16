@@ -27,7 +27,7 @@ Goal: prove the artifact handoff loop.
 - Storage: private R2.
 - Metadata: Postgres through Cloudflare Hyperdrive using Drizzle.
 - Publish: single HTML file or folder with `index.html`.
-- Output: publish is content-only and private. Human-facing publish prints the `private_url` (`/v/<artifactId>` clean viewer) as `View`; CLI JSON output includes `artifact_id`, `revision_id`, `private_url`, direct signed `revision_content_url`, signed `agent_view_url`, and `expires_at`. There is no `share` input and no `shared` output; unlisted no-login sharing is the separate `agent-paste set-visibility <artifact-id> unlisted` step.
+- Output: authenticated publish is content-only and private. Human-facing publish prints the `private_url` (`/v/<artifactId>` clean viewer) as `View`; CLI JSON output includes `artifact_id`, `revision_id`, `private_url`, direct signed `revision_content_url`, signed `agent_view_url`, and `expires_at`. There is no `share` input and no `shared` output; authenticated unlisted no-login sharing is the separate `agent-paste set-visibility <artifact-id> unlisted` step. Accountless `--ephemeral` publish auto-creates `unlisted_url` and also returns claim fields.
 - Agent View: simple JSON with full per-file URLs.
 - Retention: default `30d`, max `90d`, scheduled cleanup.
 - Operator: WorkOS `/v1/web/admin/*` lockdown routes; non-production smokes use the harness secret.

@@ -248,15 +248,16 @@ Finalize verifies every expected file exists in R2 and returns a draft Revision
 summary. Publishing the finalized Revision creates or updates the published
 Artifact state, signs the URLs, and returns `PublishResult`.
 
-Publish is **content-only and private**. `PublishResult` carries no visibility
-input and no `shared` field, and there is no `access_link_url` member.
+Authenticated publish is **content-only and private**. `PublishResult` carries
+no visibility input and no `shared` field, and there is no `access_link_url`
+member.
 `private_url` is the **Private Link** — the login-walled clean viewer at
-`/v/<artifactId>` for the owning **Workspace Member** — and is the only handoff
-link publish returns. It is **permanent and stable**: the URL is derived only
+`/v/<artifactId>` for the owning **Workspace Member** — and is the default
+authenticated handoff link publish returns. It is **permanent and stable**: the URL is derived only
 from the Artifact id with no token, signature, or expiry, and `add_revision`
 republishes into the same id, so the link never changes across revisions and
 live-updates to the latest Published Revision. It is **always private** (member
-only; publish never grants unauthenticated access) and stops resolving only when the
+only) and stops resolving only when the
 Artifact itself is deleted or swept by Auto Deletion — a property of the
 Artifact's lifetime, not the link. The `expires_at` in `PublishResult` is the
 Artifact's content lifetime, not a link expiry. The dashboard-only **Artifact
@@ -271,7 +272,10 @@ no-login handoff is a separate explicit step: `set_visibility` with
 `visibility: "unlisted"` on MCP, or
 `agent-paste set-visibility <artifact-id> unlisted` on the CLI. It mints or
 reuses the one revocable **Share Link** and returns `unlisted_url`, its no-login
-**Access Link Signed URL**.
+**Access Link Signed URL**. Accountless `--ephemeral` publish is the exception:
+because it has no human in the loop to run `set-visibility`, the coordinator
+auto-creates the unlisted Share Link at finalize and returns `unlisted_url`
+alongside the claim fields.
 Creating a `share` Access Link is
 idempotent on the Artifact, not just on the request key: if the Artifact already
 has an active (non-revoked, unexpired) Share Link, create returns that same link
@@ -316,10 +320,11 @@ Human operators and rotation agents use WorkOS operator auth or Cloudflare Acces
 Publishing without `--artifact-id` creates a new Artifact. Publishing with an
 existing `artifact_id` creates and publishes a new Revision for that Artifact.
 The previous `revision_content_url` continues to point at the older Revision.
-Publish never creates unauthenticated access; a Share Link is created only by
-the separate MCP `set_visibility` / CLI
-`agent-paste set-visibility <artifact-id> unlisted` step. Its Access Link Signed
-URL is the user-facing `unlisted_url`. The `private_url` remains the
+Authenticated publish never creates unauthenticated access; a Share Link is
+created only by the separate MCP `set_visibility` / CLI
+`agent-paste set-visibility <artifact-id> unlisted` step. Accountless
+`--ephemeral` publish auto-creates that Share Link and returns its Access Link
+Signed URL as the user-facing `unlisted_url`. The `private_url` remains the
 authenticated clean-viewer link for Workspace members.
 
 Workspace-wide publish deduplication starts only for new hash-aware uploads after
