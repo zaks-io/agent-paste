@@ -1,9 +1,5 @@
+import { OptionalClaimCodeInput } from "./primitives.js";
 import { z } from "./zod.js";
-
-const OptionalClaimCodeInput = z.preprocess(
-  (value) => (typeof value === "string" ? value : undefined),
-  z.string().trim().optional(),
-);
 
 export const PowChallenge = z
   .object({

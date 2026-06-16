@@ -426,12 +426,24 @@ describe("claimEphemeralWorkspace", () => {
       email: member.workspace_member.email,
       scopes: member.scopes,
     };
+    await expect(
+      repo.peekEphemeralClaimReplay({
+        actor: memberActor,
+        idempotencyKey: "claim-replay-key",
+      }),
+    ).resolves.toBeNull();
     const first = await repo.claimEphemeralWorkspace({
       actor: memberActor,
       claimTokenSecret: provisioned.claim_token_secret,
       idempotencyKey: "claim-replay-key",
       now: new Date("2099-06-01T14:00:00.000Z"),
     });
+    await expect(
+      repo.peekEphemeralClaimReplay({
+        actor: memberActor,
+        idempotencyKey: "claim-replay-key",
+      }),
+    ).resolves.toEqual({ result: first });
     const replay = await repo.claimEphemeralWorkspace({
       actor: memberActor,
       claimTokenSecret: provisioned.claim_token_secret,

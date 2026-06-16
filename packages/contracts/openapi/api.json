@@ -1226,7 +1226,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "pattern": "^clm_[0-9A-HJKMNP-TV-Z]{26}$"
           }
         },
         "required": [
@@ -1269,7 +1270,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "pattern": "^clm_[0-9A-HJKMNP-TV-Z]{26}$"
           },
           "challenge": {
             "type": "object",
@@ -1461,7 +1463,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "pattern": "^clm_[0-9A-HJKMNP-TV-Z]{26}$"
           },
           "claim_token": {
             "type": "string",

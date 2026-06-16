@@ -37,6 +37,14 @@ export type OperationEventId = z.infer<typeof OperationEventId>;
 export const ClaimCode = prefixedId<"ClaimCode">("clm");
 export type ClaimCode = z.infer<typeof ClaimCode>;
 
+export const OptionalClaimCodeInput = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return ClaimCode.safeParse(trimmed).success ? trimmed : undefined;
+}, ClaimCode.optional());
+
 export const IdempotencyKey = z
   .string()
   .min(8)

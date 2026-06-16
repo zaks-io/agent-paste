@@ -106,19 +106,25 @@ export async function ephemeralClaimRoute(
   return runIdempotent(
     context,
     async () => {
+      const replay = await db.peekEphemeralClaimReplay({
+        actor,
+        idempotencyKey: guard.idempotencyKey,
+      });
       const result = await db.claimEphemeralWorkspace({
         actor,
         claimTokenSecret: guard.body.claim_token,
         idempotencyKey: guard.idempotencyKey,
       });
-      writeFunnelEvent(context.env.FUNNEL_EVENTS, {
-        kind: "link_claimed",
-        surface: "api",
-        claimCode: validClaimCode(guard.body.claim_code),
-        workspaceId: result.source_workspace_id,
-        claimTokenId: result.claim_token_id,
-        artifactCount: result.artifact_ids.length,
-      });
+      if (!(replay && "result" in replay)) {
+        writeFunnelEvent(context.env.FUNNEL_EVENTS, {
+          kind: "link_claimed",
+          surface: "api",
+          claimCode: validClaimCode(guard.body.claim_code),
+          workspaceId: result.source_workspace_id,
+          claimTokenId: result.claim_token_id,
+          artifactCount: result.artifact_ids.length,
+        });
+      }
       return result;
     },
     { successStatus: 200 },

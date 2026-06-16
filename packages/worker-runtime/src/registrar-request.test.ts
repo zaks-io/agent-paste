@@ -89,6 +89,24 @@ describe("parseRequestBody request-body cap", () => {
     expect(result.value.claim_token).toBe("ap_ct_preview_testsecret000000_abc");
   });
 
+  it("ignores malformed string claim codes on ephemeral claim requests", async () => {
+    const raw = new Request("https://worker.test/test", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        claim_code: "bad",
+        claim_token: "ap_ct_preview_testsecret000000_abc",
+      }),
+    });
+
+    const result = await parseRequestBody(contextFor(raw), claimContract);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.claim_code).toBeUndefined();
+    expect(result.value.claim_token).toBe("ap_ct_preview_testsecret000000_abc");
+  });
+
   it("rejects a body whose content-length exceeds the cap before reading it", async () => {
     let pulled = false;
     // highWaterMark 0 keeps the stream from pulling eagerly at construction, so a

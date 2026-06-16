@@ -204,6 +204,33 @@ describe("ClaimPage", () => {
     expect(sessionStorage.getItem(PENDING_CLAIM_CODE_STORAGE_KEY)).toBeNull();
   });
 
+  it("falls back to the pending stored claim code with the claim request", async () => {
+    state.claimEphemeralFn.mockResolvedValue({
+      data: {
+        destination_workspace_id: "00000000-0000-4000-8000-000000000001",
+        source_workspace_id: "00000000-0000-4000-8000-000000000099",
+        artifact_ids: ["art_test"],
+        claim_token_id: "ct_test",
+      },
+      error: null,
+    });
+    sessionStorage.setItem(PENDING_CLAIM_CODE_STORAGE_KEY, claimCode);
+
+    render(<Route.component />);
+    fireEvent.change(screen.getByLabelText("Claim token"), { target: { value: VALID_TOKEN } });
+    fireEvent.click(screen.getByRole("button", { name: "Claim content" }));
+
+    await waitFor(() => expect(state.claimEphemeralFn).toHaveBeenCalled());
+    expect(state.claimEphemeralFn).toHaveBeenCalledWith({
+      data: {
+        claim_code: claimCode,
+        claim_token: VALID_TOKEN,
+        turnstile_token: "local-turnstile-bypass",
+      },
+    });
+    expect(sessionStorage.getItem(PENDING_CLAIM_CODE_STORAGE_KEY)).toBeNull();
+  });
+
   it("stamps the CSP nonce on the injected Turnstile loader script", async () => {
     const meta = document.createElement("meta");
     meta.setAttribute("property", "csp-nonce");

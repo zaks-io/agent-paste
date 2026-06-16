@@ -1,12 +1,15 @@
 import { PublicAgentView } from "./agentView.js";
-import { AccessLinkId, ArtifactId, IsoDateTime, PlainTextTitle, RevisionId, UrlString } from "./primitives.js";
+import {
+  AccessLinkId,
+  ArtifactId,
+  IsoDateTime,
+  OptionalClaimCodeInput,
+  PlainTextTitle,
+  RevisionId,
+  UrlString,
+} from "./primitives.js";
 import { RenderMode } from "./revisions.js";
 import { z } from "./zod.js";
-
-const OptionalClaimCodeInput = z.preprocess(
-  (value) => (typeof value === "string" ? value : undefined),
-  z.string().trim().optional(),
-);
 
 export const AccessLinkPublicId = z
   .string()
