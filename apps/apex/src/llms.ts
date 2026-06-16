@@ -36,10 +36,11 @@ to the usercontent Revision Content URL as the final live page.
   ignores stored login and environment-provided credentials. Use it only when no
   auth is available or the user explicitly asks for accountless publish.
   Ephemeral is not the Free Plan: it is
-  an unclaimed restricted tier. The Artifact lives 24h and prints a one-time
-  claim link (\`${APP_BASE_URL}/claim#<token>\`). **Give the user the claim link,
-  not the \`private_url\`** — a signed-in human opens it to view, keep, and unlock
-  the Artifact. Use it for non-interactive text, markdown, images, and static
+  an unclaimed restricted tier. The Artifact lives 24h and returns
+  \`unlisted_url\`, a no-login script-disabled Share Link that works immediately,
+  plus \`claim_url\` (\`${APP_BASE_URL}/claim#<token>\`) for keeping and unlocking
+  the Artifact. **Give the user \`unlisted_url\` for viewing, not the
+  \`private_url\`**. Use it for non-interactive text, markdown, images, and static
   HTML/CSS. Unclaimed ephemeral HTML is script-disabled, so use authenticated
   publish for interactive pages, browser apps, or visualizations that need
   JavaScript.
@@ -56,10 +57,12 @@ to the usercontent Revision Content URL as the final live page.
   reuses the one revocable Share Link and returns \`unlisted_url\`. A human opens
   it at \`${APP_BASE_URL}/al/{public_id}#...\`. Revoke it without deleting the
   underlying Artifact.
-- Publish is content-only and private on every surface; there is no \`--share\`
+- Authenticated publish is content-only and private; there is no \`--share\`
   flag and no \`share\` input. Run the unlisted visibility step only when the user
-  explicitly asks for a shareable no-login link, then return \`unlisted_url\`. Do
-  not return \`usercontent.agent-paste.sh/v/...\` as the final live page.
+  explicitly asks for a shareable no-login link, then return \`unlisted_url\`.
+  Accountless \`--ephemeral\` publish is the exception: it auto-creates
+  \`unlisted_url\`. Do not return \`usercontent.agent-paste.sh/v/...\` as the
+  final live page.
 
 ## Entry points
 

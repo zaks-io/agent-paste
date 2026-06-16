@@ -19,7 +19,7 @@ Agent publish quick path:
   3. If the user needs a no-login link, run
      agent-paste set-visibility <artifact_id> unlisted --json and return unlisted_url.
   4. If not authenticated and login is not possible, run
-     agent-paste publish <path> --ephemeral --json and return claim_url.
+     agent-paste publish <path> --ephemeral --json and return unlisted_url.
 
 Publish modes:
   Private   Default. agent-paste publish <path>. Returns private_url, a
@@ -27,8 +27,8 @@ Publish modes:
   Unlisted  No-login handoff. Run set-visibility <id> unlisted after publish.
             Returns unlisted_url, the Artifact's revocable Share Link.
             Follows later publishes.
-  Ephemeral Accountless publish for no-login environments. Return claim_url.
-            Scripts are disabled while unclaimed.
+  Ephemeral Accountless publish for no-login environments. Return unlisted_url.
+            Use claim_url only to keep, own, and unlock interactivity.
 
 More help:
   agent-paste help publish    Mode choices, exact recipes, JSON fields.
@@ -63,8 +63,9 @@ Choose the mode:
     When: whoami --json says authenticated:false and interactive login is not
     possible, or the user explicitly asks for accountless publish.
     Run:  agent-paste publish <path> --ephemeral --json
-    Use:  return claim_url, not private_url. Unclaimed ephemeral HTML has
-          scripts disabled, so do not use it for interactive JS apps.
+    Use:  return unlisted_url, not private_url. Also provide claim_url when the
+          human wants to keep, own, or unlock interactivity. Unclaimed ephemeral
+          HTML has scripts disabled, so do not use it for interactive JS apps.
 
 Fast recipes:
   Authenticated private publish:
@@ -89,8 +90,10 @@ Fast recipes:
 
 What to hand back:
   private_url           Private viewer for signed-in Workspace Members.
-  unlisted_url          No-login Share Link from set-visibility unlisted.
-  claim_url             Claim link from ephemeral publish. Hand this to humans.
+  unlisted_url          No-login Share Link from set-visibility unlisted, or
+                        from ephemeral publish when no login is available.
+  claim_url             Ephemeral keep/upgrade link. Do not use as the primary
+                        no-login viewing link.
   revision_content_url  Raw signed bytes for one Revision. Do not use as the
                         final live page.
   agent_view_url        Agent metadata and per-file signed URLs for inspection.
@@ -108,7 +111,8 @@ JSON fields:
       revoked_access_link_ids }
 
   publish --ephemeral --json also returns:
-    { claim_token, claim_url, workspace_id, api_key_id, claim_token_id }
+    { unlisted_url, claim_token, claim_url, workspace_id, api_key_id,
+      claim_token_id }
 
 Path behavior:
   <path> may be a file or directory. Directory publish uploads every included
@@ -125,7 +129,8 @@ Path behavior:
   --title       Set the Artifact title.
   --entrypoint  Override the entrypoint file within <path>.
   --render-mode html | markdown | text | image | audio | video (otherwise inferred from the entrypoint).
-  --ephemeral   Accountless 24h publish with a one-time claim link (no login).
+  --ephemeral   Accountless 24h publish with an immediate no-login unlisted_url
+                and a one-time claim_url.
 
 Pull:
   Read one file's stored content back (so you can edit it and revise). Prints the

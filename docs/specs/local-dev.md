@@ -208,8 +208,8 @@ The first local vertical slice is complete when:
 1. A Workspace and local CLI credential can be created locally.
 2. `agent-paste whoami` succeeds after `pnpm cli:dev login`.
 3. CLI can publish a folder with `index.html`.
-4. Publish is content-only and private: it prints the `private_url` (`/v/<artifactId>` clean viewer) as `View`. Unlisted no-login sharing is the separate `set-visibility unlisted` step (MCP `set_visibility`).
-5. CLI JSON output includes `artifact_id`, `revision_id`, `private_url`, `revision_content_url`, `agent_view_url`, and `expires_at` for automation. There is no `share` input and no `shared` output.
+4. Authenticated publish is content-only and private: it prints the `private_url` (`/v/<artifactId>` clean viewer) as `View`. Authenticated unlisted no-login sharing is the separate `set-visibility unlisted` step (MCP `set_visibility`); accountless `--ephemeral` publish auto-creates `unlisted_url`.
+5. CLI JSON output includes `artifact_id`, `revision_id`, `private_url`, `revision_content_url`, `agent_view_url`, and `expires_at` for automation. There is no `share` input and no `shared` output. Ephemeral JSON also includes `unlisted_url` and claim fields.
 6. `private_url` opens the authenticated `/v/<artifactId>` clean viewer in the local harness, while `revision_content_url` serves raw Revision bytes under the content origin with direct HTML scripts disabled.
 7. `agent_view_url` returns Agent View JSON with full per-file URLs.
 8. Admin CLI can list and inspect the artifact.

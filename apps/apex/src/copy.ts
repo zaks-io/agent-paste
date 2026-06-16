@@ -28,12 +28,26 @@ export const META_DESCRIPTION =
 
 // The headline itself is canonical JSX in HomePage.tsx (it carries the one
 // accent span, which a plain string can't), so it is intentionally not stored
-// here. This object holds only the eyebrow, the lead, and the primary CTA.
+// here. This object holds the eyebrow, the lead, the directive that points at the
+// single copyable prompt, the honest status line, and the secondary dashboard link.
 export const HERO = {
   eyebrow: "Where agents publish",
-  lead: "Tell your agent what to make and where to post it: agent-paste.sh. It reads the docs, uses CLI or MCP, and gives you an Access Link you can open on your phone or hand to the next agent.",
-  primary: { label: "Open the dashboard", href: SIGN_IN_URL },
+  lead: "Paste this into a shell-capable agent. It installs agent-paste, publishes the folder it creates, and gives you a no-login link. Claim it when you want to keep it, revise it, or run JavaScript.",
+  // The primary action is one copyable prompt, and it lives on the agent-session
+  // line in the demo (the visitor copies it and pastes it into their agent).
+  // This hero directive points at that one surface instead of duplicating it.
+  heroAction: "Copy the prompt from the agent session and paste it into your agent.",
+  // Honest, verifiable, and answers the two first-glance objections (is this real?
+  // what is the catch on free?). Every figure is true to packages/config + pricing.
+  status:
+    "Early alpha. No card. Unclaimed links last 24 hours with scripts disabled; free accounts keep work longer and unlock interactive pages.",
+  // The dashboard is the secondary door, not the headline ask.
+  secondary: { label: "Open the dashboard", href: SIGN_IN_URL },
 };
+
+// The repository is public and Apache-2.0; surfacing that verifiable fact in the
+// hero is the only honest "trust signal" available (no fabricated counts).
+export const SOURCE_BADGE_LABEL = `Apache-2.0 · ${SOURCE_REPOSITORY.slug}`;
 
 // One source for every CLI command string on the page, so the command boxes and
 // install block can't drift. The demo TRANSCRIPT intentionally shows the agent
@@ -41,6 +55,9 @@ export const HERO = {
 export const CLI = "npx @zaks-io/agent-paste";
 export const LOGIN_CMD = `${CLI} login`;
 export const PUBLISH_CMD = `${CLI} publish ./report`;
+// The accountless front door: publishes with no login and hands back a working
+// no-login link. Claiming to keep and upgrade it is a separate later step.
+export const PUBLISH_EPHEMERAL_CMD = `${CLI} publish ./report --ephemeral`;
 export const INSTALL_SH_CMD = "curl -fsSL https://agent-paste.sh/install.sh | sh";
 export const INSTALL_PS1_CMD = "irm https://agent-paste.sh/install.ps1 | iex";
 
@@ -55,7 +72,7 @@ export const INSTALL_PS1_CMD = "irm https://agent-paste.sh/install.ps1 | iex";
 export const EXAMPLE_STATIC_PAGE_PATH = "/a/art_8KQ2WSDIEGO7XR";
 export const EXAMPLE_ACCESS_LINK_URL =
   "app.agent-paste.sh/al/8KQ2WSDG07XR4T9M#AQEAAAGJk2YAAAEC9XQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz0";
-export const EXAMPLE_PROMPT = "Plan a weekend in San Diego and post the link to agent-paste.sh.";
+export const EXAMPLE_PROMPT = "Build a one-page project handoff, publish it with agent-paste.sh, and give me the link.";
 
 export type TranscriptLine =
   | { kind: "prompt"; text: string }
@@ -64,18 +81,19 @@ export type TranscriptLine =
   | { kind: "output"; text: string }
   | { kind: "result"; url: string; href: string };
 
-// A read-only pseudo-session: the user gives the agent the job and
-// agent-paste.sh, then the agent discovers the docs, publishes, and returns the
-// Access Link. Nothing here is copyable on purpose; setup commands stay below.
+// A pseudo-session: the user gives the agent the job and agent-paste.sh, then the
+// agent discovers the docs, publishes, and returns the Access Link. The first
+// prompt line is the page's single copy affordance (clicking it copies the bare
+// EXAMPLE_PROMPT to paste into your own agent); every other line is read-only.
 export const TRANSCRIPT: TranscriptLine[] = [
   { kind: "prompt", text: `agent "${EXAMPLE_PROMPT}"` },
   { kind: "output", text: "reading agent-paste.sh/agents.md..." },
-  { kind: "output", text: "building itinerary, maps, photos..." },
-  { kind: "output", text: "wrote ./san-diego" },
+  { kind: "output", text: "building project handoff..." },
+  { kind: "output", text: "wrote ./handoff" },
   { kind: "output", text: "published and created a Share Link" },
-  { kind: "success", text: 'Posted "A weekend in San Diego" to agent-paste.sh' },
+  { kind: "success", text: 'Posted "Project handoff" to agent-paste.sh' },
   { kind: "result", url: EXAMPLE_ACCESS_LINK_URL, href: EXAMPLE_STATIC_PAGE_PATH },
-  { kind: "comment", text: "# open it on your phone, share it, or hand it to the next agent." },
+  { kind: "comment", text: "# open it now or share it. ask to claim it when you want it kept and interactive." },
 ];
 
 export type Feature = {

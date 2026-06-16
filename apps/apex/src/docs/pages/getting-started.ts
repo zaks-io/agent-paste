@@ -72,7 +72,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: 'For an unlisted no-login link that follows later publishes, run `agent-paste set-visibility <artifact-id> unlisted` on the CLI, or MCP `set_visibility` with `visibility: "unlisted"`, to mint or reuse the Share Link and return `unlisted_url`. Publish itself never creates unauthenticated access. The direct `usercontent.agent-paste.sh/v/...` URL points at one Revision, does not Live Update, and direct HTML opened there is inert raw byte delivery. The `private_url` clean viewer is the default Workspace view publish returns.',
+          text: 'For an authenticated unlisted no-login link that follows later publishes, run `agent-paste set-visibility <artifact-id> unlisted` on the CLI, or MCP `set_visibility` with `visibility: "unlisted"`, to mint or reuse the Share Link and return `unlisted_url`. Accountless `--ephemeral` publish is the exception: it auto-creates that Share Link and returns `unlisted_url` immediately. The direct `usercontent.agent-paste.sh/v/...` URL points at one Revision, does not Live Update, and direct HTML opened there is inert raw byte delivery. The `private_url` clean viewer is the default Workspace view publish returns.',
         },
       ],
     },
@@ -87,7 +87,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "`--ephemeral` self-provisions a short-lived Ephemeral Workspace, publishes once, and leads human output with a one-time Claim Token as `/claim#<token>`. Relay that claim link to the user, not the `private_url`. It ignores stored login, so use it only when auth is unavailable or explicitly skipped. Ephemeral is not the Free Plan: use it for non-interactive text, markdown, images, and static HTML/CSS. Unclaimed ephemeral HTML is script-disabled, so use authenticated publish for interactive work.",
+          text: "`--ephemeral` self-provisions a short-lived Ephemeral Workspace, publishes once, and leads human output with `unlisted_url`, a working no-login script-disabled Share Link. Relay `unlisted_url` for immediate viewing and `claim_url` when the human wants to keep, own, or unlock interactivity. It ignores stored login, so use it only when auth is unavailable or explicitly skipped. Ephemeral is not the Free Plan: use it for non-interactive text, markdown, images, and static HTML/CSS. Unclaimed ephemeral HTML is script-disabled, so use authenticated publish for interactive work.",
         },
       ],
     },

@@ -182,11 +182,11 @@ keep the install small and the supply chain clean.
 selection. `agent-paste publish --help` prints the same guide. The guide must
 lead with mode choice and exact commands before longer flag descriptions:
 
-| Mode      | Current shipped meaning                                                                                     | Command sequence                                                                                    | Agent returns                                    |
-| --------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| Private   | Default authenticated publish. Login-walled `private_url`; no unauthenticated access.                       | `agent-paste publish <path> --json`                                                                 | `private_url` only when the recipient can log in |
-| Unlisted  | No-login Share Link that follows later publishes and can be revoked.                                        | `agent-paste publish <path> --json` then `agent-paste set-visibility <artifact_id> unlisted --json` | `unlisted_url`                                   |
-| Ephemeral | Accountless publish for no-login environments. Short-lived, claimable, and script-disabled while unclaimed. | `agent-paste publish <path> --ephemeral --json`                                                     | `claim_url`, not `private_url`                   |
+| Mode      | Current shipped meaning                                                                                     | Command sequence                                                                                    | Agent returns                                                               |
+| --------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Private   | Default authenticated publish. Login-walled `private_url`; no unauthenticated access.                       | `agent-paste publish <path> --json`                                                                 | `private_url` only when the recipient can log in                            |
+| Unlisted  | No-login Share Link that follows later publishes and can be revoked.                                        | `agent-paste publish <path> --json` then `agent-paste set-visibility <artifact_id> unlisted --json` | `unlisted_url`                                                              |
+| Ephemeral | Accountless publish for no-login environments. Short-lived, claimable, and script-disabled while unclaimed. | `agent-paste publish <path> --ephemeral --json`                                                     | `unlisted_url` (working no-login link) and `claim_url`; never `private_url` |
 
 The guide should tell agents to run `whoami --json` before choosing
 `--ephemeral`, to use `--artifact-id` when revising an existing Artifact, and to
@@ -210,18 +210,21 @@ the upload summary, and an **Update** line:
 
 ## Ephemeral publish human output
 
-`publish --ephemeral` uses the same JSON fields as authenticated publish plus
-`claim_token`, `claim_url`, `workspace_id`, `api_key_id`, and `claim_token_id`.
-The JSON contract is unchanged; only human-readable layout differs.
+`publish --ephemeral` uses the same JSON fields as authenticated publish plus the
+server-minted `unlisted_url` and the claim fields `claim_token`, `claim_url`,
+`workspace_id`, `api_key_id`, and `claim_token_id`.
 
-In `rich`/`plain` mode, the claim link is the primary handoff:
+In `rich`/`plain` mode, the working no-login link is the primary handoff and the
+claim link is the upgrade path:
 
-- **Claim** — the link to open, keep, and unlock the Artifact (`claim_url`).
-  The `→ open` hint targets this URL.
-- **View** — the `private_url` (the `/v/<artifactId>` clean viewer for an ephemeral
-  publish), labeled as working only after claim. Until a human redeems the
-  **Claim Token**, this route 404s for cold recipients because the Artifact lives
-  in an unclaimed **Ephemeral Workspace**.
+- **Link** — the `unlisted_url`, a no-login, script-disabled Share Link the server
+  auto-creates for an ephemeral publish. It works immediately for any recipient and
+  is the `→ open` target.
+- **Claim** — the link to log in, keep, make interactive, and own the Artifact
+  (`claim_url`).
 
-Agents relaying ephemeral publish results to humans should pass `claim_url`, not
-`private_url`.
+The `private_url` (login-walled member viewer) is intentionally omitted from the
+ephemeral human handoff: the Artifact lives in an unclaimed **Ephemeral Workspace**,
+so that route 404s for cold recipients until a claim. Agents relaying ephemeral
+publish results to humans should pass `unlisted_url` (or `claim_url` for the
+keep/upgrade step), never `private_url`.

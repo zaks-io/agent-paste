@@ -156,7 +156,7 @@ The bet is wrong, and we should re-examine, when:
 Self-sustaining by design. The infrastructure floor is low (roughly $25 to
 $50/month, helped by R2's no-egress pricing), so a handful of paying developers
 covers it. Open-core (Apache-2.0 lean) plus a hosted paid plan. A free tier to
-try and for agents to use, and a $5/month developer plan to start. Teams and
+try and for agents to use, and a $12/month Pro plan to start. Teams and
 embedders are the segments expected to sustain it as it grows. Detail lives in
 [`marketing-brand-guide.md`](./marketing-brand-guide.md) section 12 and ADRs 0073
 and 0074.

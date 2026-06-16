@@ -67,7 +67,7 @@ export const CLI_DOC: DocsPage = {
             ],
             [
               "`--ephemeral`",
-              "Restricted accountless fallback for non-interactive text/images/static output. Ignores stored login, disables scripts while unclaimed, and prints a one-time claim link.",
+              "Restricted accountless fallback for non-interactive text/images/static output. Ignores stored login, disables scripts while unclaimed, and prints `unlisted_url` plus `claim_url`.",
             ],
             ["`--revision-id <id>`", "With `pull`, read a specific Revision instead of the latest Published Revision."],
             ["`--edits <file>`", "With `edit`, read the JSON edit array from a file instead of stdin."],
@@ -100,16 +100,16 @@ export const CLI_DOC: DocsPage = {
         },
         {
           kind: "note",
-          title: "Unlisted sharing is a separate step",
+          title: "Authenticated unlisted sharing is a separate step",
           body: [
-            "Publish is content-only and private; `private_url` is the login-walled `/v/<artifactId>` clean viewer. When a human needs a no-login URL that follows later publishes, run `agent-paste set-visibility <artifact-id> unlisted`; it mints or reuses the one unlisted Share Link and returns `unlisted_url`. `set-visibility <artifact-id> private` revokes active Access Links. `revision_content_url` is raw signed byte delivery for one Revision.",
+            "Authenticated publish is content-only and private; `private_url` is the login-walled `/v/<artifactId>` clean viewer. When a human needs a no-login URL that follows later publishes, run `agent-paste set-visibility <artifact-id> unlisted`; it mints or reuses the one unlisted Share Link and returns `unlisted_url`. Accountless `--ephemeral` publish is the exception: it auto-creates that unlisted Share Link and returns `unlisted_url` immediately. `set-visibility <artifact-id> private` revokes active Access Links. `revision_content_url` is raw signed byte delivery for one Revision.",
           ],
         },
         {
           kind: "note",
-          title: "Ephemeral output leads with the claim link",
+          title: "Ephemeral output leads with the no-login link",
           body: [
-            "With `--ephemeral`, human-readable output leads with `claim_url` — the link to open, keep, and unlock the Artifact. The `private_url` clean viewer appears as `View (works after claiming)`. Agents should relay the claim link to the user, not `private_url`.",
+            "With `--ephemeral`, human-readable output leads with `unlisted_url`, the no-login script-disabled Share Link that works immediately. The `claim_url` is the keep/upgrade path for owning the Artifact and unlocking interactivity. Agents should relay `unlisted_url` for viewing and never relay `private_url` from an unclaimed ephemeral publish.",
           ],
         },
         {

@@ -141,8 +141,9 @@ URLs.
 If the user asks for a shareable no-login link, run:
 \`npx @zaks-io/agent-paste set-visibility <artifact-id> unlisted\` on the CLI, or
 the MCP \`set_visibility\` tool with \`visibility: "unlisted"\`. It mints or reuses
-the Artifact's one Share Link and returns \`unlisted_url\`. Publish itself never
-creates unauthenticated access. Do not return the
+the Artifact's one Share Link and returns \`unlisted_url\`. Accountless
+\`--ephemeral\` publish is the exception: it auto-creates the unlisted Share Link
+and returns \`unlisted_url\` immediately. Do not return the
 \`usercontent.agent-paste.sh/v/...\` Revision Content URL as the final answer.
 
 ## Ephemeral publish fallback
@@ -159,12 +160,13 @@ npx @zaks-io/agent-paste publish ./report --ephemeral
 
 Ephemeral is not the Free Plan. It is an unclaimed restricted tier with low
 write caps, \`noindex\`, a 24 hour lifetime, and script-disabled content serving.
-Publish prints a one-time **Claim Token** as a claim link
-(\`${APP_BASE_URL}/claim#<token>\`). **Relay the claim link to the user** — not
-\`private_url\`. A signed-in human opens that link to view, keep, and reparent
-the Artifact into their Workspace. The token rides the URL **hash** only: it never
-appears in the query string or in any public Access Link Signed URL. The
-\`private_url\` clean viewer works only after claim.
+Publish returns \`unlisted_url\`, a no-login script-disabled Share Link that works
+immediately, and \`claim_url\` (\`${APP_BASE_URL}/claim#<token>\`) for keeping,
+owning, and unlocking interactivity. **Relay \`unlisted_url\` for viewing** — not
+\`private_url\`. A signed-in human opens \`claim_url\` to reparent the Artifact
+into their Workspace. The token rides the URL **hash** only: it never appears in
+the query string or in any public Access Link Signed URL. The \`private_url\`
+clean viewer works only after claim.
 
 Unclaimed ephemeral HTML is script-disabled. Text, markdown, images, and static
 HTML/CSS render, but JavaScript does not run. After claim, newly minted viewer

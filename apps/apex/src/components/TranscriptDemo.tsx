@@ -1,4 +1,4 @@
-import { EXAMPLE_STATIC_PAGE_PATH, TRANSCRIPT, type TranscriptLine } from "../copy";
+import { EXAMPLE_PROMPT, EXAMPLE_STATIC_PAGE_PATH, SIGN_IN_URL, TRANSCRIPT, type TranscriptLine } from "../copy";
 
 // The home demo: a flat, hairline-bordered transcript shell (style-guide §8.1)
 // showing one agent publish session. Terminal *behavior* (mono, prompt carets,
@@ -11,19 +11,69 @@ import { EXAMPLE_STATIC_PAGE_PATH, TRANSCRIPT, type TranscriptLine } from "../co
 const GESTURE_WIRE = ">─";
 const GESTURE_NODE = "●";
 
+// Keep the wordmark from breaking at its hyphen ("agent-" / "paste.sh"). Splits the
+// prompt on the wordmark token (capturing group keeps the delimiter) and wraps each
+// occurrence in a no-wrap span; the rest of the prompt still wraps normally. Matches
+// the .sh form and the bare wordmark.
+function renderPromptText(text: string) {
+  return text.split(/(agent-paste(?:\.sh)?)/g).map((part, i) =>
+    part.startsWith("agent-paste") ? (
+      // biome-ignore lint/suspicious/noArrayIndexKey: split parts are positional and static.
+      <span key={i} className="whitespace-nowrap">
+        {part}
+      </span>
+    ) : (
+      part
+    ),
+  );
+}
+
 function Line({ line }: { line: TranscriptLine }) {
   switch (line.kind) {
     case "prompt":
-      // Preserve newlines in the command so a backslash line-continuation renders
-      // as two lines, like a real shell. The continuation indent lives in the
-      // copy string after the "\\\n".
+      // The page's single copy affordance. Clicking copies the bare EXAMPLE_PROMPT
+      // (the instruction to paste into your own agent), not the `agent "..."` shell
+      // wrapper. The ONLY highlighted thing is the prompt string itself: it sits in a
+      // subtle tinted box so it reads as "this chunk is what you copy". The `$ agent "`
+      // / `"` framing stays plain dim, non-selectable, with no background, so nothing
+      // implies the `agent` command runs. There is no row-level hover background.
+      // The shared [data-clipboard] script (client.ts) copies and sets data-copied,
+      // flipping the label to "Copied". Only one prompt line exists.
+      // The label is a fixed-size two-state stack (grid overlay) so swapping its text
+      // never changes width and the line never reflows.
       return (
-        <div className="t-line">
-          <span className="text-accent select-none" aria-hidden="true">
-            ${" "}
+        <button
+          type="button"
+          className="t-line group flex w-full items-start gap-3 text-left bg-transparent border-0 cursor-pointer"
+          data-clipboard={EXAMPLE_PROMPT}
+          aria-label={`Copy the prompt to paste into your agent: ${EXAMPLE_PROMPT}`}
+        >
+          <span className="min-w-0 whitespace-pre-wrap leading-relaxed">
+            <span className="text-subtle select-none" aria-hidden="true">
+              $ agent{" "}
+            </span>
+            <span className="text-subtle select-none" aria-hidden="true">
+              "
+            </span>
+            <span className="rounded-xs bg-accent-tint px-1 py-0.5 text-foreground font-medium box-decoration-clone transition-[background] duration-[140ms] ease-out group-hover:bg-accent/25">
+              {renderPromptText(EXAMPLE_PROMPT)}
+            </span>
+            <span className="text-subtle select-none" aria-hidden="true">
+              "
+            </span>
           </span>
-          <span className="text-foreground font-medium whitespace-pre-wrap">{line.text}</span>
-        </div>
+          <span
+            className="ml-auto flex-none self-start grid font-mono text-mono-sm uppercase tracking-wider"
+            aria-hidden="true"
+          >
+            <span className="col-start-1 row-start-1 text-subtle group-hover:text-foreground group-data-[copied=true]:invisible">
+              Copy prompt
+            </span>
+            <span className="col-start-1 row-start-1 invisible text-accent group-data-[copied=true]:visible">
+              Copied
+            </span>
+          </span>
+        </button>
       );
     case "comment":
       return <div className="t-line text-faint">{line.text}</div>;
@@ -67,12 +117,27 @@ export function TranscriptDemo() {
           <Line key={line.kind === "result" ? line.url : `${line.kind}:${line.text}`} line={line} />
         ))}
       </div>
-      <div className="t-foot border-t border-rule px-4 py-3">
+      {/* The next funnel step rail: test what a published link looks like, then
+          claim it to keep it. The copy affordance moved onto the prompt line above,
+          so this footer carries the post-copy path, not a second copy button. */}
+      <div className="t-foot border-t border-rule px-4 py-3 flex items-center justify-between gap-4">
         <a
           className="group inline-flex items-center gap-2 font-mono text-mono-sm text-muted no-underline transition-colors duration-200 ease-out hover:text-foreground"
           href={EXAMPLE_STATIC_PAGE_PATH}
         >
           open the example
+          <span
+            className="transition-transform duration-[220ms] ease-out group-hover:translate-x-[3px]"
+            aria-hidden="true"
+          >
+            →
+          </span>
+        </a>
+        <a
+          className="group inline-flex items-center gap-2 font-mono text-mono-sm text-muted no-underline transition-colors duration-200 ease-out hover:text-foreground"
+          href={SIGN_IN_URL}
+        >
+          claim it to keep
           <span
             className="transition-transform duration-[220ms] ease-out group-hover:translate-x-[3px]"
             aria-hidden="true"

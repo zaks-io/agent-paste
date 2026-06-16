@@ -13,7 +13,7 @@ An agent with no credential and no human in the loop can publish in one call and
 agent-paste publish ./sim --ephemeral
 ```
 
-The command provisions an **Ephemeral Workspace** behind the scenes, publishes the **Artifact**, leads human output with the one-time **claim link** (`claim_url`; the **Claim Token** rides the URL hash only), and does not create an unlisted Share Link by default. The trial is deliberately short-lived and tightly capped. When the agent's operator wants persistence or higher write volume, they log in (free) and open the claim link to reparent the **Artifacts** into their **Personal Workspace** while marking the source **Ephemeral Workspace** consumed; heavy publishers pay for the `pro` **Plan**. Reads are never gated beyond the existing **Artifact Rate Limit** - the audience is never the thing that is throttled.
+The command provisions an **Ephemeral Workspace** behind the scenes, publishes the **Artifact**, and returns both a working **unlisted Share Link** (`unlisted_url`; a no-login, script-disabled URL the agent hands back at once) and a one-time **claim link** (`claim_url`; the **Claim Token** rides the URL hash only). Auto-creating the unlisted Share Link is the one exception to "publish is content-only and private": an accountless publish has no human in the loop to run a follow-up `set-visibility` call, so the server mints it at finalize. The trial is deliberately short-lived and tightly capped. When the agent's operator wants persistence, interactivity (executable HTML/JS), or higher write volume, they log in (free) and open the claim link to reparent the **Artifacts** into their **Personal Workspace** while marking the source **Ephemeral Workspace** consumed; heavy publishers pay for the `pro` **Plan**. Reads are never gated beyond the existing **Artifact Rate Limit** - the audience is never the thing that is throttled.
 
 Selection rule for agents: check for authenticated publish before choosing
 Ephemeral Publish. Run `agent-paste whoami --json`; it exits `0` whether or not
@@ -144,7 +144,8 @@ Field-level shape lands in [`data-model.md`](./data-model.md) and the contracts 
 ## Acceptance Criteria
 
 - A valid `provision` call returns a working scoped credential and a one-time **Claim Token**.
-- A freshly provisioned credential can run the standard **Upload Session** → **Publish** loop with `publish` + `read` only; publishing is content-only and never makes an **Artifact** public on its own.
+- A freshly provisioned credential can run the standard **Upload Session** → **Publish** loop with `publish` + `read` only.
+- An ephemeral **Publish** auto-creates the **Artifact**'s unlisted Share Link at finalize and returns its minted no-login URL as `unlisted_url`, so the agent hands back a link that works immediately without a separate `set-visibility` step. The link reuses the **Artifact**'s one active Share Link (so an idempotent publish replay does not stack links) and remains revocable. This auto-unlist is scoped to ephemeral tenants; authenticated publishes stay private by default.
 - The ephemeral daily new-**Artifact** allowance is enforced; exceeding it returns a stable rate-limit error with `Retry-After`; new **Revisions** of an existing **Artifact** are not counted (up to the lifetime ceiling).
 - Ephemeral **Artifacts** carry the shortest **Auto Deletion** and `noindex`; they are swept on schedule.
 - A valid **Claim Token** redeemed by an authenticated **Workspace Member** reparents the surviving **Artifacts** into the member's Personal **Workspace** at the `free` cap set, marks the source **Ephemeral Workspace** consumed, and is single-use thereafter.
