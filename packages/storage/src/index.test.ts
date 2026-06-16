@@ -77,6 +77,7 @@ describe("storage helpers", () => {
     const baseDirectives = parseContentSecurityPolicyDirectives(BASE_CONTENT_SECURITY_POLICY);
     const disabledDirectives = parseContentSecurityPolicyDirectives(SCRIPT_DISABLED_CONTENT_SECURITY_POLICY);
 
+    expect(baseDirectives.get("script-src")).toContain("https://cdn.tailwindcss.com");
     expect([...disabledDirectives.keys()]).toEqual([...baseDirectives.keys()]);
     for (const [name, value] of baseDirectives) {
       if (name === "script-src") {

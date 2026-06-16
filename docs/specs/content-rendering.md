@@ -98,6 +98,11 @@ This means `usercontent` can still serve raw HTML/CSS/JS/image bytes for one
 Revision, but a browser only executes an HTML Artifact as an interactive page
 inside the controlled Artifact Viewer iframe on the app origin.
 
+When the interactive policy is selected, `script-src` allows only `'self'`,
+inline/eval execution, and these CDN origins: `https://cdn.jsdelivr.net`,
+`https://unpkg.com`, `https://cdnjs.cloudflare.com`, `https://esm.sh`, and
+`https://cdn.tailwindcss.com`.
+
 ## Base Security Headers
 
 Every untrusted-content response carries a CSP selected by the execution policy
