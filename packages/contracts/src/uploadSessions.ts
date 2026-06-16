@@ -158,15 +158,22 @@ export const PublishResult = z.object({
   artifact_id: ArtifactId,
   revision_id: RevisionId,
   title: PlainTextTitle,
-  // The PRIVATE viewer link a publish returns: a login-walled clean viewer for
-  // the owning workspace member (`/v/<artifactId>`), the only link publish emits.
-  // Unlisted sharing is a separate, explicit visibility step that mints a
-  // revocable Share Link.
+  // The PRIVATE viewer link authenticated publish returns: a login-walled clean
+  // viewer for the owning workspace member (`/v/<artifactId>`).
+  // Authenticated unlisted sharing is a separate, explicit visibility step that
+  // mints a revocable Share Link; ephemeral publish carries its own exception
+  // below.
   private_url: UrlString,
   revision_content_url: UrlString,
   agent_view_url: UrlString,
   expires_at: IsoDateTime,
   bundle: BundleAvailability,
+  // Ephemeral publish is the one exception to "publish is content-only and
+  // private": an accountless `--ephemeral` publish auto-creates the unlisted
+  // Share Link so the agent hands back a no-login (script-disabled) URL that
+  // works immediately (ADR 0075). Absent on every authenticated publish, which
+  // stays private by default.
+  unlisted_url: UrlString.optional(),
 });
 export type PublishResult = z.infer<typeof PublishResult>;
 

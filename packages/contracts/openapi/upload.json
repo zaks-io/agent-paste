@@ -629,6 +629,10 @@
                 "additionalProperties": false
               }
             ]
+          },
+          "unlisted_url": {
+            "type": "string",
+            "format": "uri"
           }
         },
         "required": [

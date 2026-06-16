@@ -8,6 +8,9 @@ export type PublishResultShape = {
   revision_content_url: string;
   agent_view_url: string;
   expires_at: string;
+  // Present only on ephemeral publish: the no-login (script-disabled) Share Link
+  // the server auto-creates so the agent hands back a URL that works at once.
+  unlisted_url?: string | undefined;
   upload_stats?: {
     total_files: number;
     total_bytes: number;
@@ -58,21 +61,24 @@ export function ephemeralClaimUrl(claimToken: string): string {
 export function formatEphemeralPublishResult(mode: OutputMode, result: PublishResultShape, claimUrl: string): string {
   assertClaimTokenNotInPublicUrls(result, claimUrl);
   const label = (text: string) => paint(mode, "dim", text);
-  const privateUrl = result.private_url;
+  const sharedUrl = result.unlisted_url;
   return [
     `${paint(mode, "green", "✓")} Published ${paint(mode, "bold", `"${result.title}"`)}`,
     "",
-    paint(mode, "dim", "Open this to view, keep, and unlock your artifact:"),
-    `  ${label("Claim")}    ${hyperlink(mode, claimUrl)}`,
+    ...(sharedUrl
+      ? [
+          paint(mode, "dim", "Hand this link to anyone. No login, static page, expires soon:"),
+          `  ${label("Link")}     ${hyperlink(mode, sharedUrl)}`,
+        ]
+      : []),
     `  ${label("Expires")}   ${formatExpiry(result.expires_at)}`,
     ...(result.upload_stats ? [uploadStatsLine(mode, result.upload_stats)] : []),
     "",
+    paint(mode, "dim", "Log in and open this to keep it, make it interactive, and own it:"),
+    `  ${label("Claim")}    ${hyperlink(mode, claimUrl)}`,
     paint(mode, "dim", "The token lives in the URL hash only (never the query string)."),
-    ...(privateUrl
-      ? ["", `  ${label("View")}      ${hyperlink(mode, privateUrl)} ${paint(mode, "dim", "(works after claiming)")}`]
-      : []),
     "",
-    paint(mode, "cyan", `  → open ${claimUrl}`),
+    paint(mode, "cyan", `  → open ${sharedUrl ?? claimUrl}`),
   ].join("\n");
 }
 
@@ -90,7 +96,8 @@ function assertClaimTokenNotInPublicUrls(result: PublishResultShape, claimUrl: s
   if (
     result.private_url.includes(claimToken) ||
     result.revision_content_url.includes(claimToken) ||
-    result.agent_view_url.includes(claimToken)
+    result.agent_view_url.includes(claimToken) ||
+    (result.unlisted_url?.includes(claimToken) ?? false)
   ) {
     throw new Error("Claim Token must not appear in public Access Link Signed URLs");
   }

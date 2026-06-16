@@ -40,7 +40,10 @@ function fakeWriteAllowance() {
   return namespace;
 }
 
-function coordinatorFixture(overrides: Partial<Record<keyof Repository, unknown>>) {
+function coordinatorFixture(
+  overrides: Partial<Record<keyof Repository, unknown>>,
+  envOverrides: Record<string, unknown> = {},
+) {
   const writeAllowance = fakeWriteAllowance();
   const db = {
     async peekWorkspaceCommandReplay() {
@@ -62,7 +65,7 @@ function coordinatorFixture(overrides: Partial<Record<keyof Repository, unknown>
     },
     ...overrides,
   } as unknown as Repository;
-  const env = { WRITE_ALLOWANCE: writeAllowance } as unknown as Env;
+  const env = { WRITE_ALLOWANCE: writeAllowance, ...envOverrides } as unknown as Env;
   return { coordinator: createPublishCoordinator({ db, env }), writeAllowance };
 }
 
@@ -136,6 +139,61 @@ describe("publish coordinator write-allowance reservation", () => {
 
     expect(result).toHaveProperty("private_url");
     expect(result).not.toHaveProperty("access_link_url");
+  });
+
+  it("auto-creates the unlisted Share Link and returns unlisted_url for an ephemeral publish", async () => {
+    const createMemberAccessLink = vi.fn().mockResolvedValue({
+      id: "al_ephemeral",
+      type: "share",
+      artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      revision_id: null,
+      created_at: "2026-01-01T00:00:00.000Z",
+    });
+    const mintMemberAccessLink = vi.fn().mockResolvedValue({ url: "https://app.test/al/PUBLIC#sig" });
+    const { coordinator } = coordinatorFixture(
+      {
+        async peekPublishWriteGate() {
+          return { is_already_published: true, is_new_artifact: false };
+        },
+        async publishRevision() {
+          return publishedResult({ ephemeral_tier: true });
+        },
+        createMemberAccessLink,
+        mintMemberAccessLink,
+      },
+      { ACCESS_LINK_SIGNING_KEY_V1: "al-test-secret" },
+    );
+
+    const result = await coordinator.publishRevision(publishInput);
+
+    expect(result).toHaveProperty("unlisted_url", "https://app.test/al/PUBLIC#sig");
+    expect(createMemberAccessLink).toHaveBeenCalledWith(
+      expect.objectContaining({ artifactId: "art_1", type: "share" }),
+    );
+    // Dedup-keyed so an idempotent publish replay reuses the one active link.
+    expect(createMemberAccessLink.mock.calls[0]?.[0]?.idempotencyKey).toBe("ephemeral-unlist:art_1");
+    expect(mintMemberAccessLink).toHaveBeenCalledWith(expect.objectContaining({ accessLinkId: "al_ephemeral" }));
+  });
+
+  it("does not create a Share Link or return unlisted_url for a standard authenticated publish", async () => {
+    const createMemberAccessLink = vi.fn();
+    const { coordinator } = coordinatorFixture(
+      {
+        async peekPublishWriteGate() {
+          return { is_already_published: true, is_new_artifact: false };
+        },
+        async publishRevision() {
+          return publishedResult();
+        },
+        createMemberAccessLink,
+      },
+      { ACCESS_LINK_SIGNING_KEY_V1: "al-test-secret" },
+    );
+
+    const result = await coordinator.publishRevision(publishInput);
+
+    expect(result).not.toHaveProperty("unlisted_url");
+    expect(createMemberAccessLink).not.toHaveBeenCalled();
   });
 
   it("notifies live updates with persisted render_mode after add_revision publish", async () => {

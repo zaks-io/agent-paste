@@ -43,7 +43,7 @@ function mockStdout() {
 }
 
 describe("cli ephemeral publish", () => {
-  it("provisions, publishes, and leads human output with the claim link before the View URL", async () => {
+  it("leads human output with the working unlisted link and offers the claim link to upgrade", async () => {
     const stdout = mockStdout();
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     vi.stubEnv("AGENT_PASTE_WEB_URL", "https://app.agent-paste.sh");
@@ -65,14 +65,16 @@ describe("cli ephemeral publish", () => {
       const human = String(stdout.mock.calls.at(-1)?.[0]);
       const claimUrl = ephemeralClaimUrl(claimToken);
       expect(claimUrl).toBe(`https://app.agent-paste.sh/claim#${claimToken}`);
-      const artifactUrl = "https://app.test/v/art_1";
-      expect(human).toContain(artifactUrl);
-      expect(human).not.toContain("https://app.test/al/PUBLICLINK123456#secret");
-      expect(human).not.toContain("https://content.test/v/token/index.html");
+      // The no-login Share Link is the handoff: present, leading, and the open target.
+      const unlistedUrl = "https://app.test/al/PUBLICLINK123456#secret";
+      expect(human).toContain(unlistedUrl);
       expect(human).toContain(claimUrl);
-      expect(human.indexOf(claimUrl)).toBeLessThan(human.indexOf(artifactUrl));
-      expect(human).toContain(`→ open ${claimUrl}`);
-      expect(human).not.toContain(`→ open ${artifactUrl}`);
+      expect(human.indexOf(unlistedUrl)).toBeLessThan(human.indexOf(claimUrl));
+      expect(human).toContain(`→ open ${unlistedUrl}`);
+      // Private member viewer and raw content URLs stay off the human handoff.
+      expect(human).not.toContain("https://app.test/v/art_1");
+      expect(human).not.toContain("https://content.test/v/token/index.html");
+      // The claim token never leaks into a query string or a public URL.
       expect(human).not.toContain(`?${claimToken}`);
       expect(human).not.toContain(`https://app.test/view/${claimToken}`);
     } finally {
@@ -276,6 +278,9 @@ function fakePublishClient() {
     revision_content_url: "https://content.test/v/token/index.html",
     agent_view_url: "https://api.test/agent-view/token",
     expires_at: "2026-02-01T00:00:00.000Z",
+    // The server auto-creates the unlisted Share Link for an ephemeral publish so
+    // the agent hands back a no-login link that works at once (ADR 0075).
+    unlisted_url: "https://app.test/al/PUBLICLINK123456#secret",
   });
   return {
     whoami: vi.fn(),
