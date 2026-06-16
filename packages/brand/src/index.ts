@@ -21,6 +21,11 @@ export * from "./privacy-preferences.js";
 export * from "./theme-cookie.js";
 export * from "./tokens.js";
 
+export const OPERATING_COMPANY = {
+  name: "Zaks.io, LLC",
+  href: "https://zaks.io",
+} as const;
+
 /**
  * Map a theme's tokens onto the CSS custom-property names the apex stylesheet and
  * the web app both reference. Returns the `--name: value;` lines (no selector),

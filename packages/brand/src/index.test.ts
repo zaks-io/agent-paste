@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cssVarsBlock, DARK, fontFaceCss, LIGHT, themeOverrideCss, themeVarLines } from "./index.js";
+import { cssVarsBlock, DARK, fontFaceCss, LIGHT, OPERATING_COMPANY, themeOverrideCss, themeVarLines } from "./index.js";
 
 describe("brand tokens", () => {
   it("keeps the one vermilion accent in both themes", () => {
@@ -9,6 +9,13 @@ describe("brand tokens", () => {
 
   it("dark canvas is a neutral near-black", () => {
     expect(DARK.background).toBe("240 6% 5%");
+  });
+
+  it("exports the official operating company", () => {
+    expect(OPERATING_COMPANY).toEqual({
+      name: "Zaks.io, LLC",
+      href: "https://zaks.io",
+    });
   });
 });
 

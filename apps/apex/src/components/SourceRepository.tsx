@@ -1,3 +1,4 @@
+import { OPERATING_COMPANY } from "@agent-paste/brand";
 import { SOURCE_REPOSITORY } from "../copy";
 import { INLINE_LINK_CLASS, ProseBlock, SectionHeading } from "./marketing";
 
@@ -8,7 +9,11 @@ export function SourceRepository() {
     <ProseBlock>
       <SectionHeading>Source</SectionHeading>
       <p className="mt-4 text-h3 leading-loose text-muted">
-        The repo is{" "}
+        agent-paste is owned and operated by{" "}
+        <a className={INLINE_LINK_CLASS} href={OPERATING_COMPANY.href}>
+          {OPERATING_COMPANY.name}
+        </a>
+        . The repo is{" "}
         <a className={INLINE_LINK_CLASS} href={SOURCE_REPOSITORY.href}>
           {SOURCE_REPOSITORY.slug}
         </a>{" "}

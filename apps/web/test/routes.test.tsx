@@ -697,6 +697,7 @@ describe("web routes", () => {
     state.loaderData = { auth_error: "failed" };
     const view = render(<root.Route.component />);
     expect(screen.getByText("Sign in failed")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Zaks.io, LLC" })).toHaveAttribute("href", "https://zaks.io");
     view.unmount();
 
     const response = await signIn.Route.server.handlers.GET({

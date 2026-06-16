@@ -90,6 +90,20 @@ describe("apex shell", () => {
     expect(html).toContain("Analytics on");
   });
 
+  it("renders the operating company attribution in the footer", () => {
+    const footer = html.match(/<footer[\s\S]*?<\/footer>/)?.[0] ?? "";
+    expect(footer).toContain("Zaks.io, LLC");
+    expect(footer).toContain('href="https://zaks.io"');
+    expect(footer).not.toContain("Apache-2.0 (c) zaks-io");
+  });
+
+  it("publishes Zaks.io, LLC as the structured-data publisher", () => {
+    expect(html).toContain('"@id":"https://zaks.io/#organization"');
+    expect(html).toContain('"name":"Zaks.io, LLC"');
+    expect(html).toContain('"url":"https://zaks.io"');
+    expect(html).toContain('"publisher":{"@id":"https://zaks.io/#organization"}');
+  });
+
   it("uses the brand PNG as the social preview image", () => {
     // PNG, not SVG: social scrapers do not render SVG og:image. The PNG is the
     // SVG master rasterized at the same 1200x630 dimensions.
@@ -209,6 +223,8 @@ describe("about page", () => {
   it("has a canonical URL and links the public repo", () => {
     expect(body).toContain('<link rel="canonical" href="https://agent-paste.sh/about"/>');
     expect(body).toContain('href="https://github.com/zaks-io/agent-paste"');
+    expect(body).toContain('href="https://zaks.io"');
+    expect(body).toContain("Zaks.io, LLC");
   });
 
   it("keeps buzzword claims and em dashes out", () => {
@@ -253,6 +269,8 @@ describe("pricing page (billing-gated)", () => {
     expect(hasRoute("/pricing", true)).toBe(true);
     const body = renderPage("/pricing", { billingEnabled: true });
     expect(body).toContain('href="https://app.agent-paste.sh/billing"');
+    expect(body).toContain('href="https://zaks.io"');
+    expect(body).toContain("Zaks.io, LLC");
     expect(body).toContain('<link rel="canonical" href="https://agent-paste.sh/pricing"/>');
     // Pricing is wired into nav + footer when billing is on (href is the
     // contract; the link classes float with the Tailwind styling).

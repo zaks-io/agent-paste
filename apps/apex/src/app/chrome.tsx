@@ -1,3 +1,4 @@
+import { OPERATING_COMPANY } from "@agent-paste/brand";
 import { ButtonAnchor, THEME_ICON_CLASS, THEME_TOGGLE_CLASS, Wordmark } from "@agent-paste/ui";
 import { FOOTER, type FooterColumn, INSTALL_LINKS, SIGN_IN_URL, WORDMARK } from "../copy";
 
@@ -136,7 +137,15 @@ export function Footer({ billingEnabled }: { billingEnabled: boolean }) {
               </a>
             ))}
           </span>
-          <span className="font-mono text-mono-sm text-subtle">Apache-2.0 (c) zaks-io</span>
+          <span className="font-mono text-mono-sm text-subtle">
+            Apache-2.0. Owned and operated by{" "}
+            <a
+              className="text-subtle underline decoration-accent/40 underline-offset-2 transition-colors duration-[120ms] ease-out hover:text-accent"
+              href={OPERATING_COMPANY.href}
+            >
+              {OPERATING_COMPANY.name}
+            </a>
+          </span>
         </div>
       </div>
     </footer>
