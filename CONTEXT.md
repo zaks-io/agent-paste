@@ -134,6 +134,31 @@ _Avoid_: Usage policy retention, log cleanup
 The redacted structured description of what changed in an **Audit Event**.
 _Avoid_: Before-and-after payload, raw diff
 
+<a id="feedback"></a>
+**Feedback**:
+A human-authored product report owned by the **Workspace** it was submitted from, distinct from an **Audit Event** (which is platform-emitted, not human-authored). It carries the free-text body, the submitting identity (a **Workspace Member** or an **Agent Credential**), an optional reply **Contact Email**, auto-attached **Feedback Context**, and a **Feedback Status**. Read for product insight only by an **Operator** across all **Workspaces** (platform **Run Scope**); a **Workspace** sees only its own through RLS.
+_Avoid_: Audit Event, Change Summary, support ticket, bug report
+
+<a id="feedback-context"></a>
+**Feedback Context**:
+The lightweight, surface-auto-attached situational data stored with a **Feedback**: for a **Workspace Member** the dashboard route and any **Artifact** id in view; for an **Agent Credential** the CLI/MCP version and the command. It is captured without the submitter typing it, so vague **Feedback** stays actionable.
+_Avoid_: Manifest, Change Summary, telemetry, analytics event
+
+<a id="feedback-status"></a>
+**Feedback Status**:
+The **Operator** triage state of a **Feedback**: `new` on submit, advanced to `addressed` once acted on. The reply itself is sent manually using the **Contact Email**; advancing the status does not send anything.
+_Avoid_: Resolved, closed, ticket state
+
+<a id="feedback-notification"></a>
+**Feedback Notification**:
+The best-effort email sent to the operator address on **Feedback** submit, which is the ingestion path into the operator's external tracker (Linear today). It is **fail-soft**: the **Feedback** row always commits even if the send drops, so the row — not the email — is the system of record, and the **Operator** view is the reconciliation backstop. It is rate-capped per submitting actor; submissions past the cap skip the email and set the row's suppressed flag instead of dropping silently, so no **Feedback** is lost from the tracker without a visible trail.
+_Avoid_: Audit Event, reply, transactional email
+
+<a id="contact-email"></a>
+**Contact Email**:
+The optional email captured with a **Feedback** for an out-of-band reply. For a **Workspace Member** it is their session email snapshotted at submit; for an **Agent Credential** it resolves to the owning **Workspace**'s member email, since a credential has no email of its own. May be absent.
+_Avoid_: Submitter email, account email, reply-to
+
 <a id="usage-policy"></a>
 **Usage Policy**:
 The limits a **Workspace** applies to artifact creation, retention, auto deletion, access-link creation, **File Size Cap**, **File Count Cap**, **Revision Size Cap**, **Bundle Size Cap**, **State Key Cap**, **State Value Size Cap**, **State Total Size Cap**, **State Write Rate Cap**, **Actor Rate Limit**, and **Workspace Burst Cap**.
