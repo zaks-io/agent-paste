@@ -16,6 +16,16 @@ import { getRoutes } from "./routes";
 // link, house style bans), not the sentence.
 const ASSETS: ApexAssets = { cssHref: "/assets/styles.css", jsHref: "/assets/client.js" };
 const SOCIAL_IMAGE_SVG = readFileSync(new URL("../public/agent-paste-social.svg", import.meta.url), "utf8");
+const SOCIAL_IMAGE_PNG = readFileSync(new URL("../public/agent-paste-social.png", import.meta.url));
+
+// Read width/height from a PNG's IHDR chunk (big-endian uint32 at byte 16/20).
+function pngDimensions(png: Buffer): { width: number; height: number } {
+  const signature = png.subarray(0, 8).toString("hex");
+  if (signature !== "89504e470d0a1a0a") {
+    throw new Error(`not a PNG: ${signature}`);
+  }
+  return { width: png.readUInt32BE(16), height: png.readUInt32BE(20) };
+}
 
 function renderPage(path: string, opts: { billingEnabled?: boolean; analyticsToken?: string } = {}): string {
   const billingEnabled = opts.billingEnabled ?? false;
@@ -79,13 +89,15 @@ describe("apex shell", () => {
     expect(html).toContain("Analytics on");
   });
 
-  it("uses the brand SVG as the social preview image", () => {
+  it("uses the brand PNG as the social preview image", () => {
+    // PNG, not SVG: social scrapers do not render SVG og:image. The PNG is the
+    // SVG master rasterized at the same 1200x630 dimensions.
     expect(html).toContain('<meta property="og:site_name" content="agent-paste.sh"/>');
-    expect(html).toContain('<meta property="og:image" content="https://agent-paste.sh/agent-paste-social.svg"/>');
-    expect(html).toContain('<meta property="og:image:type" content="image/svg+xml"/>');
+    expect(html).toContain('<meta property="og:image" content="https://agent-paste.sh/agent-paste-social.png"/>');
+    expect(html).toContain('<meta property="og:image:type" content="image/png"/>');
     expect(html).toContain('<meta property="og:image:width" content="1200"/>');
     expect(html).toContain('<meta property="og:image:height" content="630"/>');
-    expect(html).toContain('<meta name="twitter:image" content="https://agent-paste.sh/agent-paste-social.svg"/>');
+    expect(html).toContain('<meta name="twitter:image" content="https://agent-paste.sh/agent-paste-social.png"/>');
   });
 
   it("keeps social descriptions and card dimensions crawler-friendly", () => {
@@ -93,6 +105,9 @@ describe("apex shell", () => {
     expect(description).toBeDefined();
     expect(description?.length).toBeLessThanOrEqual(125);
     expect(html).toContain(`<meta property="og:description" content="${description}"/>`);
+    // The served og:image is the PNG; it must be a real PNG at the declared
+    // 1200x630. The SVG master stays the source of that raster, so verify both.
+    expect(pngDimensions(SOCIAL_IMAGE_PNG)).toEqual({ width: 1200, height: 630 });
     expect(SOCIAL_IMAGE_SVG).toContain('<svg width="1200" height="630" viewBox="0 0 1200 630"');
     expect(SOCIAL_IMAGE_SVG).toContain('<rect width="1200" height="630" fill="#fff"/>');
   });

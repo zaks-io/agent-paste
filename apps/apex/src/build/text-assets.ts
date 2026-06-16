@@ -48,6 +48,14 @@ function securityTxt(): string {
   ].join("\n");
 }
 
+// Hand-maintained content-revision date for the sitemap (same pattern as the
+// security.txt Expires literal). A per-request `new Date()` would stamp every
+// entry "today" on every crawl, falsely signalling the pages just changed; a
+// build timestamp would need plumbing this LOW-value field does not justify.
+// Bump this (YYYY-MM-DD) when the marketing/docs content is meaningfully
+// revised so crawlers know to refetch.
+const SITEMAP_LASTMOD = "2026-06-16";
+
 function sitemapXml(origin: string, billingEnabled: boolean): string {
   const urls = [
     "/",
@@ -62,9 +70,9 @@ function sitemapXml(origin: string, billingEnabled: boolean): string {
     "/llms.txt",
     "/llms-full.txt",
     "/agents.md",
-    "/install.sh",
-    "/install.ps1",
   ];
-  const entries = urls.map((path) => `  <url><loc>${origin}${path}</loc></url>`).join("\n");
+  const entries = urls
+    .map((path) => `  <url><loc>${origin}${path}</loc><lastmod>${SITEMAP_LASTMOD}</lastmod></url>`)
+    .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
 }

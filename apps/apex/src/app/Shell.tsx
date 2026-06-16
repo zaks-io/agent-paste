@@ -1,7 +1,16 @@
 import type { ReactNode } from "react";
 import type { PageMeta } from "../meta";
+import { structuredData } from "../structured-data";
 import { Footer, Header } from "./chrome";
 import { THEME_INIT_JS } from "./scripts";
+
+// Serialize JSON-LD for safe inlining in a <script> block: escape `<` so a
+// `</script>` or `<!--` sequence in the data can never break out of the element.
+// A ld+json block is a non-executed data block, so this is the only injection
+// surface to guard (no CSP hash needed; see structured-data.ts).
+function serializeJsonLd(data: Record<string, unknown>): string {
+  return JSON.stringify(data).replace(/</g, "\\u003c");
+}
 
 export type ApexAssets = { cssHref: string; jsHref: string };
 
@@ -22,7 +31,10 @@ type ShellProps = {
 
 export function Shell({ meta, assets, analyticsToken, billingEnabled, bleed, children }: ShellProps) {
   const canonical = `https://agent-paste.sh${meta.canonicalPath}`;
-  const socialImage = "https://agent-paste.sh/agent-paste-social.svg";
+  const jsonLd = structuredData(meta);
+  // PNG, not the source SVG: social scrapers (X, LinkedIn, Slack, iMessage,
+  // Facebook) do not render SVG og:image. Same 1200x630 card, rasterized.
+  const socialImage = "https://agent-paste.sh/agent-paste-social.png";
   const beaconToken = analyticsToken?.trim();
   return (
     <html lang="en">
@@ -45,7 +57,7 @@ export function Shell({ meta, assets, analyticsToken, billingEnabled, bleed, chi
         <meta property="og:description" content={meta.description} />
         <meta property="og:url" content={canonical} />
         <meta property="og:image" content={socialImage} />
-        <meta property="og:image:type" content="image/svg+xml" />
+        <meta property="og:image:type" content="image/png" />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
         <meta property="og:image:alt" content="agent-paste.sh" />
@@ -55,6 +67,10 @@ export function Shell({ meta, assets, analyticsToken, billingEnabled, bleed, chi
         <meta name="twitter:image" content={socialImage} />
         <meta name="twitter:image:alt" content="agent-paste.sh" />
         <link rel="canonical" href={canonical} />
+        {jsonLd ? (
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: ld+json is a non-executed data block (not script-src governed); the content is escaped by serializeJsonLd so it cannot break out of the element.
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }} />
+        ) : null}
         <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt" />
         <link rel="alternate" type="text/plain" href="/llms-full.txt" title="llms-full.txt" />
         <link rel="alternate" type="text/markdown" href="/agents.md" title="agents.md" />
