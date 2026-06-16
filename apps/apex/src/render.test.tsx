@@ -76,6 +76,14 @@ describe("apex shell", () => {
     expect(html).toContain('id="analytics-toggle"');
     expect(html).toContain("Analytics on");
   });
+
+  it("uses the brand SVG as the social preview image", () => {
+    expect(html).toContain('<meta property="og:image" content="https://agent-paste.sh/agent-paste-social.svg"/>');
+    expect(html).toContain('<meta property="og:image:type" content="image/svg+xml"/>');
+    expect(html).toContain('<meta property="og:image:width" content="1080"/>');
+    expect(html).toContain('<meta property="og:image:height" content="256"/>');
+    expect(html).toContain('<meta name="twitter:image" content="https://agent-paste.sh/agent-paste-social.svg"/>');
+  });
 });
 
 describe("home page", () => {

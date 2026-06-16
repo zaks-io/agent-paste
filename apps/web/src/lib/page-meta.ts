@@ -5,6 +5,10 @@ export const SITE_NAME = "agent-paste";
 export const TITLE_SUFFIX = ` | ${SITE_NAME}`;
 export const DEFAULT_DESCRIPTION =
   "Publish and manage artifacts from your agents. View workspace activity, API keys, and settings in the dashboard.";
+export const SOCIAL_IMAGE_PATH = "/agent-paste-social.svg";
+export const SOCIAL_IMAGE_WIDTH = "1080";
+export const SOCIAL_IMAGE_HEIGHT = "256";
+export const SOCIAL_IMAGE_ALT = "agent-paste.sh";
 
 export type PageMetaOptions = {
   title: string;
@@ -61,16 +65,28 @@ export function buildPageMeta(options: PageMetaOptions): { meta: MetaTag[] } {
   }
 
   if (options.social) {
+    const imageUrl = resolvePageUrl(options.baseUrl, SOCIAL_IMAGE_PATH);
     meta.push(
       { property: "og:type", content: options.ogType ?? "website" },
       { property: "og:title", content: title },
       { property: "og:description", content: description },
-      { name: "twitter:card", content: "summary" },
+      { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: title },
       { name: "twitter:description", content: description },
     );
     if (url) {
       meta.push({ property: "og:url", content: url });
+    }
+    if (imageUrl) {
+      meta.push(
+        { property: "og:image", content: imageUrl },
+        { property: "og:image:type", content: "image/svg+xml" },
+        { property: "og:image:width", content: SOCIAL_IMAGE_WIDTH },
+        { property: "og:image:height", content: SOCIAL_IMAGE_HEIGHT },
+        { property: "og:image:alt", content: SOCIAL_IMAGE_ALT },
+        { name: "twitter:image", content: imageUrl },
+        { name: "twitter:image:alt", content: SOCIAL_IMAGE_ALT },
+      );
     }
   }
 

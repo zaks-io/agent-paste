@@ -652,7 +652,8 @@ describe("web routes", () => {
       meta: expect.arrayContaining([
         { title: "Sign in | agent-paste" },
         { property: "og:url", content: "https://app.agent-paste.sh/" },
-        { name: "twitter:card", content: "summary" },
+        { property: "og:image", content: "https://app.agent-paste.sh/agent-paste-social.svg" },
+        { name: "twitter:card", content: "summary_large_image" },
       ]),
     });
 
