@@ -16,8 +16,10 @@ describe("handleMcpProtocolMethod tools/call", () => {
     if (handled.kind === "result") {
       const instructions = (handled.response.result as { instructions: string }).instructions;
       expect(instructions).toContain("Publish responses intentionally omit artifact_id");
-      expect(instructions).toContain("data[].id");
+      expect(instructions).toContain("recover it with list_artifacts (data[].id)");
+      expect(instructions).toContain("Once you have artifact_id");
       expect(instructions).not.toMatch(/artifact_id from each publish_artifact response/);
+      expect(instructions).not.toContain("data[].id), read_artifact");
     }
   });
 

@@ -68,6 +68,19 @@ describe("MCP tool registry", () => {
     expect(publishDescriptions).toContain("data[].id");
     expect(publishDescriptions).not.toMatch(/artifact_id from (each )?(publish_artifact )?response/);
     expect(publishDescriptions).not.toContain("from a publish_artifact response");
+    expect(publishDescriptions).not.toContain("or read_artifact");
+    expect(publishDescriptions).not.toContain("read_artifact artifact_id");
+  });
+
+  it("puts follow-up output field names in list and link descriptions", () => {
+    const listed = buildMcpToolList();
+    const descriptions = new Map(listed.tools.map((tool) => [tool.name, tool.description]));
+
+    expect(descriptions.get("list_artifacts")).toContain("data[].id");
+    expect(descriptions.get("list_revisions")).toContain("items[].revision_id");
+    expect(descriptions.get("list_access_links")).toContain("items[].id");
+    expect(descriptions.get("create_revision_link")).toContain("url");
+    expect(descriptions.get("create_revision_link")).toContain("list_access_links");
   });
 
   it("exposes no share input on publish tools (content-only, private)", () => {

@@ -53,7 +53,7 @@ export const mcpToolContracts = [
   {
     name: "multi_edit",
     description:
-      "Edit one file inside an EXISTING Artifact with literal find/replace, the same {old_string, new_string} model as Claude's Edit tool, then publish the result as a new Revision under the artifact_id. Use this to make a targeted change without resending the whole file: read the file first with read_file, then send ordered edits whose old_string matches the current bytes exactly. Each old_string must occur once (set replace_all to change every occurrence); a miss or an ambiguous match fails loud so you re-read and retry. The server never guesses. The Artifact's private_url is STABLE and already-open viewers LIVE-UPDATE to the new Revision; there is no new link to send. Content-only and PRIVATE. An edit set that reproduces the current bytes is a no-op and mints no Revision. Get the artifact_id from list_artifacts (data[].id) or read_artifact.",
+      "Edit one file inside an EXISTING Artifact with literal find/replace, the same {old_string, new_string} model as Claude's Edit tool, then publish the result as a new Revision under the artifact_id. Use this to make a targeted change without resending the whole file: read the file first with read_file, then send ordered edits whose old_string matches the current bytes exactly. Each old_string must occur once (set replace_all to change every occurrence); a miss or an ambiguous match fails loud so you re-read and retry. The server never guesses. The Artifact's private_url is STABLE and already-open viewers LIVE-UPDATE to the new Revision; there is no new link to send. Content-only and PRIVATE. An edit set that reproduces the current bytes is a no-op and mints no Revision. Get the artifact_id from list_artifacts (data[].id). Once you have it, use read_artifact or read_file for follow-up details.",
     auth: "mcp_oauth",
     requiredScopes: ["publish", "read"],
     idempotency: "optional_override",
@@ -77,7 +77,7 @@ export const mcpToolContracts = [
   },
   {
     name: "list_artifacts",
-    description: "List artifacts in the authenticated workspace.",
+    description: "List Artifacts in the authenticated workspace. Returns data[]; use data[].id as artifact_id.",
     auth: "mcp_oauth",
     requiredScopes: ["read"],
     idempotency: "none",
@@ -93,7 +93,8 @@ export const mcpToolContracts = [
   },
   {
     name: "read_artifact",
-    description: "Read the latest Agent View for an artifact without inlining file bytes.",
+    description:
+      "Read the latest Agent View for an Artifact after you know artifact_id; returns artifact_id, revision_id, files[].url, and optional bundle metadata without inlining file bytes.",
     auth: "mcp_oauth",
     requiredScopes: ["read"],
     idempotency: "none",
@@ -130,7 +131,8 @@ export const mcpToolContracts = [
   },
   {
     name: "list_revisions",
-    description: "List revisions for an artifact.",
+    description:
+      "List Revisions for an Artifact. Returns items[]; use items[].revision_id when another tool needs a Revision ID.",
     auth: "mcp_oauth",
     requiredScopes: ["read"],
     idempotency: "none",
@@ -213,7 +215,7 @@ export const mcpToolContracts = [
   {
     name: "create_revision_link",
     description:
-      "Create and mint a snapshot Access Link for one specific Revision. Use only when the user explicitly asks for a fixed Revision, not for the live page.",
+      "Create and mint a snapshot Access Link for one specific Revision. Use only when the user explicitly asks for a fixed Revision, not for the live page. Returns the minted snapshot URL as url; to revoke it later, call list_access_links and pass the matching items[].id to revoke_access_link.",
     auth: "mcp_oauth",
     requiredScopes: ["publish", "read"],
     idempotency: "derived",
@@ -234,7 +236,8 @@ export const mcpToolContracts = [
   },
   {
     name: "list_access_links",
-    description: "List Share Links and Revision Links for an artifact.",
+    description:
+      "List Share Links and Revision Links for an Artifact. Returns items[]; use items[].id when revoking a link.",
     auth: "mcp_oauth",
     requiredScopes: ["publish", "read"],
     idempotency: "none",
@@ -250,7 +253,7 @@ export const mcpToolContracts = [
   },
   {
     name: "revoke_access_link",
-    description: "Revoke a Share Link or Revision Link.",
+    description: "Revoke a Share Link or Revision Link by Access Link ID, usually from list_access_links items[].id.",
     auth: "mcp_oauth",
     requiredScopes: ["publish"],
     idempotency: "none",

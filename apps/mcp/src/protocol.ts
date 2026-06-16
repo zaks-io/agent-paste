@@ -20,9 +20,9 @@ const MCP_LIFECYCLE_INSTRUCTIONS =
   "published — fix, update, extend — call add_revision with that Artifact's id; do NOT publish again. The " +
   "private_url is stable and live-updates any page the user already has open to the newest Revision, " +
   "so a revision needs no new link. Publishing again for an edit makes a separate Artifact on a different link " +
-  "and strands the user's open page. Publish responses intentionally omit artifact_id; use list_artifacts " +
-  "(data[].id), read_artifact, read_file, or list_revisions for follow-up work. Artifacts are private by default; " +
-  "to make one reachable without login, " +
+  "and strands the user's open page. Publish responses intentionally omit artifact_id; recover it with list_artifacts " +
+  "(data[].id). Once you have artifact_id, use read_artifact, read_file, or list_revisions for follow-up work. " +
+  "Artifacts are private by default; to make one reachable without login, " +
   "call set_visibility with visibility: 'unlisted', which returns unlisted_url. To remove no-login access, " +
   "call set_visibility with visibility: 'private'.";
 
