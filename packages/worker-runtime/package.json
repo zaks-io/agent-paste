@@ -25,7 +25,7 @@
     "@agent-paste/db": "workspace:*",
     "@agent-paste/tokens": "workspace:*",
     "@sentry/cloudflare": "^10.57.0",
-    "hono": "^4.12.21"
+    "hono": "^4.12.25"
   },
   "devDependencies": {
     "typescript": "catalog:",
