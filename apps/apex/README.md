@@ -16,18 +16,21 @@ This serves the preview-shaped apex locally on `localhost:5174`, SSR-renders the
 
 `public/agent-paste-social.svg` is the master. The committed
 `public/agent-paste-social.png` is the og:image / twitter:image (social
-scrapers do not render SVG). Regenerate it from the SVG with `rsvg-convert`
-(from `librsvg`) so vector paths map 1:1 to output pixels:
+scrapers do not render SVG). Regenerate it by supersampling: render the SVG at 4× with `rsvg-convert` (from
+`librsvg`), then downscale to 1200×630 with a Lanczos filter. The wordmark is
+outlined curved type, so its edges always anti-alias; supersampling averages
+that anti-aliasing into the cleanest 1× edges.
 
 ```sh
-rsvg-convert -w 1200 -h 630 --background-color white \
-  public/agent-paste-social.svg -o public/agent-paste-social.png
+rsvg-convert -w 4800 -h 2520 --background-color white \
+  public/agent-paste-social.svg -o /tmp/social-4x.png
+magick /tmp/social-4x.png -filter Lanczos -resize 1200x630 -strip \
+  public/agent-paste-social.png
 ```
 
-Do not rasterize with ImageMagick `convert`/`magick`: without `librsvg` it
-falls back to its internal MSVG renderer (weak anti-aliasing) and a
-render-then-`-resize` pipeline resamples the bitmap, both of which blur the
-text. Render directly at 1200×630, never resize.
+Use `rsvg-convert` for the render, not ImageMagick's internal MSVG renderer
+(weak anti-aliasing): a bare `magick social.svg ...` without `librsvg` installed
+silently falls back to MSVG and looks worse.
 
 Authoritative references:
 
