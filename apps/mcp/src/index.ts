@@ -5,6 +5,7 @@ import {
   trimTrailingSlashes,
 } from "@agent-paste/contracts";
 import { securityHeadersMiddleware, sentryOptions } from "@agent-paste/worker-runtime";
+import type { CloudflareOptions } from "@sentry/cloudflare";
 import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
 import type { ApiServiceBinding } from "./forward.js";
@@ -46,7 +47,18 @@ const worker = {
   },
 };
 
-export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
+export default Sentry.withSentry((env: Env) => mcpSentryOptions(env), worker);
+
+export function mcpSentryOptions(env: Env): CloudflareOptions {
+  const options = sentryOptions(env);
+  if (!options.enabled) {
+    return options;
+  }
+  return {
+    ...options,
+    tracesSampleRate: 1.0,
+  };
+}
 
 function protectedResourceMetadata(env: Env): Record<string, unknown> {
   const resource = env.MCP_RESOURCE ?? MCP_RESOURCE_INDICATOR;

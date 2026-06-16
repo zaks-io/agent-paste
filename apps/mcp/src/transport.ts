@@ -13,6 +13,7 @@ import {
 import type { ApiServiceBinding, UploadServiceBinding } from "./forward.js";
 import { jsonRpcErrorResponse, mapParseFailure, parseMcpJsonRpcBody, respondWithJsonRpc } from "./jsonrpc.js";
 import { handleMcpProtocolMethod } from "./protocol.js";
+import { traceMcpRequest } from "./sentry-mcp.js";
 import type { McpWorkOsEnv } from "./workos.js";
 
 export type McpTransportEnv = McpWorkOsEnv & {
@@ -133,8 +134,15 @@ async function dispatchMcpRequest(
     return jsonRpcErrorResponse(undefined, mapMcpProtocolError("invalid_params", "json_rpc_request_id_required"));
   }
 
-  const protocolInput = buildProtocolInput(parsed, requestId, auth, deps, env);
-  const handled = await Promise.resolve(handleMcpProtocolMethod(protocolInput));
+  const handled = await traceMcpRequest(
+    {
+      method: parsed.request.method,
+      params: parsed.request.params,
+      id: requestId,
+      sessionId: optionalSessionId(request),
+    },
+    async () => handleMcpProtocolMethod(buildProtocolInput(parsed, requestId, auth, deps, env)),
+  );
 
   if (handled.kind === "accepted") {
     return new Response(null, { status: 202 });
@@ -181,9 +189,13 @@ function bearerVerifierForEnv(env: McpTransportEnv): VerifyMcpBearer {
 }
 
 function optionalSessionHeader(request: Request): HeadersInit | undefined {
-  const sessionId = request.headers.get("mcp-session-id");
+  const sessionId = optionalSessionId(request);
   if (!sessionId) {
     return undefined;
   }
   return { "mcp-session-id": sessionId };
+}
+
+function optionalSessionId(request: Request): string | null {
+  return request.headers.get("mcp-session-id");
 }

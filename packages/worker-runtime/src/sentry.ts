@@ -12,6 +12,11 @@ export function sentryOptions(env: SentryEnv): CloudflareOptions {
     dsn: normalizedDsn,
     environment: env.AGENT_PASTE_ENV ?? "dev",
     sendDefaultPii: false,
+    dataCollection: {
+      userInfo: false,
+      httpBodies: [],
+      genAI: { inputs: false, outputs: false },
+    },
     enabled: normalizedDsn.length > 0,
   };
 }

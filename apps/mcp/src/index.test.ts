@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import worker, { type Env } from "./index.js";
+import worker, { type Env, mcpSentryOptions } from "./index.js";
 
 function request(path: string, env: Env = {}) {
   return worker.fetch(new Request(`https://mcp.test${path}`), env);
@@ -120,6 +120,36 @@ describe("mcp worker", () => {
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({ error: { code: "not_found", message: "not_found" } });
+  });
+});
+
+describe("mcp Sentry options", () => {
+  it("keeps Sentry and tracing disabled until a DSN is configured", () => {
+    expect(mcpSentryOptions({})).toMatchObject({
+      dsn: "",
+      enabled: false,
+      environment: "dev",
+    });
+    expect(mcpSentryOptions({})).not.toHaveProperty("tracesSampleRate");
+  });
+
+  it("enables tracing for MCP monitoring when a DSN is configured", () => {
+    expect(
+      mcpSentryOptions({
+        SENTRY_DSN: " https://examplePublicKey@example.ingest.sentry.io/1 ",
+        AGENT_PASTE_ENV: "preview",
+      }),
+    ).toMatchObject({
+      dsn: "https://examplePublicKey@example.ingest.sentry.io/1",
+      enabled: true,
+      environment: "preview",
+      tracesSampleRate: 1.0,
+      dataCollection: {
+        userInfo: false,
+        httpBodies: [],
+        genAI: { inputs: false, outputs: false },
+      },
+    });
   });
 });
 

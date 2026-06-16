@@ -80,6 +80,14 @@ describe("secret-routing", () => {
     expect(secretsForApp("api", "production", { source: "symmetric" })).toContain("CONTENT_SIGNING_SECRET");
   });
 
+  it("routes MCP Sentry DSN as optional provider config", () => {
+    for (const env of ["preview", "production"]) {
+      expect(secretsForApp("mcp", env, { source: "sentry" })).toEqual(["SENTRY_DSN"]);
+      expect(secretsForApp("mcp", env, { source: "symmetric" })).not.toContain("SENTRY_DSN");
+      expect(requiredSecretsForApp("mcp", env)).not.toContain("SENTRY_DSN");
+    }
+  });
+
   it("routes the four Stripe billing secrets as optional, stripe-sourced, on api both envs", () => {
     const stripeNames = [
       "STRIPE_SECRET_KEY",

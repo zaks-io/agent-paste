@@ -7,6 +7,11 @@ describe("sentryOptions", () => {
       dsn: "",
       environment: "dev",
       sendDefaultPii: false,
+      dataCollection: {
+        userInfo: false,
+        httpBodies: [],
+        genAI: { inputs: false, outputs: false },
+      },
       enabled: false,
     });
   });
@@ -21,6 +26,11 @@ describe("sentryOptions", () => {
       dsn: "https://examplePublicKey@example.ingest.sentry.io/1",
       environment: "preview",
       sendDefaultPii: false,
+      dataCollection: {
+        userInfo: false,
+        httpBodies: [],
+        genAI: { inputs: false, outputs: false },
+      },
       enabled: true,
     });
   });
