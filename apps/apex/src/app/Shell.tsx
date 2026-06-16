@@ -22,6 +22,7 @@ type ShellProps = {
 
 export function Shell({ meta, assets, analyticsToken, billingEnabled, bleed, children }: ShellProps) {
   const canonical = `https://agent-paste.sh${meta.canonicalPath}`;
+  const socialImage = "https://agent-paste.sh/agent-paste-social.svg";
   const beaconToken = analyticsToken?.trim();
   return (
     <html lang="en">
@@ -42,9 +43,16 @@ export function Shell({ meta, assets, analyticsToken, billingEnabled, bleed, chi
         <meta property="og:title" content={meta.title} />
         <meta property="og:description" content={meta.description} />
         <meta property="og:url" content={canonical} />
+        <meta property="og:image" content={socialImage} />
+        <meta property="og:image:type" content="image/svg+xml" />
+        <meta property="og:image:width" content="1080" />
+        <meta property="og:image:height" content="256" />
+        <meta property="og:image:alt" content="agent-paste.sh" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={meta.title} />
         <meta name="twitter:description" content={meta.description} />
+        <meta name="twitter:image" content={socialImage} />
+        <meta name="twitter:image:alt" content="agent-paste.sh" />
         <link rel="canonical" href={canonical} />
         <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt" />
         <link rel="alternate" type="text/plain" href="/llms-full.txt" title="llms-full.txt" />
