@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { evaluatePnpmAuditPolicy } from "./lib/pnpm-audit-policy.mjs";
+import { evaluateGrypePolicy, evaluateTrivyPolicy } from "./lib/scanner-vulnerability-policy.mjs";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const args = process.argv.slice(2);
@@ -151,6 +152,59 @@ function enforceSemgrepPolicy() {
   });
 }
 
+const allowedDependencyFindings = [
+  {
+    vulnerabilityIds: ["GHSA-8988-4f7v-96qf", "CVE-2026-54285"],
+    packageName: "@opentelemetry/core",
+    version: "1.30.1",
+    paths: [".>lighthouse>@sentry/node>@opentelemetry/core"],
+    scannerTargets: ["pnpm-lock.yaml"],
+    reason:
+      "Remaining OpenTelemetry baggage advisory is isolated to Lighthouse's dev-only Sentry 9 dependency; the pnpm audit policy verifies the dependency path.",
+  },
+];
+
+let verifiedScannerSources = [];
+
+function scannerAllowedFindings() {
+  return allowedDependencyFindings.map((finding) => ({
+    vulnerabilityIds: finding.vulnerabilityIds,
+    packageName: finding.packageName,
+    version: finding.version,
+    targets: finding.scannerTargets,
+    sourcePaths: finding.paths,
+    reason: finding.reason,
+  }));
+}
+
+function verifiedSourcesFromPnpmPolicy(policy) {
+  return policy.allowed
+    .filter((finding) => finding.ghsa && finding.module)
+    .map((finding) => ({
+      vulnerabilityIds: [finding.ghsa],
+      packageName: finding.module,
+      paths: finding.paths,
+    }));
+}
+
+function enforceTrivyPolicy() {
+  const policy = evaluateTrivyPolicy(readFileSync(join(outDir, "trivy.json"), "utf8"), {
+    allowedFindings: scannerAllowedFindings(),
+    verifiedSources: verifiedScannerSources,
+  });
+  writeFileSync(join(outDir, "trivy-policy.json"), `${JSON.stringify(policy, null, 2)}\n`);
+  return policy.status;
+}
+
+function enforceGrypePolicy() {
+  const policy = evaluateGrypePolicy(readFileSync(join(outDir, "grype.json"), "utf8"), {
+    allowedFindings: scannerAllowedFindings(),
+    verifiedSources: verifiedScannerSources,
+  });
+  writeFileSync(join(outDir, "grype-policy.json"), `${JSON.stringify(policy, null, 2)}\n`);
+  return policy.status;
+}
+
 function writeAttestation(finishedAt = null) {
   const versions = {
     node: capture("node", ["--version"]),
@@ -214,16 +268,15 @@ runStep("pnpm-audit", "pnpm", ["audit", "--audit-level", "moderate", "--json"], 
   stdoutFile: "pnpm-audit.json",
   evaluateStatus: (result) => {
     const policy = evaluatePnpmAuditPolicy(result.stdout, {
-      allowedFindings: [
-        {
-          ghsa: "GHSA-8988-4f7v-96qf",
-          module: "@opentelemetry/core",
-          paths: [".>lighthouse>@sentry/node>@opentelemetry/core"],
-          reason:
-            "Remaining OpenTelemetry baggage advisory is isolated to Lighthouse's dev-only Sentry 9 dependency; production Sentry resolves @opentelemetry/core >=2.8.0.",
-        },
-      ],
+      allowedFindings: allowedDependencyFindings.map((finding) => ({
+        ghsa: finding.vulnerabilityIds[0],
+        module: finding.packageName,
+        paths: finding.paths,
+        reason:
+          "Remaining OpenTelemetry baggage advisory is isolated to Lighthouse's dev-only Sentry 9 dependency; production Sentry resolves @opentelemetry/core >=2.8.0.",
+      })),
     });
+    verifiedScannerSources = verifiedSourcesFromPnpmPolicy(policy);
     writeFileSync(join(outDir, "pnpm-audit-policy.json"), `${JSON.stringify(policy, null, 2)}\n`);
     return policy.status;
   },
@@ -238,34 +291,46 @@ runStep(
   },
 );
 
-runStep("trivy", "trivy", [
-  "fs",
-  "--scanners",
-  "vuln,misconfig",
-  "--include-dev-deps",
-  "--severity",
-  "MEDIUM,HIGH,CRITICAL",
-  "--format",
-  "json",
-  "--output",
-  join(outDir, "trivy.json"),
-  "--exit-code",
-  "1",
-  "--skip-version-check",
-  "--skip-dirs",
-  "node_modules",
-  "--skip-dirs",
-  ".git",
-  "--skip-dirs",
-  ".turbo",
-  "--skip-dirs",
-  "coverage",
-  "--skip-dirs",
-  "artifacts",
-  "--skip-dirs",
-  "dist",
-  ".",
-]);
+runStep(
+  "trivy",
+  "trivy",
+  [
+    "fs",
+    "--scanners",
+    "vuln,misconfig",
+    "--include-dev-deps",
+    "--severity",
+    "MEDIUM,HIGH,CRITICAL",
+    "--format",
+    "json",
+    "--output",
+    join(outDir, "trivy.json"),
+    "--exit-code",
+    "0",
+    "--skip-version-check",
+    "--skip-dirs",
+    "node_modules",
+    "--skip-dirs",
+    ".git",
+    "--skip-dirs",
+    ".turbo",
+    "--skip-dirs",
+    "coverage",
+    "--skip-dirs",
+    "artifacts",
+    "--skip-dirs",
+    "dist",
+    ".",
+  ],
+  {
+    evaluateStatus: (result) => {
+      if ((result.status ?? 1) !== 0) {
+        return result.status ?? 1;
+      }
+      return enforceTrivyPolicy();
+    },
+  },
+);
 ensureJsonFile("trivy.json", {});
 
 runStep("syft", "syft", [
@@ -286,15 +351,19 @@ runStep("syft", "syft", [
   "./dist",
 ]);
 
-runStep("grype", "grype", [
-  `sbom:${join(outDir, "agent-paste.sbom.cdx.json")}`,
-  "-o",
-  "json",
-  "--file",
-  join(outDir, "grype.json"),
-  "--fail-on",
-  "medium",
-]);
+runStep(
+  "grype",
+  "grype",
+  [`sbom:${join(outDir, "agent-paste.sbom.cdx.json")}`, "-o", "json", "--file", join(outDir, "grype.json")],
+  {
+    evaluateStatus: (result) => {
+      if ((result.status ?? 1) !== 0) {
+        return result.status ?? 1;
+      }
+      return enforceGrypePolicy();
+    },
+  },
+);
 ensureJsonFile("grype.json", {});
 
 runStep("semgrep", "semgrep", [

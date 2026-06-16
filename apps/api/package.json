@@ -37,7 +37,7 @@
     "@agent-paste/worker-runtime": "workspace:*",
     "@agent-paste/write-allowance": "workspace:*",
     "@sentry/cloudflare": "^10.57.0",
-    "hono": "^4.12.21",
+    "hono": "^4.12.25",
     "jose": "^6.2.3"
   }
 }
