@@ -1,7 +1,8 @@
+import { ClaimCode } from "@agent-paste/contracts";
 import type { Repository } from "@agent-paste/db";
 import { resolveAccessLinkSigner } from "@agent-paste/rotation";
 import type { Principal } from "@agent-paste/worker-runtime";
-import { getBoundResponders } from "@agent-paste/worker-runtime";
+import { getBoundResponders, writeFunnelEvent } from "@agent-paste/worker-runtime";
 import { invalidateRevokedAccessLink } from "../access-link-invalidation.js";
 import { signAgentViewContentUrls } from "../agent-view.js";
 import type { AppContext, Env } from "../env.js";
@@ -129,6 +130,17 @@ export async function resolveAccessLinkRoute(
     return rateLimited;
   }
 
+  const claimCode = validClaimCode(body.claim_code);
+  if (claimCode || isEphemeralAgentView(resolved.agent_view)) {
+    writeFunnelEvent(env.FUNNEL_EVENTS, {
+      kind: "ephemeral_link_opened",
+      surface: "web",
+      claimCode,
+      workspaceId: resolved.workspace_id,
+      artifactId: resolved.agent_view.artifact_id,
+    });
+  }
+
   const signedView = await signAgentViewContentUrls(resolved.agent_view, env, {
     accessLinkId: resolved.access_link_id,
     workspaceId: resolved.workspace_id,
@@ -148,4 +160,16 @@ export function accessLinkSigningSecret(env: Env): { secret: string; kid: number
     return null;
   }
   return { secret: signer.signingSecret, kid: signer.signingKid };
+}
+
+function validClaimCode(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = ClaimCode.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
+}
+
+function isEphemeralAgentView(value: unknown): boolean {
+  return typeof value === "object" && value !== null && (value as { ephemeral_tier?: unknown }).ephemeral_tier === true;
 }

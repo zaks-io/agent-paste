@@ -4,7 +4,7 @@ import path from "node:path";
 import { AgentPasteError } from "@agent-paste/api-client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as credentials from "../src/credentials.js";
-import { ephemeralClaimUrl, parseArgs, publishEphemeral } from "../src/index.js";
+import { ephemeralAttributionUrl, ephemeralClaimUrl, parseArgs, publishEphemeral } from "../src/index.js";
 
 const usagePolicy = {
   file_size_cap_bytes: 10 * 1024 * 1024,
@@ -101,7 +101,7 @@ describe("cli ephemeral publish", () => {
     }
   });
 
-  it("passes claim code through provision and the claim URL", async () => {
+  it("passes claim code through provision, the visible link, and the claim URL", async () => {
     const stdout = mockStdout();
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     vi.stubEnv("AGENT_PASTE_WEB_URL", "https://app.agent-paste.sh");
@@ -117,6 +117,7 @@ describe("cli ephemeral publish", () => {
 
       expect(provision).toHaveBeenCalledWith({ claimCode });
       const human = String(stdout.mock.calls.at(-1)?.[0]);
+      expect(human).toContain(`https://app.test/al/PUBLICLINK123456?claim_code=${claimCode}#secret`);
       expect(human).toContain(`https://app.agent-paste.sh/claim?claim_code=${claimCode}#${claimToken}`);
       expect(human).not.toContain(`?${claimToken}`);
     } finally {
@@ -275,6 +276,18 @@ describe("ephemeralClaimUrl", () => {
     expect(ephemeralClaimUrl(claimToken, claimCode)).toBe(
       `https://app.agent-paste.sh/claim?claim_code=${claimCode}#${claimToken}`,
     );
+  });
+});
+
+describe("ephemeralAttributionUrl", () => {
+  it("places claim code in the query before a signed URL fragment", () => {
+    expect(ephemeralAttributionUrl("https://app.test/al/PUBLICLINK123456#secret", claimCode)).toBe(
+      `https://app.test/al/PUBLICLINK123456?claim_code=${claimCode}#secret`,
+    );
+  });
+
+  it("keeps optional attribution from breaking malformed fallback URLs", () => {
+    expect(ephemeralAttributionUrl("not a url", claimCode)).toBe("not a url");
   });
 });
 

@@ -17,6 +17,7 @@ export type FunnelEventKind =
   | "ephemeral_provision_rate_limited"
   | "ephemeral_provision_unavailable"
   | "ephemeral_publish_created"
+  | "ephemeral_link_opened"
   | "link_claimed";
 
 export type ArtifactEvent = {

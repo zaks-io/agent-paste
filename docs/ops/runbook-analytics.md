@@ -74,9 +74,9 @@ GROUP BY tier
 
 - Shared helper: `packages/worker-runtime/src/analytics.ts` (`writeFunnelEvent`). Fire-and-forget, same failure behavior as artifact events.
 - `apps/apex` emits `prompt_copied` through `POST /__funnel/events` when the hero prompt is copied and optional analytics are allowed.
-- `apps/api` emits server-side lifecycle events for ephemeral provision, publish, and claim.
+- `apps/api` emits server-side lifecycle events for ephemeral provision, publish, unlisted-link resolve, and claim.
 - `apps/web` preserves `claim_code` from `/claim?claim_code=...#<claim_token>` across the auth redirect, then includes it in the claim mutation.
-- `apps/cli` accepts `--claim-code <clm_...>`, forwards it to provision, publish, and claim URL construction, and includes it in ephemeral JSON output.
+- `apps/cli` accepts `--claim-code <clm_...>`, forwards it to provision, publish, unlisted URL construction, and claim URL construction, and includes it in ephemeral JSON output.
 - Binding `FUNNEL_EVENTS` is declared in `apps/apex/wrangler.jsonc` and `apps/api/wrangler.jsonc` for `dev`, `preview`, and `production`. Both Workers point at the same dataset per environment:
   - `agent_paste_funnel_events_preview`
   - `agent_paste_funnel_events_production`
@@ -90,10 +90,12 @@ No Cloudflare dashboard setup is needed. Analytics Engine datasets are created o
 - the copied marketing prompt as `--claim-code <clm_...>`;
 - `POST /v1/ephemeral/provision` as `claim_code`;
 - the publish request header `X-Agent-Paste-Claim-Code`;
+- the generated unlisted Share Link query string as `claim_code`, while the Access Link credential stays in the URL hash;
+- `POST /v1/access-links/resolve` as `claim_code`;
 - the claim URL query string as `claim_code`, while the Claim Token stays in the URL hash;
 - `POST /v1/ephemeral/claim` as `claim_code`.
 
-Missing or invalid claim codes must not block provision, publish, or claim. Invalid public inputs are ignored or rejected only on the telemetry endpoint.
+Missing or invalid claim codes must not block provision, publish, link open, or claim. Invalid public inputs are ignored or rejected only on the telemetry endpoint.
 
 ### Events
 
@@ -105,6 +107,7 @@ Missing or invalid claim codes must not block provision, publish, or claim. Inva
 | `ephemeral_provision_rate_limited` | `api`   | Durable Object provision gate denied the request.                         |
 | `ephemeral_provision_unavailable`  | `api`   | Provision gate was unavailable or invalid and the route failed closed.    |
 | `ephemeral_publish_created`        | `api`   | First publish finalized on an Ephemeral Workspace.                        |
+| `ephemeral_link_opened`            | `web`   | Generated unlisted Share Link resolved successfully.                      |
 | `link_claimed`                     | `api`   | A Claim Token reparented Artifacts into the claimer's Personal Workspace. |
 
 ### Data-point shape
@@ -153,6 +156,7 @@ SELECT
   prompt_variant,
   sum(copied) AS copied,
   sum(published) AS published,
+  sum(opened) AS opened,
   sum(claimed) AS claimed
 FROM (
   SELECT
@@ -160,6 +164,7 @@ FROM (
     max(blob7) AS prompt_variant,
     sumIf(_sample_interval * double1, blob1 = 'prompt_copied') AS copied,
     sumIf(_sample_interval * double1, blob1 = 'ephemeral_publish_created') AS published,
+    sumIf(_sample_interval * double1, blob1 = 'ephemeral_link_opened') AS opened,
     sumIf(_sample_interval * double1, blob1 = 'link_claimed') AS claimed
   FROM agent_paste_funnel_events_production
   WHERE timestamp > now() - INTERVAL '30' DAY

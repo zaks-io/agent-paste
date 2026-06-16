@@ -112,12 +112,14 @@ The marketing-to-claim funnel is tracked in Workers Analytics Engine through the
 - `ephemeral_workspace_created` when an Ephemeral Workspace and Claim Token are minted;
 - `ephemeral_provision_rate_limited` and `ephemeral_provision_unavailable` for failed provision gate outcomes;
 - `ephemeral_publish_created` when the first ephemeral publish finalizes;
+- `ephemeral_link_opened` when the generated unlisted Share Link resolves;
 - `link_claimed` when a Claim Token reparents Artifacts into a Personal Workspace.
 
 The CLI accepts `--claim-code <clm_...>`, then passes it through provision,
-publish, and the claim URL. The Claim Token remains in the URL hash only; the
-claim code can be placed in the claim URL query string because it is non-secret
-telemetry. The apex marketing page records `prompt_variant` only on
+publish, the generated unlisted Share Link query string, and the claim URL. The
+Claim Token remains in the URL hash only; the claim code can be placed in link
+query strings because it is non-secret telemetry. The apex marketing page records
+`prompt_variant` only on
 `prompt_copied`, keyed by the same claim code, so future LaunchDarkly assignment
 can plug in without changing the event schema.
 

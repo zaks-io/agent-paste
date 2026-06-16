@@ -3,6 +3,11 @@ import { AccessLinkId, ArtifactId, IsoDateTime, PlainTextTitle, RevisionId, UrlS
 import { RenderMode } from "./revisions.js";
 import { z } from "./zod.js";
 
+const OptionalClaimCodeInput = z.preprocess(
+  (value) => (typeof value === "string" ? value : undefined),
+  z.string().trim().optional(),
+);
+
 export const AccessLinkPublicId = z
   .string()
   .regex(/^[0-9A-HJKMNP-TV-Z]{16}$/)
@@ -74,6 +79,7 @@ export type UpdateDisplayMetadataRequest = z.infer<typeof UpdateDisplayMetadataR
 export const AccessLinkResolveRequest = z.object({
   public_id: AccessLinkPublicId,
   blob: z.string().min(1),
+  claim_code: OptionalClaimCodeInput,
 });
 export type AccessLinkResolveRequest = z.infer<typeof AccessLinkResolveRequest>;
 

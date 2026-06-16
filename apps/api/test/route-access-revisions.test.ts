@@ -21,6 +21,8 @@ import {
   workspaceId,
 } from "./route-test-helpers.js";
 
+const claimCode = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
+
 describe("AP-91 access link route modules", () => {
   it("creates member access links and maps repository not-found failures", async () => {
     const createMemberAccessLink = vi.fn(async () => ({ access_link_id: "al_1" }));
@@ -159,34 +161,44 @@ describe("AP-91 access link route modules", () => {
         artifact_id: "art_1",
         revision_id: "rev_1",
         title: "Shared",
+        ephemeral_tier: true,
         files: [],
       },
     };
     const resolveAccessLink = vi.fn(async () => resolvedView);
+    const writeDataPoint = vi.fn();
     const baseContext = contextFor({
       env: {
         ACCESS_LINK_SIGNING_KEY_V1: "access-link-secret",
+        FUNNEL_EVENTS: { writeDataPoint },
         ARTIFACT_RATE_LIMIT: {
           async limit() {
             return { success: true };
           },
         },
       },
-      body: { public_id: "0123456789ABCDEF", blob },
+      body: { public_id: "0123456789ABCDEF", blob, claim_code: claimCode },
     });
 
     const ok = await resolveAccessLinkRoute(
       baseContext,
       { resolveAccessLink } as never,
-      guardFor({ public_id: "0123456789ABCDEF", blob }),
+      guardFor({ public_id: "0123456789ABCDEF", blob, claim_code: claimCode }),
     );
     expect(ok.status).toBe(200);
     await expect(responseJson(ok)).resolves.toMatchObject({ iframe_src: "https://content.test/original" });
+    expect(writeDataPoint).toHaveBeenCalledWith({
+      indexes: [claimCode],
+      blobs: ["ephemeral_link_opened", "web", claimCode, workspaceId, "art_1", "", "", ""],
+      doubles: [1, 0],
+    });
 
+    writeDataPoint.mockClear();
     const limited = await resolveAccessLinkRoute(
       contextFor({
         env: {
           ACCESS_LINK_SIGNING_KEY_V1: "access-link-secret",
+          FUNNEL_EVENTS: { writeDataPoint },
           ARTIFACT_RATE_LIMIT: {
             async limit() {
               return { success: false };
@@ -199,6 +211,7 @@ describe("AP-91 access link route modules", () => {
     );
     expect(limited.status).toBe(429);
     expect(limited.headers.get("retry-after")).toBe("60");
+    expect(writeDataPoint).not.toHaveBeenCalled();
   });
 });
 

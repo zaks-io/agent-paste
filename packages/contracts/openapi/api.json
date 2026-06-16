@@ -1221,6 +1221,12 @@
           "blob": {
             "type": "string",
             "minLength": 1
+          },
+          "claim_code": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
