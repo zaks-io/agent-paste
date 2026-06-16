@@ -3,6 +3,27 @@
 Newest first. This is an operator-facing changelog for implemented project work;
 use `git log` for commit-level detail.
 
+## 2026-06-15
+
+### AP-139 production agent ergonomics and MCP recovery wording
+
+- Ran production agent ergonomics smoke against the hosted service. The pass
+  verified authenticated CLI publish/read/revise/edit, unlisted/private
+  visibility flips, ephemeral publish safety behavior, public docs, and
+  unauthenticated MCP metadata/challenge behavior.
+- Found and fixed the jobs Worker R2 binding bug that made fresh production
+  bundles and safety scans fail with Cloudflare `Illegal invocation`; follow-up
+  production smoke bundles reached `ready`.
+- Released `@zaks-io/agent-paste@0.1.8` with the CLI title-preservation fix for
+  `publish --artifact-id` and refreshed CLI docs for `pull` and `edit`.
+- Captured authenticated production MCP host-tool evidence through OAuth:
+  `whoami`, publish/read/revise/edit, visibility changes, Access Link
+  list/create/revoke, revision listing, file reads, and cleanup all worked.
+- Deployed MCP tool-description and recovery wording so hosted agents no longer
+  expect `publish_artifact` / `add_revision` to return IDs. AP-139 is closed;
+  future hosted-chat connector validation belongs under AP-271 or a new
+  follow-up.
+
 ## 2026-06-08
 
 ### Public repository flip + GitHub security posture (AP-254)
@@ -11,20 +32,19 @@ The repo is now **public** (`github.com/zaks-io/agent-paste`). The public-repo
 security toggles tracked under AP-254 are live and verified against the GitHub
 API:
 
-- **OpenSSF Scorecard** — `.github/workflows/scorecard.yml` (`3d64126`, #444)
-  scores supply-chain posture on `main` push, weekly cron, and
+- **OpenSSF Scorecard** — `.github/workflows/scorecard.yml` scores
+  supply-chain posture on `main` push, weekly cron, and
   `branch_protection_rule`, publishing to the public OpenSSF API; the README
-  badge (`2de2280`, #447) resolves.
+  badge resolves.
 - **CodeQL code scanning** — enabled via GitHub default setup (SARIF visible in
   the code-scanning tab; no committed `codeql.yml`).
 - **Secret scanning + push protection** — enabled.
 - **Dependabot alerts** — enabled. Version **updates** stay off by design;
   dependency bumps come through the scheduled review agent, not Dependabot PRs.
-- **SHA-pinned Actions** — every external action across all workflows pinned to
-  a commit SHA (`33474e4`, #436) with the `sha_pinning_required` repo policy on.
+- **SHA-pinned Actions** — every external action across all workflows is pinned
+  to a commit SHA with the `sha_pinning_required` repo policy on.
 - **Pre-flip cleanup** — internal-only docs and a dead operator email dropped
-  before going public (`0e1eadd`, #437); NOTICE copyright updated (`92f6287`,
-  #435).
+  before going public; NOTICE copyright updated.
 
 Remaining AP-254 items are advisory-only refinements (route Trivy/Semgrep SARIF
 through `codeql-action/upload-sarif`; promote scanners advisory→gating) tracked
@@ -48,11 +68,9 @@ fix (#438). See `git log` for the full list.
   hosted status page remains optional until the account/tooling stack is ready.
 - Removed the stale production `SMOKE_HARNESS_SECRET` blocker from
   `agent-paste-api-production` (operator action by Isaac). Production deploys
-  after `5411f0f` had failed through current `main` (`6ad04f5`) until that
-  secret was deleted.
-- Manually triggered `Deploy Production` after the secret cleanup; run
-  `27101054536` deployed `6ad04f5` successfully, including migration, Worker
-  deploy, and read-only production smoke.
+  had failed until that secret was deleted.
+- Manually triggered `Deploy Production` after the secret cleanup; it completed
+  successfully with migration, Worker deploy, and read-only production smoke.
 - Reconciled status docs with completed AP-109/AP-174/AP-181/AP-242 work.
 
 ## 2026-06-05
@@ -423,8 +441,8 @@ boolean` instead of a fabricated workspace id; the five member-facing billing
 
 ### Repo/docs guardrails and coverage
 
-- Recent `main` includes docs and monorepo guardrail work through
-  `b7927d5 docs: competitor analysis and open-core billing ADRs (#67)`.
+- Recent `main` includes docs and monorepo guardrail work through the
+  open-core billing ADR pass.
 - `pnpm verify` passes on 2026-05-25 with 72 Turbo tasks.
 
 ### Operator lockdown UI

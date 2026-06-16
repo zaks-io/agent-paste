@@ -1,7 +1,8 @@
 # Phase Backlog
 
-Last updated: 2026-06-11 (launch-state triage after AP-254/AP-299 closed and
-production deploy workflow succeeded for remote `main` `e3be243c`).
+Last updated: 2026-06-15 (post-launch hardening refresh after AP-254/AP-299
+closed, AP-139 production agent smoke fixes/evidence closed, and the MCP
+docs/tool text follow-up deployed).
 Tracks remaining work. When asked to "implement the next step", start at the
 first unchecked item in the active work below unless the user says otherwise.
 
@@ -14,13 +15,13 @@ member `/v1/web/*` routes shipped in AP-156, and the dashboard moved to a
 TanStack Query cache with an SSE-driven live UI in AP-164. The Stripe billing
 path (Checkout/webhooks/Portal API AP-5, `/settings/billing` dashboard AP-176)
 shipped behind the deploy-time billing flag. Active product work is now
-post-launch/Phase 6 early-alpha hardening: production E2E verification (AP-139),
-production backup/DR posture (AP-302), launch-claim accuracy for hosted MCP
-connector support (AP-271), and security/ops polish. Hosted Stripe test-mode was
-verified in preview by Isaac; production Stripe still needs a final smoke only
-if billing is enabled for paid public launch. AP-254 is Done. AP-160 and AP-235
-are archived/parked in Linear; revive them only if Snyk SAST gating or a
-hosted-content provenance badge becomes a current launch requirement. (The file-bytes malware scanner,
+post-launch/Phase 6 early-alpha hardening: production backup/DR posture
+(AP-302), launch-claim accuracy for hosted MCP connector support (AP-271), and
+security/ops polish. Hosted Stripe test-mode was verified in preview by Isaac;
+production Stripe still needs a final smoke only if billing is enabled for paid
+public launch. AP-139 and AP-254 are Done. AP-160 and AP-235 are archived/parked
+in Linear; revive them only if Snyk SAST gating or a hosted-content provenance
+badge becomes a current launch requirement. (The file-bytes malware scanner,
 AP-149, was cancelled as too expensive; containment already bounds the risk.
 Built-in warnings, Llama Guard, and URL Scanner remain advisory signals.)
 
@@ -32,13 +33,11 @@ Richer operator event/audit browsing shipped in AP-16, with the follow-up
 coverage gate restored in PR #92.
 
 Active local handoff: none. AP-236 shipped in PR #356. AP-109, AP-174, AP-181,
-and AP-242 are Done on `main`. Production deploys after `5411f0f` were blocked
-by a stale forbidden `SMOKE_HARNESS_SECRET` on `agent-paste-api-production`;
-Isaac deleted that Worker secret on 2026-06-07, and manual `Deploy Production`
-run `27101054536` succeeded on then-current `main` (`6ad04f5`). Subsequent
-production workflow deploys have also succeeded, including run `27370738483` for
-remote `main` `e3be243c` on 2026-06-11. Next early-alpha hardening step: record
-AP-139 production E2E evidence.
+and AP-242 are Done on `main`. Production deploys after launch were briefly
+blocked by a stale forbidden `SMOKE_HARNESS_SECRET` on
+`agent-paste-api-production`; Isaac deleted that Worker secret on 2026-06-07,
+and production workflow deploys have succeeded since. Next early-alpha
+hardening step: AP-302 production backup/DR posture.
 
 ## Phase 3 Close-Out
 

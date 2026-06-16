@@ -5,8 +5,7 @@ Project start: 2026-05-18 (first commit on `main`).
 Last updated: 2026-06-15 (production agent ergonomics smoke verified the jobs
 R2 fix deployed, authenticated MCP host-tool coverage, and the CLI
 revise-title fix released in `@zaks-io/agent-paste@0.1.8`; the MCP docs/tool
-text patch from the follow-up pass still needs deploy before the next
-fresh-session pass).
+text patch is deployed, and AP-139 is Done in Linear).
 See [changelog.md](./status/changelog.md) for what shipped.
 
 This is the first status file to read after `AGENTS.md`, `CONTEXT.md`,
@@ -17,10 +16,10 @@ and points to the smaller ledgers that own detail.
 
 None. No unmerged local handoff branch.
 
-AP-236 (rate-limit fail-closed + production deploy source hardening) shipped in
-PR #356 (merge `7113f77`, on `main`) and is Done. AP-254 is Done: the repo is
-public, the apex source link resolves, GitHub security features are live, and
-externally verifiable public badges are published. Pick up the next item from
+AP-236 (rate-limit fail-closed + production deploy source hardening) shipped
+and is Done. AP-254 is Done: the repo is public, the apex source link resolves,
+GitHub security features are live, and externally verifiable public badges are
+published. Pick up the next item from
 [phase-backlog.md](./status/phase-backlog.md).
 
 Standing security-posture decisions (still in force, not handoff-specific):
@@ -40,25 +39,25 @@ detail and evidence.
 Done for this section: every open item below is checked, or explicitly marked
 "not currently required" with evidence in its owner ticket.
 
-1. [ ] **AP-139: Production E2E evidence** (next). Done when the full production
-       E2E/smoke sequence has run against the current production deploy and the
-       evidence is recorded in AP-139 plus
-       [hosted-ops.md](./status/hosted-ops.md).
-2. [ ] **AP-302: Production backup/DR posture**. Done when automated backups,
+1. [x] **AP-139: Production E2E evidence**. Done 2026-06-15: production
+       agent-smoke evidence, CLI release verification, authenticated MCP
+       host-tool coverage, and the MCP wording follow-up are recorded in AP-139
+       plus [hosted-ops.md](./status/hosted-ops.md).
+2. [ ] **AP-302: Production backup/DR posture** (next). Done when automated backups,
        an isolated restore path, a non-production restore drill, and the
        disaster-recovery runbook are in place for production user data.
 3. [ ] **AP-271: Web-chat MCP launch-claim accuracy**. Done when real ChatGPT,
        Claude, and Gemini connector behavior is verified and public copy is
        corrected so it does not promise capabilities that were not demoed.
-4. [x] **AP-254: Apex source link**. Done 2026-06-07 (`83cde8c`): the
+4. [x] **AP-254: Apex source link**. Done 2026-06-07: the
        `source-repository` component wires the public GitHub link into the apex
        footer/About/How it works, and `apps/apex/src/index.test.ts` asserts the
        `https://github.com/zaks-io/agent-paste` URL in all three. The repo is
        now public (2026-06-08), so the source link resolves.
 5. [x] **AP-254: GitHub public security posture**. Done 2026-06-08 with the
        public flip: repo is public, CodeQL (default setup), secret scanning +
-       push protection, Dependabot alerts, OpenSSF Scorecard (`3d64126`) + README
-       badge (`2de2280`), and SHA-pinned Actions (`33474e4`) are all live.
+       push protection, Dependabot alerts, OpenSSF Scorecard + README badge,
+       and SHA-pinned Actions are all live.
        Dependabot version updates stay off by design (scheduled review agent).
        Detail in [security-todo.md](./security-todo.md).
 6. [ ] **Manual/non-blocking: OpenSSF Best Practices badge**. The Passing
@@ -79,10 +78,9 @@ Done for this section: every open item below is checked, or explicitly marked
        Portal/invoice access, and plan sync are smoke-tested in production;
        otherwise mark "not currently required" here.
 10. [x] **Production deploy workflow green**. Initial launch deploy completed on
-        2026-06-07: `6ad04f5` deployed by manual run `27101054536` with
-        migration, Worker deploy, and read-only production smoke green. Latest
-        checked deploy run `27579713918` succeeded for remote `main` `49c531ec`
-        on 2026-06-15.
+        2026-06-07 with migration, Worker deploy, and read-only production smoke
+        green. Later production workflows have also succeeded; check GitHub
+        Actions for the exact immutable run evidence.
 11. [x] **npm trusted publishing**. Done on 2026-06-07: operator confirmed npm
         OIDC trusted publishing is already configured for `@zaks-io/agent-paste`.
 12. [x] **Minimum public incident intake**. Done on 2026-06-07: `support@agent-paste.sh`
@@ -96,12 +94,10 @@ Phases 1–5 are complete: the CLI-first MVP, public OAuth + web dashboard + CLI
 login, the Artifact lifecycle (revisions, Access Links, jobs, bundles, Live
 Updates), and the MCP surface. The hosted service is live in its early-alpha
 shape; current work is post-launch/Phase 6 hardening.
-Current `main` (`6ad04f5`) deployed to production successfully on 2026-06-07 via
-manual `Deploy Production` run `27101054536`; migration, Worker deploy, and the
-read-only production smoke passed.
-Remote `main` has since advanced; `Deploy Production` run `27579713918`
-succeeded for `49c531ec` on 2026-06-15 with migration, Worker deploy, release
-security attestation, and read-only production smoke green.
+Production deployment is handled by the GitHub `Deploy Production` workflow.
+The launch deploy and later production deploys have completed with migration,
+Worker deploy, release security attestation, and read-only production smoke
+green; GitHub Actions is the evidence trail for exact runs.
 
 What stands today:
 
@@ -158,8 +154,8 @@ Feature-specific ledgers:
   walkthrough findings; 2026-06-15 production passes found jobs R2 binding
   failures, CLI revise-title drift, and MCP output-description friction. The
   jobs fix is deployed, the CLI fix is released in npm `0.1.8`, authenticated
-  MCP host-tool evidence is captured, and the remaining gate is deploying the
-  MCP wording patch.
+  MCP host-tool evidence is captured, the MCP wording patch is deployed, and
+  AP-139 is Done.
 - [Web app todo](./web-app-todo.md) - Phase 3 web/dashboard close-out.
 - [Web CSP todo](./web-csp-todo.md) - dashboard + apex CSP hardening (script-src is
   nonce-based, browser-verified on preview; one item open: drop style `'unsafe-inline'`).
@@ -192,20 +188,21 @@ Feature-specific ledgers:
 ## Current Phase
 
 Phases 1–5 are complete (see Snapshot). Current active work is
-post-launch/Phase 6 early-alpha hardening: production E2E verification
-(AP-139), production data backup/DR posture (AP-302), launch-claim accuracy
-around hosted MCP connector support (AP-271), and security/ops polish.
+post-launch/Phase 6 early-alpha hardening: production data backup/DR posture
+(AP-302), launch-claim accuracy around hosted MCP connector support (AP-271),
+and security/ops polish.
 [phase-backlog.md](./status/phase-backlog.md) owns the ordered remaining work.
 
 ## Not Yet Implemented From The Docs
 
 Highest-signal gaps:
 
-- Post-launch/Phase 6 follow-ups: final production E2E verification (AP-139)
-  and, before enabling paid billing publicly, a final production Stripe
-  smoke. The Stripe Checkout/webhooks/Portal API, operator plan override,
-  hosted billing UI, preview/test-mode Stripe verification, and ephemeral
-  claim/upgrade funnel have shipped (AP-5/AP-109/AP-176).
+- Post-launch/Phase 6 follow-ups: production backup/DR posture (AP-302),
+  web-chat MCP launch-claim accuracy (AP-271), and, before enabling paid billing
+  publicly, a final production Stripe smoke. The Stripe Checkout/webhooks/Portal
+  API, operator plan override, hosted billing UI, preview/test-mode Stripe
+  verification, and ephemeral claim/upgrade funnel have shipped
+  (AP-5/AP-109/AP-176).
 - Live Updates deferred polish (AP-166): Access Link Lockdown live disconnect
   hook, operator-tunable viewer cap. The feature itself is shipped (AP-25 +
   AP-164).

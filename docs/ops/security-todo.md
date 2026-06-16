@@ -89,8 +89,8 @@ below is [AP-254](https://linear.app/zaks-io/issue/AP-254),
 filed off an external credibility review.
 
 - [x] Ship the apex GitHub source link and keep tests covering the public source
-      link behavior. Done 2026-06-07 (`83cde8c`): the `source-repository`
-      component adds the link to the footer + About + How it works, and
+      link behavior. Done 2026-06-07: the `source-repository` component adds
+      the link to the footer + About + How it works, and
       `apps/apex/src/index.test.ts` asserts the public GitHub URL. The repo is
       now public (2026-06-08), so the source link resolves.
 - [x] Stand up a status page or public incident/update channel. Decision
@@ -98,12 +98,11 @@ filed off an external credibility review.
       `support@agent-paste.sh` mailbox, which routes through email into Linear. A
       separate hosted status page remains optional until the account/tooling
       stack is ready.
-- [x] Enable **OpenSSF Scorecard** with published results. Done 2026-06-08
-      (`3d64126` workflow, `2de2280` badge): `.github/workflows/scorecard.yml`
-      runs on `main` push, weekly cron, and `branch_protection_rule`, publishing
-      to the public OpenSSF API so the README badge resolves. All external
-      Actions are SHA-pinned (`33474e4`, #436) and the repo `sha_pinning_required`
-      policy is on.
+- [x] Enable **OpenSSF Scorecard** with published results. Done 2026-06-08:
+      `.github/workflows/scorecard.yml` runs on `main` push, weekly cron, and
+      `branch_protection_rule`, publishing to the public OpenSSF API so the
+      README badge resolves. All external Actions are SHA-pinned and the repo
+      `sha_pinning_required` policy is on.
 - [x] Enable GitHub CodeQL / code scanning, GitHub secret scanning, and
       Dependabot alerts. Done with the public flip (2026-06-08): the repo is
       public, CodeQL runs via GitHub default setup (SARIF in code scanning),
@@ -121,8 +120,9 @@ filed off an external credibility review.
 - [ ] Add only externally-verifiable badges: CI, the security workflow, the
       OpenSSF Best Practices **Passing** badge, and the Snyk **npm package** badge
       once the package is public. No badge may imply a private scan result is
-      publicly verifiable. The OpenSSF Scorecard badge already ships in `README.md`
-      (`2de2280`). The Best Practices target tier and the criterion-by-criterion
-      self-assessment (Passing met; Silver delta; Gold out of scope) live in
+      publicly verifiable. The OpenSSF Scorecard badge already ships in
+      `README.md`. The Best Practices target tier and the
+      criterion-by-criterion self-assessment (Passing met; Silver delta; Gold
+      out of scope) live in
       [`openssf-best-practices.md`](./openssf-best-practices.md); its README badge
       is added once Passing is green (snippet in that doc).
