@@ -62,7 +62,7 @@ export const PRIVACY: LegalDocument = {
       blocks: [
         {
           kind: "paragraph",
-          text: "This is the public version of our storage and protection model. It describes the protections users should know about without publishing internal key names, exact topology, operational runbooks, or other details that would help an attacker.",
+          text: "The source code and public docs describe the service architecture and security model. This policy summarizes the user-facing protections without publishing private operational material such as secret values, live provider configuration, account topology, runbooks, incident procedures, or other details.",
         },
         {
           kind: "list",
