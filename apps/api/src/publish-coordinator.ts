@@ -6,13 +6,18 @@ import type { Env } from "./env.js";
 import { buildRevisionNoticeFromPublishResult, notifyLiveUpdatePublish } from "./live-updates.js";
 import { enqueuePostPublishJobs } from "./post-publish.js";
 import { RepositoryRouteError } from "./responses.js";
+import { accessLinkSigningSecret } from "./routes/access-links.js";
+import { webBaseUrl } from "./runtime.js";
 import { enforceNewArtifactWriteAllowance, releaseNewArtifactWriteAllowance } from "./write-allowance.js";
 
 type PublishResult = Awaited<ReturnType<Repository["publishRevision"]>>;
 
-// Publish is content-only and private. It never mints a Share Link or creates
-// unauthenticated access. Visibility changes are separate explicit steps, so
-// the coordinator carries no `share` input and no access-link signing.
+// Publish is content-only and private for authenticated callers: it mints no
+// Share Link and creates no unauthenticated access; visibility is a separate
+// explicit step. Ephemeral (accountless `--ephemeral`) publish is the one
+// exception: the agent has no human in the loop and no follow-up call, so the
+// coordinator auto-creates the unlisted Share Link and returns `unlisted_url`,
+// a no-login (script-disabled) link that works immediately (ADR 0075).
 export type PublishCoordinatorInput = {
   actor: ApiActor;
   idempotencyKey: string;
@@ -135,7 +140,49 @@ async function runPostPublishFanout(
   await enqueuePublishJobs(deps.env, input, result, now, ephemeralTier);
   const signed = await signPublishResult(result, deps.env, { workspaceId: input.actor.workspace_id, ephemeralTier });
   await notifyPublishedRevision(deps.env, result, signed);
-  return signed;
+  return ephemeralTier ? attachUnlistedUrl(deps, input, signed) : signed;
+}
+
+// Ephemeral publish hands the link to an agent with no human and no follow-up
+// call, so the unlisted Share Link is minted here rather than left to a separate
+// set-visibility step. The Share-Link create dedupes on the artifact's one active
+// link, so an idempotent publish replay reuses it instead of stacking links.
+// If signing config is missing the publish still succeeds; the caller falls back
+// to the claim link rather than failing the whole publish.
+async function attachUnlistedUrl(
+  deps: PublishCoordinatorDeps,
+  input: PublishCoordinatorInput,
+  signed: unknown,
+): Promise<unknown> {
+  if (!signed || typeof signed !== "object") {
+    return signed;
+  }
+  const signing = accessLinkSigningSecret(deps.env);
+  if (!signing) {
+    return signed;
+  }
+  try {
+    const link = await deps.db.createMemberAccessLink({
+      actor: input.actor,
+      idempotencyKey: `ephemeral-unlist:${input.artifactId}`,
+      artifactId: input.artifactId,
+      type: "share",
+    });
+    const minted = await deps.db.mintMemberAccessLink({
+      actor: input.actor,
+      accessLinkId: link.id,
+      appBaseUrl: webBaseUrl(deps.env),
+      signingSecret: signing.secret,
+      signingKid: signing.kid,
+    });
+    return { ...(signed as Record<string, unknown>), unlisted_url: minted.url };
+  } catch (error) {
+    console.warn("Ephemeral unlisted Share Link mint failed after publish; returning claim-only link.", {
+      artifactId: input.artifactId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return signed;
+  }
 }
 
 function isEphemeralPublish(result: PublishResult): boolean {
