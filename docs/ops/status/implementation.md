@@ -1,12 +1,13 @@
 # Implementation State
 
-Last updated: 2026-06-07 (early-alpha production refresh; current `main` plus
-production deploy blocker cleanup).
+Last updated: 2026-06-15 (AP-139 production agent smoke refresh; production
+workflow, CLI release, and MCP tool-text follow-up are current).
 
 ## Snapshot
 
-- Local `main` and `origin/main` are aligned at
-  `6ad04f5 feat(jobs): archive audit events to R2 before 90-day GC delete (AP-181) (#422)`.
+- `main` contains the early-alpha public-repo hardening work, AP-139 production
+  agent smoke fixes, the `@zaks-io/agent-paste@0.1.8` CLI release, and the MCP
+  recovery/tool-description follow-up.
 - AP-99 through AP-111 add Ephemeral Workspace provisioning, claim, CLI
   `--ephemeral`, web claim UX, script-disabled/noindex serving, and local +
   hosted ephemeral smokes. Operator notes:
@@ -16,10 +17,10 @@ production deploy blocker cleanup).
   cache and SSE-driven live dashboard. AP-161/AP-162 make artifact TTL
   server-side-only and heal stale `claimed_at` on web-member login. AP-109
   ships the post-claim free-to-pro success funnel and upgrade CTA.
-- CI `Validate` and `Security` are green on `6ad04f5` (current `main` HEAD).
-  `Deploy Production` succeeded on `6ad04f5` via manual run
-  `27101054536` on 2026-06-07 after Isaac deleted the stale forbidden
-  production `SMOKE_HARNESS_SECRET` from `agent-paste-api-production`.
+- CI, Security, CodeQL, Scorecard, and production deploy workflows are green on
+  current `main` at this refresh. The production deploy blocker from stale
+  `SMOKE_HARNESS_SECRET` on `agent-paste-api-production` was cleared on
+  2026-06-07.
 - The credential-free production read-only smoke passed locally on 2026-06-07:
   reachable worker health, apex routes, MCP metadata/challenge, and web
   sign-in redirect. It still does not prove content-byte serving; AP-144 owns
@@ -37,9 +38,9 @@ production deploy blocker cleanup).
 | `apps/cli`                | Implemented                 | `publish` (finalize + publish) with `--ephemeral`, optional `--artifact-id` updates, `whoami`, `login`, `logout`, local credential storage, and API-client plumbing.                                                                                                                                                                                                                                |
 | `apps/web`                | Implemented with gaps       | WorkOS AuthKit, dashboard routes, live loaders/mutations, operator lockdown UI, operator event browsing, Lighthouse a11y gate, hardened PR-preview readiness, deployed preview/production. Access Link `/al/{publicId}` viewer and resolve proxy route ship; dashboard Access Link management UI (list/create/mint/revoke/lockdown on `/access-links` and artifact detail) is implemented (AP-156). |
 | `apps/jobs`               | Implemented for current app | Cron discovery (upload cleanup, 24h ephemeral auto-deletion, auto-deletion skipping pinned artifacts, retention for non-current revisions, billing reconciliation, purge recovery, maintenance GC), queue consumers + DLQs, bundle zip generation + DLQ `mark_failed`, built-in and ephemeral-tier safety scan warning replacement (AP-21/22/23/24/33/104).                                         |
-| `apps/mcp`                | Implemented                 | Streamable HTTP MCP transport, WorkOS JWT verification, twelve-tool surface, API/upload forwarding, hosted/local smoke (`pnpm smoke:mcp`). See [`docs/ops/runbook-mcp-hosts.md`](../runbook-mcp-hosts.md).                                                                                                                                                                                          |
+| `apps/mcp`                | Implemented                 | Streamable HTTP MCP transport, WorkOS JWT verification, fourteen-tool surface, API/upload forwarding, hosted/local smoke (`pnpm smoke:mcp`). See [`docs/ops/runbook-mcp-hosts.md`](../runbook-mcp-hosts.md).                                                                                                                                                                                        |
 | `apps/stream`             | Implemented                 | Live Updates Worker (ADR 0069): per-artifact Durable Objects, SSE fan-out, `stream -> api` authorize binding, viewer cap (AP-25).                                                                                                                                                                                                                                                                   |
-| `packages/contracts`      | Implemented for current app | Zod schemas, route registry, OpenAPI goldens for current REST surfaces including Access Link resolve request/response and status-discriminated bundle availability. MCP OAuth scopes, JSON-RPC transport shapes, twelve-tool registry, error mapping, and forwarded API call plans (AP-27).                                                                                                         |
+| `packages/contracts`      | Implemented for current app | Zod schemas, route registry, OpenAPI goldens for current REST surfaces including Access Link resolve request/response and status-discriminated bundle availability. MCP OAuth scopes, JSON-RPC transport shapes, fourteen-tool registry, error mapping, and forwarded API call plans (AP-27).                                                                                                       |
 | `packages/worker-runtime` | Implemented                 | Contract-driven route registrar, request guard, auth principal model, error map, and rate-limit application.                                                                                                                                                                                                                                                                                        |
 | `packages/db`             | Implemented for current app | Drizzle schema/migrations, RLS, repository core/adapters, `revisions` table with bundle availability columns and publish-update flow. Access Links, Safety Warnings, `workspace_billing`, `claim_tokens`, and Ephemeral Workspace provisioning are present.                                                                                                                                         |
 | `packages/tokens`         | Implemented                 | Shared signed-token codec and content, Agent View, upload URL, Access Link, and proof-of-work modules.                                                                                                                                                                                                                                                                                              |
@@ -78,11 +79,11 @@ production deploy blocker cleanup).
 
 | Check                      | Latest known result | Date       | Notes                                                                                                                           |
 | -------------------------- | ------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| CI `Validate` on `main`    | Pass                | 2026-06-06 | `CI` + `Security` workflows green on `6ad04f5`.                                                                                 |
-| `pnpm verify`              | Pass                | 2026-06-04 | 88 Turbo tasks successful on `main` (`567e476`) after a clean `pnpm install`.                                                   |
+| CI `Validate` on `main`    | Pass                | 2026-06-15 | `CI`, `Security`, `CodeQL`, and Scorecard workflows green on current `main`.                                                    |
+| `pnpm verify`              | Pass                | 2026-06-04 | 88 Turbo tasks successful on `main` after a clean `pnpm install`.                                                               |
 | `pnpm smoke:local`         | Pass                | 2026-05-24 | Last recorded after route registrar/token work.                                                                                 |
 | `pnpm smoke:preview`       | Pass                | 2026-05-24 | Preview web and WorkOS login were verified during Phase 3 work.                                                                 |
-| `pnpm smoke:production`    | Pass                | 2026-05-22 | Full publish + Agent View + content fetch chain green after production deploy run 26291734441.                                  |
+| `pnpm smoke:production`    | Pass                | 2026-05-22 | Full publish + Agent View + content fetch chain green after production deploy.                                                  |
 | `pnpm smoke:prod:readonly` | Pass                | 2026-06-07 | Credential-free production canary passed locally: worker health, apex, MCP metadata/challenge, and web sign-in redirect.        |
-| `Deploy Production`        | Pass                | 2026-06-07 | Manual workflow run `27101054536` deployed `6ad04f5`; migration, Worker deploy, and read-only production smoke passed.          |
+| `Deploy Production`        | Pass                | 2026-06-15 | Production workflow succeeded with migration, Worker deploy, release security attestation, and read-only production smoke.      |
 | PR preview lifecycle       | Pass                | 2026-05-25 | Readiness gate polls `/healthz` with consecutive 200s and retries 404/530 flakes; docs-only PRs skip deploy via `paths-ignore`. |

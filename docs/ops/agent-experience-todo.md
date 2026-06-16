@@ -41,18 +41,18 @@ The walkthrough used the connected `agent-paste` MCP server (authed as
 >   authenticated MCP tools still need a connected WorkOS/OAuth host session for
 >   `whoami`, publish/read/revise/edit, visibility, link listing, and cleanup.
 
-> **Update (2026-06-15 post-deploy pass):** production deploy run `27579713918`
-> succeeded for `49c531ec` with release security attestation, migration, Worker
-> deploy, and read-only production smoke green. The jobs R2 fix is live: fresh
-> production smoke revision bundles for `art_DZSTY830HVQ64H0C0C7Q3MHFYF`
-> reached `ready`, including `rev_KGJGR62R1DNMW78A7W3JH9REJ4`,
+> **Update (2026-06-15 post-deploy pass):** the production workflow succeeded
+> with release security attestation, migration, Worker deploy, and read-only
+> production smoke green. The jobs R2 fix is live: fresh production smoke
+> revision bundles for `art_DZSTY830HVQ64H0C0C7Q3MHFYF` reached `ready`,
+> including `rev_KGJGR62R1DNMW78A7W3JH9REJ4`,
 > `rev_G5NHTHPCGGWA7PTWY97XBYPYH4`, and
 > `rev_G13QE0HKHVTR0VGKVMBJ6V10DS`.
 >
 > Remaining gaps:
 >
-> - **CLI release gap closed:** npm `@zaks-io/agent-paste@latest` is now `0.1.8`
->   from `3bc1d56`. Production smoke verified the no-title revision path
+> - **CLI release gap closed:** npm `@zaks-io/agent-paste@latest` is now `0.1.8`.
+>   Production smoke verified the no-title revision path
 >   (`npx @latest publish --artifact-id`) preserves the existing Agent View
 >   title, and `pull` read back the revised content. The smoke Artifact was
 >   deleted.
@@ -67,9 +67,11 @@ The walkthrough used the connected `agent-paste` MCP server (authed as
 > - **MCP docs/tool-description gap:** live `publish_artifact` and
 >   `add_revision` return only `private_url`, `title`, `expires_at`, and
 >   `upload_stats`, but the live tool descriptions said to keep the
->   `artifact_id` from the response. Source patch pending: tool descriptions and
+>   `artifact_id` from the response. The deployed tool descriptions and
 >   initialize instructions now say publish outputs omit IDs and agents should
->   recover the Artifact ID from `list_artifacts.data[].id`.
+>   recover the Artifact ID from `list_artifacts.data[].id`; AP-139 is closed,
+>   and future hosted-chat connector validation belongs under AP-271 or a new
+>   follow-up.
 > - **MCP output-shape friction:** the live outputs are usable but inconsistent:
 >   `list_artifacts` uses `data[].id`, `list_revisions` uses
 >   `items[].revision_id`, `list_access_links` uses `items[].id`, and

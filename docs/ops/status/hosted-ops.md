@@ -51,10 +51,10 @@ Launch-readiness secret notes:
 
 - `SMOKE_HARNESS_SECRET` must exist only on preview/PR workers. It was found on
   `agent-paste-api-production` after the production smoke-path hardening and
-  blocked deploys through `6ad04f5`; Isaac deleted it on 2026-06-07 with
+  blocked production deploys; Isaac deleted it on 2026-06-07 with
   `wrangler secret delete SMOKE_HARNESS_SECRET --name agent-paste-api-production`.
-  Manual `Deploy Production` run `27101054536` then deployed `6ad04f5`
-  successfully and passed the read-only production smoke.
+  The next `Deploy Production` workflow succeeded and passed the read-only
+  production smoke.
 - Stripe secrets are optional and route-gated by `BILLING_ENABLED`. Hosted
   Stripe test-mode was verified in preview by Isaac on 2026-06-07. If billing
   is enabled for paid public launch, run a final production Stripe smoke after
@@ -96,11 +96,12 @@ Launch-readiness secret notes:
   `workflow_run` deploys come from a successful `main` run in this repository,
   checks out `refs/heads/main`, and refuses to deploy if the checked-out SHA
   differs from the CI head SHA.
-- `CI` and `Security` are green on current `main` (`6ad04f5`). Production
-  deploys after `5411f0f` failed because production still carried forbidden
-  `SMOKE_HARNESS_SECRET` on the API Worker. Isaac deleted that secret on
-  2026-06-07; manual `Deploy Production` run `27101054536` then succeeded on
-  `6ad04f5` with migration, Worker deploy, and read-only production smoke green.
+- `CI`, `Security`, `CodeQL`, and Scorecard are green on current `main` at this
+  refresh. Production deploys after the launch smoke hardening failed while the
+  API Worker still carried forbidden `SMOKE_HARNESS_SECRET`; after Isaac deleted
+  that secret on 2026-06-07, production deploy workflows resumed succeeding
+  with migration, Worker deploy, and read-only production smoke green. Use
+  GitHub Actions for exact immutable run evidence.
 - `TURBO_TOKEN`, `TURBO_TEAM`, `TURBO_REMOTE_CACHE_SIGNATURE_KEY`,
   `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`,
   `DATABASE_URL_MIGRATIONS_PRODUCTION` (or legacy `PRODUCTION_DATABASE_URL`),
@@ -188,7 +189,7 @@ Smoke output redacts the Claim Token hash in the summary line and never logs API
 
 ## Production agent ergonomics smoke
 
-2026-06-15 AP-139 partial pass against production:
+2026-06-15 AP-139 production pass:
 
 - Public docs fetched from `https://agent-paste.sh/agents.md`,
   `https://agent-paste.sh/llms.txt`, `https://agent-paste.sh/llms-full.txt`, and
@@ -217,16 +218,16 @@ called with incorrect this reference`. Example failed revisions:
   `rev_B90MHRGD0R7VJ14TVMYCA6J4Y0` and
   `rev_SVB214MNQJ7Z6KW82DPXPGE9QZ`. Root cause: jobs code detached R2 binding
   methods (`ARTIFACTS.get` / `ARTIFACTS.put`) before calling them. Fixed in
-  production by deploy run `27579713918` for `49c531ec`; fresh smoke bundles
-  reached `ready` for `rev_KGJGR62R1DNMW78A7W3JH9REJ4`,
+  production; fresh smoke bundles reached `ready` for
+  `rev_KGJGR62R1DNMW78A7W3JH9REJ4`,
   `rev_G5NHTHPCGGWA7PTWY97XBYPYH4`, and
   `rev_G13QE0HKHVTR0VGKVMBJ6V10DS`.
 - CLI ergonomics bug found and fixed in source:
   `publish --artifact-id` without `--title` renamed the Artifact to the local
   temp directory basename. Fixed in npm `@zaks-io/agent-paste@0.1.8`
-  (`3bc1d56`): production smoke verified `npx @latest publish --artifact-id`
-  without `--title` preserves the existing Agent View title, `pull` read back
-  the revised content, and the smoke Artifact was deleted.
+  and production smoke verified `npx @latest publish --artifact-id` without
+  `--title` preserves the existing Agent View title, `pull` read back the
+  revised content, and the smoke Artifact was deleted.
 - Public CLI docs gap found and fixed in `0.1.8`: `/docs/cli.md` now documents
   the real `pull` and `edit` commands that agents need for read-back and literal
   edits.
@@ -242,8 +243,9 @@ called with incorrect this reference`. Example failed revisions:
   incorrectly said to keep `artifact_id` from `publish_artifact` responses even
   though publish outputs intentionally omit IDs, and the ID field names differ by
   list tool (`list_artifacts.data[].id`, `list_revisions.items[].revision_id`,
-  `list_access_links.items[].id`). Source docs/tool text now describe the actual
-  shapes; deploy before the next fresh-session pass.
+  `list_access_links.items[].id`). The docs/tool-text fix is deployed and
+  AP-139 is Done; future host-specific connector checks belong under AP-271 or a
+  new follow-up.
 
 ## Database credential boundaries
 
