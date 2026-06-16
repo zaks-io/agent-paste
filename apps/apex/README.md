@@ -26,6 +26,7 @@ rsvg-convert -w 4800 -h 2520 --background-color white \
   public/agent-paste-social.svg -o /tmp/social-4x.png
 magick /tmp/social-4x.png -filter Lanczos -resize 1200x630 -strip \
   public/agent-paste-social.png
+oxipng -o max --strip safe public/agent-paste-social.png  # lossless ~30% smaller
 ```
 
 Use `rsvg-convert` for the render, not ImageMagick's internal MSVG renderer
