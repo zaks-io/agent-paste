@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { type ApexAssets, Shell } from "./app/Shell";
@@ -14,6 +15,7 @@ import { getRoutes } from "./routes";
 // test the rule (CSP shape, external assets, route gating, HTML/MD twins, the github
 // link, house style bans), not the sentence.
 const ASSETS: ApexAssets = { cssHref: "/assets/styles.css", jsHref: "/assets/client.js" };
+const SOCIAL_IMAGE_SVG = readFileSync(new URL("../public/agent-paste-social.svg", import.meta.url), "utf8");
 
 function renderPage(path: string, opts: { billingEnabled?: boolean; analyticsToken?: string } = {}): string {
   const billingEnabled = opts.billingEnabled ?? false;
@@ -78,11 +80,21 @@ describe("apex shell", () => {
   });
 
   it("uses the brand SVG as the social preview image", () => {
+    expect(html).toContain('<meta property="og:site_name" content="agent-paste.sh"/>');
     expect(html).toContain('<meta property="og:image" content="https://agent-paste.sh/agent-paste-social.svg"/>');
     expect(html).toContain('<meta property="og:image:type" content="image/svg+xml"/>');
-    expect(html).toContain('<meta property="og:image:width" content="1080"/>');
-    expect(html).toContain('<meta property="og:image:height" content="256"/>');
+    expect(html).toContain('<meta property="og:image:width" content="1200"/>');
+    expect(html).toContain('<meta property="og:image:height" content="630"/>');
     expect(html).toContain('<meta name="twitter:image" content="https://agent-paste.sh/agent-paste-social.svg"/>');
+  });
+
+  it("keeps social descriptions and card dimensions crawler-friendly", () => {
+    const description = html.match(/<meta name="description" content="([^"]+)"/)?.[1];
+    expect(description).toBeDefined();
+    expect(description?.length).toBeLessThanOrEqual(125);
+    expect(html).toContain(`<meta property="og:description" content="${description}"/>`);
+    expect(SOCIAL_IMAGE_SVG).toContain('<svg width="1200" height="630" viewBox="0 0 1200 630"');
+    expect(SOCIAL_IMAGE_SVG).toContain('<rect width="1200" height="630" fill="#fff"/>');
   });
 });
 

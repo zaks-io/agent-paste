@@ -6,8 +6,9 @@ export const TITLE_SUFFIX = ` | ${SITE_NAME}`;
 export const DEFAULT_DESCRIPTION =
   "Publish and manage artifacts from your agents. View workspace activity, API keys, and settings in the dashboard.";
 export const SOCIAL_IMAGE_PATH = "/agent-paste-social.svg";
-export const SOCIAL_IMAGE_WIDTH = "1080";
-export const SOCIAL_IMAGE_HEIGHT = "256";
+export const SOCIAL_SITE_NAME = "agent-paste.sh";
+export const SOCIAL_IMAGE_WIDTH = "1200";
+export const SOCIAL_IMAGE_HEIGHT = "630";
 export const SOCIAL_IMAGE_ALT = "agent-paste.sh";
 
 export type PageMetaOptions = {
@@ -68,6 +69,7 @@ export function buildPageMeta(options: PageMetaOptions): { meta: MetaTag[] } {
     const imageUrl = resolvePageUrl(options.baseUrl, SOCIAL_IMAGE_PATH);
     meta.push(
       { property: "og:type", content: options.ogType ?? "website" },
+      { property: "og:site_name", content: SOCIAL_SITE_NAME },
       { property: "og:title", content: title },
       { property: "og:description", content: description },
       { name: "twitter:card", content: "summary_large_image" },
