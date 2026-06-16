@@ -16,9 +16,9 @@
  * @typedef {Object} SecretBinding
  * @property {boolean} required Whether the consuming Worker hard-requires the secret.
  * @property {"all"|"production"|"preview"} [envs] Environment scope (default: all).
- * @property {"symmetric"|"workos"|"stripe"} [source] Where the value originates. `workos`
- *   and `stripe` values come from their provider console / GitHub env, not the symmetric
- *   generator.
+ * @property {"symmetric"|"workos"|"stripe"|"sentry"} [source] Where the value originates. `workos`,
+ *   `stripe`, and `sentry` values come from their provider console / GitHub env,
+ *   not the symmetric generator.
  */
 
 /**
@@ -70,6 +70,7 @@ export const SECRET_ROUTING = {
   },
   mcp: {
     WORKOS_API_KEY: { required: true, source: "workos" }, // MCP bearer verification at the edge gate
+    SENTRY_DSN: { required: false, source: "sentry" }, // Optional MCP monitoring; enabled only when configured.
   },
   web: {
     WORKOS_API_KEY: { required: true, source: "workos" },
@@ -119,7 +120,7 @@ function bindingAppliesToEnv(binding, env) {
  * Secret names an app consumes in a given environment.
  * @param {string} app
  * @param {"preview"|"production"} env
- * @param {{ requiredOnly?: boolean, source?: "symmetric"|"workos" }} [opts]
+ * @param {{ requiredOnly?: boolean, source?: "symmetric"|"workos"|"stripe"|"sentry" }} [opts]
  * @returns {string[]}
  */
 export function secretsForApp(app, env, opts = {}) {
