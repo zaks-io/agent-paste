@@ -138,7 +138,7 @@ export function Footer({ billingEnabled }: { billingEnabled: boolean }) {
             ))}
           </span>
           <span className="font-mono text-mono-sm text-subtle">
-            Apache-2.0. Owned and operated by{" "}
+            Source code is Apache-2.0. Hosted service operated by{" "}
             <a
               className="text-subtle underline decoration-accent/40 underline-offset-2 transition-colors duration-[120ms] ease-out hover:text-accent"
               href={OPERATING_COMPANY.href}
