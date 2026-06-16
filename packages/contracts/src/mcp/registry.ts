@@ -29,7 +29,7 @@ export const mcpToolContracts = [
   {
     name: "publish_artifact",
     description:
-      "Publish a NEW text-only Artifact: creates a new Artifact with its own private_url, a login-walled browser viewer you hand to the user. Publish is content-only and private; there is no visibility or share param. Use this only for something not yet published. To CHANGE something you already published, do NOT call this again. Call add_revision with the existing artifact_id instead, so the user's open private_url live-updates in place. Re-publishing an edit here mints a different Artifact on a different link and strands the page the user already has open. To make an Artifact reachable without login, call set_visibility with visibility: 'unlisted', which returns unlisted_url. Keep the artifact_id from the response so you can revise later; IDs and content URLs are also available via the read/list/link tools.",
+      "Publish a NEW text-only Artifact: creates a new Artifact with its own private_url, a login-walled browser viewer you hand to the user. Publish is content-only and private; there is no visibility or share param. Use this only for something not yet published. To CHANGE something you already published, do NOT call this again. Call add_revision with the existing artifact_id instead, so the user's open private_url live-updates in place. Re-publishing an edit here mints a different Artifact on a different link and strands the page the user already has open. To make an Artifact reachable without login, call set_visibility with visibility: 'unlisted', which returns unlisted_url. The publish response intentionally omits artifact_id, revision_id, content URLs, and Agent View URLs; recover the Artifact ID with list_artifacts (data[].id), then use read_artifact, read_file, list_revisions, or link tools for follow-up details.",
     auth: "mcp_oauth",
     requiredScopes: ["publish", "read"],
     idempotency: "optional_override",
@@ -41,7 +41,7 @@ export const mcpToolContracts = [
   {
     name: "add_revision",
     description:
-      "Edit/update an EXISTING Artifact: adds and publishes a new Revision under the artifact_id you pass. This is how you change something already published. The Artifact's private_url is STABLE and already-open viewers LIVE-UPDATE to this new Revision; there is no new link to send. Content-only and private: there is no visibility or share param. Use this, NOT publish_artifact, whenever the user wants to revise, fix, or extend work you already published; calling publish_artifact instead would create a separate Artifact on a new link and strand the page the user already has open. Get the artifact_id from the publish_artifact response or list_artifacts. To make an Artifact reachable without login, call set_visibility with visibility: 'unlisted'. IDs and content URLs are also available via the read/list/link tools.",
+      "Edit/update an EXISTING Artifact: adds and publishes a new Revision under the artifact_id you pass. This is how you change something already published. The Artifact's private_url is STABLE and already-open viewers LIVE-UPDATE to this new Revision; there is no new link to send. Content-only and private: there is no visibility or share param. Use this, NOT publish_artifact, whenever the user wants to revise, fix, or extend work you already published; calling publish_artifact instead would create a separate Artifact on a new link and strand the page the user already has open. The response intentionally omits IDs and content URLs; get artifact_id from list_artifacts (data[].id) when needed, and use read_artifact, read_file, list_revisions, or link tools for follow-up details. To make an Artifact reachable without login, call set_visibility with visibility: 'unlisted'.",
     auth: "mcp_oauth",
     requiredScopes: ["publish", "read"],
     idempotency: "optional_override",
@@ -53,7 +53,7 @@ export const mcpToolContracts = [
   {
     name: "multi_edit",
     description:
-      "Edit one file inside an EXISTING Artifact with literal find/replace, the same {old_string, new_string} model as Claude's Edit tool, then publish the result as a new Revision under the artifact_id. Use this to make a targeted change without resending the whole file: read the file first with read_file, then send ordered edits whose old_string matches the current bytes exactly. Each old_string must occur once (set replace_all to change every occurrence); a miss or an ambiguous match fails loud so you re-read and retry — the server never guesses. The Artifact's private_url is STABLE and already-open viewers LIVE-UPDATE to the new Revision; there is no new link to send. Content-only and PRIVATE. An edit set that reproduces the current bytes is a no-op and mints no Revision. Get the artifact_id from publish_artifact or list_artifacts.",
+      "Edit one file inside an EXISTING Artifact with literal find/replace, the same {old_string, new_string} model as Claude's Edit tool, then publish the result as a new Revision under the artifact_id. Use this to make a targeted change without resending the whole file: read the file first with read_file, then send ordered edits whose old_string matches the current bytes exactly. Each old_string must occur once (set replace_all to change every occurrence); a miss or an ambiguous match fails loud so you re-read and retry. The server never guesses. The Artifact's private_url is STABLE and already-open viewers LIVE-UPDATE to the new Revision; there is no new link to send. Content-only and PRIVATE. An edit set that reproduces the current bytes is a no-op and mints no Revision. Get the artifact_id from list_artifacts (data[].id). Once you have it, use read_artifact or read_file for follow-up details.",
     auth: "mcp_oauth",
     requiredScopes: ["publish", "read"],
     idempotency: "optional_override",
@@ -77,7 +77,7 @@ export const mcpToolContracts = [
   },
   {
     name: "list_artifacts",
-    description: "List artifacts in the authenticated workspace.",
+    description: "List Artifacts in the authenticated workspace. Returns data[]; use data[].id as artifact_id.",
     auth: "mcp_oauth",
     requiredScopes: ["read"],
     idempotency: "none",
@@ -93,7 +93,8 @@ export const mcpToolContracts = [
   },
   {
     name: "read_artifact",
-    description: "Read the latest Agent View for an artifact without inlining file bytes.",
+    description:
+      "Read the latest Agent View for an Artifact after you know artifact_id; returns artifact_id, revision_id, files[].url, and optional bundle metadata without inlining file bytes.",
     auth: "mcp_oauth",
     requiredScopes: ["read"],
     idempotency: "none",
@@ -130,7 +131,8 @@ export const mcpToolContracts = [
   },
   {
     name: "list_revisions",
-    description: "List revisions for an artifact.",
+    description:
+      "List Revisions for an Artifact. Returns items[]; use items[].revision_id when another tool needs a Revision ID.",
     auth: "mcp_oauth",
     requiredScopes: ["read"],
     idempotency: "none",
@@ -213,7 +215,7 @@ export const mcpToolContracts = [
   {
     name: "create_revision_link",
     description:
-      "Create and mint a snapshot Access Link for one specific Revision. Use only when the user explicitly asks for a fixed Revision, not for the live page.",
+      "Create and mint a snapshot Access Link for one specific Revision. Use only when the user explicitly asks for a fixed Revision, not for the live page. Returns the minted snapshot URL as url; to revoke it later, call list_access_links and pass the matching items[].id to revoke_access_link.",
     auth: "mcp_oauth",
     requiredScopes: ["publish", "read"],
     idempotency: "derived",
@@ -234,7 +236,8 @@ export const mcpToolContracts = [
   },
   {
     name: "list_access_links",
-    description: "List Share Links and Revision Links for an artifact.",
+    description:
+      "List Share Links and Revision Links for an Artifact. Returns items[]; use items[].id when revoking a link.",
     auth: "mcp_oauth",
     requiredScopes: ["publish", "read"],
     idempotency: "none",
@@ -250,7 +253,7 @@ export const mcpToolContracts = [
   },
   {
     name: "revoke_access_link",
-    description: "Revoke a Share Link or Revision Link.",
+    description: "Revoke a Share Link or Revision Link by Access Link ID, usually from list_access_links items[].id.",
     auth: "mcp_oauth",
     requiredScopes: ["publish"],
     idempotency: "none",

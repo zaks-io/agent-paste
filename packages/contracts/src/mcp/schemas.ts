@@ -56,7 +56,7 @@ export type McpPublishArtifactInput = z.infer<typeof McpPublishArtifactInput>;
 export const McpAddRevisionInput = z
   .object({
     artifact_id: ArtifactId.describe(
-      "The existing Artifact to revise (from a publish_artifact response or list_artifacts). The new Revision publishes under this Artifact's stable private_url, which live-updates any already-open viewer.",
+      "The existing Artifact to revise. Get it from list_artifacts data[].id. The new Revision publishes under this Artifact's stable private_url, which live-updates any already-open viewer.",
     ),
     body: mcpTextBody,
     render_mode: McpPublishRenderMode,
@@ -88,7 +88,7 @@ export type McpEdit = z.infer<typeof McpEdit>;
 export const McpMultiEditInput = z
   .object({
     artifact_id: ArtifactId.describe(
-      "The existing Artifact to edit (from a publish_artifact response or list_artifacts). The edited Revision publishes under this Artifact's stable private_url, which live-updates any already-open viewer.",
+      "The existing Artifact to edit. Get it from list_artifacts data[].id. The edited Revision publishes under this Artifact's stable private_url, which live-updates any already-open viewer.",
     ),
     path: FilePath.describe(
       "The stored file to edit within the Artifact (e.g. the entrypoint). Read it first with read_file to get the exact base text the edits must match.",

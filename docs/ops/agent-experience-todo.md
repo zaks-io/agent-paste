@@ -51,16 +51,30 @@ The walkthrough used the connected `agent-paste` MCP server (authed as
 >
 > Remaining gaps:
 >
-> - **CLI release gap:** npm `@zaks-io/agent-paste@latest` is still `0.1.7`
->   from `74a839cb`, so external agents using `npx @latest` still reproduce the
->   title drift: `publish --artifact-id` renamed the smoke Artifact to `site`.
->   The CLI package version must be bumped and released before this fix is live
->   for npm/npx users.
-> - **Docs gap:** public `/docs/cli.md` omitted the real `pull` and `edit`
->   commands even though the CLI help and README document them. Patch pending in
->   the CLI release follow-up.
-> - **MCP gap:** authenticated MCP tool calls still need a real connected
->   WorkOS/OAuth host session.
+> - **CLI release gap closed:** npm `@zaks-io/agent-paste@latest` is now `0.1.8`
+>   from `3bc1d56`. Production smoke verified the no-title revision path
+>   (`npx @latest publish --artifact-id`) preserves the existing Agent View
+>   title, and `pull` read back the revised content. The smoke Artifact was
+>   deleted.
+> - **Docs gap fixed on apex:** public `/docs/cli.md` now includes the real
+>   `pull` and `edit` commands.
+> - **MCP evidence captured:** authenticated production MCP was verified through
+>   `mcporter` after OAuth: `whoami`, `publish_artifact`, `list_artifacts`,
+>   `read_artifact`, `read_file`, `add_revision`, `multi_edit`,
+>   `list_revisions`, `set_visibility`, `list_access_links`,
+>   `create_revision_link`, `revoke_access_link`, `set_visibility private`, and
+>   `delete_artifact` all worked.
+> - **MCP docs/tool-description gap:** live `publish_artifact` and
+>   `add_revision` return only `private_url`, `title`, `expires_at`, and
+>   `upload_stats`, but the live tool descriptions said to keep the
+>   `artifact_id` from the response. Source patch pending: tool descriptions and
+>   initialize instructions now say publish outputs omit IDs and agents should
+>   recover the Artifact ID from `list_artifacts.data[].id`.
+> - **MCP output-shape friction:** the live outputs are usable but inconsistent:
+>   `list_artifacts` uses `data[].id`, `list_revisions` uses
+>   `items[].revision_id`, `list_access_links` uses `items[].id`, and
+>   `create_revision_link` returns only `url`, so revocation requires a follow-up
+>   `list_access_links` call. Source docs now spell out those shapes.
 
 ## P0 — `list_artifacts` 500s for any workspace that has a draft artifact
 

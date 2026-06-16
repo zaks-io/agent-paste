@@ -223,19 +223,27 @@ called with incorrect this reference`. Example failed revisions:
   `rev_G13QE0HKHVTR0VGKVMBJ6V10DS`.
 - CLI ergonomics bug found and fixed in source:
   `publish --artifact-id` without `--title` renamed the Artifact to the local
-  temp directory basename. The source CLI now reads the existing Agent View
-  title and preserves it unless `--title` is explicit, but npm `@latest` is
-  still `0.1.7` from `74a839cb`; external `npx @latest` users still reproduce
-  the drift until a CLI version bump and release ships.
-- Public CLI docs gap found: `/docs/cli.md` omitted the real `pull` and `edit`
-  commands that agents need for read-back and literal edits. Patch pending in
-  the CLI release follow-up.
-- Authenticated MCP tool calls were not completed in this Codex session because
-  no WorkOS MCP OAuth bearer token or connected MCP host session was available.
-  Before AP-139 is marked done, run the live MCP tools through a real connected
-  host: `whoami`, `publish_artifact`, `read_artifact`, `add_revision`,
-  `multi_edit`, `set_visibility unlisted`, `list_access_links`,
-  `set_visibility private`, and `delete_artifact`.
+  temp directory basename. Fixed in npm `@zaks-io/agent-paste@0.1.8`
+  (`3bc1d56`): production smoke verified `npx @latest publish --artifact-id`
+  without `--title` preserves the existing Agent View title, `pull` read back
+  the revised content, and the smoke Artifact was deleted.
+- Public CLI docs gap found and fixed in `0.1.8`: `/docs/cli.md` now documents
+  the real `pull` and `edit` commands that agents need for read-back and literal
+  edits.
+- Follow-up authenticated MCP pass completed through `mcporter` after WorkOS
+  OAuth. Verified live production tools: `whoami`, `publish_artifact`,
+  `list_artifacts`, `read_artifact`, `read_file`, `add_revision`, `multi_edit`,
+  `list_revisions`, `set_visibility unlisted`, `list_access_links`,
+  `create_revision_link`, `revoke_access_link`, `set_visibility private`, and
+  `delete_artifact`. Smoke Artifacts created in the authenticated Workspace were
+  deleted after the pass; the ephemeral Artifact remains in its temporary
+  Workspace and expires automatically.
+- MCP ergonomics gaps found in the authenticated pass: live tool descriptions
+  incorrectly said to keep `artifact_id` from `publish_artifact` responses even
+  though publish outputs intentionally omit IDs, and the ID field names differ by
+  list tool (`list_artifacts.data[].id`, `list_revisions.items[].revision_id`,
+  `list_access_links.items[].id`). Source docs/tool text now describe the actual
+  shapes; deploy before the next fresh-session pass.
 
 ## Database credential boundaries
 
