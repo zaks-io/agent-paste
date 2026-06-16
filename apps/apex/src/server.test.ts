@@ -185,6 +185,11 @@ describe("text and data assets", () => {
     for (const loc of ["/install.sh", "/install.ps1"]) {
       expect(body).not.toContain(`<loc>https://agent-paste.sh${loc}</loc>`);
     }
+    // Every entry carries a lastmod with an ISO (YYYY-MM-DD) date, and there is
+    // exactly one lastmod per loc.
+    const locCount = (body.match(/<loc>/g) ?? []).length;
+    const lastmods = body.match(/<lastmod>(\d{4}-\d{2}-\d{2})<\/lastmod>/g) ?? [];
+    expect(lastmods.length).toBe(locCount);
   });
 
   it("returns text assets with no body for HEAD", async () => {
