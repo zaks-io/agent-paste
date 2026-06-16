@@ -24,7 +24,7 @@ export const WORDMARK = {
 
 export const TITLE = "agent-paste.sh: tell your agent where to publish";
 export const META_DESCRIPTION =
-  "Tell your agent what to make and where to post it: agent-paste.sh. It reads the docs, uses CLI or MCP, and returns a revocable Access Link. No deploy, repo, or manual upload.";
+  "agent-paste.sh turns agent output into clean, revocable links you can open, share, and hand to the next agent.";
 
 // The headline itself is canonical JSX in HomePage.tsx (it carries the one
 // accent span, which a plain string can't), so it is intentionally not stored

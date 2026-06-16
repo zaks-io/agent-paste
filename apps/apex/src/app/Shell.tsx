@@ -40,13 +40,14 @@ export function Shell({ meta, assets, analyticsToken, billingEnabled, bleed, chi
         <link rel="preload" as="font" type="font/woff2" crossOrigin="" href="/fonts/Switzer-Variable.woff2" />
         <link rel="preload" as="font" type="font/woff2" crossOrigin="" href="/fonts/SplineSansMono-Variable.woff2" />
         <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="agent-paste.sh" />
         <meta property="og:title" content={meta.title} />
         <meta property="og:description" content={meta.description} />
         <meta property="og:url" content={canonical} />
         <meta property="og:image" content={socialImage} />
         <meta property="og:image:type" content="image/svg+xml" />
-        <meta property="og:image:width" content="1080" />
-        <meta property="og:image:height" content="256" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
         <meta property="og:image:alt" content="agent-paste.sh" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={meta.title} />

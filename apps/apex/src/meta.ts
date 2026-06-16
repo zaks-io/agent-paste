@@ -10,7 +10,7 @@ export const HOME_META: PageMeta = {
 
 export const ABOUT_TITLE = "About agent-paste.sh: where agents publish";
 export const ABOUT_DESCRIPTION =
-  "Why agent-paste exists, the wedge it fills, the boundaries it keeps, and an honest account of how it is built and run. Live early alpha, solo, transient by default.";
+  "Why agent-paste exists, the boundary it keeps, and how the live early-alpha service is built and run.";
 
 export const ABOUT_META: PageMeta = {
   title: ABOUT_TITLE,
