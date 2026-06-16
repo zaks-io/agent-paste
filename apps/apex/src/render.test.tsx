@@ -158,8 +158,8 @@ describe("home page", () => {
     expect(body).toContain('href="https://app.agent-paste.sh/api/auth/sign-in"');
     expect(body).toContain('href="/terms"');
     expect(body).toContain('href="/privacy"');
-    expect(body).toContain('href="/privacy#your-choices"');
     expect(body).toContain('href="/privacy#data-storage-and-protection"');
+    expect(body).not.toContain('href="/privacy#your-choices"');
     expect(body).toContain('href="/llms-full.txt"');
     expect(body).toContain('href="https://github.com/zaks-io/agent-paste"');
   });

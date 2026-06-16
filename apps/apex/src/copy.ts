@@ -168,7 +168,6 @@ export const FOOTER: FooterColumn[] = [
     links: [
       { label: "Terms", href: "/terms" },
       { label: "Privacy", href: "/privacy" },
-      { label: "Privacy choices", href: "/privacy#your-choices" },
       { label: "Data protection", href: "/privacy#data-storage-and-protection" },
     ],
   },
