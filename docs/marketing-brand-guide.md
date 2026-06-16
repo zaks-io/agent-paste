@@ -361,6 +361,11 @@ Transient by default. Revocable on demand.
   agents and developers already live. Lean into it.
 - **CLI command:** `agent-paste`, run as `npx @zaks-io/agent-paste` or installed from
   `@zaks-io/agent-paste`. The installed command is always `agent-paste`.
+- **Operating entity:** the official business name is `Zaks.io, LLC`; the
+  business site is `https://zaks.io`. Use this name for ownership, billing,
+  legal, SSO, and hosted-service operator copy. Do not replace technical
+  namespace references such as `@zaks-io/agent-paste`, `zaks-io/agent-paste`,
+  or `zaks-io:email`.
 - **Domain terms** (Artifact, Revision, Access Link, Workspace, Agent View,
   Publish, and the rest) are proper nouns from CONTEXT.md. Capitalize them and
   respect the `Avoid:` lists. An Artifact is never a "paste," "post," or "blob."

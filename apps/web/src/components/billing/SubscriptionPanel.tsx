@@ -1,3 +1,4 @@
+import { OPERATING_COMPANY } from "@agent-paste/brand";
 import type { BillingStatusResponse } from "@agent-paste/contracts";
 import { Button, cn, SectionLabel } from "@agent-paste/ui";
 import { useState } from "react";
@@ -70,6 +71,17 @@ export function SubscriptionPanel({ status }: { status: BillingStatusResponse })
           </Button>
         </div>
       ) : null}
+
+      <p className="mt-4 font-mono text-mono-sm leading-relaxed text-faint">
+        Subscriptions are billed by{" "}
+        <a
+          className="text-subtle underline decoration-accent/40 underline-offset-2 transition-colors duration-150 ease-out hover:text-accent"
+          href={OPERATING_COMPANY.href}
+        >
+          {OPERATING_COMPANY.name}
+        </a>{" "}
+        through Stripe.
+      </p>
 
       {pastDue ? (
         <BillingNote tone="warning">

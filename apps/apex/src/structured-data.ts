@@ -1,3 +1,4 @@
+import { OPERATING_COMPANY } from "@agent-paste/brand";
 import { META_DESCRIPTION } from "./copy";
 import type { PageMeta } from "./meta";
 
@@ -16,14 +17,14 @@ import type { PageMeta } from "./meta";
 // Canonical URLs are always production, matching the <link rel="canonical">
 // tags, even on the preview deploy.
 const SITE_URL = "https://agent-paste.sh";
-const ORGANIZATION_ID = `${SITE_URL}/#organization`;
+const ORGANIZATION_ID = `${OPERATING_COMPANY.href}/#organization`;
 const WEBSITE_ID = `${SITE_URL}/#website`;
 
 const ORGANIZATION = {
   "@type": "Organization",
   "@id": ORGANIZATION_ID,
-  name: "agent-paste",
-  url: SITE_URL,
+  name: OPERATING_COMPANY.name,
+  url: OPERATING_COMPANY.href,
   description: META_DESCRIPTION,
   logo: `${SITE_URL}/agent-paste-social.png`,
   sameAs: ["https://github.com/zaks-io/agent-paste"],

@@ -1,3 +1,4 @@
+import { OPERATING_COMPANY } from "@agent-paste/brand";
 import { PLANS } from "@agent-paste/plans";
 import { ButtonAnchor } from "@agent-paste/ui";
 import {
@@ -84,7 +85,11 @@ export function PricingPage() {
             <a className="underline decoration-accent/40 underline-offset-2" href="/docs/billing">
               Billing and Plans
             </a>{" "}
-            for checkout and subscription details.
+            for checkout and subscription details. Checkout and subscriptions are handled by{" "}
+            <a className="underline decoration-accent/40 underline-offset-2" href={OPERATING_COMPANY.href}>
+              {OPERATING_COMPANY.name}
+            </a>{" "}
+            through Stripe.
           </p>
         </section>
       </div>

@@ -35,6 +35,7 @@ describe("BillingDashboard", () => {
     expect(screen.getByText("Choose a plan")).toBeInTheDocument();
     expect(screen.getByText("Subscription")).toBeInTheDocument();
     expect(screen.getByText("No invoices yet")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Zaks.io, LLC" })).toHaveAttribute("href", "https://zaks.io");
   });
 
   it("shows the operator-override note only when overridden", () => {

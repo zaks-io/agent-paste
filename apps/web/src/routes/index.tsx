@@ -1,3 +1,4 @@
+import { OPERATING_COMPANY } from "@agent-paste/brand";
 import { Wordmark } from "@agent-paste/ui";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
@@ -56,6 +57,16 @@ function HomePage() {
           >
             Continue with WorkOS
           </a>
+          <p className="mx-auto max-w-[34ch] font-mono text-mono-sm leading-relaxed text-faint">
+            Accounts and billing are operated by{" "}
+            <a
+              className="text-subtle underline decoration-accent/40 underline-offset-2 transition-colors duration-150 ease-out hover:text-accent"
+              href={OPERATING_COMPANY.href}
+            >
+              {OPERATING_COMPANY.name}
+            </a>
+            .
+          </p>
         </div>
       </div>
     </main>
