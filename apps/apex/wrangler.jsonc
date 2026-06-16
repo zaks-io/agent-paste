@@ -25,6 +25,11 @@
     "binding": "ASSETS",
     "directory": "./dist/client",
     "not_found_handling": "none",
+    // Prerender emits dir/index.html, which the asset server would otherwise
+    // serve at /about/ and 307-redirect /about -> /about/. Our canonical tags
+    // and sitemap advertise the no-slash form, so drop the slash to make the
+    // served URL match the advertised one (no-slash 200, /about/ -> /about).
+    "html_handling": "drop-trailing-slash",
     "run_worker_first": true
   },
   "env": {

@@ -177,10 +177,13 @@ describe("text and data assets", () => {
       "/privacy",
       "/llms.txt",
       "/llms-full.txt",
-      "/install.sh",
-      "/install.ps1",
     ]) {
       expect(body).toContain(`<loc>https://agent-paste.sh${loc}</loc>`);
+    }
+    // Install scripts are downloadable assets, not indexable pages: they must
+    // not appear in the sitemap.
+    for (const loc of ["/install.sh", "/install.ps1"]) {
+      expect(body).not.toContain(`<loc>https://agent-paste.sh${loc}</loc>`);
     }
   });
 
