@@ -1,11 +1,9 @@
 import { ButtonAnchor } from "@agent-paste/ui";
 import { PageHeader } from "../components/marketing";
-import { DOCS_PAGES, docsHtmlPath } from "../docs/registry";
+import { DOCS_DESCRIPTION, docsHtmlPath } from "../docs/registry";
+import type { DocsPage } from "../docs/types";
 
-const DOCS_DESCRIPTION =
-  "Official agent-paste usage docs covering install, auth, publish, Artifacts, Access Links, billing, MCP, limits, and safety.";
-
-export function DocsIndexPage() {
+export function DocsIndexPage({ pages }: { pages: readonly DocsPage[] }) {
   return (
     <main>
       <div className="flex flex-col gap-[clamp(40px,6vh,56px)]">
@@ -28,7 +26,7 @@ export function DocsIndexPage() {
           className="grid grid-cols-1 gap-3 [@media(min-width:720px)]:grid-cols-2"
           aria-label="Documentation pages"
         >
-          {DOCS_PAGES.map((page) => (
+          {pages.map((page) => (
             <a
               className="group grid min-h-[132px] gap-2 rounded-sm border border-rule bg-surface p-4 transition-[border-color,background-color] duration-[80ms] ease-out hover:border-accent hover:bg-surface-2"
               href={docsHtmlPath(page)}

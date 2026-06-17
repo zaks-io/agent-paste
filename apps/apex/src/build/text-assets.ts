@@ -1,7 +1,7 @@
 import { GPC_SUPPORT_BODY, GPC_SUPPORT_PATH } from "@agent-paste/brand";
 import { AGENTS_MD } from "../agents";
 import { renderDocsIndexMarkdown, renderDocsPageMarkdown, renderLlmsFullText } from "../docs/markdown";
-import { DOCS_PAGES, docsHtmlPath, docsMarkdownPath } from "../docs/registry";
+import { docsHtmlPath, docsMarkdownPath, docsPagesForBilling } from "../docs/registry";
 import { INSTALL_PS1 } from "../install-ps1";
 import { INSTALL_SH } from "../install-sh";
 import { renderLlmsTxt } from "../llms";
@@ -15,14 +15,15 @@ const TEXT_SHELL = "text/x-shellscript; charset=utf-8";
 export type TextAsset = { path: string; contentType: string; body: string };
 
 export function textAssets(opts: { origin: string; billingEnabled: boolean }): TextAsset[] {
+  const docsPages = docsPagesForBilling(opts.billingEnabled);
   return [
-    { path: "/docs.md", contentType: TEXT_MARKDOWN, body: renderDocsIndexMarkdown() },
-    ...DOCS_PAGES.map((page) => ({
+    { path: "/docs.md", contentType: TEXT_MARKDOWN, body: renderDocsIndexMarkdown(docsPages) },
+    ...docsPages.map((page) => ({
       path: docsMarkdownPath(page),
       contentType: TEXT_MARKDOWN,
       body: renderDocsPageMarkdown(page),
     })),
-    { path: "/llms-full.txt", contentType: TEXT_PLAIN, body: renderLlmsFullText() },
+    { path: "/llms-full.txt", contentType: TEXT_PLAIN, body: renderLlmsFullText(docsPages) },
     { path: "/llms.txt", contentType: TEXT_PLAIN, body: renderLlmsTxt(opts.billingEnabled) },
     { path: "/agents.md", contentType: TEXT_MARKDOWN, body: AGENTS_MD },
     { path: "/install.sh", contentType: TEXT_SHELL, body: INSTALL_SH },
@@ -57,6 +58,7 @@ function securityTxt(): string {
 const SITEMAP_LASTMOD = "2026-06-16";
 
 function sitemapXml(origin: string, billingEnabled: boolean): string {
+  const docsPages = docsPagesForBilling(billingEnabled);
   const urls = [
     "/",
     "/about",
@@ -64,7 +66,7 @@ function sitemapXml(origin: string, billingEnabled: boolean): string {
     ...(billingEnabled ? ["/pricing"] : []),
     "/docs",
     "/docs.md",
-    ...DOCS_PAGES.flatMap((page) => [docsHtmlPath(page), docsMarkdownPath(page)]),
+    ...docsPages.flatMap((page) => [docsHtmlPath(page), docsMarkdownPath(page)]),
     "/terms",
     "/privacy",
     "/llms.txt",

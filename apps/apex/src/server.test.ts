@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DOCS_PAGES, docsMarkdownPath } from "./docs/registry";
+import { docsMarkdownPath, docsPagesForBilling } from "./docs/registry";
 import { type Env, handleRequest } from "./server";
 
 const APEX = "https://agent-paste.sh";
@@ -89,18 +89,24 @@ describe("text and data assets", () => {
     expect(response.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
     const body = await response.text();
     expect(body).toContain("# agent-paste docs");
-    for (const page of DOCS_PAGES) {
+    for (const page of docsPagesForBilling(false)) {
       expect(body).toContain(`[${page.title}](${docsMarkdownPath(page)})`);
     }
+    expect(body).not.toContain("Billing and Plans");
+  });
+
+  it("adds billing to the docs index Markdown twin only when billing is enabled", async () => {
+    const body = await (await get("/docs.md", { BILLING_ENABLED: "true" })).text();
+    expect(body).toContain("[Billing and Plans](/docs/billing.md)");
   });
 
   it("serves a docs child Markdown twin", async () => {
-    const response = await get("/docs/billing.md");
+    const response = await get("/docs/safety.md");
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
     const body = await response.text();
-    expect(body).toContain("# Billing and Plans");
-    expect(body).toContain("| Pro | 2000 | 25 MB | 100 MB | 30d default, 90d max | 1000 | Yes |");
+    expect(body).toContain("# Safety and Content Isolation");
+    expect(body).toContain("Do not upload secrets");
   });
 
   it("serves the safety Markdown twin with the secrets warning", async () => {
@@ -118,9 +124,15 @@ describe("text and data assets", () => {
     const body = await response.text();
     expect(body).toContain("# agent-paste full docs");
     expect(body).toContain("# Getting Started");
-    expect(body).toContain("# Billing and Plans");
+    expect(body).not.toContain("# Billing and Plans");
     expect(body).toContain("# MCP Server");
     expect(body).toContain("Per-page Markdown twins live under /docs/{slug}.md");
+  });
+
+  it("adds billing to /llms-full.txt only when billing is enabled", async () => {
+    const body = await (await get("/llms-full.txt", { BILLING_ENABLED: "true" })).text();
+    expect(body).toContain("# Billing and Plans");
+    expect(body).toContain("Stripe Checkout");
   });
 
   it("serves /install.sh as a checksum-verifying POSIX script", async () => {
@@ -183,8 +195,6 @@ describe("text and data assets", () => {
       "/how-it-works",
       "/docs",
       "/docs.md",
-      "/docs/billing",
-      "/docs/billing.md",
       "/terms",
       "/privacy",
       "/llms.txt",
@@ -195,6 +205,9 @@ describe("text and data assets", () => {
     // Install scripts are downloadable assets, not indexable pages: they must
     // not appear in the sitemap.
     for (const loc of ["/install.sh", "/install.ps1"]) {
+      expect(body).not.toContain(`<loc>https://agent-paste.sh${loc}</loc>`);
+    }
+    for (const loc of ["/pricing", "/docs/billing", "/docs/billing.md"]) {
       expect(body).not.toContain(`<loc>https://agent-paste.sh${loc}</loc>`);
     }
     // Every entry carries a lastmod with an ISO (YYYY-MM-DD) date, and there is
@@ -250,11 +263,12 @@ describe("funnel events", () => {
 });
 
 describe("billing-gated text assets", () => {
-  it("lists /pricing in the sitemap only when billing is enabled", async () => {
+  it("lists pricing and billing docs in the sitemap only when billing is enabled", async () => {
     expect(await (await get("/sitemap.xml")).text()).not.toContain("<loc>https://agent-paste.sh/pricing</loc>");
-    expect(await (await get("/sitemap.xml", { BILLING_ENABLED: "true" })).text()).toContain(
-      "<loc>https://agent-paste.sh/pricing</loc>",
-    );
+    const enabled = await (await get("/sitemap.xml", { BILLING_ENABLED: "true" })).text();
+    for (const loc of ["/pricing", "/docs/billing", "/docs/billing.md"]) {
+      expect(enabled).toContain(`<loc>https://agent-paste.sh${loc}</loc>`);
+    }
   });
 
   it("adds the Pricing section to llms.txt only when billing is enabled", async () => {
@@ -263,6 +277,26 @@ describe("billing-gated text assets", () => {
     expect(enabled).toContain("## Pricing");
     expect(enabled).toContain("/pricing");
     expect(enabled).toContain("https://app.agent-paste.sh/billing");
+  });
+
+  it("404s /docs/billing.md when billing is disabled", async () => {
+    const response = await get("/docs/billing.md", { ASSETS: notFoundAssets });
+    expect(response.status).toBe(404);
+    await expect(response.text()).resolves.toBe("not_found");
+  });
+
+  it("404s /docs/billing when billing is disabled", async () => {
+    const response = await get("/docs/billing", { ASSETS: notFoundAssets });
+    expect(response.status).toBe(404);
+    await expect(response.text()).resolves.toBe("not_found");
+  });
+
+  it("serves /docs/billing.md when billing is enabled", async () => {
+    const response = await get("/docs/billing.md", { BILLING_ENABLED: "true" });
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(body).toContain("# Billing and Plans");
+    expect(body).toContain("Stripe Checkout");
   });
 });
 

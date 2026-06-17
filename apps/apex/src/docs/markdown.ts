@@ -1,7 +1,7 @@
-import { DOCS_PAGES, docsHtmlPath, docsMarkdownPath } from "./registry";
+import { docsHtmlPath, docsMarkdownPath } from "./registry";
 import type { DocsBlock, DocsPage } from "./types";
 
-export function renderDocsIndexMarkdown(): string {
+export function renderDocsIndexMarkdown(pages: readonly DocsPage[]): string {
   return [
     "# agent-paste docs",
     "",
@@ -15,7 +15,7 @@ export function renderDocsIndexMarkdown(): string {
     "",
     "## Pages",
     "",
-    ...DOCS_PAGES.flatMap((page) => [`- [${page.title}](${docsMarkdownPath(page)}) - ${page.summary}`]),
+    ...pages.flatMap((page) => [`- [${page.title}](${docsMarkdownPath(page)}) - ${page.summary}`]),
     "",
   ].join("\n");
 }
@@ -33,16 +33,16 @@ export function renderDocsPageMarkdown(page: DocsPage): string {
   ].join("\n");
 }
 
-export function renderLlmsFullText(): string {
+export function renderLlmsFullText(pages: readonly DocsPage[]): string {
   return [
     "# agent-paste full docs",
     "",
     "This is the complete machine-readable public docs corpus for agent-paste.",
     "Human docs start at /docs. Per-page Markdown twins live under /docs/{slug}.md.",
     "",
-    renderDocsIndexMarkdown().trim(),
+    renderDocsIndexMarkdown(pages).trim(),
     "",
-    ...DOCS_PAGES.map((page) => renderDocsPageMarkdown(page).trim()),
+    ...pages.map((page) => renderDocsPageMarkdown(page).trim()),
     "",
   ].join("\n\n");
 }

@@ -10,6 +10,9 @@ import { SAFETY_DOC } from "./pages/safety";
 import { SHARING_DOC } from "./pages/sharing";
 import type { DocsPage } from "./types";
 
+export const DOCS_DESCRIPTION =
+  "Official agent-paste usage docs covering install, auth, publish, Artifacts, Access Links, MCP, limits, and safety.";
+
 export const DOCS_PAGES = [
   GETTING_STARTED_DOC,
   CLI_DOC,
@@ -22,6 +25,10 @@ export const DOCS_PAGES = [
   LIMITS_DOC,
   SAFETY_DOC,
 ] as const satisfies readonly DocsPage[];
+
+export function docsPagesForBilling(billingEnabled: boolean): readonly DocsPage[] {
+  return billingEnabled ? DOCS_PAGES : DOCS_PAGES.filter((page) => page.slug !== BILLING_DOC.slug);
+}
 
 export function docsHtmlPath(page: DocsPage): string {
   return `/docs/${page.slug}`;
