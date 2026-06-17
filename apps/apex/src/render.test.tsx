@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { type ApexAssets, Shell } from "./app/Shell";
 import { EXAMPLE_PROMPT, PUBLISH_EPHEMERAL_CMD } from "./copy";
-import { DOCS_PAGES } from "./docs/registry";
+import { docsPagesForBilling } from "./docs/registry";
 import { getRoutes } from "./routes";
 
 // Pages are prerendered to static HTML at build time. These tests render a route
@@ -285,9 +285,16 @@ describe("docs pages", () => {
     const body = renderPage("/docs");
     expect(body).toContain('href="/docs.md"');
     expect(body).toContain('href="/llms-full.txt"');
-    for (const page of DOCS_PAGES) {
+    for (const page of docsPagesForBilling(false)) {
       expect(body).toContain(page.title);
     }
+    expect(body).not.toContain("Billing and Plans");
+  });
+
+  it("registers billing docs only when billing is enabled", () => {
+    expect(hasRoute("/docs/billing", false)).toBe(false);
+    expect(hasRoute("/docs/billing", true)).toBe(true);
+    expect(renderPage("/docs", { billingEnabled: true })).toContain("Billing and Plans");
   });
 
   // Every shipped doc page must prerender, carry its title, and link its Markdown
@@ -296,7 +303,7 @@ describe("docs pages", () => {
   // since the corpus uses all of them. (Page titles are registry-driven structure,
   // not free-form marketing copy, so asserting them is a twin/contract check.)
   it.each(
-    DOCS_PAGES.map((page) => [page.slug, page.title] as const),
+    docsPagesForBilling(false).map((page) => [page.slug, page.title] as const),
   )("prerenders /docs/%s with its title and Markdown twin", (slug, title) => {
     const body = renderPage(`/docs/${slug}`);
     expect(body).toContain(title);

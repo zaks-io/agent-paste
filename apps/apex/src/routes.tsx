@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { DOCS_PAGES, docsHtmlPath } from "./docs/registry";
+import { docsHtmlPath, docsPagesForBilling } from "./docs/registry";
 import { PRIVACY } from "./legal-privacy";
 import { TERMS } from "./legal-terms";
 import type { LegalDocument } from "./legal-types";
@@ -23,7 +23,7 @@ export type ApexRoute = {
 };
 
 const DOCS_DESCRIPTION =
-  "Official agent-paste usage docs covering install, auth, publish, Artifacts, Access Links, billing, MCP, limits, and safety.";
+  "Official agent-paste usage docs covering install, auth, publish, Artifacts, Access Links, MCP, limits, and safety.";
 
 const DOCS_INDEX_META: PageMeta = {
   title: "agent-paste docs",
@@ -39,17 +39,18 @@ function legalMeta(document: LegalDocument): PageMeta {
   };
 }
 
-// The full apex route table. `/pricing` only exists when billing is enabled, so
-// the production build (BILLING_ENABLED=false) literally never prerenders it and
-// the worker shim 404s the path.
+// The full apex route table. Paid billing routes/docs only exist when billing is
+// enabled, so the production build (BILLING_ENABLED=false) never prerenders
+// them and the worker shim 404s those paths.
 export function getRoutes(billingEnabled: boolean): ApexRoute[] {
+  const docsPages = docsPagesForBilling(billingEnabled);
   return [
     { path: "/", meta: HOME_META, bleed: true, element: <HomePage /> },
     { path: "/about", meta: ABOUT_META, element: <AboutPage /> },
     { path: "/how-it-works", meta: HOW_IT_WORKS_META, element: <HowItWorksPage /> },
     ...(billingEnabled ? [{ path: "/pricing", meta: PRICING_META, element: <PricingPage /> }] : []),
-    { path: "/docs", meta: DOCS_INDEX_META, element: <DocsIndexPage /> },
-    ...DOCS_PAGES.map((page) => ({
+    { path: "/docs", meta: DOCS_INDEX_META, element: <DocsIndexPage pages={docsPages} /> },
+    ...docsPages.map((page) => ({
       path: docsHtmlPath(page),
       meta: {
         title: `${page.title} - agent-paste docs`,

@@ -23,6 +23,10 @@ export const DOCS_PAGES = [
   SAFETY_DOC,
 ] as const satisfies readonly DocsPage[];
 
+export function docsPagesForBilling(billingEnabled: boolean): readonly DocsPage[] {
+  return billingEnabled ? DOCS_PAGES : DOCS_PAGES.filter((page) => page.slug !== BILLING_DOC.slug);
+}
+
 export function docsHtmlPath(page: DocsPage): string {
   return `/docs/${page.slug}`;
 }

@@ -13,6 +13,7 @@ describe("entry-server prerender contract", () => {
     expect(ROUTE_PATHS).toContain("/about");
     expect(ROUTE_PATHS).toContain("/how-it-works");
     expect(ROUTE_PATHS).toContain("/docs");
+    expect(ROUTE_PATHS).not.toContain("/docs/billing");
     expect(ROUTE_PATHS).toContain("/terms");
     expect(ROUTE_PATHS).toContain("/privacy");
     expect(ROUTE_PATHS).not.toContain("/pricing");
