@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { docsHtmlPath, docsPagesForBilling } from "./docs/registry";
+import { DOCS_DESCRIPTION, docsHtmlPath, docsPagesForBilling } from "./docs/registry";
 import { PRIVACY } from "./legal-privacy";
 import { TERMS } from "./legal-terms";
 import type { LegalDocument } from "./legal-types";
@@ -21,9 +21,6 @@ export type ApexRoute = {
   bleed?: boolean;
   element: ReactNode;
 };
-
-const DOCS_DESCRIPTION =
-  "Official agent-paste usage docs covering install, auth, publish, Artifacts, Access Links, MCP, limits, and safety.";
 
 const DOCS_INDEX_META: PageMeta = {
   title: "agent-paste docs",

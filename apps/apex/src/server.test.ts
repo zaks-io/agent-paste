@@ -241,6 +241,12 @@ describe("billing-gated text assets", () => {
     await expect(response.text()).resolves.toBe("not_found");
   });
 
+  it("404s /docs/billing when billing is disabled", async () => {
+    const response = await get("/docs/billing", { ASSETS: notFoundAssets });
+    expect(response.status).toBe(404);
+    await expect(response.text()).resolves.toBe("not_found");
+  });
+
   it("serves /docs/billing.md when billing is enabled", async () => {
     const response = await get("/docs/billing.md", { BILLING_ENABLED: "true" });
     expect(response.status).toBe(200);

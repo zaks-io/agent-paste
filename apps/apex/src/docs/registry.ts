@@ -10,6 +10,9 @@ import { SAFETY_DOC } from "./pages/safety";
 import { SHARING_DOC } from "./pages/sharing";
 import type { DocsPage } from "./types";
 
+export const DOCS_DESCRIPTION =
+  "Official agent-paste usage docs covering install, auth, publish, Artifacts, Access Links, MCP, limits, and safety.";
+
 export const DOCS_PAGES = [
   GETTING_STARTED_DOC,
   CLI_DOC,

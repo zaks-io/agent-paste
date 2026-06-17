@@ -1,10 +1,7 @@
 import { ButtonAnchor } from "@agent-paste/ui";
 import { PageHeader } from "../components/marketing";
-import { docsHtmlPath } from "../docs/registry";
+import { DOCS_DESCRIPTION, docsHtmlPath } from "../docs/registry";
 import type { DocsPage } from "../docs/types";
-
-const DOCS_DESCRIPTION =
-  "Official agent-paste usage docs covering install, auth, publish, Artifacts, Access Links, MCP, limits, and safety.";
 
 export function DocsIndexPage({ pages }: { pages: readonly DocsPage[] }) {
   return (
