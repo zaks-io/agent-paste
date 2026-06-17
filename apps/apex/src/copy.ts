@@ -73,6 +73,7 @@ export const EXAMPLE_STATIC_PAGE_PATH = "/a/art_8KQ2WSDIEGO7XR";
 export const EXAMPLE_ACCESS_LINK_URL =
   "app.agent-paste.sh/al/8KQ2WSDG07XR4T9M#AQEAAAGJk2YAAAEC9XQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz0";
 export const EXAMPLE_PROMPT = "Build a one-page project handoff, publish it with agent-paste.sh, and give me the link.";
+export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v1";
 
 export type TranscriptLine =
   | { kind: "prompt"; text: string }

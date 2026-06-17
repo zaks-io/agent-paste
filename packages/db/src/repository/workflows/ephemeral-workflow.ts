@@ -20,6 +20,7 @@ import { buildApiKey } from "../shared.js";
 
 /** Default claim-token lifetime for a freshly provisioned ephemeral workspace. */
 const DEFAULT_CLAIM_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
+const EPHEMERAL_CLAIM_OPERATION = "ephemeral.workspace.claim";
 
 export type CreateEphemeralWorkspaceResult = {
   workspace: Workspace;
@@ -157,6 +158,18 @@ export async function claimEphemeralWorkspace(
     now?: Date;
   },
 ): Promise<ClaimEphemeralWorkspaceResult> {
+  return (await claimEphemeralWorkspaceWithReplayState(ctx, input)).result;
+}
+
+export async function claimEphemeralWorkspaceWithReplayState(
+  ctx: RepositoryCoreContext,
+  input: {
+    actor: ApiActor;
+    claimTokenSecret: string;
+    idempotencyKey: string;
+    now?: Date;
+  },
+): Promise<{ result: ClaimEphemeralWorkspaceResult; isReplay: boolean }> {
   if (input.actor.type !== "member") {
     repositoryError("forbidden");
   }
@@ -164,7 +177,7 @@ export async function claimEphemeralWorkspace(
   const commandActor = memberCommandActor(input.actor);
   const replay = await ctx.uow.peekReplay<ClaimEphemeralWorkspaceResult>({
     actor: commandActor,
-    operation: "ephemeral.workspace.claim",
+    operation: EPHEMERAL_CLAIM_OPERATION,
     idempotencyKey: input.idempotencyKey,
     scope: PLATFORM_SCOPE,
   });
@@ -172,7 +185,7 @@ export async function claimEphemeralWorkspace(
     throw new IdempotencyInFlightError();
   }
   if (replay && "result" in replay) {
-    return replay.result;
+    return { result: replay.result, isReplay: true };
   }
 
   const claimToken = await resolveClaimTokenRecord(ctx, input.claimTokenSecret);
@@ -201,10 +214,10 @@ export async function claimEphemeralWorkspace(
     });
   }
 
-  return ctx.uow.command(
+  return ctx.uow.commandWithReplay(
     {
       actor: commandActor,
-      operation: "ephemeral.workspace.claim",
+      operation: EPHEMERAL_CLAIM_OPERATION,
       idempotencyKey: input.idempotencyKey,
       scope: PLATFORM_SCOPE,
       now,
@@ -265,4 +278,16 @@ export async function claimEphemeralWorkspace(
       };
     },
   );
+}
+
+export async function peekEphemeralClaimReplay(
+  ctx: RepositoryCoreContext,
+  input: { actor: ApiActor; idempotencyKey: string },
+) {
+  return ctx.uow.peekReplay<ClaimEphemeralWorkspaceResult>({
+    actor: memberCommandActor(input.actor),
+    operation: EPHEMERAL_CLAIM_OPERATION,
+    idempotencyKey: input.idempotencyKey,
+    scope: PLATFORM_SCOPE,
+  });
 }

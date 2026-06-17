@@ -2,6 +2,8 @@ import { z } from "./zod.js";
 
 const ulidBody = "[0-9A-HJKMNP-TV-Z]{26}";
 
+export const CLAIM_CODE_HEADER = "X-Agent-Paste-Claim-Code";
+
 const prefixedId = <Brand extends string>(prefix: string) =>
   z
     .string()
@@ -31,6 +33,17 @@ export type AccessLinkId = z.infer<typeof AccessLinkId>;
 
 export const OperationEventId = prefixedId<"OperationEventId">("evt");
 export type OperationEventId = z.infer<typeof OperationEventId>;
+
+export const ClaimCode = prefixedId<"ClaimCode">("clm");
+export type ClaimCode = z.infer<typeof ClaimCode>;
+
+export const OptionalClaimCodeInput = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return ClaimCode.safeParse(trimmed).success ? trimmed : undefined;
+}, ClaimCode.optional());
 
 export const IdempotencyKey = z
   .string()

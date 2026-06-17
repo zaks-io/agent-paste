@@ -4,6 +4,7 @@ import {
   AgentView,
   ArtifactFileContent,
   type ArtifactId,
+  type ClaimCode,
   type CreateAccessLinkRequest,
   CreateAccessLinkResponse,
   type CreateApiKeyRequest,
@@ -41,6 +42,7 @@ export type ApiClientOptions = {
   auth?: AgentPasteAuth;
   apiBaseUrl?: string;
   uploadBaseUrl?: string;
+  defaultHeaders?: Record<string, string>;
   fetch?: typeof fetch;
 };
 
@@ -77,6 +79,7 @@ export class ApiClient {
 
   private readonly auth: AgentPasteAuth | undefined;
   private readonly fetchImpl: typeof fetch;
+  private readonly defaultHeaders: Record<string, string>;
 
   constructor(options: ApiClientOptions = {}) {
     this.auth = options.auth ?? authFromEnv();
@@ -84,6 +87,7 @@ export class ApiClient {
     this.uploadBaseUrl = normalizeBaseUrl(
       options.uploadBaseUrl ?? process.env.AGENT_PASTE_UPLOAD_URL ?? "https://upload.agent-paste.sh",
     );
+    this.defaultHeaders = options.defaultHeaders ?? {};
     this.fetchImpl = options.fetch ?? fetch;
   }
 
@@ -229,11 +233,12 @@ export class ApiClient {
     let lastError: AgentPasteError | undefined;
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       try {
-        const challenge = await this.fetchEphemeralPowChallenge();
+        const challenge = await this.fetchEphemeralPowChallenge(options.claimCode);
         const counter = await solvePowChallenge(challenge);
         return await this.request(EphemeralProvisionResponse, this.apiBaseUrl, "/v1/ephemeral/provision", {
           method: "POST",
           body: {
+            ...(options.claimCode ? { claim_code: options.claimCode } : {}),
             challenge,
             solution: { nonce: challenge.nonce, counter },
           },
@@ -250,14 +255,14 @@ export class ApiClient {
     throw lastError ?? new AgentPasteError({ code: "pow_invalid", message: "pow_invalid", status: 400 });
   }
 
-  private async fetchEphemeralPowChallenge(): Promise<PowChallenge> {
+  private async fetchEphemeralPowChallenge(claimCode?: ClaimCode): Promise<PowChallenge> {
     const response = await this.fetchImpl(`${this.apiBaseUrl}/v1/ephemeral/provision`, {
       method: "POST",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
       },
-      body: "{}",
+      body: JSON.stringify(claimCode ? { claim_code: claimCode } : {}),
     });
     const text = await response.text();
     let data: unknown = {};
@@ -294,6 +299,7 @@ export class ApiClient {
   ): Promise<Output> {
     const headers: Record<string, string> = {
       Accept: "application/json",
+      ...this.defaultHeaders,
       ...options.headers,
     };
     const init: RequestInit = {
@@ -445,6 +451,8 @@ function isErrorEnvelopeLike(
 export type EphemeralProvisionOptions = {
   /** Retries provision with a fresh challenge after `pow_invalid` (default 2). */
   maxPowAttempts?: number;
+  /** Optional public claim code from a copied marketing prompt. */
+  claimCode?: ClaimCode;
 };
 
 export function createIdempotencyKey(prefix = "cli"): IdempotencyKey {

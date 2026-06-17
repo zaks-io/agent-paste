@@ -1,6 +1,6 @@
 import { GPC_SUPPORT_PATH, shouldDisableOptionalAnalytics } from "@agent-paste/brand";
 import { isBillingEnabled } from "@agent-paste/config";
-import { sentryOptions } from "@agent-paste/worker-runtime";
+import { type AnalyticsEngineDataset, sentryOptions, writeFunnelEvent } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { textAssets } from "./build/text-assets";
 import { productRedirect } from "./redirects";
@@ -12,6 +12,7 @@ export type Env = {
   SENTRY_DSN?: string;
   CF_WEB_ANALYTICS_TOKEN?: string;
   BILLING_ENABLED?: string;
+  FUNNEL_EVENTS?: AnalyticsEngineDataset;
 };
 
 const TEXT_PLAIN = "text/plain; charset=utf-8";
@@ -36,6 +37,9 @@ const TEXT_ASSET_PATHS = new Set([
 ]);
 
 const ANALYTICS_BEACON_SELECTOR = 'script[src="https://static.cloudflareinsights.com/beacon.min.js"]';
+const FUNNEL_EVENTS_PATH = "/__funnel/events";
+const CLAIM_CODE_PATTERN = /^clm_[0-9A-HJKMNP-TV-Z]{26}$/;
+const PROMPT_VARIANT_PATTERN = /^[a-z0-9][a-z0-9_:-]{0,79}$/;
 
 export function isTextAssetPath(pathname: string): boolean {
   return TEXT_ASSET_PATHS.has(pathname) || /^\/docs\/[^/]+\.md$/.test(pathname);
@@ -51,7 +55,11 @@ export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
-  const security = apexSecurityHeaders();
+  const security = apexSecurityHeaders() as Record<string, string>;
+
+  if (url.pathname === FUNNEL_EVENTS_PATH) {
+    return handleFunnelEvent(request, env, security);
+  }
 
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: { allow: "GET, HEAD, OPTIONS" } });
@@ -105,6 +113,45 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
     status: 404,
     headers: { "content-type": TEXT_PLAIN, ...security },
   });
+}
+
+async function handleFunnelEvent(request: Request, env: Env, security: Record<string, string>): Promise<Response> {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: { allow: "POST, OPTIONS", ...security } });
+  }
+  if (request.method !== "POST") {
+    return new Response("method_not_allowed", {
+      status: 405,
+      headers: { allow: "POST, OPTIONS", "content-type": TEXT_PLAIN, ...security },
+    });
+  }
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response("invalid_json", { status: 400, headers: { "content-type": TEXT_PLAIN, ...security } });
+  }
+  if (!body || typeof body !== "object") {
+    return new Response("invalid_event", { status: 400, headers: { "content-type": TEXT_PLAIN, ...security } });
+  }
+  const event = body as { event?: unknown; claim_code?: unknown; prompt_variant?: unknown };
+  if (
+    event.event !== "prompt_copied" ||
+    typeof event.claim_code !== "string" ||
+    !CLAIM_CODE_PATTERN.test(event.claim_code) ||
+    typeof event.prompt_variant !== "string" ||
+    !PROMPT_VARIANT_PATTERN.test(event.prompt_variant)
+  ) {
+    return new Response("invalid_event", { status: 400, headers: { "content-type": TEXT_PLAIN, ...security } });
+  }
+
+  writeFunnelEvent(env.FUNNEL_EVENTS, {
+    kind: "prompt_copied",
+    surface: "apex",
+    claimCode: event.claim_code,
+    promptVariant: event.prompt_variant,
+  });
+  return new Response(null, { status: 204, headers: { "cache-control": "no-store", ...security } });
 }
 
 function maybeStripOptionalAnalytics(request: Request, response: Response): Response {

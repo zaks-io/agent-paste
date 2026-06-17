@@ -157,6 +157,16 @@ export type Repository = {
     idempotencyKey: string;
     now?: Date;
   }): Promise<ClaimEphemeralWorkspaceResult>;
+  claimEphemeralWorkspaceWithReplayState(input: {
+    actor: ApiActor;
+    claimTokenSecret: string;
+    idempotencyKey: string;
+    now?: Date;
+  }): Promise<{ result: ClaimEphemeralWorkspaceResult; isReplay: boolean }>;
+  peekEphemeralClaimReplay(input: {
+    actor: ApiActor;
+    idempotencyKey: string;
+  }): Promise<{ result: ClaimEphemeralWorkspaceResult } | { inFlight: true } | null>;
   listWorkspaces(): Promise<{ data: ReturnType<typeof toWorkspaceDetail>[]; page_info: PageInfo }>;
   createApiKey(input: {
     actor: AdminActor;

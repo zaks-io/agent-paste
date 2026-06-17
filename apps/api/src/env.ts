@@ -112,6 +112,7 @@ export type Env = {
   CF_ACCESS_AUD?: string;
   SENTRY_DSN?: string;
   ARTIFACT_EVENTS?: AnalyticsEngineDataset;
+  FUNNEL_EVENTS?: AnalyticsEngineDataset;
 };
 
 export function billingEnabled(env: Env): boolean {

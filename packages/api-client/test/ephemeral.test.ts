@@ -1,9 +1,11 @@
+import { ClaimCode } from "@agent-paste/contracts";
 import { issuePowChallenge, solvePowChallenge } from "@agent-paste/tokens/pow";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AgentPasteError, ApiClient } from "../src/index.js";
 
 const powSecret = "test-ephemeral-pow-secret";
 const workspaceId = "00000000-0000-4000-8000-000000000099";
+const claimCode = ClaimCode.parse("clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD");
 const provisionResponse = {
   api_key_secret: "ap_pk_preview_0123456789ABCDEF_ephemeralpublishsecret",
   claim_token: "ap_ct_preview_claimsecret000000000000000000_abc",
@@ -46,6 +48,34 @@ describe("ApiClient ephemeral provision", () => {
       solution: { nonce: challenge.nonce, counter },
     });
     expect(calls[1]?.headers.get("authorization")).toBeNull();
+  });
+
+  it("sends claim code on the challenge and provision requests", async () => {
+    const challenge = await issuePowChallenge({ secret: powSecret, difficulty: 8 });
+    const counter = await solvePowChallenge(challenge);
+    const calls: Request[] = [];
+    const client = new ApiClient({
+      apiBaseUrl: "https://api.example.test",
+      fetch: async (input, init) => {
+        calls.push(new Request(input, init));
+        if (calls.length === 1) {
+          return Response.json(
+            { error: { code: "pow_required", message: "pow_required", request_id: "req_pow" }, challenge },
+            { status: 401 },
+          );
+        }
+        return Response.json(provisionResponse, { status: 201 });
+      },
+    });
+
+    await expect(client.ephemeral.provision({ claimCode })).resolves.toEqual(provisionResponse);
+
+    await expect(calls[0]?.json()).resolves.toEqual({ claim_code: claimCode });
+    await expect(calls[1]?.json()).resolves.toMatchObject({
+      claim_code: claimCode,
+      challenge,
+      solution: { nonce: challenge.nonce, counter },
+    });
   });
 
   it("retries with a fresh challenge after pow_invalid", async () => {

@@ -52,13 +52,13 @@ vi.mock("../src/server/api-client", () => ({
   },
 }));
 
+import * as accessLinkResolveRoute from "../src/routes/api/access-links/resolve";
+import * as accessLinkLiveRoute from "../src/routes/api/live/access-links/$publicId";
 // Static imports (not beforeAll dynamic imports): vitest hoists vi.mock above
 // these, so handlers still see mocked auth/runtime. Module graph transform +
 // coverage instrumentation can exceed the default 10s hookTimeout on cold CI
 // runners; file-load import time is not subject to that hook budget. AP-320.
 import * as artifactLiveRoute from "../src/routes/api/live/artifacts/$artifactId";
-import * as accessLinkLiveRoute from "../src/routes/api/live/access-links/$publicId";
-import * as accessLinkResolveRoute from "../src/routes/api/access-links/resolve";
 
 describe("web API proxy routes", () => {
   beforeEach(() => {
@@ -186,5 +186,35 @@ describe("web API proxy routes", () => {
     });
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ artifact_id: "art_1" });
+  });
+
+  it("passes claim-code attribution through access-link resolve", async () => {
+    state.apiFetch.mockResolvedValue({ artifact_id: "art_1" });
+    const { Route } = accessLinkResolveRoute;
+    const response = await Route.server.handlers.POST({
+      request: new Request("https://app.test/api/access-links/resolve", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          public_id: "pub_1",
+          blob: "sig",
+          claim_code: "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD",
+        }),
+      }),
+    });
+
+    expect(state.apiFetch).toHaveBeenCalledWith("/v1/access-links/resolve", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        public_id: "pub_1",
+        blob: "sig",
+        claim_code: "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD",
+      }),
+    });
+    expect(response.status).toBe(200);
   });
 });

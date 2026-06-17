@@ -1,3 +1,4 @@
+import { CLAIM_CODE_HEADER, ClaimCode } from "@agent-paste/contracts";
 import type { ApiActor, Repository } from "@agent-paste/db";
 import type { AgentViewTokenPayload } from "@agent-paste/tokens/agent-view";
 import type { Principal } from "@agent-paste/worker-runtime";
@@ -88,9 +89,19 @@ export async function publishRevision(
         idempotencyKey: guard.idempotencyKey,
         artifactId: params.artifactId ?? "",
         revisionId: params.revisionId ?? "",
+        claimCode: claimCodeFromHeader(context.req.raw.headers),
       }),
     { respondError: guard.respondError as ContractRespondError },
   );
+}
+
+function claimCodeFromHeader(headers: Headers): string | undefined {
+  const raw = headers.get(CLAIM_CODE_HEADER);
+  if (!raw) {
+    return undefined;
+  }
+  const parsed = ClaimCode.safeParse(raw);
+  return parsed.success ? parsed.data : undefined;
 }
 
 export async function publicAgentView(context: AppContext, principal: Principal, db: Repository): Promise<Response> {

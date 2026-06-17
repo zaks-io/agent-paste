@@ -1,3 +1,4 @@
+import { OptionalClaimCodeInput } from "./primitives.js";
 import { z } from "./zod.js";
 
 export const PowChallenge = z
@@ -25,6 +26,7 @@ export type PowSolution = z.infer<typeof PowSolution>;
  */
 export const EphemeralProvisionRequest = z
   .object({
+    claim_code: OptionalClaimCodeInput,
     challenge: PowChallenge.optional(),
     solution: PowSolution.optional(),
   })
@@ -64,6 +66,7 @@ export type EphemeralProvisionResponse = z.infer<typeof EphemeralProvisionRespon
 
 export const EphemeralClaimRequest = z
   .object({
+    claim_code: OptionalClaimCodeInput,
     claim_token: z.string().min(1),
   })
   .strict();
