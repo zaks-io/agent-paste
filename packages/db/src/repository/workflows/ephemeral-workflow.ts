@@ -158,6 +158,18 @@ export async function claimEphemeralWorkspace(
     now?: Date;
   },
 ): Promise<ClaimEphemeralWorkspaceResult> {
+  return (await claimEphemeralWorkspaceWithReplayState(ctx, input)).result;
+}
+
+export async function claimEphemeralWorkspaceWithReplayState(
+  ctx: RepositoryCoreContext,
+  input: {
+    actor: ApiActor;
+    claimTokenSecret: string;
+    idempotencyKey: string;
+    now?: Date;
+  },
+): Promise<{ result: ClaimEphemeralWorkspaceResult; isReplay: boolean }> {
   if (input.actor.type !== "member") {
     repositoryError("forbidden");
   }
@@ -173,7 +185,7 @@ export async function claimEphemeralWorkspace(
     throw new IdempotencyInFlightError();
   }
   if (replay && "result" in replay) {
-    return replay.result;
+    return { result: replay.result, isReplay: true };
   }
 
   const claimToken = await resolveClaimTokenRecord(ctx, input.claimTokenSecret);
@@ -202,7 +214,7 @@ export async function claimEphemeralWorkspace(
     });
   }
 
-  return ctx.uow.command(
+  return ctx.uow.commandWithReplay(
     {
       actor: commandActor,
       operation: EPHEMERAL_CLAIM_OPERATION,

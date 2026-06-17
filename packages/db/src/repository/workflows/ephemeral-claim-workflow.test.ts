@@ -432,25 +432,27 @@ describe("claimEphemeralWorkspace", () => {
         idempotencyKey: "claim-replay-key",
       }),
     ).resolves.toBeNull();
-    const first = await repo.claimEphemeralWorkspace({
+    const firstState = await repo.claimEphemeralWorkspaceWithReplayState({
       actor: memberActor,
       claimTokenSecret: provisioned.claim_token_secret,
       idempotencyKey: "claim-replay-key",
       now: new Date("2099-06-01T14:00:00.000Z"),
     });
+    expect(firstState.isReplay).toBe(false);
+    const first = firstState.result;
     await expect(
       repo.peekEphemeralClaimReplay({
         actor: memberActor,
         idempotencyKey: "claim-replay-key",
       }),
     ).resolves.toEqual({ result: first });
-    const replay = await repo.claimEphemeralWorkspace({
+    const replayState = await repo.claimEphemeralWorkspaceWithReplayState({
       actor: memberActor,
       claimTokenSecret: provisioned.claim_token_secret,
       idempotencyKey: "claim-replay-key",
       now: new Date("2099-06-01T15:00:00.000Z"),
     });
-    expect(replay).toEqual(first);
+    expect(replayState).toEqual({ result: first, isReplay: true });
   });
 
   it("rejects invalid claim tokens as not_found", async () => {

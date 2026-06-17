@@ -106,16 +106,12 @@ export async function ephemeralClaimRoute(
   return runIdempotent(
     context,
     async () => {
-      const replay = await db.peekEphemeralClaimReplay({
-        actor,
-        idempotencyKey: guard.idempotencyKey,
-      });
-      const result = await db.claimEphemeralWorkspace({
+      const { result, isReplay } = await db.claimEphemeralWorkspaceWithReplayState({
         actor,
         claimTokenSecret: guard.body.claim_token,
         idempotencyKey: guard.idempotencyKey,
       });
-      if (!(replay && "result" in replay)) {
+      if (!isReplay) {
         writeFunnelEvent(context.env.FUNNEL_EVENTS, {
           kind: "link_claimed",
           surface: "api",

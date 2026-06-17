@@ -158,12 +158,14 @@ function ephemeralWorkspaceFixture() {
 describe("ephemeral claim route", () => {
   it("redeems a claim token for an authenticated member", async () => {
     const writeDataPoint = vi.fn();
-    const peekEphemeralClaimReplay = vi.fn(async () => null);
-    const claimEphemeralWorkspace = vi.fn(async () => ({
-      destination_workspace_id: "00000000-0000-4000-8000-000000000001",
-      source_workspace_id: "00000000-0000-4000-8000-000000000099",
-      artifact_ids: ["art_test"],
-      claim_token_id: "ct_test",
+    const claimEphemeralWorkspaceWithReplayState = vi.fn(async () => ({
+      result: {
+        destination_workspace_id: "00000000-0000-4000-8000-000000000001",
+        source_workspace_id: "00000000-0000-4000-8000-000000000099",
+        artifact_ids: ["art_test"],
+        claim_token_id: "ct_test",
+      },
+      isReplay: false,
     }));
 
     const response = await ephemeralClaimRoute(
@@ -179,7 +181,7 @@ describe("ephemeral claim route", () => {
           scopes: ["publish", "read", "admin"],
         },
       },
-      { claimEphemeralWorkspace, peekEphemeralClaimReplay } as never,
+      { claimEphemeralWorkspaceWithReplayState } as never,
       guardFor({ claim_code: claimCode, claim_token: "ap_ct_preview_testsecret000000_abc" }, "claim-1"),
     );
 
@@ -190,7 +192,7 @@ describe("ephemeral claim route", () => {
       artifact_ids: ["art_test"],
       claim_token_id: "ct_test",
     });
-    expect(claimEphemeralWorkspace).toHaveBeenCalledWith({
+    expect(claimEphemeralWorkspaceWithReplayState).toHaveBeenCalledWith({
       actor: {
         type: "member",
         id: "mem_test",
@@ -210,13 +212,15 @@ describe("ephemeral claim route", () => {
 
   it("does not duplicate link_claimed telemetry on idempotent claim replay", async () => {
     const writeDataPoint = vi.fn();
-    const claimEphemeralWorkspace = vi.fn(async () => ({
-      destination_workspace_id: "00000000-0000-4000-8000-000000000001",
-      source_workspace_id: "00000000-0000-4000-8000-000000000099",
-      artifact_ids: ["art_test"],
-      claim_token_id: "ct_test",
+    const claimEphemeralWorkspaceWithReplayState = vi.fn(async () => ({
+      result: {
+        destination_workspace_id: "00000000-0000-4000-8000-000000000001",
+        source_workspace_id: "00000000-0000-4000-8000-000000000099",
+        artifact_ids: ["art_test"],
+        claim_token_id: "ct_test",
+      },
+      isReplay: true,
     }));
-    const peekEphemeralClaimReplay = vi.fn(async () => ({ result: {} }));
 
     const response = await ephemeralClaimRoute(
       contextFor({ env: { FUNNEL_EVENTS: { writeDataPoint } } }),
@@ -231,12 +235,12 @@ describe("ephemeral claim route", () => {
           scopes: ["publish", "read", "admin"],
         },
       },
-      { claimEphemeralWorkspace, peekEphemeralClaimReplay } as never,
+      { claimEphemeralWorkspaceWithReplayState } as never,
       guardFor({ claim_code: claimCode, claim_token: "ap_ct_preview_testsecret000000_abc" }, "claim-1"),
     );
 
     expect(response.status).toBe(200);
-    expect(peekEphemeralClaimReplay).toHaveBeenCalledWith({
+    expect(claimEphemeralWorkspaceWithReplayState).toHaveBeenCalledWith({
       actor: {
         type: "member",
         id: "mem_test",
@@ -244,6 +248,7 @@ describe("ephemeral claim route", () => {
         email: "user@example.test",
         scopes: ["publish", "read", "admin"],
       },
+      claimTokenSecret: "ap_ct_preview_testsecret000000_abc",
       idempotencyKey: "claim-1",
     });
     expect(writeDataPoint).not.toHaveBeenCalled();
@@ -264,8 +269,7 @@ describe("ephemeral claim route", () => {
         },
       },
       {
-        peekEphemeralClaimReplay: vi.fn(async () => null),
-        claimEphemeralWorkspace: vi.fn(async () => {
+        claimEphemeralWorkspaceWithReplayState: vi.fn(async () => {
           throw new RepositoryError("not_found");
         }),
       } as never,
@@ -299,8 +303,7 @@ describe("ephemeral claim route", () => {
         },
       },
       {
-        peekEphemeralClaimReplay: vi.fn(async () => null),
-        claimEphemeralWorkspace: vi.fn(async () => {
+        claimEphemeralWorkspaceWithReplayState: vi.fn(async () => {
           throw new RepositoryError("forbidden");
         }),
       } as never,

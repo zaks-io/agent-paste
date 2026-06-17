@@ -225,6 +225,10 @@ export type PeekReplayResult<T> = { result: T } | { inFlight: true } | null;
 export type UnitOfWork = {
   read<T>(scope: RunScope, run: (entities: Entities) => Promise<T>): Promise<T>;
   command<T>(spec: CommandSpec, run: (entities: Entities, ctx: CommandRunContext) => Promise<T>): Promise<T>;
+  commandWithReplay<T>(
+    spec: CommandSpec,
+    run: (entities: Entities, ctx: CommandRunContext) => Promise<T>,
+  ): Promise<{ result: T; isReplay: boolean }>;
   peekReplay<T>(input: {
     actor: CommandActor;
     operation: string;

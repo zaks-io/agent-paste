@@ -47,6 +47,13 @@ export class PostgresUnitOfWork implements UnitOfWork {
     spec: CommandSpec,
     run: (entities: ReturnType<typeof postgresEntities>, ctx: CommandRunContext) => Promise<T>,
   ): Promise<T> {
+    return (await this.runScopedCommand(this.executor, spec, run)).result;
+  }
+
+  async commandWithReplay<T>(
+    spec: CommandSpec,
+    run: (entities: ReturnType<typeof postgresEntities>, ctx: CommandRunContext) => Promise<T>,
+  ): Promise<{ result: T; isReplay: boolean }> {
     return this.runScopedCommand(this.executor, spec, run);
   }
 
@@ -69,7 +76,7 @@ export class PostgresUnitOfWork implements UnitOfWork {
     executor: SqlExecutor,
     spec: CommandSpec,
     run: (entities: ReturnType<typeof postgresEntities>, ctx: CommandRunContext) => Promise<T>,
-  ): Promise<T> {
+  ): Promise<{ result: T; isReplay: boolean }> {
     const command = await runCommand<T>({
       executor: rlsExecutor(executor, spec.scope as RlsScope),
       actor: spec.actor,
@@ -80,11 +87,13 @@ export class PostgresUnitOfWork implements UnitOfWork {
       handler: async (tx) => {
         const ctx: CommandRunContext = {
           command: (nestedSpec, nestedRun) =>
-            this.runScopedCommand(tx, { ...nestedSpec, scope: spec.scope }, (entities) => nestedRun(entities)),
+            this.runScopedCommand(tx, { ...nestedSpec, scope: spec.scope }, (entities) => nestedRun(entities)).then(
+              (command) => command.result,
+            ),
         };
         return { result: await run(postgresEntities(withDrizzle(tx)), ctx) };
       },
     });
-    return command.result;
+    return command;
   }
 }

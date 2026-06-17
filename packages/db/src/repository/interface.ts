@@ -157,6 +157,12 @@ export type Repository = {
     idempotencyKey: string;
     now?: Date;
   }): Promise<ClaimEphemeralWorkspaceResult>;
+  claimEphemeralWorkspaceWithReplayState(input: {
+    actor: ApiActor;
+    claimTokenSecret: string;
+    idempotencyKey: string;
+    now?: Date;
+  }): Promise<{ result: ClaimEphemeralWorkspaceResult; isReplay: boolean }>;
   peekEphemeralClaimReplay(input: {
     actor: ApiActor;
     idempotencyKey: string;
