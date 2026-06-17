@@ -12,7 +12,7 @@ import {
   runPublish as runSharedPublish,
 } from "@agent-paste/api-client";
 import type { EphemeralProvisionResponse } from "@agent-paste/contracts";
-import { ArtifactId, FilePath, RenderMode, RevisionId } from "@agent-paste/contracts";
+import { ArtifactId, CLAIM_CODE_HEADER, ClaimCode, FilePath, RenderMode, RevisionId } from "@agent-paste/contracts";
 import {
   booleanFlag,
   type GlobalFlags,
@@ -38,6 +38,7 @@ import {
 import { login } from "./login.js";
 import { loadManifestCache, type ManifestCacheFile, saveManifestCache } from "./manifest-cache.js";
 import {
+  ephemeralAttributionUrl,
   ephemeralClaimUrl,
   formatEphemeralPublishResult,
   formatPublishResult,
@@ -53,7 +54,7 @@ import { CLI_VERSION } from "./version.js";
 export { type GlobalFlags, parseArgs, SCHEMA_VERSION, shellQuote } from "./cli-args.js";
 export { readEdits } from "./edit.js";
 // Re-exported for tests and downstream importers that reach for them via the CLI entrypoint.
-export { ephemeralClaimUrl } from "./publish-format.js";
+export { ephemeralAttributionUrl, ephemeralClaimUrl } from "./publish-format.js";
 
 export async function main(argv = process.argv.slice(2), client?: ApiClient) {
   const parsed = parseArgs(argv);
@@ -122,7 +123,7 @@ const COMMAND_FLAG_NAMES: Record<string, readonly string[]> = {
   login: [],
   logout: [],
   whoami: [],
-  publish: ["artifact-id", "title", "entrypoint", "render-mode", "ephemeral"],
+  publish: ["claim-code", "artifact-id", "title", "entrypoint", "render-mode", "ephemeral"],
   "set-visibility": [],
   pull: ["revision-id"],
   edit: ["edits"],
@@ -237,8 +238,13 @@ export type EphemeralPublishDeps = {
 
 export async function publishEphemeral(parsed: Parsed, deps: EphemeralPublishDeps = {}) {
   await noteEphemeralCredentialPrecedence();
+  const claimCodeFlag = stringFlag(parsed, "claim-code")?.trim();
+  const parsedClaimCode = claimCodeFlag ? ClaimCode.safeParse(claimCodeFlag) : undefined;
+  const claimCode = parsedClaimCode?.success ? parsedClaimCode.data : undefined;
   const provisionClient = unauthenticatedClient();
-  const provisioned = await (deps.provision ?? ((options) => provisionClient.ephemeral.provision(options)))();
+  const provisioned = await (deps.provision ?? ((options) => provisionClient.ephemeral.provision(options)))({
+    ...(claimCode ? { claimCode } : {}),
+  });
   const publishClient =
     deps.createPublishClient?.(provisioned.api_key_secret, {
       apiBaseUrl: provisionClient.apiBaseUrl,
@@ -248,19 +254,23 @@ export async function publishEphemeral(parsed: Parsed, deps: EphemeralPublishDep
       apiBaseUrl: provisionClient.apiBaseUrl,
       uploadBaseUrl: provisionClient.uploadBaseUrl,
       auth: { type: "api_key", apiKey: provisioned.api_key_secret },
+      ...(claimCode ? { defaultHeaders: { [CLAIM_CODE_HEADER]: claimCode } } : {}),
     });
   const mode = outputModeFor(parsed.global);
   const result = await runPublish(parsed, publishClient, mode);
-  const claimUrl = ephemeralClaimUrl(provisioned.claim_token);
+  const claimUrl = ephemeralClaimUrl(provisioned.claim_token, claimCode);
+  const unlistedUrl = ephemeralAttributionUrl(result.unlisted_url, claimCode);
   const payload = {
     ...result,
+    ...(unlistedUrl ? { unlisted_url: unlistedUrl } : {}),
+    ...(claimCode ? { claim_code: claimCode } : {}),
     claim_token: provisioned.claim_token,
     claim_url: claimUrl,
     workspace_id: provisioned.workspace_id,
     api_key_id: provisioned.api_key_id,
     claim_token_id: provisioned.claim_token_id,
   };
-  return output(payload, parsed.global, formatEphemeralPublishResult(mode, result, claimUrl));
+  return output(payload, parsed.global, formatEphemeralPublishResult(mode, result, claimUrl, claimCode));
 }
 
 async function noteEphemeralCredentialPrecedence() {

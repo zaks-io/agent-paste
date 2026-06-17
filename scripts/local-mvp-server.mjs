@@ -221,6 +221,8 @@ function createApiDatabase(repo) {
     resolveAccessLink: repo.resolveAccessLink.bind(repo),
     createEphemeralWorkspace: repo.createEphemeralWorkspace.bind(repo),
     claimEphemeralWorkspace: repo.claimEphemeralWorkspace.bind(repo),
+    claimEphemeralWorkspaceWithReplayState: repo.claimEphemeralWorkspaceWithReplayState.bind(repo),
+    peekEphemeralClaimReplay: repo.peekEphemeralClaimReplay.bind(repo),
     getAdminWhoami: repo.getAdminWhoami?.bind(repo),
     createWorkspace: repo.createWorkspace.bind(repo),
     listWorkspaces: repo.listWorkspaces.bind(repo),

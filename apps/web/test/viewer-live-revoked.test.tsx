@@ -115,11 +115,12 @@ describe("viewer live-update revocation", () => {
     getArtifactFn.mockReset();
     state.params = { artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9", publicId: "pub_1" };
     window.location.hash = "#signed-blob";
+    window.history.replaceState({}, "", "/al/pub_1#signed-blob");
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    window.location.hash = "";
+    window.history.replaceState({}, "", "/");
   });
 
   it("clears the Access Link iframe when live updates are revoked", async () => {
@@ -153,6 +154,30 @@ describe("viewer live-update revocation", () => {
     await waitFor(() => expect(screen.queryByTitle("Artifact content")).not.toBeInTheDocument());
     expect(screen.getByText("Not found.")).toBeInTheDocument();
     expect(screen.getByText(/invalid, expired, locked/i)).toBeInTheDocument();
+  });
+
+  it("sends claim-code attribution when resolving an Access Link", async () => {
+    window.history.replaceState({}, "", "/al/pub_1?claim_code=clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD#signed-blob");
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/access-links/resolve") {
+        return new Response(JSON.stringify({ render_mode: "html", iframe_src: contentIframeSrc }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { Route } = await import("../src/routes/al.$publicId");
+    render(<Route.component />);
+
+    await waitFor(() => expect(screen.getByTitle("Artifact content")).toBeInTheDocument());
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      public_id: "pub_1",
+      blob: "signed-blob",
+      claim_code: "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD",
+    });
   });
 
   it("shows Access Link metadata from the floating agent-paste.sh bar and resets hidden state on reload", async () => {

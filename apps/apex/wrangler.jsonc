@@ -21,6 +21,12 @@
   "vars": {
     "AGENT_PASTE_ENV": "dev"
   },
+  "analytics_engine_datasets": [
+    {
+      "binding": "FUNNEL_EVENTS",
+      "dataset": "agent_paste_funnel_events_dev"
+    }
+  ],
   "assets": {
     "binding": "ASSETS",
     "directory": "./dist/client",
@@ -46,7 +52,13 @@
         "AGENT_PASTE_ENV": "preview",
         "CF_WEB_ANALYTICS_TOKEN": "4be1fdfc8b624bb7b9db72e738d561d0",
         "BILLING_ENABLED": "true"
-      }
+      },
+      "analytics_engine_datasets": [
+        {
+          "binding": "FUNNEL_EVENTS",
+          "dataset": "agent_paste_funnel_events_preview"
+        }
+      ]
     },
     "production": {
       "name": "agent-paste-apex-production",
@@ -61,7 +73,13 @@
         "AGENT_PASTE_ENV": "production",
         "CF_WEB_ANALYTICS_TOKEN": "4be1fdfc8b624bb7b9db72e738d561d0",
         "BILLING_ENABLED": "false"
-      }
+      },
+      "analytics_engine_datasets": [
+        {
+          "binding": "FUNNEL_EVENTS",
+          "dataset": "agent_paste_funnel_events_production"
+        }
+      ]
     }
   }
 }

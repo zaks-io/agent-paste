@@ -52,6 +52,19 @@ export class RepositoryCore implements Repository {
     return ephemeralWorkflow.claimEphemeralWorkspace(this.ctx, input);
   }
 
+  async claimEphemeralWorkspaceWithReplayState(input: {
+    actor: ApiActor;
+    claimTokenSecret: string;
+    idempotencyKey: string;
+    now?: Date;
+  }) {
+    return ephemeralWorkflow.claimEphemeralWorkspaceWithReplayState(this.ctx, input);
+  }
+
+  async peekEphemeralClaimReplay(input: { actor: ApiActor; idempotencyKey: string }) {
+    return ephemeralWorkflow.peekEphemeralClaimReplay(this.ctx, input);
+  }
+
   async listWorkspaces() {
     return workspaceAdminWorkflow.listWorkspaces(this.ctx);
   }

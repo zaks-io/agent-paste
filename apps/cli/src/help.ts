@@ -5,7 +5,7 @@ Usage:
   agent-paste login
   agent-paste logout
   agent-paste whoami [--json]
-  agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ephemeral] [--json]
+  agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ephemeral] [--claim-code <clm_...>] [--json]
   agent-paste pull <artifact-id> <path> [--revision-id <id>] [--json]
   agent-paste edit <artifact-id> <path> [--edits <file>] [--json]
   agent-paste set-visibility <artifact-id> <private|unlisted> [--json]
@@ -20,6 +20,7 @@ Agent publish quick path:
      agent-paste set-visibility <artifact_id> unlisted --json and return unlisted_url.
   4. If not authenticated and login is not possible, run
      agent-paste publish <path> --ephemeral --json and return unlisted_url.
+     If a copied prompt included --claim-code, preserve that flag.
 
 Publish modes:
   Private   Default. agent-paste publish <path>. Returns private_url, a
@@ -63,6 +64,7 @@ Choose the mode:
     When: whoami --json says authenticated:false and interactive login is not
     possible, or the user explicitly asks for accountless publish.
     Run:  agent-paste publish <path> --ephemeral --json
+          agent-paste publish <path> --ephemeral --claim-code <clm_...> --json
     Use:  return unlisted_url, not private_url. Also provide claim_url when the
           human wants to keep, own, or unlock interactivity. Unclaimed ephemeral
           HTML has scripts disabled, so do not use it for interactive JS apps.
@@ -87,6 +89,7 @@ Fast recipes:
 
   Accountless handoff:
     agent-paste publish <path> --ephemeral --json
+    Preserve --claim-code <clm_...> when the copied instructions include it.
 
 What to hand back:
   private_url           Private viewer for signed-in Workspace Members.
@@ -112,7 +115,7 @@ JSON fields:
 
   publish --ephemeral --json also returns:
     { unlisted_url, claim_token, claim_url, workspace_id, api_key_id,
-      claim_token_id }
+      claim_token_id, claim_code? }
 
 Path behavior:
   <path> may be a file or directory. Directory publish uploads every included
@@ -131,6 +134,10 @@ Path behavior:
   --render-mode html | markdown | text | image | audio | video (otherwise inferred from the entrypoint).
   --ephemeral   Accountless 24h publish with an immediate no-login unlisted_url
                 and a one-time claim_url.
+  --claim-code <clm_...>
+                Optional analytics correlation ID for --ephemeral. Preserve it
+                when a copied Agent Paste prompt includes one. It is not auth,
+                ownership, idempotency, or a secret.
 
 Pull:
   Read one file's stored content back (so you can edit it and revise). Prints the

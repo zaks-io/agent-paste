@@ -68,7 +68,16 @@ function commandParts(positionals: string[]) {
 }
 
 function takesValue(name: string) {
-  return new Set(["artifact-id", "title", "entrypoint", "render-mode", "name", "revision-id", "edits"]).has(name);
+  return new Set([
+    "claim-code",
+    "artifact-id",
+    "title",
+    "entrypoint",
+    "render-mode",
+    "name",
+    "revision-id",
+    "edits",
+  ]).has(name);
 }
 
 export function requiredArg(parsed: Parsed, index: number, label: string) {

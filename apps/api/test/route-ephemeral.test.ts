@@ -12,6 +12,7 @@ import { ephemeralClaimRoute, ephemeralProvisionRoute } from "../src/routes/ephe
 import { contextFor, guardFor, responseJson } from "./route-test-helpers.js";
 
 const powSecret = "test-ephemeral-pow-secret";
+const claimCode = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
 
 // A hardcoded counter clears `difficulty` ~1/256 of the time by chance, which made
 // the "rejects invalid solutions" assertion flake (AP-150). Search for a counter
@@ -156,15 +157,19 @@ function ephemeralWorkspaceFixture() {
 
 describe("ephemeral claim route", () => {
   it("redeems a claim token for an authenticated member", async () => {
-    const claimEphemeralWorkspace = vi.fn(async () => ({
-      destination_workspace_id: "00000000-0000-4000-8000-000000000001",
-      source_workspace_id: "00000000-0000-4000-8000-000000000099",
-      artifact_ids: ["art_test"],
-      claim_token_id: "ct_test",
+    const writeDataPoint = vi.fn();
+    const claimEphemeralWorkspaceWithReplayState = vi.fn(async () => ({
+      result: {
+        destination_workspace_id: "00000000-0000-4000-8000-000000000001",
+        source_workspace_id: "00000000-0000-4000-8000-000000000099",
+        artifact_ids: ["art_test"],
+        claim_token_id: "ct_test",
+      },
+      isReplay: false,
     }));
 
     const response = await ephemeralClaimRoute(
-      contextFor({}),
+      contextFor({ env: { FUNNEL_EVENTS: { writeDataPoint } } }),
       {
         kind: "workos_access_token",
         identity: { workos_user_id: "user", email: "user@example.test" },
@@ -176,8 +181,8 @@ describe("ephemeral claim route", () => {
           scopes: ["publish", "read", "admin"],
         },
       },
-      { claimEphemeralWorkspace } as never,
-      guardFor({ claim_token: "ap_ct_preview_testsecret000000_abc" }, "claim-1"),
+      { claimEphemeralWorkspaceWithReplayState } as never,
+      guardFor({ claim_code: claimCode, claim_token: "ap_ct_preview_testsecret000000_abc" }, "claim-1"),
     );
 
     expect(response.status).toBe(200);
@@ -187,7 +192,7 @@ describe("ephemeral claim route", () => {
       artifact_ids: ["art_test"],
       claim_token_id: "ct_test",
     });
-    expect(claimEphemeralWorkspace).toHaveBeenCalledWith({
+    expect(claimEphemeralWorkspaceWithReplayState).toHaveBeenCalledWith({
       actor: {
         type: "member",
         id: "mem_test",
@@ -198,6 +203,55 @@ describe("ephemeral claim route", () => {
       claimTokenSecret: "ap_ct_preview_testsecret000000_abc",
       idempotencyKey: "claim-1",
     });
+    expect(writeDataPoint).toHaveBeenCalledWith({
+      indexes: [claimCode],
+      blobs: ["link_claimed", "api", claimCode, "00000000-0000-4000-8000-000000000099", "", "ct_test", "", ""],
+      doubles: [1, 1],
+    });
+  });
+
+  it("does not duplicate link_claimed telemetry on idempotent claim replay", async () => {
+    const writeDataPoint = vi.fn();
+    const claimEphemeralWorkspaceWithReplayState = vi.fn(async () => ({
+      result: {
+        destination_workspace_id: "00000000-0000-4000-8000-000000000001",
+        source_workspace_id: "00000000-0000-4000-8000-000000000099",
+        artifact_ids: ["art_test"],
+        claim_token_id: "ct_test",
+      },
+      isReplay: true,
+    }));
+
+    const response = await ephemeralClaimRoute(
+      contextFor({ env: { FUNNEL_EVENTS: { writeDataPoint } } }),
+      {
+        kind: "workos_access_token",
+        identity: { workos_user_id: "user", email: "user@example.test" },
+        actor: {
+          type: "member",
+          id: "mem_test",
+          workspace_id: "00000000-0000-4000-8000-000000000001",
+          email: "user@example.test",
+          scopes: ["publish", "read", "admin"],
+        },
+      },
+      { claimEphemeralWorkspaceWithReplayState } as never,
+      guardFor({ claim_code: claimCode, claim_token: "ap_ct_preview_testsecret000000_abc" }, "claim-1"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(claimEphemeralWorkspaceWithReplayState).toHaveBeenCalledWith({
+      actor: {
+        type: "member",
+        id: "mem_test",
+        workspace_id: "00000000-0000-4000-8000-000000000001",
+        email: "user@example.test",
+        scopes: ["publish", "read", "admin"],
+      },
+      claimTokenSecret: "ap_ct_preview_testsecret000000_abc",
+      idempotencyKey: "claim-1",
+    });
+    expect(writeDataPoint).not.toHaveBeenCalled();
   });
 
   it("maps invalid claim tokens to not_found", async () => {
@@ -215,7 +269,7 @@ describe("ephemeral claim route", () => {
         },
       },
       {
-        claimEphemeralWorkspace: vi.fn(async () => {
+        claimEphemeralWorkspaceWithReplayState: vi.fn(async () => {
           throw new RepositoryError("not_found");
         }),
       } as never,
@@ -249,7 +303,7 @@ describe("ephemeral claim route", () => {
         },
       },
       {
-        claimEphemeralWorkspace: vi.fn(async () => {
+        claimEphemeralWorkspaceWithReplayState: vi.fn(async () => {
           throw new RepositoryError("forbidden");
         }),
       } as never,

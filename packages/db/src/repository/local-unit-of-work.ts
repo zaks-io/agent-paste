@@ -51,11 +51,18 @@ export class LocalUnitOfWork implements UnitOfWork {
     spec: CommandSpec,
     run: (entities: ReturnType<typeof localEntities>, ctx: CommandRunContext) => Promise<T>,
   ): Promise<T> {
+    return (await this.commandWithReplay(spec, run)).result;
+  }
+
+  async commandWithReplay<T>(
+    spec: CommandSpec,
+    run: (entities: ReturnType<typeof localEntities>, ctx: CommandRunContext) => Promise<T>,
+  ): Promise<{ result: T; isReplay: boolean }> {
     const ctx: CommandRunContext = {
       command: (nestedSpec, nestedRun) =>
         this.runCached({ ...nestedSpec, scope: spec.scope }, (entities) => nestedRun(entities)),
     };
-    return this.runCached(spec, (entities) => run(entities, ctx));
+    return this.runCachedWithReplay(spec, (entities) => run(entities, ctx));
   }
 
   async peekReplay<T>(input: {
@@ -79,10 +86,17 @@ export class LocalUnitOfWork implements UnitOfWork {
     input: { actor: CommandSpec["actor"]; operation: string; idempotencyKey: string; scope: RunScope },
     run: (entities: ReturnType<typeof localEntities>) => Promise<T>,
   ): Promise<T> {
+    return (await this.runCachedWithReplay(input, run)).result;
+  }
+
+  private async runCachedWithReplay<T>(
+    input: { actor: CommandSpec["actor"]; operation: string; idempotencyKey: string; scope: RunScope },
+    run: (entities: ReturnType<typeof localEntities>) => Promise<T>,
+  ): Promise<{ result: T; isReplay: boolean }> {
     const key = commandKey(input);
     const existing = this.idempotency.get(key);
     if (existing?.kind === "completed") {
-      return existing.value as T;
+      return { result: existing.value as T, isReplay: true };
     }
     if (existing?.kind === "in_flight") {
       throw new IdempotencyInFlightError();
@@ -92,7 +106,7 @@ export class LocalUnitOfWork implements UnitOfWork {
     try {
       const result = await run(this.scopedEntities(input.scope));
       this.idempotency.set(key, { kind: "completed", value: result });
-      return result;
+      return { result, isReplay: false };
     } catch (error) {
       this.idempotency.delete(key);
       throw error;

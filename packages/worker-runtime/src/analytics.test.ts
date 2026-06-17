@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { type AnalyticsEngineDataPoint, artifactEventDataPoint, writeArtifactEvent } from "./analytics.js";
+import {
+  type AnalyticsEngineDataPoint,
+  artifactEventDataPoint,
+  funnelEventDataPoint,
+  writeArtifactEvent,
+  writeFunnelEvent,
+} from "./analytics.js";
 
 const baseEvent = {
   workspaceId: "ws_1",
@@ -48,5 +54,64 @@ describe("writeArtifactEvent", () => {
       throw new Error("AE down");
     });
     expect(() => writeArtifactEvent({ writeDataPoint }, { ...baseEvent, kind: "read" })).not.toThrow();
+  });
+});
+
+describe("funnelEventDataPoint", () => {
+  it("indexes on claim code when present and carries stable dimensions", () => {
+    const point = funnelEventDataPoint({
+      kind: "ephemeral_publish_created",
+      surface: "api",
+      claimCode: "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD",
+      workspaceId: "ws_1",
+      artifactId: "art_1",
+      claimTokenId: "ct_1",
+      promptVariant: "hero_agent_session_v1",
+      status: "success",
+      artifactCount: 2,
+    });
+    expect(point).toEqual<AnalyticsEngineDataPoint>({
+      indexes: ["clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD"],
+      blobs: [
+        "ephemeral_publish_created",
+        "api",
+        "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD",
+        "ws_1",
+        "art_1",
+        "ct_1",
+        "hero_agent_session_v1",
+        "success",
+      ],
+      doubles: [1, 2],
+    });
+  });
+
+  it("falls back to workspace id, then event kind, for unattributed events", () => {
+    expect(funnelEventDataPoint({ kind: "link_claimed", surface: "api", workspaceId: "ws_1" }).indexes).toEqual([
+      "ws_1",
+    ]);
+    expect(funnelEventDataPoint({ kind: "prompt_copied", surface: "apex" }).indexes).toEqual(["prompt_copied"]);
+  });
+});
+
+describe("writeFunnelEvent", () => {
+  it("writes a data point through the binding", () => {
+    const writeDataPoint = vi.fn();
+    writeFunnelEvent(
+      { writeDataPoint },
+      { kind: "prompt_copied", surface: "apex", claimCode: "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD" },
+    );
+    expect(writeDataPoint).toHaveBeenCalledWith({
+      indexes: ["clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD"],
+      blobs: ["prompt_copied", "apex", "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD", "", "", "", "", ""],
+      doubles: [1, 0],
+    });
+  });
+
+  it("swallows errors thrown by the binding", () => {
+    const writeDataPoint = vi.fn(() => {
+      throw new Error("AE down");
+    });
+    expect(() => writeFunnelEvent({ writeDataPoint }, { kind: "prompt_copied", surface: "apex" })).not.toThrow();
   });
 });

@@ -53,15 +53,38 @@ export function formatPublishResult(mode: OutputMode, result: PublishResultShape
   ].join("\n");
 }
 
-export function ephemeralClaimUrl(claimToken: string): string {
+export function ephemeralClaimUrl(claimToken: string, claimCode?: string): string {
   const base = (process.env.AGENT_PASTE_WEB_URL ?? "https://app.agent-paste.sh").replace(/\/+$/, "");
-  return `${base}/claim#${claimToken}`;
+  const params = new URLSearchParams();
+  if (claimCode) {
+    params.set("claim_code", claimCode);
+  }
+  const query = params.size > 0 ? `?${params.toString()}` : "";
+  return `${base}/claim${query}#${claimToken}`;
 }
 
-export function formatEphemeralPublishResult(mode: OutputMode, result: PublishResultShape, claimUrl: string): string {
+export function ephemeralAttributionUrl(url: string | undefined, claimCode?: string): string | undefined {
+  if (!url || !claimCode) {
+    return url;
+  }
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.set("claim_code", claimCode);
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+export function formatEphemeralPublishResult(
+  mode: OutputMode,
+  result: PublishResultShape,
+  claimUrl: string,
+  claimCode?: string,
+): string {
   assertClaimTokenNotInPublicUrls(result, claimUrl);
   const label = (text: string) => paint(mode, "dim", text);
-  const sharedUrl = result.unlisted_url;
+  const sharedUrl = ephemeralAttributionUrl(result.unlisted_url, claimCode);
   return [
     `${paint(mode, "green", "✓")} Published ${paint(mode, "bold", `"${result.title}"`)}`,
     "",

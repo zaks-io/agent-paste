@@ -1,6 +1,6 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import type { ApiActor, Repository } from "@agent-paste/db";
-import { writeArtifactEvent } from "@agent-paste/worker-runtime";
+import { writeArtifactEvent, writeFunnelEvent } from "@agent-paste/worker-runtime";
 import { entrypointPathFromContentUrl, signPublishResult } from "./agent-view.js";
 import type { Env } from "./env.js";
 import { buildRevisionNoticeFromPublishResult, notifyLiveUpdatePublish } from "./live-updates.js";
@@ -23,6 +23,7 @@ export type PublishCoordinatorInput = {
   idempotencyKey: string;
   artifactId: string;
   revisionId: string;
+  claimCode?: string | undefined;
 };
 
 export type PublishCoordinator = {
@@ -137,6 +138,7 @@ async function runPostPublishFanout(
 ): Promise<unknown> {
   const ephemeralTier = isEphemeralPublish(result);
   recordFreshPublishEvent(deps.env, input, ephemeralTier, isReplay);
+  recordFreshEphemeralFunnelEvent(deps.env, input, ephemeralTier, isReplay);
   await enqueuePublishJobs(deps.env, input, result, now, ephemeralTier);
   const signed = await signPublishResult(result, deps.env, { workspaceId: input.actor.workspace_id, ephemeralTier });
   await notifyPublishedRevision(deps.env, result, signed);
@@ -204,6 +206,24 @@ function recordFreshPublishEvent(
     artifactId: input.artifactId,
     revisionId: input.revisionId,
     detail: ephemeralTier ? "ephemeral" : "standard",
+  });
+}
+
+function recordFreshEphemeralFunnelEvent(
+  env: Env,
+  input: PublishCoordinatorInput,
+  ephemeralTier: boolean,
+  isReplay: boolean,
+): void {
+  if (isReplay || !ephemeralTier) {
+    return;
+  }
+  writeFunnelEvent(env.FUNNEL_EVENTS, {
+    kind: "ephemeral_publish_created",
+    surface: "api",
+    claimCode: input.claimCode,
+    workspaceId: input.actor.workspace_id,
+    artifactId: input.artifactId,
   });
 }
 

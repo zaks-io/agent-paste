@@ -270,6 +270,7 @@ export function openPortal(): Promise<MutationResult<PortalSessionResponse>> {
 }
 
 export async function claimEphemeral(data: {
+  claim_code?: string;
   claim_token: string;
   turnstile_token: string;
 }): Promise<MutationResult<EphemeralClaimResponse>> {
@@ -299,7 +300,10 @@ export async function claimEphemeral(data: {
     };
   }
 
-  const input = parseInput(EphemeralClaimRequest, { claim_token: data.claim_token });
+  const input = parseInput(EphemeralClaimRequest, {
+    ...(data.claim_code ? { claim_code: data.claim_code } : {}),
+    claim_token: data.claim_token,
+  });
   if (input.error) return { data: null, error: input.error };
 
   return runMutation<EphemeralClaimResponse>((accessToken) =>

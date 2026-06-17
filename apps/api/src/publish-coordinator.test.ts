@@ -6,6 +6,7 @@ import * as liveUpdates from "./live-updates.js";
 import { createPublishCoordinator } from "./publish-coordinator.js";
 
 const actor = { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] } as ApiActor;
+const claimCode = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
 
 const publishInput = {
   actor,
@@ -142,6 +143,7 @@ describe("publish coordinator write-allowance reservation", () => {
   });
 
   it("auto-creates the unlisted Share Link and returns unlisted_url for an ephemeral publish", async () => {
+    const writeDataPoint = vi.fn();
     const createMemberAccessLink = vi.fn().mockResolvedValue({
       id: "al_ephemeral",
       type: "share",
@@ -161,12 +163,17 @@ describe("publish coordinator write-allowance reservation", () => {
         createMemberAccessLink,
         mintMemberAccessLink,
       },
-      { ACCESS_LINK_SIGNING_KEY_V1: "al-test-secret" },
+      { ACCESS_LINK_SIGNING_KEY_V1: "al-test-secret", FUNNEL_EVENTS: { writeDataPoint } },
     );
 
-    const result = await coordinator.publishRevision(publishInput);
+    const result = await coordinator.publishRevision({ ...publishInput, claimCode });
 
     expect(result).toHaveProperty("unlisted_url", "https://app.test/al/PUBLIC#sig");
+    expect(writeDataPoint).toHaveBeenCalledWith({
+      indexes: [claimCode],
+      blobs: ["ephemeral_publish_created", "api", claimCode, "w_1", "art_1", "", "", ""],
+      doubles: [1, 0],
+    });
     expect(createMemberAccessLink).toHaveBeenCalledWith(
       expect.objectContaining({ artifactId: "art_1", type: "share" }),
     );

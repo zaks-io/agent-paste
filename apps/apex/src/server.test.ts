@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { docsMarkdownPath, docsPagesForBilling } from "./docs/registry";
 import { type Env, handleRequest } from "./server";
 
@@ -25,6 +25,7 @@ const notFoundAssets = {
 const htmlRewriterGlobal = globalThis as typeof globalThis & { HTMLRewriter?: unknown };
 const originalHtmlRewriter = htmlRewriterGlobal.HTMLRewriter;
 const ANALYTICS_SCRIPT_FIXTURE = '<script defer src="https://static.cloudflareinsights.com/beacon.min.js"></script>';
+const claimCode = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
 
 function env(extra: Partial<Env> = {}): Env {
   return { ASSETS: okHtmlAssets, ...extra };
@@ -32,6 +33,17 @@ function env(extra: Partial<Env> = {}): Env {
 
 async function get(path: string, extra: Partial<Env> = {}): Promise<Response> {
   return handleRequest(new Request(`${APEX}${path}`), env(extra));
+}
+
+async function post(path: string, body: unknown, extra: Partial<Env> = {}): Promise<Response> {
+  return handleRequest(
+    new Request(`${APEX}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+    env(extra),
+  );
 }
 
 describe("text and data assets", () => {
@@ -215,6 +227,38 @@ describe("text and data assets", () => {
     expect(shell.status).toBe(200);
     expect(shell.headers.get("content-type")).toBe("text/x-shellscript; charset=utf-8");
     expect(await shell.text()).toBe("");
+  });
+});
+
+describe("funnel events", () => {
+  it("records prompt_copied to Workers Analytics Engine", async () => {
+    const writeDataPoint = vi.fn();
+
+    const response = await post(
+      "/__funnel/events",
+      { event: "prompt_copied", claim_code: claimCode, prompt_variant: "hero_agent_session_v1" },
+      { FUNNEL_EVENTS: { writeDataPoint } },
+    );
+
+    expect(response.status).toBe(204);
+    expect(writeDataPoint).toHaveBeenCalledWith({
+      indexes: [claimCode],
+      blobs: ["prompt_copied", "apex", claimCode, "", "", "", "hero_agent_session_v1", ""],
+      doubles: [1, 0],
+    });
+  });
+
+  it("rejects invalid funnel events without writing analytics", async () => {
+    const writeDataPoint = vi.fn();
+
+    const response = await post(
+      "/__funnel/events",
+      { event: "prompt_copied", claim_code: "bad", prompt_variant: "hero_agent_session_v1" },
+      { FUNNEL_EVENTS: { writeDataPoint } },
+    );
+
+    expect(response.status).toBe(400);
+    expect(writeDataPoint).not.toHaveBeenCalled();
   });
 });
 

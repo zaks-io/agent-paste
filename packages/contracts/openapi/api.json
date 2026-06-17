@@ -1221,6 +1221,13 @@
           "blob": {
             "type": "string",
             "minLength": 1
+          },
+          "claim_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^clm_[0-9A-HJKMNP-TV-Z]{26}$"
           }
         },
         "required": [
@@ -1259,6 +1266,13 @@
       "EphemeralProvisionRequest": {
         "type": "object",
         "properties": {
+          "claim_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^clm_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
           "challenge": {
             "type": "object",
             "properties": {
@@ -1445,6 +1459,13 @@
       "EphemeralClaimRequest": {
         "type": "object",
         "properties": {
+          "claim_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^clm_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
           "claim_token": {
             "type": "string",
             "minLength": 1
