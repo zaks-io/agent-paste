@@ -9,6 +9,7 @@ dist/
 .dev.vars.*
 coverage/
 artifacts/security/
+artifacts/quality/
 *.tsbuildinfo
 .DS_Store
 .agent-out/
