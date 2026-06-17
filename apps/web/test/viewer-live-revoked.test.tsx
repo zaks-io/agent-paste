@@ -180,6 +180,48 @@ describe("viewer live-update revocation", () => {
     });
   });
 
+  it("updates Access Link render_mode when a live update publishes a revision with a different mode", async () => {
+    const nextIframeSrc = "https://content.test/v/art.rev2/index.html";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "/api/access-links/resolve") {
+          return new Response(
+            JSON.stringify({
+              render_mode: "markdown",
+              iframe_src: contentIframeSrc,
+              title: "Shared artifact",
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response(null, { status: 404 });
+      }),
+    );
+
+    const { Route } = await import("../src/routes/al.$publicId");
+    render(<Route.component />);
+
+    await waitFor(() => expect(screen.getByTitle("Artifact content")).toBeInTheDocument());
+    await waitFor(() => expect(liveUpdates.lastInput?.onPointer).toBeTypeOf("function"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Open agent-paste.sh artifact details" }));
+    expect(screen.getByText("markdown")).toBeInTheDocument();
+
+    await act(async () => {
+      liveUpdates.lastInput?.onPointer?.({
+        revision_id: "rev_next",
+        iframe_src: nextIframeSrc,
+        render_mode: "html",
+        title: "Shared artifact",
+      });
+    });
+
+    await waitFor(() => expect(screen.getByTitle("Artifact content")).toHaveAttribute("src", nextIframeSrc));
+    expect(screen.getByText("html")).toBeInTheDocument();
+    expect(screen.queryByText("markdown")).not.toBeInTheDocument();
+  });
+
   it("shows Access Link metadata from the floating agent-paste.sh bar and resets hidden state on reload", async () => {
     vi.stubGlobal(
       "fetch",
