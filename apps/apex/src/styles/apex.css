@@ -35,7 +35,7 @@
 }
 
 /* Scroll-reveal entrance. The client script adds `.in` when an element scrolls
- * into view; `.d1`..`.d6` stagger the reveal. */
+ * into view; `.d1`..`.d8` stagger the reveal. */
 .home .reveal {
   opacity: 0;
   transform: translateY(14px);
@@ -66,6 +66,12 @@
 }
 .home .d6 {
   transition-delay: 0.46s;
+}
+.home .d7 {
+  transition-delay: 0.54s;
+}
+.home .d8 {
+  transition-delay: 0.62s;
 }
 
 /* Live-pulse eyebrow dot. */

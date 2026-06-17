@@ -156,6 +156,10 @@ Feature-specific ledgers:
   jobs fix is deployed, the CLI fix is released in npm `0.1.8`, authenticated
   MCP host-tool evidence is captured, the MCP wording patch is deployed, and
   AP-139 is Done.
+- [Apex landing todo](./apex-landing-todo.md) - 2026-06-17 above-the-fold rewrite
+  (why-first hero, use-cases, de-flated example); open follow-ups: live
+  feat-of-strength with visible Agent View JSON, fabricated example Access Link,
+  headline-word A/B, banned-token test hardening.
 - [Web app todo](./web-app-todo.md) - Phase 3 web/dashboard close-out.
 - [Web CSP todo](./web-csp-todo.md) - dashboard + apex CSP hardening (script-src is
   nonce-based, browser-verified on preview; one item open: drop style `'unsafe-inline'`).
