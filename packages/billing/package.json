@@ -16,6 +16,7 @@
     "lint": "biome lint .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage --config ../../vitest.coverage.node.config.ts",
+    "test:mutation": "stryker run",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -23,6 +24,9 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.4.5",
+    "@stryker-mutator/core": "catalog:",
+    "@stryker-mutator/typescript-checker": "catalog:",
+    "@stryker-mutator/vitest-runner": "catalog:",
     "@types/node": "^24.12.4",
     "typescript": "catalog:",
     "vitest": "catalog:"
