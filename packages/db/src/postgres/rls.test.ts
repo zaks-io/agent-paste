@@ -145,6 +145,21 @@ describe("rlsExecutor trace context", () => {
       params: [""],
     });
   });
+
+  it("clears the local Postgres trace setting when the trace provider throws", async () => {
+    const queries: Array<{ sql: string; params: readonly SqlValue[] }> = [];
+    const base = recordingExecutor(queries);
+    bindSqlTraceIdProvider(base, () => {
+      throw new Error("trace context unavailable");
+    });
+
+    await rlsExecutor(base, { kind: "platform" }).query("select 1");
+
+    expect(queries).toContainEqual({
+      sql: "select set_config('app.sentry_trace_id', $1, true)",
+      params: [""],
+    });
+  });
 });
 
 function recordingExecutor(calls: Array<{ sql: string; params: readonly SqlValue[] }>): SqlExecutor {

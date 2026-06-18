@@ -42,4 +42,38 @@ describe("createPostgresRuntime", () => {
     expect(runtime).toBeDefined();
     expect(runtimeState.createHyperdriveExecutor).toHaveBeenCalledWith(binding, { instrumentQuery, traceId });
   });
+
+  it("forwards legacy top-level instrumentQuery when executor options are absent", () => {
+    const binding = { connectionString: "postgres://example" };
+    const instrumentQuery: SqlQueryInstrumentation = vi.fn((_, run) => run());
+
+    createPostgresRuntime(
+      { DB: binding, API_KEY_PEPPER_V1: "pepper" },
+      {
+        instrumentQuery,
+        pickDb: (services) => services.apiDb,
+      },
+    );
+
+    expect(runtimeState.createHyperdriveExecutor).toHaveBeenLastCalledWith(binding, { instrumentQuery });
+  });
+
+  it("prefers executorOptions.instrumentQuery over legacy top-level instrumentQuery", () => {
+    const binding = { connectionString: "postgres://example" };
+    const legacyInstrumentQuery: SqlQueryInstrumentation = vi.fn((_, run) => run());
+    const preferredInstrumentQuery: SqlQueryInstrumentation = vi.fn((_, run) => run());
+
+    createPostgresRuntime(
+      { DB: binding, API_KEY_PEPPER_V1: "pepper" },
+      {
+        instrumentQuery: legacyInstrumentQuery,
+        executorOptions: { instrumentQuery: preferredInstrumentQuery },
+        pickDb: (services) => services.apiDb,
+      },
+    );
+
+    expect(runtimeState.createHyperdriveExecutor).toHaveBeenLastCalledWith(binding, {
+      instrumentQuery: preferredInstrumentQuery,
+    });
+  });
 });

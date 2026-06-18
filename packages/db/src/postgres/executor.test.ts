@@ -191,6 +191,29 @@ describe("createPostgresExecutor", () => {
     ]);
   });
 
+  it("does not stack instrumentation when the same client is reused", async () => {
+    const sql = {
+      options: { parsers: {}, serializers: {} },
+      async unsafe(query: string, params: unknown[] = []) {
+        return [{ query, params }];
+      },
+    };
+    const firstInstrumentQuery = vi.fn(
+      async (_input: Parameters<SqlQueryInstrumentation>[0], run: Parameters<SqlQueryInstrumentation>[1]) => run(),
+    );
+    const secondInstrumentQuery = vi.fn(
+      async (_input: Parameters<SqlQueryInstrumentation>[0], run: Parameters<SqlQueryInstrumentation>[1]) => run(),
+    );
+
+    createPostgresExecutor(sql as unknown as Sql, { instrumentQuery: firstInstrumentQuery });
+    const secondExecutor = createPostgresExecutor(sql as unknown as Sql, { instrumentQuery: secondInstrumentQuery });
+
+    await secondExecutor.query("select 1");
+
+    expect(firstInstrumentQuery).toHaveBeenCalledTimes(1);
+    expect(secondInstrumentQuery).not.toHaveBeenCalled();
+  });
+
   // A transaction must not retry a mid-flight connection drop: the drop can fire
   // after COMMIT, so re-running the callback could double-apply writes.
   it("does not retry a transaction when the connection drops mid-flight", async () => {

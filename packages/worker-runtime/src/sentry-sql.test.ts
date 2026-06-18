@@ -92,13 +92,16 @@ describe("sentryPostgresQueryInstrumentation", () => {
 
   it.each([
     "BEGIN",
+    "BEGIN;",
     "COMMIT",
+    "COMMIT;",
     "END",
     "ROLLBACK",
     "SAVEPOINT drizzle_tx",
     "RELEASE SAVEPOINT drizzle_tx",
     "ROLLBACK TO SAVEPOINT drizzle_tx",
     "START TRANSACTION",
+    "START TRANSACTION;",
   ])("skips transaction control statement %s", async (sql) => {
     const startSpan = vi.fn((_options, callback: () => Promise<string>) => callback());
     const instrument = createSentryPostgresQueryInstrumentation(startSpan);

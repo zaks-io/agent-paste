@@ -7,5 +7,13 @@ export function bindSqlTraceIdProvider(executor: SqlExecutor, provider: SqlTrace
 }
 
 export function sqlTraceIdForExecutor(executor: SqlExecutor): string | undefined {
-  return traceIdProviders.get(executor)?.();
+  const provider = traceIdProviders.get(executor);
+  if (!provider) {
+    return undefined;
+  }
+  try {
+    return provider();
+  } catch {
+    return undefined;
+  }
 }

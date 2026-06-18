@@ -54,8 +54,8 @@ export function sentrySqlStatement(sql: string): string {
 function isInternalPostgresStatement(statement: string): boolean {
   return (
     /^select set_config\(/i.test(statement) ||
-    /^(begin|commit|end|rollback|savepoint|release)(\s|$)/i.test(statement) ||
-    /^start\s+transaction(\s|$)/i.test(statement)
+    /^(begin|commit|end|rollback|savepoint|release)(\s|;|$)/i.test(statement) ||
+    /^start\s+transaction(\s|;|$)/i.test(statement)
   );
 }
 

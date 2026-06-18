@@ -111,7 +111,7 @@ function instrumentPostgresClient(
   }
 
   const instrumentable = client as InstrumentablePostgresClient;
-  if (instrumentable[INSTRUMENTED_UNSAFE] === instrumentQuery) {
+  if (INSTRUMENTED_UNSAFE in instrumentable) {
     return client;
   }
 
