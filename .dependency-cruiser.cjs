@@ -33,10 +33,12 @@ module.exports = {
     },
     {
       name: "no-orphans",
-      severity: "warn",
+      severity: "error",
       comment:
         "Orphan module - nothing imports it and it imports nothing. Either use it or remove it. " +
-        "Config/declaration files are exempted below.",
+        "Config/declaration files and framework entrypoints are exempted below. A new entrypoint " +
+        "reached only through a generated/excluded file (e.g. routeTree.gen.ts) must be added to " +
+        "the pathNot exemptions, or it will fail this rule.",
       from: {
         orphan: true,
         pathNot: [
@@ -44,6 +46,12 @@ module.exports = {
           "[.]d[.]ts$", // TypeScript declaration files
           "(^|/)tsconfig[.]json$", // TypeScript config
           "(^|/)[^/.]+[.]config[.](?:js|cjs|mjs|ts|cts|mts)$", // *.config.* (vite, vitest, etc.)
+          // TanStack Start entrypoints reached only through routeTree.gen.ts,
+          // which is excluded above. They are framework entrypoints, not dead
+          // code: src/routes/** are file-based routes, src/start.ts is the
+          // Start server entry (createStart).
+          "^apps/web/src/routes/",
+          "^apps/web/src/start[.]ts$",
         ],
       },
       to: {},
@@ -164,7 +172,6 @@ module.exports = {
     exclude: {
       path: [
         "(^|/)dist/",
-        "(^|/)build/",
         "(^|/)[.]output/",
         "(^|/)[.]turbo/",
         "(^|/)[.]wrangler/",
