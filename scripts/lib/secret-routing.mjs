@@ -23,7 +23,7 @@
 
 /**
  * App -> secret name -> binding metadata.
- * Apps not listed (apex, stream-without-secrets) take no secrets.
+ * Apps not listed take no secrets.
  * @type {Record<string, Record<string, SecretBinding>>}
  */
 export const SECRET_ROUTING = {
@@ -83,6 +83,9 @@ export const SECRET_ROUTING = {
   mcp: {
     WORKOS_API_KEY: { required: true, source: "workos" }, // MCP bearer verification at the edge gate
     SENTRY_DSN: { required: false, source: "sentry" }, // Optional MCP monitoring; enabled only when configured.
+  },
+  apex: {
+    SENTRY_DSN: { required: false, source: "sentry" }, // Optional Worker + browser monitoring.
   },
   web: {
     WORKOS_API_KEY: { required: true, source: "workos" },

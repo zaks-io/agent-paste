@@ -16,7 +16,7 @@ describe("apex static CSP", () => {
   it("allows only self, the theme-init hash, and the analytics beacon for scripts", () => {
     expect(csp).toContain(`script-src 'self' '${THEME_INIT_SHA256}' https://static.cloudflareinsights.com`);
     expect(csp).toContain("style-src 'self'");
-    expect(csp).toContain("connect-src 'self' https://cloudflareinsights.com");
+    expect(csp).toContain("connect-src 'self' https://cloudflareinsights.com https://*.ingest.us.sentry.io");
   });
 
   it("is strictly stronger than the old nonce policy: no nonces, strict-dynamic, or unsafe-inline", () => {
