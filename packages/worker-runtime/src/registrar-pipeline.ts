@@ -6,8 +6,8 @@ import { contractErrorResponse, createContractErrorResponder } from "./contract-
 import { unknownErrorToCode } from "./errors.js";
 import type { Principal, PrincipalFor } from "./principal.js";
 import { applyRateLimit } from "./rate-limit.js";
-import type { AuthResolver, GuardState, Handler, HeaderGuardState, RegistrarDeps } from "./registrar.js";
 import { clientIpFromRequest, hasScopes, idempotencyGuard, parseRequestBody } from "./registrar-request.js";
+import type { AuthResolver, GuardState, Handler, HeaderGuardState, RegistrarDeps } from "./registrar-types.js";
 
 type ErrorOptions = (context: Context) => { docsBaseUrl?: string; defaultHeaders?: Record<string, string> };
 

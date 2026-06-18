@@ -36,6 +36,7 @@ workspace resolution), `tsConfig` points at `tsconfig.base.json`,
 
 | Rule                      | What it catches                                                                                                                                                                                                 |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `no-circular`             | A runtime import cycle. Type-only cycles are excluded (TypeScript erases them). Break a cycle by inverting a dependency or moving the shared piece into a leaf module both sides import.                        |
 | `not-to-unresolvable`     | Imports that don't resolve to disk. `cloudflare:` virtual modules are exempt (Workers runtime, like `node:`).                                                                                                   |
 | `not-to-spec`             | Non-test code importing a `*.test.*` / `*.spec.*` file.                                                                                                                                                         |
 | `not-to-dev-dep`          | Shipped `src` code importing a `devDependency` (absent in production).                                                                                                                                          |
@@ -48,7 +49,6 @@ workspace resolution), `tsConfig` points at `tsconfig.base.json`,
 
 | Rule                     | Why it is advisory, not blocking                                                                                                                                                                                                     |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `no-circular`            | Type-only cycles are excluded (TS erases them). A few pre-existing **runtime** cycles remain — see baseline below. Tracked by **AP-377**; promote to `error` once cleared.                                                           |
 | `no-orphans`             | Flags modules nothing imports. Real entrypoints/leaves (worker `start.ts`, a route file, the apex install-script generators) show up here; left advisory so it surfaces genuinely-dead modules without false-failing on entrypoints. |
 | `no-deprecated-core`     | Deprecated Node core modules. `async_hooks` is intentionally **not** listed: the repo uses the supported `node:async_hooks` form for the ALS CSP-nonce bridge.                                                                       |
 | `not-to-deprecated`      | Deprecated npm packages.                                                                                                                                                                                                             |
@@ -56,23 +56,31 @@ workspace resolution), `tsConfig` points at `tsconfig.base.json`,
 
 ## Baseline (2026-06-17)
 
-`pnpm depcruise`: **0 errors, 15 warnings** over 624 modules / 2181
-dependencies. The 15 warnings are the `no-circular` runtime cycles (3 clusters,
-reported from several entrypoints) plus 4 `no-orphans` entrypoint/leaf files.
+`pnpm depcruise`: **0 errors, 4 warnings** over 627 modules / 2186 dependencies.
+All 4 warnings are `no-orphans` entrypoint/leaf files (`apps/web/src/start.ts`,
+the auth-callback route, the two apex install-script generators); `no-circular`
+is now clean and blocking.
 
-Runtime cycles to clear before `no-circular` → `error` (AP-377):
+The three runtime cycles that originally held `no-circular` at `warn` were
+cleared in AP-377. Each was closed by an `import type` back-edge, so the fix in
+every case was to move the shared type into a dependency-free leaf module both
+sides import — no runtime restructuring:
 
-- `packages/worker-runtime` — `registrar.ts` ↔ `registrar-pipeline.ts` (+ `registrar-request.ts`).
-- `packages/rotation` — `automation.ts` ↔ `rotation-plan-steps.ts`.
-- `apps/cli` — `update-check.ts` / `index.ts` tangle (`render.ts`, `edit.ts`, `cli-args.ts`, `publish-format.ts`, `upgrade.ts`).
+- `packages/worker-runtime` — registrar type surface (`AuthResolver`,
+  `GuardState`, `Handler`, `HeaderGuardState`, `RegistrarDeps`, …) extracted to
+  `registrar-types.ts`; `registrar.ts` re-exports it for the public API.
+- `packages/rotation` — versioned-secret shapes extracted to
+  `versioned-secret.ts`; `automation.ts` re-exports them.
+- `apps/cli` — `GlobalFlags` extracted to a zero-import `global-flags.ts`, so
+  `update-check.ts` no longer imports the `index.ts` entrypoint for its type.
 
 The TanStack `apps/web` `router.tsx` ↔ `routeTree.gen.ts` cycle is
 framework-generated and excluded via the `*.gen.ts` rule; it is not a defect.
 
 ## How to ratchet
 
-1. Clear an advisory rule's findings (e.g. break the runtime cycles for AP-377,
-   or remove a genuinely-dead orphan).
+1. Clear an advisory rule's findings (e.g. remove a genuinely-dead orphan, the
+   way AP-377 broke the runtime cycles to promote `no-circular`).
 2. Re-measure: `pnpm depcruise` (or `pnpm depcruise --output-type err-long`
    for the full path of each finding; `pnpm depcruise --output-type dot` for
    a Graphviz graph).
