@@ -1,9 +1,10 @@
-import { type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
+import { getRequestId, type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
 import { buildApiOpenApiDocument } from "@agent-paste/contracts";
 import { type Repository, repositoryErrorToAppError, type SqlExecutor } from "@agent-paste/db";
 import {
   type BoundRespondersVariables,
   boundRespondersMiddleware,
+  captureWorkerError,
   createRegistrar,
   getBoundResponders,
   securityHeadersMiddleware,
@@ -373,7 +374,14 @@ app.onError((error, context) => {
   if (repositoryCode) {
     return respondError(repositoryCode);
   }
-  console.error("Unhandled API error:", error);
+  captureWorkerError({
+    component: "api",
+    event: "api.unhandled_error",
+    error,
+    environment: context.env.AGENT_PASTE_ENV,
+    request: context.req.raw,
+    requestId: getRequestId(context),
+  });
   return respondError("internal_error");
 });
 

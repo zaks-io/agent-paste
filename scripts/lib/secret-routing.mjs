@@ -47,6 +47,7 @@ export const SECRET_ROUTING = {
     STRIPE_WEBHOOK_SIGNING_SECRET: { required: false, source: "stripe" },
     STRIPE_PRICE_ID_MONTHLY: { required: false, source: "stripe" },
     STRIPE_PRICE_ID_ANNUAL: { required: false, source: "stripe" },
+    SENTRY_DSN: { required: false, source: "sentry" }, // Optional backend monitoring; enabled only when configured.
   },
   upload: {
     CONTENT_SIGNING_SECRET: { required: true },
@@ -55,10 +56,12 @@ export const SECRET_ROUTING = {
     API_KEY_PEPPER_V2: { required: false },
     ARTIFACT_BYTES_ENCRYPTION_KEY: { required: true },
     WORKOS_API_KEY: { required: true, source: "workos" }, // MCP bearer verification on forwarded upload-session calls
+    SENTRY_DSN: { required: false, source: "sentry" }, // Optional backend monitoring; enabled only when configured.
   },
   content: {
     CONTENT_SIGNING_SECRET: { required: true },
     ARTIFACT_BYTES_ENCRYPTION_KEY: { required: true },
+    SENTRY_DSN: { required: false, source: "sentry" }, // Optional backend monitoring; enabled only when configured.
   },
   jobs: {
     CONTENT_SIGNING_SECRET: { required: true },
@@ -76,9 +79,11 @@ export const SECRET_ROUTING = {
     // are present (url-scanner.ts requires both).
     URL_SCANNER_API_TOKEN: { required: false, source: "cloudflare" },
     CLOUDFLARE_ACCOUNT_ID: { required: false, source: "cloudflare" },
+    SENTRY_DSN: { required: false, source: "sentry" }, // Optional backend monitoring; enabled only when configured.
   },
   stream: {
     STREAM_INTERNAL_SECRET: { required: true },
+    SENTRY_DSN: { required: false, source: "sentry" }, // Optional backend monitoring; enabled only when configured.
   },
   mcp: {
     WORKOS_API_KEY: { required: true, source: "workos" }, // MCP bearer verification at the edge gate

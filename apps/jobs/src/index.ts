@@ -1,4 +1,4 @@
-import { securityHeadersMiddleware, sentryOptions } from "@agent-paste/worker-runtime";
+import { captureWorkerError, securityHeadersMiddleware, sentryOptions } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
 import { runScheduledJobs, type ScheduledEvent } from "./cron.js";
@@ -65,7 +65,13 @@ app.post("/__test__/run-cleanup", (context) => runSmokeCleanupRoute(context));
 app.post("/__test__/purge-recovery", (context) => runSmokePurgeRecoveryRoute(context));
 app.notFound((context) => context.json({ error: { code: "not_found", message: "not_found" } }, 404));
 app.onError((error, context) => {
-  console.error("Unhandled jobs error:", error);
+  captureWorkerError({
+    component: "jobs",
+    event: "jobs.unhandled_error",
+    error,
+    environment: context.env.AGENT_PASTE_ENV,
+    request: context.req.raw,
+  });
   return context.json({ error: { code: "internal_error", message: "internal_error" } }, 500);
 });
 

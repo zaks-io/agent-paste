@@ -82,7 +82,7 @@ describe("secret-routing", () => {
 
   it("routes Sentry DSN as optional provider config", () => {
     for (const env of ["preview", "production"]) {
-      for (const app of ["apex", "mcp"]) {
+      for (const app of ["api", "upload", "content", "jobs", "stream", "mcp", "apex"]) {
         expect(secretsForApp(app, env, { source: "sentry" })).toEqual(["SENTRY_DSN"]);
         expect(secretsForApp(app, env, { source: "symmetric" })).not.toContain("SENTRY_DSN");
         expect(requiredSecretsForApp(app, env)).not.toContain("SENTRY_DSN");

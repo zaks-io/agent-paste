@@ -47,6 +47,15 @@ export {
   errorResponse,
   jsonResponse,
 } from "./errors.js";
+export {
+  captureWorkerError,
+  emitWorkerLog,
+  sanitizeSentryLog,
+  sanitizeWorkerLogAttributes,
+  type WorkerErrorLogInput,
+  type WorkerLogInput,
+  type WorkerLogLevel,
+} from "./logging.js";
 export type {
   ApiKeyPrincipal,
   AuthFailure,
