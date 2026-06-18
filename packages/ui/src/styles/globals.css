@@ -298,6 +298,38 @@ pre {
   outline-offset: 2px;
 }
 
+/* Scrollbars: in-theme, square, visible without shouting. Thumb is the subtle
+ * ink, track is the canvas, so it reads as part of the surface ladder in both
+ * modes. Firefox gets the thin two-color form; WebKit/Blink the box-model. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--subtle)) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--subtle));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: var(--radius-md);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted));
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* Cabinet Grotesk as display: lean on weight. Tight tracking at large sizes. */
 .font-display {
   font-family: var(--font-display);
