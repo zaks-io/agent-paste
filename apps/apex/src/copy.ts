@@ -74,32 +74,101 @@ export const INSTALL_PS1_CMD = "irm https://agent-paste.sh/install.ps1 | iex";
 // page under public/ so production data is not required. The static path must
 // not collide with a PRODUCT_PREFIXES redirect (redirects.ts) or the
 // TEXT_ASSET_PATHS whitelist (server.ts): `/a/` is free.
-export const EXAMPLE_STATIC_PAGE_PATH = "/a/art_8KQ2WSDIEGO7XR";
-export const EXAMPLE_ACCESS_LINK_URL =
-  "app.agent-paste.sh/al/8KQ2WSDG07XR4T9M#AQEAAAGJk2YAAAEC9XQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz0";
-export const EXAMPLE_PROMPT = "Build a one-page project handoff, publish it with agent-paste.sh, and give me the link.";
-export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v1";
+// The clickable demo opens a static page that physically lives under public/ at
+// /a/<id> (no production data needed). The shown Access Link uses the SAME id so
+// the displayed URL and the link target read as one artifact — only the route
+// prefix differs (/al/ is the no-login Share Link route, /a/ is the static demo
+// page). The fragment is a realistic-looking opaque token; nothing here resolves
+// to real data.
+const EXAMPLE_ARTIFACT_ID = "art_8KQ2WSDIEGO7XR";
+export const EXAMPLE_STATIC_PAGE_PATH = `/a/${EXAMPLE_ARTIFACT_ID}`;
+export const EXAMPLE_ACCESS_LINK_URL = `app.agent-paste.sh/al/${EXAMPLE_ARTIFACT_ID}#AQEAAAGJk2YAAAEC9XQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz0`;
+// The personalized-marketer prompt. The visitor's own agent already knows their
+// work (its memory); this asks it to read the agent-paste docs and turn that
+// knowledge into concrete ways THEY should use agent-paste, then publish the
+// recommendation as a page and hand back the link. We never see their memory;
+// the demo only shows the shape of the run.
+export const EXAMPLE_PROMPT =
+  "Read the agent-paste.sh docs, then look at what you already know about my work and tell me the best ways I should be using agent-paste. Publish your recommendation as a page and give me the link.";
+export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v2_memory";
 
-export type TranscriptLine =
+// Inline run affordance shown right after the prompt line, and the replay control
+// in the head once the run has played. Copy floats freely; not a test contract.
+export const DEMO_RUN = {
+  execute: "Execute",
+  replay: "Replay",
+};
+
+// Each line carries `wait`: the ms of "work" that happens BEFORE it appears, so
+// the cadence models where real latency actually is, not an arbitrary per-line
+// tick. A thinking beat precedes reasoning; a real network wait precedes a fetch
+// result; the upload/publish round-trip precedes the publish output; lines that
+// are part of one result burst in with near-zero waits. client.ts reads `wait`
+// directly (and scales it down for a snappy demo).
+export type TranscriptLine = {
+  wait?: number;
+} & // affordance). Always visible; the inline Execute button sits under it. // The copyable prompt the visitor pastes into their own agent (the one copy
+(
   | { kind: "prompt"; text: string }
-  | { kind: "comment"; text: string }
-  | { kind: "success"; text: string }
+  // First-person agent reasoning, the "thinking out loud" beats a real coding
+  // agent prints (Codex's "• ...", Claude's "⏺ ...").
+  | { kind: "reason"; text: string }
+  // A shell command the agent actually runs, shown with a caret.
+  | { kind: "cmd"; text: string }
+  // Tool/command output the agent gets back, dim and indented.
   | { kind: "output"; text: string }
-  | { kind: "result"; url: string; href: string };
+  // A green success summary line.
+  | { kind: "success"; text: string }
+  // The returned no-login link (the payoff). Clickable to the static example.
+  | { kind: "result"; url: string; href: string }
+  // A trailing dim comment.
+  | { kind: "comment"; text: string }
+);
 
-// A pseudo-session: the user gives the agent the job and agent-paste.sh, then the
-// agent discovers the docs, publishes, and returns the Access Link. The first
-// prompt line is the page's single copy affordance (clicking it copies the bare
-// EXAMPLE_PROMPT to paste into your own agent); every other line is read-only.
+// A pseudo-session modeled on a real coding-agent run (Codex / Claude Code) on the
+// accountless --ephemeral path: the agent reasons about the job, reads the docs,
+// looks at what it already knows about the user, runs one real publish command,
+// and hands back the no-login link. The output block mirrors the CLI's actual
+// ephemeral publish format byte-for-byte (apps/cli/src/publish-format.ts): Link /
+// Expires / Upload / Claim / → open. Generic enough to be any visitor's work,
+// true to the real tool. The prompt line is the page's single copy affordance
+// (clicking it copies the bare EXAMPLE_PROMPT); every other line is read-only.
+// The animated demo (client.ts) reveals these one by one on Execute; with JS off
+// every line is visible, so this is also the static fallback.
 export const TRANSCRIPT: TranscriptLine[] = [
   { kind: "prompt", text: `agent "${EXAMPLE_PROMPT}"` },
-  { kind: "output", text: "reading agent-paste.sh/agents.md..." },
-  { kind: "output", text: "building project handoff..." },
-  { kind: "output", text: "wrote ./handoff" },
-  { kind: "output", text: "published and created a Share Link" },
-  { kind: "success", text: 'Posted "Project handoff" to agent-paste.sh' },
-  { kind: "result", url: EXAMPLE_ACCESS_LINK_URL, href: EXAMPLE_STATIC_PAGE_PATH },
-  { kind: "comment", text: "# open it now or share it. ask to claim it when you want it kept and interactive." },
+  // Thinks, then states the plan.
+  {
+    kind: "reason",
+    wait: 900,
+    text: "I'll read the agent-paste docs, then match them to what I know about your work.",
+  },
+  // Fetches the agent guide. The wait is AFTER the action: the network round-trip
+  // before the result lands — the beat sits on the agent's command, not its reply.
+  { kind: "cmd", wait: 550, text: "fetch agent-paste.sh/llms.txt" },
+  {
+    kind: "output",
+    wait: 1400,
+    text: "the publishing layer for agent work · CLI + MCP · accountless --ephemeral publish",
+  },
+  // It already has the result, so it responds promptly, then lists what it found.
+  { kind: "reason", wait: 650, text: "Three of those map onto what we've been doing:" },
+  { kind: "output", wait: 350, text: "1. research briefs you keep pasting back into chat" },
+  { kind: "output", wait: 250, text: "2. handing this agent's work off to a teammate on another tool" },
+  { kind: "output", wait: 250, text: "3. the dashboards I generate that you can't open without a server" },
+  { kind: "reason", wait: 600, text: "I'll write that up and publish it with no login so you just get a link." },
+  // Runs the real publish command; the wait AFTER it is the upload + publish
+  // round-trip before the output block returns — the beat after the action.
+  { kind: "cmd", wait: 600, text: "agent-paste publish ./recommendation --ephemeral" },
+  // The real CLI ephemeral output block (publish-format.ts), bursting in together.
+  { kind: "success", wait: 2000, text: 'Published "How you should use agent-paste"' },
+  { kind: "output", wait: 250, text: "Link     app.agent-paste.sh/al/art_8KQ2WSDIEGO7XR…" },
+  { kind: "output", wait: 200, text: "Expires  2026-06-19" },
+  { kind: "output", wait: 200, text: "Upload   1/1 uploaded, 0 reused · 11.8 KB sent, 0 B cached" },
+  // The handoff line + the live link (the → open target).
+  { kind: "output", wait: 450, text: "→ open" },
+  { kind: "result", wait: 200, url: EXAMPLE_ACCESS_LINK_URL, href: EXAMPLE_STATIC_PAGE_PATH },
+  { kind: "comment", wait: 600, text: "# no login needed. copy the prompt above and run it in your own agent." },
 ];
 
 export type Feature = {
