@@ -207,3 +207,129 @@ function trackPromptCopied(id: string, promptVariant: string) {
     });
   });
 })();
+
+// Make the prompt's "click to copy" hint follow the cursor. The tip lives inside
+// the prompt button; we write the pointer's position (relative to the button) into
+// CSS custom properties and let apex.css place the tip from them. No-ops with no
+// prompt button on the page.
+(() => {
+  const prompt = document.querySelector<HTMLElement>(".t-prompt-copy");
+  if (!prompt) return;
+  const tip = prompt.querySelector<HTMLElement>(".t-prompt-tip");
+  prompt.addEventListener("pointermove", (event) => {
+    const rect = prompt.getBoundingClientRect();
+    prompt.style.setProperty("--tip-x", `${event.clientX - rect.left}px`);
+    prompt.style.setProperty("--tip-y", `${event.clientY - rect.top}px`);
+    // Flip to the cursor's left near the right edge so the tip never spills out
+    // of the (overflow-clipping) terminal body.
+    const tipW = tip?.offsetWidth ?? 0;
+    const flip = event.clientX + 16 + tipW > rect.right;
+    prompt.style.setProperty("--tip-side", flip ? "-1" : "1");
+  });
+})();
+
+// Pseudo-agent demo: reveal the transcript lines one at a time, like a real coding
+// agent (Codex / Claude Code) working through a job. The inline Execute button
+// sits right under the prompt; clicking it hides the button and streams the run
+// in below with jittered, kind-aware pacing so it doesn't feel metronomic. When
+// it finishes, a circular replay control appears in the head.
+//
+// JS only decides *which line shows now*; apex.css owns the fade and the caret.
+// Progressive enhancement: every line is visible by default, so we arm the shell
+// (hiding all but the prompt) ONLY when motion is allowed. Under reduced-motion we
+// leave the static transcript untouched and just let the controls reveal it.
+(() => {
+  const shell = document.querySelector<HTMLElement>("[data-demo]");
+  if (!shell) return;
+  const runBtn = shell.querySelector<HTMLButtonElement>("[data-demo-run]");
+  const replayBtn = shell.querySelector<HTMLButtonElement>("[data-demo-replay]");
+  if (!runBtn) return;
+
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+  // Reduced-motion: do not arm at all. Arming sets data-demo="armed", which the
+  // CSS uses to collapse (display:none) every line after the prompt until Execute
+  // is clicked. The reduced-motion CSS block forces opacity/transform but does NOT
+  // override that display:none, so arming under reduced-motion would hide the
+  // transcript behind a click. Leaving the shell un-armed keeps the full static
+  // transcript visible (the same baseline no-JS visitors and crawlers get), which
+  // is the correct "don't animate" behavior, so we never wire the controls.
+  if (reduceMotion) return;
+
+  // The scrollable body is capped by its max-height (300px); as lines reveal past
+  // it we keep the newest line in view by pinning the scroll to the bottom.
+  const body = shell.querySelector<HTMLElement>(".t-body");
+  const scrollToLatest = () => {
+    if (body) body.scrollTop = body.scrollHeight;
+  };
+
+  // The prompt is the first .t-step and stays visible; the rest stream in.
+  const playable = Array.from(shell.querySelectorAll<HTMLElement>(".t-step")).slice(1);
+
+  // Pacing is data-driven: each line's `data-wait` is the real-world latency that
+  // produces it (a thinking beat before reasoning, a network round-trip before a
+  // fetch result, the upload/publish wait before the CLI output block; lines that
+  // are part of one result carry tiny waits so they burst in together). We just
+  // scale that down so the whole run is snappy — a few seconds, like a quick agent.
+  const SPEED = 0.58; // <1 speeds the run up; the relative rhythm is preserved.
+  const delayBefore = (el: HTMLElement) => {
+    const raw = Number(el.getAttribute("data-wait"));
+    const ms = Number.isFinite(raw) && raw > 0 ? raw : 320;
+    return Math.max(120, Math.round(ms * SPEED));
+  };
+
+  let running = false;
+  let timers: ReturnType<typeof setTimeout>[] = [];
+
+  const clearTimers = () => {
+    timers.forEach((id) => {
+      clearTimeout(id);
+    });
+    timers = [];
+  };
+
+  const resetSteps = () => {
+    playable.forEach((el) => {
+      el.classList.remove("is-played", "is-active");
+    });
+  };
+
+  const finish = () => {
+    const last = playable[playable.length - 1];
+    if (last) last.classList.remove("is-active");
+    shell.setAttribute("data-demo", "done");
+    running = false;
+  };
+
+  const run = () => {
+    if (running) return;
+    running = true;
+    clearTimers();
+    resetSteps();
+    if (body) body.scrollTop = 0;
+    shell.setAttribute("data-demo", "playing");
+
+    let elapsed = 0;
+    playable.forEach((el, i) => {
+      elapsed += delayBefore(el);
+      timers.push(
+        setTimeout(() => {
+          const previous = playable[i - 1];
+          if (previous) previous.classList.remove("is-active");
+          el.classList.add("is-played", "is-active");
+          scrollToLatest();
+          if (i === playable.length - 1) {
+            // Let the caret blink on the final line briefly, then settle.
+            timers.push(setTimeout(finish, 480));
+          }
+        }, elapsed),
+      );
+    });
+  };
+
+  runBtn.addEventListener("click", run);
+  replayBtn?.addEventListener("click", run);
+
+  // Arm: hide everything after the prompt and reveal the inline Execute button.
+  shell.setAttribute("data-demo", "armed");
+})();

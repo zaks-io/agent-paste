@@ -101,6 +101,126 @@
   color: hsl(var(--accent));
 }
 
+/* ── Pseudo-agent demo (the "Execute pseudo prompt" run) ───────────────────────
+ *
+ * Progressive enhancement, gated entirely behind the JS-set `data-demo`
+ * attribute. DEFAULT (no attribute): every `.t-step` line is fully visible and
+ * the run button is hidden — this is the no-JS / crawler / render-test fallback,
+ * and nothing here may hide a line at that baseline. client.ts adds
+ * data-demo="armed" only when motion is allowed; CSS then hides the lines after
+ * the prompt and shows the button. data-demo="playing"/"done" drive the run.
+ */
+
+/* Beat spacing. A real agent feed groups a thought with the lines it produced:
+ * the narration (⏺) and tool calls start a new beat and want air above them; the
+ * output/result lines that belong to a beat stay tight underneath. We add top
+ * margin to the beat-starting kinds rather than a flat gap on every line, so the
+ * grouping reads (Claude/Codex both separate beats this way). The prompt is the
+ * first line and never needs a top margin. */
+.t-shell .t-step[data-kind="reason"],
+.t-shell .t-step[data-kind="tool"],
+.t-shell .t-step[data-kind="cmd"],
+.t-shell .t-step[data-kind="success"] {
+  margin-top: 0.85em;
+}
+/* The closing comment sits a touch further out as its own coda. */
+.t-shell .t-step[data-kind="comment"] {
+  margin-top: 1.1em;
+}
+
+/* The inline Execute button sits right under the prompt. It is hidden by default
+ * (no-JS visitors never see an inert control), shown only once JS arms the shell,
+ * and removed the moment the run starts so it never competes with the output. */
+.t-shell .t-run {
+  display: none;
+}
+.t-shell[data-demo="armed"] .t-run {
+  display: inline-flex;
+}
+
+/* The circular replay control lives in the head and appears only after the run
+ * has played once (done). Hidden by default and while armed/playing. */
+.t-shell .t-replay {
+  display: none;
+}
+.t-shell[data-demo="done"] .t-replay {
+  display: inline-flex;
+}
+.t-shell .t-replay svg {
+  transition: transform 0.45s var(--ease-out);
+}
+.t-shell .t-replay:hover svg {
+  transform: rotate(-90deg);
+}
+
+/* Armed/playing: every not-yet-played step is fully COLLAPSED (display:none) so it
+ * occupies no layout — the terminal sizes to just the prompt + Execute when armed
+ * and grows line-by-line as the run plays (no phantom scroll over empty space).
+ * The first step (the prompt) always stays. Played lines fade in. */
+.t-shell[data-demo="armed"] .t-step,
+.t-shell[data-demo="playing"] .t-step {
+  display: none;
+}
+.t-shell[data-demo="armed"] .t-step:first-child,
+.t-shell[data-demo="playing"] .t-step:first-child,
+.t-shell[data-demo] .t-step.is-played {
+  display: block;
+}
+/* The result line is an <a> (inline-level); restore its block display when shown. */
+.t-shell[data-demo="armed"] .t-result:first-child,
+.t-shell[data-demo="playing"] .t-result.is-played,
+.t-shell[data-demo] .t-result.is-played {
+  display: block;
+}
+.t-shell[data-demo="playing"] .t-step.is-played {
+  animation: t-line-in 0.4s var(--ease-out);
+}
+
+@keyframes t-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Blinking block caret trailing the line currently being revealed. */
+.t-shell[data-demo="playing"] .t-step.is-active::after {
+  content: "▍";
+  margin-left: 2px;
+  color: hsl(var(--accent));
+  animation: t-caret 1s steps(1) infinite;
+}
+
+@keyframes t-caret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* The click-to-copy hint follows the cursor: client.ts writes the pointer's
+ * position into --tip-x/--tip-y on the prompt button and we place the tip just
+ * below-right of it. Before the first pointermove the vars are unset; the fallback
+ * anchors INSIDE the prompt button (top 0, not 100%) so the at-rest, invisible tip
+ * never extends the scrollable content height of the overflow:auto t-body, which
+ * was tripping a phantom vertical scrollbar before any hover. The tip is
+ * pointer-events-none and opacity-0 until hover, so its fallback position only
+ * matters for not growing the scroll region; on hover the live --tip-x/--tip-y put
+ * it under the cursor as before. */
+.t-prompt-tip {
+  left: var(--tip-x, 0);
+  top: var(--tip-y, 0);
+  transform: translate(calc(0.9rem * var(--tip-side, 1) + (var(--tip-side, 1) - 1) * 50%), 0.9rem);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .home .reveal {
     /* biome-ignore lint/complexity/noImportantStyles: reduced-motion must override the inline reveal transition. */
@@ -110,6 +230,18 @@
   }
   .dot {
     /* biome-ignore lint/complexity/noImportantStyles: reduced-motion must stop the live-pulse keyframe animation. */
+    animation: none !important;
+  }
+  /* Belt-and-suspenders: client.ts already skips arming under reduced-motion, but
+   * if data-demo is ever set, force every line visible and kill the caret. */
+  .t-shell[data-demo] .t-step {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced-motion must override the armed/played reveal states. */
+    opacity: 1 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: reduced-motion must override the armed translate offset. */
+    transform: none !important;
+  }
+  .t-shell[data-demo="playing"] .t-step.is-active::after {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced-motion must stop the caret blink. */
     animation: none !important;
   }
 }

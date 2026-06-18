@@ -68,38 +68,134 @@ export const INSTALL_PS1_CMD = "irm https://agent-paste.sh/install.ps1 | iex";
 
 // The home demo: a flat, hairline transcript shell showing an agent publish
 // session (style-guide §8.1 sanctions the transcript; the terminal *look* is
-// still banned). Nothing in it animates.
+// still banned). The transcript animates on Execute as a progressive enhancement
+// (client.ts reveals lines one by one); it renders fully static for no-JS visitors,
+// crawlers, and reduced-motion.
 
 // The transcript prints an Access Link, while the clickable demo opens a static
 // page under public/ so production data is not required. The static path must
 // not collide with a PRODUCT_PREFIXES redirect (redirects.ts) or the
 // TEXT_ASSET_PATHS whitelist (server.ts): `/a/` is free.
-export const EXAMPLE_STATIC_PAGE_PATH = "/a/art_8KQ2WSDIEGO7XR";
-export const EXAMPLE_ACCESS_LINK_URL =
-  "app.agent-paste.sh/al/8KQ2WSDG07XR4T9M#AQEAAAGJk2YAAAEC9XQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz0";
-export const EXAMPLE_PROMPT = "Build a one-page project handoff, publish it with agent-paste.sh, and give me the link.";
-export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v1";
+// The clickable demo opens a static page that physically lives under public/ at
+// /a/<id> (no production data needed). The shown Access Link uses the SAME id so
+// the displayed URL and the link target read as one artifact — only the route
+// prefix differs (/al/ is the no-login Share Link route, /a/ is the static demo
+// page). The fragment is a realistic-looking opaque token; nothing here resolves
+// to real data.
+const EXAMPLE_ARTIFACT_ID = "art_8KQ2WSDIEGO7XR";
+export const EXAMPLE_STATIC_PAGE_PATH = `/a/${EXAMPLE_ARTIFACT_ID}`;
+export const EXAMPLE_ACCESS_LINK_URL = `app.agent-paste.sh/al/${EXAMPLE_ARTIFACT_ID}#AQEAAAGJk2YAAAEC9XQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz0`;
+// The personalized-marketer prompt. It asks the visitor's own agent to read the
+// agent-paste docs and turn them into concrete ways THEY could use agent-paste,
+// then publish that as an HTML report and hand back the link. The memory clause
+// is deliberately conditional: a memory-equipped agent (Claude Code, Codex,
+// ChatGPT, etc.) tailors the report to the user's real work; a cold agent with
+// no context produces a useful general report instead. Either way the run has
+// the same shape, which is all the demo shows — we never see the user's memory.
+export const EXAMPLE_PROMPT =
+  "Read the agent-paste.sh docs and come up with a bunch of ways I could use it. If you know anything about my work, tailor it to me; otherwise keep it general. Give me an HTML report I can open.";
+export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v4_conditional_memory";
 
-export type TranscriptLine =
+// Inline run affordance shown right after the prompt line, and the replay control
+// in the head once the run has played. Copy floats freely; not a test contract.
+export const DEMO_RUN = {
+  execute: "Execute",
+  replay: "Replay",
+};
+
+// Each line carries `wait`: the ms of "work" that happens BEFORE it appears, so
+// the cadence models where real latency actually is, not an arbitrary per-line
+// tick. A thinking beat precedes reasoning; a real network wait precedes a fetch
+// result; the upload/publish round-trip precedes the publish output; lines that
+// are part of one result burst in with near-zero waits. client.ts reads `wait`
+// directly (and scales it down for a snappy demo).
+export type TranscriptLine = {
+  wait?: number;
+} & ( // affordance). Always visible; the inline Execute button sits under it. // The copyable prompt the visitor pastes into their own agent (the one copy
   | { kind: "prompt"; text: string }
-  | { kind: "comment"; text: string }
-  | { kind: "success"; text: string }
+  // First-person agent narration, the "thinking out loud" beats a real coding
+  // agent prints before it acts: Claude Code's "⏺ ...". Marked with the ⏺ glyph.
+  | { kind: "reason"; text: string }
+  // A collapsed tool-call summary, the signature of a real Claude Code feed: the
+  // tool invocation (`Fetch(...)`, `Read(...)`, `Bash(...)`) on its own line, then
+  // the single-line result on a `⎿` gutter beneath it. `result` is the dim line
+  // the tool returned; `hint` is the optional faint "(ctrl+o to expand)" tail.
+  | { kind: "tool"; text: string; result: string; hint?: string }
+  // A shell command the agent actually runs, shown with a caret.
+  | { kind: "cmd"; text: string }
+  // Tool/command output the agent gets back, dim and indented.
   | { kind: "output"; text: string }
-  | { kind: "result"; url: string; href: string };
+  // A green success summary line.
+  | { kind: "success"; text: string }
+  // The returned no-login link (the payoff). Clickable to the static example.
+  | { kind: "result"; url: string; href: string }
+  // A trailing dim comment.
+  | { kind: "comment"; text: string }
+);
 
-// A pseudo-session: the user gives the agent the job and agent-paste.sh, then the
-// agent discovers the docs, publishes, and returns the Access Link. The first
-// prompt line is the page's single copy affordance (clicking it copies the bare
-// EXAMPLE_PROMPT to paste into your own agent); every other line is read-only.
+// A pseudo-session modeled on a real coding-agent run (Codex / Claude Code) on the
+// accountless --ephemeral path: the agent states its plan, reads the docs, reasons
+// from what it knows about the user, runs one real publish command, and hands back
+// the no-login link. The output block
+// follows the CLI's actual ephemeral publish format (apps/cli/src/publish-format.ts):
+// the same labels and order (Published / Link / Expires / Upload / Claim), with the
+// Claim copy trimmed for the demo. Generic enough to be any visitor's work, true to
+// the real tool. The prompt line is the page's single copy affordance
+// (clicking it copies the bare EXAMPLE_PROMPT); every other line is read-only.
+// The animated demo (client.ts) reveals these one by one on Execute; with JS off
+// every line is visible, so this is also the static fallback.
 export const TRANSCRIPT: TranscriptLine[] = [
   { kind: "prompt", text: `agent "${EXAMPLE_PROMPT}"` },
-  { kind: "output", text: "reading agent-paste.sh/agents.md..." },
-  { kind: "output", text: "building project handoff..." },
-  { kind: "output", text: "wrote ./handoff" },
-  { kind: "output", text: "published and created a Share Link" },
-  { kind: "success", text: 'Posted "Project handoff" to agent-paste.sh' },
-  { kind: "result", url: EXAMPLE_ACCESS_LINK_URL, href: EXAMPLE_STATIC_PAGE_PATH },
-  { kind: "comment", text: "# open it now or share it. ask to claim it when you want it kept and interactive." },
+  // Narrates intent before acting, the way a real Claude Code session opens: state
+  // the first move and why, then do it. Not a full plan dumped up front.
+  {
+    kind: "reason",
+    wait: 900,
+    text: "I'll read the agent-paste.sh docs first, since that's the tool I'd be publishing with.",
+  },
+  // The signature Claude Code beat: a collapsed tool call with a `⎿` result gutter.
+  // The wait is AFTER the call — the network round-trip before the result lands.
+  {
+    kind: "tool",
+    wait: 1300,
+    text: "Fetch(agent-paste.sh/llms.txt)",
+    result: "the publishing layer for agent work · CLI + MCP · accountless --ephemeral publish",
+    hint: "+18 lines (ctrl+o to expand)",
+  },
+  // Draws on what it already knows about the user, as a plain thought, NOT a tool
+  // call: real agents reason from context they hold (project memory, the session),
+  // there is no universal "memory file" to read, so asserting a Read(...) of one
+  // would ring false to the savvy visitor. Conditional by design: a memory-equipped
+  // agent has real context here; a cold agent has none and the same line reads as
+  // common patterns. The demo only shows the shape.
+  {
+    kind: "reason",
+    wait: 800,
+    text: "From what I know about your work: research briefs, agent handoffs, dashboards you can't open without a server.",
+  },
+  // States the conclusion in one beat (not a 3-line dump) and commits to the build.
+  {
+    kind: "reason",
+    wait: 700,
+    text: "Three clear fits. I'll write them up and publish with no login so you can just open it.",
+  },
+  // Runs the one real command. The wait AFTER it is the upload + publish round-trip
+  // before the CLI output block returns.
+  { kind: "cmd", wait: 700, text: "agent-paste publish ./report --ephemeral" },
+  // The real CLI ephemeral output block (publish-format.ts: success → Link →
+  // Expires → Upload → Claim), bursting in together.
+  { kind: "success", wait: 1900, text: 'Published "Ways you could use agent-paste"' },
+  { kind: "output", wait: 250, text: "Link     app.agent-paste.sh/al/art_8KQ2WSDIEGO7XR…" },
+  // Relative, not a literal date: the real CLI prints a calendar date, but a
+  // hardcoded one ages out of the demo. "in 24 hours" is truthful to the ephemeral
+  // TTL and never goes stale.
+  { kind: "output", wait: 180, text: "Expires  in 24 hours" },
+  { kind: "output", wait: 180, text: "Upload   1/1 uploaded, 0 reused · 11.8 KB sent, 0 B cached" },
+  { kind: "output", wait: 220, text: "Claim    log in and open to keep it and make it interactive" },
+  // The handoff: narrate, then the live link (the → open target).
+  { kind: "reason", wait: 700, text: "Done. Here's your link, no login needed:" },
+  { kind: "result", wait: 350, url: EXAMPLE_ACCESS_LINK_URL, href: EXAMPLE_STATIC_PAGE_PATH },
+  { kind: "comment", wait: 700, text: "# copy the prompt above and run it in your own agent." },
 ];
 
 export type Feature = {
