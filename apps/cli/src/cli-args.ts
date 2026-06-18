@@ -1,12 +1,9 @@
+import type { GlobalFlags } from "./global-flags.js";
 import { type OutputMode, resolveMode } from "./render.js";
 
-export const SCHEMA_VERSION = "1";
+export type { GlobalFlags };
 
-export type GlobalFlags = {
-  json: boolean;
-  quiet: boolean;
-  color?: boolean | undefined;
-};
+export const SCHEMA_VERSION = "1";
 
 export type Parsed = {
   command: string[];

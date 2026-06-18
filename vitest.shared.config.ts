@@ -32,6 +32,7 @@ const sharedTestExcludes = [
   "**/.next/**",
   "**/.output/**",
   "**/coverage/**",
+  "**/.stryker-tmp/**",
 ];
 
 export function buildTestExcludes(root: string = process.cwd()): string[] {

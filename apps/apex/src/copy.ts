@@ -23,20 +23,25 @@ export const WORDMARK = {
 };
 
 export const TITLE = "agent-paste.sh: tell your agent where to publish";
+// The search-result snippet (and JSON-LD via structured-data.ts; also the social
+// og:description). Human-first: the pain (work stuck in chat), the payoff (a link
+// to open and share). Must stay <= 125 chars (render.test.tsx crawler-card cap).
 export const META_DESCRIPTION =
-  "agent-paste.sh turns agent output into clean, revocable links you can open, share, and hand to the next agent.";
+  "Your agent built it and it is stuck in a chat window. agent-paste turns it into a link you can open and share.";
 
 // The headline itself is canonical JSX in HomePage.tsx (it carries the one
 // accent span, which a plain string can't), so it is intentionally not stored
-// here. This object holds the eyebrow, the lead, the directive that points at the
-// single copyable prompt, the honest status line, and the secondary dashboard link.
+// here. This object holds the eyebrow, the lead, the honest status line, and the
+// secondary dashboard link.
 export const HERO = {
   eyebrow: "Where agents publish",
-  lead: "Paste this into a shell-capable agent. It installs agent-paste, publishes the folder it creates, and gives you a no-login link. Claim it when you want to keep it, revise it, or run JavaScript.",
-  // The primary action is one copyable prompt, and it lives on the agent-session
-  // line in the demo (the visitor copies it and pastes it into their agent).
-  // This hero directive points at that one surface instead of duplicating it.
-  heroAction: "Copy the prompt from the agent session and paste it into your agent.",
+  // The lead answers a cold visitor's first two questions (what is this, is it for
+  // me) in plain, human terms before any mechanism. Concrete nouns let the reader
+  // self-identify; "trapped in a chat window" is the felt pain; the closing clause
+  // is the whole how-to, deliberately last, pointing at the funnel. This page is
+  // human-facing marketing: agents read /agents.md and /llms.txt, not this. The
+  // shell / login / --ephemeral mechanism lives below the fold.
+  lead: "Your AI agent built a report, a dashboard, a prototype, and it is trapped in a chat window. agent-paste turns it into a link you can open in any browser and send to anyone. Tell your agent to publish it; you get the link.",
   // Honest, verifiable, and answers the two first-glance objections (is this real?
   // what is the catch on free?). Every figure is true to packages/config + pricing.
   status:
@@ -103,26 +108,64 @@ export type Feature = {
   body: string;
 };
 
-// The four reasons the link holds up, one per brand-guide reason to believe.
-// Deduped from an earlier seven-item wall: the OAuth-login and ephemeral facts
-// now live where the page shows them (the command boxes and the closing block),
-// and Live Update folds into the transient/Access Link reason it belongs to.
+// The four reasons the link holds up, framed as what the reader gets, not the
+// mechanism. Per the human-first rule for this page, each title and first line
+// speak to a person; the protocol / safety detail follows in the body, for the
+// dev who reads on. The OAuth-login and ephemeral facts live where the page shows
+// them (the command boxes and the closing block).
 export const FEATURES: Feature[] = [
   {
-    title: "A URL for humans. A manifest for agents.",
-    body: "Every Publish returns an authenticated app View and an Agent View: structured JSON with the file tree, metadata, and signed per-file URLs. Public sharing is explicit through revocable Access Links. The next agent reads the work instead of scraping it. One stable Artifact, the same across CLI, MCP, and the dashboard.",
+    title: "One link, opens anywhere",
+    body: "Hand it to a person or pass it to another agent. People get a clean View in the browser; agents get an Agent View, structured JSON with the file tree, metadata, and signed per-file URLs, so the next agent reads the work instead of scraping it. One stable Artifact, the same across CLI, MCP, and the dashboard.",
   },
   {
-    title: "Cross-vendor handoff",
-    body: "Work made inside one tool stays walled in: vendor surfaces are auth-locked with no machine-readable way out. agent-paste is the neutral layer between them. An agent in any tool publishes; a human or another agent in any other tool picks it up.",
+    title: "Move work between tools that don't talk",
+    body: "Work made inside one tool stays walled in: vendor surfaces are auth-locked with no machine-readable way out. agent-paste is the neutral layer between them. An agent in Cursor publishes; a teammate in ChatGPT, or you in a browser, picks it up.",
   },
   {
-    title: "Transient by default, revocable on demand",
-    body: "Artifacts expire under your Workspace Auto Deletion policy. Share a Revision through a revocable Access Link, then revoke it without deleting the underlying Artifact. Leave the link open and every viewer advances to the newest Revision on its own, no reload. A handoff, not a vault.",
+    title: "The link stays current, until you cut it",
+    body: "Leave the link open and every viewer advances to the newest Revision on its own, no reload, no re-send. Share through a revocable Access Link and pull it back any time without deleting the work. Artifacts expire under your Workspace Auto Deletion policy: a handoff, not a vault.",
   },
   {
-    title: "Safe to host what your agent wrote",
-    body: "Generated pages are untrusted by construction, so they run from an isolated Content Origin: private storage, short-lived signed tokens, platform-derived MIME types, a strict execution policy, and per-artifact lockdown.",
+    title: "Safe to open what your agent wrote",
+    body: "Generated pages are untrusted by construction, so they run from an isolated Content Origin: private storage, short-lived signed tokens, platform-derived MIME types, a strict execution policy, and per-artifact lockdown. You can host what an agent generated without it touching your account.",
+  },
+];
+
+export type UseCase = {
+  // The recognizable situation, in the visitor's own terms.
+  scenario: string;
+  // The concrete payoff: the link, who opens it, what it saves them.
+  outcome: string;
+  // Optional real example page (a static /a/<id>/ artifact). Unset for now; real
+  // clickable examples are a deferred follow-up, not part of this change.
+  href?: string;
+};
+
+// The "is this for me" section: concrete jobs people already do, each ending in
+// the link they hand off. It sits right under the demo so the feat of strength is
+// immediately followed by "...and here is when that is you". Kept to four so the
+// reader is not asked to weigh a wall of equal options.
+export const USE_CASES: UseCase[] = [
+  {
+    scenario: "Your agent wrote a research brief or analysis you need to send up.",
+    outcome:
+      "Hand your boss a link, not a 4,000-line chat scroll. It opens in any browser, formatted, no tool of theirs required.",
+  },
+  {
+    scenario: "You built something in one agent and the next person lives in another.",
+    outcome:
+      "Publish from Cursor, and a teammate on ChatGPT or Claude reads the work instead of re-deriving it. The handoff carries the files, not a copy-paste.",
+  },
+  {
+    scenario: "The agent keeps revising and people already have the link.",
+    outcome:
+      "Everyone you sent it to sees the newest version on their own, no reload and no re-send. One stable link for the whole back-and-forth.",
+  },
+  {
+    scenario: "Your agent generated a page that is meant to actually run.",
+    outcome:
+      "A self-contained dashboard or interactive report runs from a safe, isolated origin, so you can open what the agent wrote without standing up a server.",
   },
 ];
 

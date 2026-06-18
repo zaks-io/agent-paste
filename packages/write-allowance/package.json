@@ -16,9 +16,13 @@
     "lint": "biome lint .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage --config ../../vitest.coverage.node.config.ts",
+    "test:mutation": "stryker run",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "catalog:",
+    "@stryker-mutator/typescript-checker": "catalog:",
+    "@stryker-mutator/vitest-runner": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

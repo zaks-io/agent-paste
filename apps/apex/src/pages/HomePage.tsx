@@ -14,6 +14,8 @@ import {
   SIGN_IN_URL,
   SOURCE_BADGE_LABEL,
   SOURCE_REPOSITORY,
+  USE_CASES,
+  type UseCase,
 } from "../copy";
 
 // The hero CTA is a bespoke interaction (brightness-up on hover, press nudge on
@@ -71,8 +73,9 @@ function CommandBox({ cmd, label, prompt = "$" }: { cmd: string; label?: string;
 }
 
 // Left pane: the sticky hero. Eyebrow, the display headline with the one accent
-// word, the lead, a directive pointing at the single copyable prompt in the demo,
-// an honest status line, and the secondary links.
+// word, the lead (which carries the why; the demo beside it is self-evidently the
+// session, so no separate directive points at it), an honest status line, and the
+// secondary links.
 function HeroPane() {
   return (
     <section className="pane-left flex flex-col items-start py-[clamp(40px,6vh,72px)] pb-12 border-b border-rule min-w-0 min-[900px]:sticky min-[900px]:top-[var(--head-h)] min-[900px]:self-start min-[900px]:min-h-[calc(100vh-var(--head-h))] min-[900px]:[padding:var(--pane-pad-y)_var(--pane-gutter)_64px_0] min-[900px]:border-b-0 min-[900px]:border-r min-[900px]:border-rule min-[900px]:justify-center">
@@ -87,13 +90,6 @@ function HeroPane() {
       </h1>
       <p className="reveal d3 text-lg leading-relaxed text-muted mb-8 max-w-[52ch] min-[900px]:text-lg min-[900px]:max-w-[38ch]">
         {HERO.lead}
-      </p>
-      <p className="reveal d4 text-base leading-relaxed text-muted mb-5 max-w-[52ch]">
-        {HERO.heroAction}{" "}
-        <a className="text-foreground underline decoration-rule-strong hover:decoration-accent" href="#demo">
-          See the session
-        </a>
-        .
       </p>
       <p className="reveal d4 font-mono text-mono leading-normal text-subtle mb-6 max-w-[52ch]">{HERO.status}</p>
       <div className="reveal d4 flex items-center gap-6 flex-wrap">
@@ -123,15 +119,17 @@ function HeroPane() {
 }
 
 // Right pane: the reading column of hairline-ruled blocks. The demo set-piece
-// leads (it is the feat of strength and sits at the top of this column, above
-// the fold on desktop); the reasons-to-believe and get-started blocks follow.
+// leads (the feat of strength, above the fold on desktop); the use-cases block
+// answers "is this for me" right after it; the get-started beats follow, and the
+// mechanism/trust reasons sit below, where you read them once you already care.
 function DetailPane() {
   return (
     <section className="pt-10 pb-2 min-w-0 min-[900px]:[padding:var(--pane-pad-y)_0_64px_var(--pane-gutter)]">
       <DemoBlock />
-      <ReasonsBlock />
+      <UseCasesBlock />
       <CommandBlock />
       <McpBlock />
+      <ReasonsBlock />
       <ClosingBlock />
     </section>
   );
@@ -166,12 +164,60 @@ function DemoBlock() {
   );
 }
 
+// The "is this for me" block: recognizable jobs, each ending in the link you hand
+// off. Sits directly under the demo so the proof is followed by the situations a
+// reader places themselves in.
+function UseCasesBlock() {
+  return (
+    <div className={`reveal d4 ${BLOCK}`} id="use-cases">
+      <h2 className={TITLE}>
+        When you&rsquo;d <span className="text-accent">reach</span> for it.
+      </h2>
+      <ol className="list-none m-0 p-0">
+        {USE_CASES.map((useCase, index) => (
+          <UseCaseItem key={useCase.scenario} useCase={useCase} index={index + 1} />
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function UseCaseItem({ useCase, index }: { useCase: UseCase; index: number }) {
+  return (
+    <li className="grid grid-cols-[48px_1fr] gap-5 py-6 items-start border-t border-rule first:border-t-0 first:pt-1">
+      <span className="font-mono text-sm text-accent pt-1 [font-feature-settings:'zero']">
+        {index.toString().padStart(2, "0")}
+      </span>
+      <div>
+        <p className="font-ui font-semibold text-lg tracking-tight leading-snug text-foreground mb-1">
+          {useCase.scenario}
+        </p>
+        <p className="text-base leading-relaxed text-muted m-0 max-w-[56ch]">
+          {useCase.outcome}
+          {useCase.href ? (
+            <>
+              {" "}
+              <a
+                className="text-foreground underline decoration-rule-strong hover:decoration-accent"
+                href={useCase.href}
+              >
+                See an example
+              </a>
+              .
+            </>
+          ) : null}
+        </p>
+      </div>
+    </li>
+  );
+}
+
 // The shell setup beat. Lead with the accountless publish (the front door: no
 // login, hands back a working link), then the login + publish pair for the
 // upgrade to interactive, kept, owned work.
 function CommandBlock() {
   return (
-    <div className={`reveal d4 ${BLOCK}`} id="how">
+    <div className={`reveal d5 ${BLOCK}`} id="how">
       <div className={MARKER}>Shell-capable agents</div>
       <p className="text-base leading-relaxed text-muted mb-6 max-w-[46ch]">
         If the agent has a shell, it runs the publish itself. With no account it returns an unlisted URL to a static
@@ -196,7 +242,7 @@ function CommandBlock() {
 
 function ReasonsBlock() {
   return (
-    <div className={`reveal d5 ${BLOCK}`} id="features">
+    <div className={`reveal d7 ${BLOCK}`} id="features">
       <div className={MARKER}>Why the link holds up</div>
       <ol className="list-none m-0 p-0">
         {FEATURES.map((feature, index) => (
@@ -273,7 +319,7 @@ function McpBlock() {
 
 function ClosingBlock() {
   return (
-    <div className={`reveal d6 ${BLOCK}`} id="docs">
+    <div className={`reveal d8 ${BLOCK}`} id="docs">
       <div className={MARKER}>Install the CLI</div>
       <div className="flex flex-col gap-3">
         <CommandBox label="macOS / Linux" cmd={INSTALL_SH_CMD} />

@@ -4,7 +4,7 @@ import type {
   VersionedSecretProfile,
   VersionedSecretProfileId,
   WranglerSecretAction,
-} from "./automation.js";
+} from "./versioned-secret.js";
 
 function profilePersistsKidInRecords(profileId: VersionedSecretProfileId): boolean {
   return profileId === "api-key-pepper" || profileId === "artifact-bytes-encryption";

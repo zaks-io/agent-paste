@@ -41,9 +41,16 @@
     "hooks:install": "node scripts/install-hooks.mjs",
     "hooks:run:pre-commit": "lefthook run pre-commit",
     "hooks:run:pre-push": "lefthook run pre-push --force",
+    "depcruise": "node scripts/depcruise-check.mjs",
     "dupes": "node scripts/jscpd-check.mjs",
     "knip": "node scripts/knip-check.mjs",
     "lint": "turbo run lint",
+    "mutation:billing": "pnpm --filter @agent-paste/billing test:mutation",
+    "mutation:revise-core": "pnpm --filter @agent-paste/revise-core test:mutation",
+    "mutation:rotation": "pnpm --filter @agent-paste/rotation test:mutation",
+    "mutation:storage": "pnpm --filter @agent-paste/storage test:mutation",
+    "mutation:tokens": "pnpm --filter @agent-paste/tokens test:mutation",
+    "mutation:write-allowance": "pnpm --filter @agent-paste/write-allowance test:mutation",
     "openapi:check": "pnpm --filter @agent-paste/contracts openapi:check",
     "openapi:write": "pnpm --filter @agent-paste/contracts openapi:write",
     "migrate:preview": "node scripts/migrate.mjs preview",
@@ -74,7 +81,7 @@
     "test:coverage:strict": "node scripts/clean-coverage.mjs && turbo run test:coverage --force && node scripts/merge-coverage.mjs",
     "typecheck": "turbo run typecheck",
     "typecheck:scripts": "tsc -p tsconfig.scripts.json",
-    "verify": "pnpm format:code:check && pnpm format:docs:check && pnpm knip && pnpm dupes && turbo run lint typecheck test openapi:check db:check && pnpm typecheck:scripts && pnpm test:scripts"
+    "verify": "pnpm format:code:check && pnpm format:docs:check && pnpm knip && pnpm dupes && pnpm depcruise && turbo run lint typecheck test openapi:check db:check && pnpm typecheck:scripts && pnpm test:scripts"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
@@ -83,6 +90,7 @@
     "@vitest/coverage-v8": "catalog:",
     "@workos/authkit-session": "0.5.2",
     "chrome-launcher": "^1.2.1",
+    "dependency-cruiser": "^17.4.3",
     "istanbul-lib-coverage": "^3.2.2",
     "istanbul-lib-report": "^3.0.1",
     "istanbul-reports": "^3.2.0",

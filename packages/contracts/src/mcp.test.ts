@@ -347,18 +347,22 @@ describe("MCP auth and idempotency helpers", () => {
   });
 
   it("keeps hashed and direct share-link idempotency keyspaces disjoint", () => {
-    const targetHash = "d4d70a05";
+    // A tool key already shaped like a hashed base (h<32 hex>) must be re-hashed
+    // rather than passed through, so it can never collide with the hashed form of
+    // a different (too-long-to-pass-through) tool key (AP-201).
     const longToolKey = IdempotencyKey.parse(`${"x".repeat(190)}${"0".repeat(10)}`);
-    const shortToolKey = IdempotencyKey.parse(`h${targetHash}`);
+    const hashedBaseToolKey = IdempotencyKey.parse(`h${"a".repeat(32)}`);
     expect(`${longToolKey}:share-link`.length).toBeGreaterThan(200);
 
-    const shortShareKey = mcpPublishAccessLinkIdempotencyKey(shortToolKey);
+    const hashedBaseShareKey = mcpPublishAccessLinkIdempotencyKey(hashedBaseToolKey);
     const longShareKey = mcpPublishAccessLinkIdempotencyKey(longToolKey);
 
-    expect(shortShareKey).not.toBe(longShareKey);
-    expect(shortShareKey).toMatch(/^h[0-9a-f]{8}:share-link$/);
-    expect(shortShareKey).not.toBe(`h${targetHash}:share-link`);
-    expect(longShareKey).toBe(`h${targetHash}:share-link`);
+    // Both took the hashed path, so both match the hashed share-link shape...
+    expect(hashedBaseShareKey).toMatch(/^h[0-9a-f]{32}:share-link$/);
+    expect(longShareKey).toMatch(/^h[0-9a-f]{32}:share-link$/);
+    // ...but they are distinct, and the already-hashed base was NOT passed through verbatim.
+    expect(hashedBaseShareKey).not.toBe(longShareKey);
+    expect(hashedBaseShareKey).not.toBe(`${hashedBaseToolKey}:share-link`);
   });
 
   it("accepts max-length idempotency_key on publish and add_revision inputs", () => {
@@ -388,7 +392,7 @@ describe("MCP auth and idempotency helpers", () => {
       toolName: "publish_artifact",
       toolArgs: { title: "Demo", body: "hello", render_mode: "text" },
     });
-    expect(key).toMatch(/^mcp:user_01:42:publish_artifact:h[0-9a-f]{8}$/);
+    expect(key).toMatch(/^mcp:user_01:42:publish_artifact:h[0-9a-f]{32}$/);
     expect(IdempotencyKey.safeParse(key).success).toBe(true);
   });
 
@@ -447,6 +451,24 @@ describe("MCP auth and idempotency helpers", () => {
     expect(today).not.toBe(yesterday);
   });
 
+  it("derives distinct keys for near-identical multi_edit payloads sharing a json rpc id (AP-375)", () => {
+    // The replayed DB path keys solely on the idempotency key, with no body
+    // fingerprint, so two genuinely-different edits that share sub + rpc id + tool
+    // MUST NOT collide onto the same key — a collision silently drops the second
+    // edit and returns the first artifact behind a success envelope. The wide
+    // (128-bit) args digest is what keeps these distinct.
+    const base = { tokenSub: "user_01", jsonRpcId: 7, toolName: "multi_edit" } as const;
+    const first = deriveMcpIdempotencyKey({
+      ...base,
+      toolArgs: { artifact_id: "art_1", path: "index.html", edits: [{ old_string: "foo", new_string: "bar" }] },
+    });
+    const second = deriveMcpIdempotencyKey({
+      ...base,
+      toolArgs: { artifact_id: "art_1", path: "index.html", edits: [{ old_string: "foo", new_string: "baz" }] },
+    });
+    expect(second).not.toBe(first);
+  });
+
   it("treats missing args and empty args identically", () => {
     const missing = deriveMcpIdempotencyKey({
       tokenSub: "user_01",
@@ -471,7 +493,7 @@ describe("MCP auth and idempotency helpers", () => {
       toolName: "publish_artifact",
       toolArgs: {},
     });
-    expect(withSpaces).toMatch(/^mcp:user_01:task_1:publish_artifact:h[0-9a-f]{8}$/);
+    expect(withSpaces).toMatch(/^mcp:user_01:task_1:publish_artifact:h[0-9a-f]{32}$/);
     expect(IdempotencyKey.safeParse(withSpaces).success).toBe(true);
 
     const withSlashes = deriveMcpIdempotencyKey({
@@ -480,7 +502,7 @@ describe("MCP auth and idempotency helpers", () => {
       toolName: "add_revision",
       toolArgs: {},
     });
-    expect(withSlashes).toMatch(/^mcp:user_01:req_phase-2:add_revision:h[0-9a-f]{8}$/);
+    expect(withSlashes).toMatch(/^mcp:user_01:req_phase-2:add_revision:h[0-9a-f]{32}$/);
     expect(IdempotencyKey.safeParse(withSlashes).success).toBe(true);
   });
 
@@ -501,7 +523,7 @@ describe("MCP auth and idempotency helpers", () => {
     expect(first).toBe(second);
     expect(first.length).toBeLessThanOrEqual(200);
     expect(IdempotencyKey.safeParse(first).success).toBe(true);
-    expect(mcpIdempotencySegment(longId)).toMatch(/^h[0-9a-f]{8}$/);
+    expect(mcpIdempotencySegment(longId)).toMatch(/^h[0-9a-f]{32}$/);
   });
 
   it("stays within the idempotency key bounds at max-length segments", () => {
