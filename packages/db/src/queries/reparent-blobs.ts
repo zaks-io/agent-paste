@@ -1,3 +1,4 @@
+import { withSqlQuerySource } from "../postgres/query-source.js";
 import type { SqlExecutor } from "../types.js";
 
 export type WorkspaceBlobRef = {
@@ -22,8 +23,15 @@ export async function upsertReparentedContentBlobs(
   sql: SqlExecutor,
   input: { workspaceId: string; updatedAt: string },
 ): Promise<void> {
-  await sql.query(
-    `insert into content_blobs (workspace_id, sha256, size_bytes, r2_key, created_at, updated_at)
+  await withSqlQuerySource(
+    {
+      filepath: "packages/db/src/queries/reparent-blobs.ts",
+      functionName: "upsertReparentedContentBlobs",
+      namespace: "packages.db.src.queries.reparent-blobs",
+    },
+    () =>
+      sql.query(
+        `insert into content_blobs (workspace_id, sha256, size_bytes, r2_key, created_at, updated_at)
      select distinct on (blobs.sha256, blobs.size_bytes)
        blobs.workspace_id,
        blobs.sha256,
@@ -60,6 +68,7 @@ export async function upsertReparentedContentBlobs(
      order by blobs.sha256, blobs.size_bytes, blobs.path
      on conflict (workspace_id, sha256, size_bytes)
      do update set r2_key = excluded.r2_key, updated_at = excluded.updated_at`,
-    [input.workspaceId, input.updatedAt],
+        [input.workspaceId, input.updatedAt],
+      ),
   );
 }

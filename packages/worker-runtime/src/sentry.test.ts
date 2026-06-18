@@ -147,4 +147,32 @@ describe("sentryOptions", () => {
     expect(JSON.stringify(event)).not.toContain("ap_pk_prod");
     expect(JSON.stringify(event)).not.toContain("access-link-fragment");
   });
+
+  it("adds a configured tracing sample rate only when Sentry is enabled", () => {
+    expect(
+      sentryOptions({
+        SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1",
+        SENTRY_TRACES_SAMPLE_RATE: " 0.2 ",
+      }),
+    ).toMatchObject({
+      enabled: true,
+      tracesSampleRate: 0.2,
+    });
+    expect(sentryOptions({ SENTRY_TRACES_SAMPLE_RATE: "0.2" })).not.toHaveProperty("tracesSampleRate");
+  });
+
+  it("ignores invalid tracing sample rates", () => {
+    expect(
+      sentryOptions({
+        SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1",
+        SENTRY_TRACES_SAMPLE_RATE: "2",
+      }),
+    ).not.toHaveProperty("tracesSampleRate");
+    expect(
+      sentryOptions({
+        SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1",
+        SENTRY_TRACES_SAMPLE_RATE: "not-a-number",
+      }),
+    ).not.toHaveProperty("tracesSampleRate");
+  });
 });

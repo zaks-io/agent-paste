@@ -1,7 +1,7 @@
 import { shouldSkipRevisionQueueWork } from "@agent-paste/commands";
 import { isBillingEnabled, resolveUsagePolicy, type WorkspacePlan } from "@agent-paste/config";
 import type { BundleGenerateMessage } from "@agent-paste/contracts";
-import { bundleKeyFor, type SqlExecutor, storageEnvSegment } from "@agent-paste/db";
+import { bundleKeyFor, type SqlExecutor, storageEnvSegment, withSqlQuerySource } from "@agent-paste/db";
 import { artifactBytesEncryptionRingFromEnv } from "@agent-paste/rotation";
 import { encryptArtifactBytes } from "@agent-paste/storage";
 import { markBundleFailed, markBundleReady } from "../bundle/bundle-state.js";
@@ -184,11 +184,13 @@ async function storeReadyBundle(input: {
 }
 
 async function loadWorkspaceUsagePolicy(executor: SqlExecutor, workspaceId: string, env: Env) {
-  const result = await executor.query<{ plan: WorkspacePlan }>(`select plan from workspaces where id = $1`, [
-    workspaceId,
-  ]);
-  const plan = result.rows[0]?.plan ?? "free";
-  return resolveUsagePolicy({ plan, billingEnabled: isBillingEnabled(env.BILLING_ENABLED) });
+  return withSource("loadWorkspaceUsagePolicy", async () => {
+    const result = await executor.query<{ plan: WorkspacePlan }>(`select plan from workspaces where id = $1`, [
+      workspaceId,
+    ]);
+    const plan = result.rows[0]?.plan ?? "free";
+    return resolveUsagePolicy({ plan, billingEnabled: isBillingEnabled(env.BILLING_ENABLED) });
+  });
 }
 
 async function loadRevisionState(
@@ -196,14 +198,16 @@ async function loadRevisionState(
   workspaceId: string,
   revisionId: string,
 ): Promise<RevisionRow | null> {
-  const result = await executor.query<RevisionRow>(
-    `select r.status, a.status as artifact_status, r.bundle_status
+  return withSource("loadRevisionState", async () => {
+    const result = await executor.query<RevisionRow>(
+      `select r.status, a.status as artifact_status, r.bundle_status
      from revisions r
      inner join artifacts a on a.id = r.artifact_id
      where r.workspace_id = $1 and r.id = $2`,
-    [workspaceId, revisionId],
-  );
-  return result.rows[0] ?? null;
+      [workspaceId, revisionId],
+    );
+    return result.rows[0] ?? null;
+  });
 }
 
 async function loadRevisionFiles(
@@ -211,12 +215,25 @@ async function loadRevisionFiles(
   artifactId: string,
   revisionId: string,
 ): Promise<RevisionFileRow[]> {
-  const result = await executor.query<RevisionFileRow>(
-    `select path, r2_key
+  return withSource("loadRevisionFiles", async () => {
+    const result = await executor.query<RevisionFileRow>(
+      `select path, r2_key
      from artifact_files
      where artifact_id = $1 and revision_id = $2
      order by path asc`,
-    [artifactId, revisionId],
+      [artifactId, revisionId],
+    );
+    return result.rows;
+  });
+}
+
+function withSource<T>(functionName: string, run: () => T): T {
+  return withSqlQuerySource(
+    {
+      filepath: "apps/jobs/src/handlers/bundle-generate-orchestration.ts",
+      functionName,
+      namespace: "apps.jobs.src.handlers.bundle-generate-orchestration",
+    },
+    run,
   );
-  return result.rows;
 }

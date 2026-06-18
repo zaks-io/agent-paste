@@ -58,7 +58,9 @@ export {
   createHyperdriveExecutor,
   createPostgresExecutor,
   createPostgresHttpExecutor,
+  type PostgresExecutorOptions,
 } from "./postgres/executor.js";
+export { currentSqlQuerySource, defineSqlQuerySourceMap, withSqlQuerySource } from "./postgres/query-source.js";
 export { reparentBlobMigratorFromEnv } from "./postgres/reparent-blob-migrator.js";
 export { PostgresRepository } from "./postgres/repository.js";
 export { revisionReconstructorFromEnv } from "./postgres/revision-reconstructor.js";
@@ -115,6 +117,7 @@ export type {
   SafetyWarningScope,
   SafetyWarningSeverity,
   SqlExecutor,
+  SqlQueryInstrumentation,
   SqlQueryResult,
   SqlValue,
   StoredFile,

@@ -1,3 +1,4 @@
+import { currentSqlQuerySource } from "@agent-paste/db";
 import { describe, expect, it, vi } from "vitest";
 import { MAINTENANCE_GC_SWEEP_CAP, UPLOAD_CLEANUP_SWEEP_CAP } from "./constants.js";
 import { runScheduledJobs } from "./cron.js";
@@ -150,6 +151,51 @@ describe("upload cleanup discovery", () => {
     const result = await runUploadCleanupDiscovery(executor, { send: vi.fn(), sendBatch: vi.fn() }, "now");
     expect(result.cap_hit).toBe(true);
     expect(result.discovered).toBe(UPLOAD_CLEANUP_SWEEP_CAP);
+  });
+
+  it("attaches source metadata to raw upload cleanup queries", async () => {
+    const sources: Array<ReturnType<typeof currentSqlQuerySource>> = [];
+    const executor = createTransactionalSqlExecutor(async (sql: string) => {
+      if (!sql.includes("set_config")) {
+        sources.push(currentSqlQuerySource());
+      }
+      if (sql.includes("upload_sessions") && sql.trimStart().startsWith("select")) {
+        return {
+          rows: [
+            {
+              id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+              workspace_id: workspaceId,
+              artifact_id: artifactId,
+              revision_id: revisionId,
+            },
+          ],
+        };
+      }
+      if (sql.includes("upload_session_files")) {
+        return { rows: [] };
+      }
+      return { rows: [] };
+    });
+
+    await runUploadCleanupDiscovery(executor, { send: vi.fn(), sendBatch: vi.fn() }, "2026-05-20T00:00:00.000Z");
+
+    expect(sources).toEqual([
+      {
+        filepath: "apps/jobs/src/discovery/upload-cleanup.ts",
+        functionName: "runUploadCleanupDiscovery.selectExpiredSessions",
+        namespace: "apps.jobs.src.discovery.upload-cleanup",
+      },
+      {
+        filepath: "apps/jobs/src/discovery/upload-cleanup.ts",
+        functionName: "runUploadCleanupDiscovery.selectSessionFiles",
+        namespace: "apps.jobs.src.discovery.upload-cleanup",
+      },
+      {
+        filepath: "apps/jobs/src/discovery/upload-cleanup.ts",
+        functionName: "expireUploadSession",
+        namespace: "apps.jobs.src.discovery.upload-cleanup",
+      },
+    ]);
   });
 });
 

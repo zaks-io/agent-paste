@@ -1,4 +1,5 @@
 import { createHyperdriveExecutor, type HyperdriveBinding, rlsExecutor, type SqlExecutor } from "@agent-paste/db";
+import { sentryPostgresExecutorOptions } from "@agent-paste/worker-runtime/sentry-sql";
 import type { Env } from "./env.js";
 
 function isLocalSqlExecutor(binding: unknown): binding is SqlExecutor {
@@ -18,7 +19,7 @@ export function resolveSqlExecutor(env: Env): SqlExecutor | null {
   if (isLocalSqlExecutor(binding)) {
     return binding;
   }
-  return createHyperdriveExecutor(binding as HyperdriveBinding);
+  return createHyperdriveExecutor(binding as HyperdriveBinding, sentryPostgresExecutorOptions);
 }
 
 export function withPlatformScope(executor: SqlExecutor): SqlExecutor {

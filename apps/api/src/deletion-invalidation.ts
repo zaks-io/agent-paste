@@ -12,6 +12,7 @@ import {
   type SqlExecutor,
   writeArtifactDenylist,
 } from "@agent-paste/db";
+import { sentryPostgresExecutorOptions } from "@agent-paste/worker-runtime/sentry-sql";
 
 const ADMIN_ARTIFACT_DELETE_OPERATION = "admin.artifact.delete";
 export const MEMBER_ARTIFACT_DELETE_OPERATION = "artifact.delete";
@@ -49,7 +50,7 @@ export function resolveDeletionInvalidationExecutor(env: DeletionInvalidationEnv
     return createLocalMvpRevisionExecutor(env.LOCAL_MVP_REPOSITORY);
   }
   if (isHyperdriveDb(env.DB)) {
-    return createHyperdriveExecutor(env.DB);
+    return createHyperdriveExecutor(env.DB, sentryPostgresExecutorOptions);
   }
   return undefined;
 }

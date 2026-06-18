@@ -1,9 +1,10 @@
 import { and, eq, isNull } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
+import { defineSqlQuerySourceMap } from "../postgres/query-source.js";
 import { workspaces } from "../schema.js";
 import type { Workspace } from "../types.js";
 
-export const workspaceQueries = {
+export const workspaceQueries = defineSqlQuerySourceMap("packages/db/src/queries/workspaces.ts", "workspaceQueries", {
   async insert(db: DrizzleDb, row: Workspace) {
     await db.insert(workspaces).values({
       id: row.id,
@@ -45,7 +46,7 @@ export const workspaceQueries = {
       .returning({ id: workspaces.id });
     return rows.length > 0;
   },
-};
+});
 
 function mapWorkspace(row: typeof workspaces.$inferSelect): Workspace {
   return {

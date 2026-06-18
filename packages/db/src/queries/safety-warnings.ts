@@ -1,24 +1,29 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
+import { defineSqlQuerySourceMap } from "../postgres/query-source.js";
 import { safetyWarnings } from "../schema.js";
 import type { SafetyWarning } from "../types.js";
 
-export const safetyWarningQueries = {
-  async listForRevision(db: DrizzleDb, workspaceId: string, revisionId: string): Promise<SafetyWarning[]> {
-    const rows = await db
-      .select()
-      .from(safetyWarnings)
-      .where(and(eq(safetyWarnings.workspaceId, workspaceId), eq(safetyWarnings.revisionId, revisionId)))
-      .orderBy(
-        asc(safetyWarnings.scope),
-        asc(safetyWarnings.filePath),
-        asc(safetyWarnings.code),
-        asc(safetyWarnings.scannerId),
-        asc(safetyWarnings.id),
-      );
-    return rows.map(mapSafetyWarning);
+export const safetyWarningQueries = defineSqlQuerySourceMap(
+  "packages/db/src/queries/safety-warnings.ts",
+  "safetyWarningQueries",
+  {
+    async listForRevision(db: DrizzleDb, workspaceId: string, revisionId: string): Promise<SafetyWarning[]> {
+      const rows = await db
+        .select()
+        .from(safetyWarnings)
+        .where(and(eq(safetyWarnings.workspaceId, workspaceId), eq(safetyWarnings.revisionId, revisionId)))
+        .orderBy(
+          asc(safetyWarnings.scope),
+          asc(safetyWarnings.filePath),
+          asc(safetyWarnings.code),
+          asc(safetyWarnings.scannerId),
+          asc(safetyWarnings.id),
+        );
+      return rows.map(mapSafetyWarning);
+    },
   },
-};
+);
 
 function mapSafetyWarning(row: typeof safetyWarnings.$inferSelect): SafetyWarning {
   return {

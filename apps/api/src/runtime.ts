@@ -1,4 +1,5 @@
 import { createPostgresRuntime, type Repository } from "@agent-paste/db";
+import { sentryPostgresExecutorOptions } from "@agent-paste/worker-runtime/sentry-sql";
 import type { Env } from "./env.js";
 
 export function apiDatabase(env: Env): Repository | undefined {
@@ -11,6 +12,7 @@ export function apiDatabase(env: Env): Repository | undefined {
 export function postgresRuntime(env: Env) {
   return createPostgresRuntime(env, {
     pickDb: (services) => services.apiDb,
+    executorOptions: sentryPostgresExecutorOptions,
     resolveServiceUrls: (workerEnv) => ({
       apiBaseUrl: apiBaseUrl(workerEnv),
       contentBaseUrl: contentBaseUrl(workerEnv),

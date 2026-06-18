@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { APP_RUNTIME_ROLE, RUNTIME_ROLE_GUC, RUNTIME_ROLE_PASSWORD_GUC } from "../../scripts/credentials.mjs";
 import type { SqlExecutor, SqlValue } from "../types.js";
 import { rlsExecutor } from "./rls.js";
+import { bindSqlTraceIdProvider } from "./trace-context.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -116,6 +117,69 @@ async function insertWorkspaceMember(
      values ($1, $2, $3, $4, now(), now())`,
     [memberId, workspaceId, workosUserId, `${memberId}@example.com`],
   );
+}
+
+describe("rlsExecutor trace context", () => {
+  it("sets the active Sentry trace id as a local Postgres setting", async () => {
+    const queries: Array<{ sql: string; params: readonly SqlValue[] }> = [];
+    const base = recordingExecutor(queries);
+    bindSqlTraceIdProvider(base, () => "0123456789abcdef0123456789abcdef");
+
+    await rlsExecutor(base, { kind: "workspace", workspaceId: ws1Id }).query("select 1");
+
+    expect(queries).toContainEqual({
+      sql: "select set_config('app.sentry_trace_id', $1, true)",
+      params: ["0123456789abcdef0123456789abcdef"],
+    });
+  });
+
+  it("clears the local Postgres trace setting when no valid trace id exists", async () => {
+    const queries: Array<{ sql: string; params: readonly SqlValue[] }> = [];
+    const base = recordingExecutor(queries);
+    bindSqlTraceIdProvider(base, () => "not-a-trace-id");
+
+    await rlsExecutor(base, { kind: "platform" }).query("select 1");
+
+    expect(queries).toContainEqual({
+      sql: "select set_config('app.sentry_trace_id', $1, true)",
+      params: [""],
+    });
+  });
+
+  it("clears the local Postgres trace setting when the trace provider throws", async () => {
+    const queries: Array<{ sql: string; params: readonly SqlValue[] }> = [];
+    const base = recordingExecutor(queries);
+    bindSqlTraceIdProvider(base, () => {
+      throw new Error("trace context unavailable");
+    });
+
+    await rlsExecutor(base, { kind: "platform" }).query("select 1");
+
+    expect(queries).toContainEqual({
+      sql: "select set_config('app.sentry_trace_id', $1, true)",
+      params: [""],
+    });
+  });
+});
+
+function recordingExecutor(calls: Array<{ sql: string; params: readonly SqlValue[] }>): SqlExecutor {
+  const tx: SqlExecutor = {
+    async query<Row = Record<string, unknown>>(sql: string, params: readonly SqlValue[] = []) {
+      calls.push({ sql, params });
+      return { rows: [] as Row[] };
+    },
+    async transaction<T>(run: (innerTx: SqlExecutor) => Promise<T>) {
+      return run(tx);
+    },
+  };
+  return {
+    async query<Row = Record<string, unknown>>(sql: string, params: readonly SqlValue[] = []) {
+      return tx.query<Row>(sql, params);
+    },
+    async transaction<T>(run: (innerTx: SqlExecutor) => Promise<T>) {
+      return run(tx);
+    },
+  };
 }
 
 describe("postgres RLS runtime enforcement", () => {

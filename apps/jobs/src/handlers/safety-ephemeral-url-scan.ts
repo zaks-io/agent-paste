@@ -1,5 +1,5 @@
 import { USAGE_POLICY as usagePolicy } from "@agent-paste/config";
-import type { SqlExecutor } from "@agent-paste/db";
+import { type SqlExecutor, withSqlQuerySource } from "@agent-paste/db";
 import { resolveAgentViewTokenSigner } from "@agent-paste/rotation";
 import { mintAgentViewUrl, verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
 import type { Env } from "../env.js";
@@ -56,11 +56,24 @@ async function loadArtifactExpiresAt(
   workspaceId: string,
   artifactId: string,
 ): Promise<string | undefined> {
-  const result = await executor.query<{ expires_at: string }>(
-    `select expires_at from artifacts where workspace_id = $1 and id = $2`,
-    [workspaceId, artifactId],
+  return withSource("loadArtifactExpiresAt", async () => {
+    const result = await executor.query<{ expires_at: string }>(
+      `select expires_at from artifacts where workspace_id = $1 and id = $2`,
+      [workspaceId, artifactId],
+    );
+    return result.rows[0]?.expires_at;
+  });
+}
+
+function withSource<T>(functionName: string, run: () => T): T {
+  return withSqlQuerySource(
+    {
+      filepath: "apps/jobs/src/handlers/safety-ephemeral-url-scan.ts",
+      functionName,
+      namespace: "apps.jobs.src.handlers.safety-ephemeral-url-scan",
+    },
+    run,
   );
-  return result.rows[0]?.expires_at;
 }
 
 function agentViewTokenExpiration(expiresAt: string | undefined): number {

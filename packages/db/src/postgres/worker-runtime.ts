@@ -1,8 +1,8 @@
 import { hasApiKeyPepperBinding, pepperRingFromWorkerEnv, resolveApiKeyPepperMaterial } from "@agent-paste/rotation";
 import { isBillingEnabled } from "../policy.js";
 import type { Repository } from "../repository/interface.js";
-import type { ApiKeyActor, HyperdriveBinding, RepositoryOptions } from "../types.js";
-import { createHyperdriveExecutor } from "./executor.js";
+import type { ApiKeyActor, HyperdriveBinding, RepositoryOptions, SqlQueryInstrumentation } from "../types.js";
+import { createHyperdriveExecutor, type PostgresExecutorOptions } from "./executor.js";
 import { reparentBlobMigratorFromEnv } from "./reparent-blob-migrator.js";
 import { revisionReconstructorFromEnv } from "./revision-reconstructor.js";
 import { createPostgresServices } from "./services.js";
@@ -34,6 +34,8 @@ export type PostgresRuntime = {
 
 export type CreatePostgresRuntimeOptions<TEnv extends WorkerPostgresEnv> = {
   pickDb: (services: ReturnType<typeof createPostgresServices>) => Repository;
+  executorOptions?: PostgresExecutorOptions;
+  instrumentQuery?: SqlQueryInstrumentation;
   resolveServiceUrls?: (env: TEnv) => Pick<RepositoryOptions, "apiBaseUrl" | "contentBaseUrl" | "webBaseUrl">;
 };
 
@@ -79,8 +81,12 @@ export function createPostgresRuntime<TEnv extends WorkerPostgresEnv>(
     reconstructorEnv.ARTIFACT_BYTES_ENCRYPTION_KID = migratorEnv.ARTIFACT_BYTES_ENCRYPTION_KID;
   }
   const revisionReconstructor = revisionReconstructorFromEnv(reconstructorEnv);
+  const executorOptions: PostgresExecutorOptions = {
+    ...(options.instrumentQuery ? { instrumentQuery: options.instrumentQuery } : {}),
+    ...options.executorOptions,
+  };
   const services = createPostgresServices({
-    executor: createHyperdriveExecutor(env.DB),
+    executor: createHyperdriveExecutor(env.DB, executorOptions),
     apiKeyPepper,
     ...(pepperRing ? { pepperRing } : {}),
     apiKeyEnv: env.API_KEY_ENV ?? "preview",

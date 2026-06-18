@@ -1,6 +1,6 @@
 import { shouldSkipRevisionQueueWork } from "@agent-paste/commands";
 import type { SafetyScanMessage } from "@agent-paste/contracts";
-import type { SqlExecutor } from "@agent-paste/db";
+import { type SqlExecutor, withSqlQuerySource } from "@agent-paste/db";
 import { artifactBytesEncryptionRingFromEnv } from "@agent-paste/rotation";
 import { withWorkspaceScope } from "../db.js";
 import type { Env } from "../env.js";
@@ -109,12 +109,25 @@ async function loadRevisionState(
   workspaceId: string,
   revisionId: string,
 ): Promise<RevisionRow | null> {
-  const result = await executor.query<RevisionRow>(
-    `select r.status, a.status as artifact_status
+  return withSource("loadRevisionState", async () => {
+    const result = await executor.query<RevisionRow>(
+      `select r.status, a.status as artifact_status
      from revisions r
      inner join artifacts a on a.id = r.artifact_id
      where r.workspace_id = $1 and r.id = $2`,
-    [workspaceId, revisionId],
+      [workspaceId, revisionId],
+    );
+    return result.rows[0] ?? null;
+  });
+}
+
+function withSource<T>(functionName: string, run: () => T): T {
+  return withSqlQuerySource(
+    {
+      filepath: "apps/jobs/src/handlers/safety-scan-orchestration.ts",
+      functionName,
+      namespace: "apps.jobs.src.handlers.safety-scan-orchestration",
+    },
+    run,
   );
-  return result.rows[0] ?? null;
 }

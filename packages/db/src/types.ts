@@ -1,5 +1,15 @@
 type Scope = "publish" | "read" | "admin";
 
+export type {
+  SqlExecutor,
+  SqlQueryConnection,
+  SqlQueryInstrumentation,
+  SqlQueryResult,
+  SqlQuerySource,
+  SqlTraceIdProvider,
+  SqlValue,
+} from "./sql-types.js";
+
 export type ApiKeyActor = {
   type: "api_key";
   id: string;
@@ -23,15 +33,6 @@ export type AdminActor = { type: "admin" | "system"; id: string };
 // Platform operator identity (ADR 0046). Always platform-scoped; never tied to a
 // single workspace. id is the operator email or the Access service-token common_name.
 export type PlatformActor = { type: "platform"; id: string };
-
-export type SqlValue = string | number | boolean | null | Record<string, unknown> | SqlValue[];
-
-export type SqlQueryResult<Row = Record<string, unknown>> = { rows: Row[] };
-
-export type SqlExecutor = {
-  query<Row = Record<string, unknown>>(sql: string, params?: readonly SqlValue[]): Promise<SqlQueryResult<Row>>;
-  transaction<T>(run: (tx: SqlExecutor) => Promise<T>): Promise<T>;
-};
 
 export type HyperdriveBinding = {
   connectionString: string;

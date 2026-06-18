@@ -1,9 +1,10 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
+import { defineSqlQuerySourceMap } from "../postgres/query-source.js";
 import { apiKeys } from "../schema.js";
 import type { ApiKey } from "../types.js";
 
-export const apiKeyQueries = {
+export const apiKeyQueries = defineSqlQuerySourceMap("packages/db/src/queries/api-keys.ts", "apiKeyQueries", {
   async insert(db: DrizzleDb, row: ApiKey) {
     await db.insert(apiKeys).values({
       id: row.id,
@@ -61,7 +62,7 @@ export const apiKeyQueries = {
       .set({ revokedAt: new Date(revokedAt) })
       .where(and(eq(apiKeys.workspaceId, workspaceId), isNull(apiKeys.revokedAt)));
   },
-};
+});
 
 function mapApiKey(row: typeof apiKeys.$inferSelect): ApiKey {
   return {

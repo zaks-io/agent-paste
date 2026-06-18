@@ -6,6 +6,7 @@ import {
   type UploadSessionRecord,
 } from "@agent-paste/db";
 import { getBoundResponders, type HeaderGuardState, type Principal } from "@agent-paste/worker-runtime";
+import { sentryPostgresExecutorOptions } from "@agent-paste/worker-runtime/sentry-sql";
 import type { Context } from "hono";
 import { signUploadUrl } from "./create-session.js";
 import type { AppContext, Env, UploadActor } from "./env.js";
@@ -14,6 +15,7 @@ import { uploadSessionActor } from "./upload-actor.js";
 export function postgresRuntime(env: Env) {
   return createPostgresRuntime(env, {
     pickDb: (services) => services.uploadDb,
+    executorOptions: sentryPostgresExecutorOptions,
     resolveServiceUrls: (workerEnv) => ({
       ...(workerEnv.API_BASE_URL ? { apiBaseUrl: workerEnv.API_BASE_URL } : {}),
       ...(workerEnv.CONTENT_BASE_URL ? { contentBaseUrl: workerEnv.CONTENT_BASE_URL } : {}),

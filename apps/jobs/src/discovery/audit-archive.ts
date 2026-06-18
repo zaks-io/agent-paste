@@ -1,4 +1,4 @@
-import type { SqlExecutor } from "@agent-paste/db";
+import { type SqlExecutor, withSqlQuerySource } from "@agent-paste/db";
 import type { R2Bucket } from "../env.js";
 
 export type AuditEventRow = {
@@ -22,8 +22,9 @@ export async function selectExpiringAuditRows(
   if (limit <= 0) {
     return [];
   }
-  const result = await executor.query<AuditEventRow>(
-    `select id,
+  return withSource("selectExpiringAuditRows", async () => {
+    const result = await executor.query<AuditEventRow>(
+      `select id,
             workspace_id::text as workspace_id,
             actor_type,
             actor_id,
@@ -37,9 +38,10 @@ export async function selectExpiringAuditRows(
      where occurred_at < $1
      order by occurred_at asc, id asc
      limit $2`,
-    [cutoff, limit],
-  );
-  return result.rows;
+      [cutoff, limit],
+    );
+    return result.rows;
+  });
 }
 
 export async function archiveAuditRows(bucket: R2Bucket, rows: AuditEventRow[]): Promise<number> {
@@ -63,13 +65,26 @@ export async function deleteAuditRowsByIds(executor: SqlExecutor, ids: string[])
   if (ids.length === 0) {
     return 0;
   }
-  const result = await executor.query<{ id: string }>(
-    `delete from operation_events
+  return withSource("deleteAuditRowsByIds", async () => {
+    const result = await executor.query<{ id: string }>(
+      `delete from operation_events
      where id = any($1::text[])
      returning id`,
-    [ids],
+      [ids],
+    );
+    return result.rows.length;
+  });
+}
+
+function withSource<T>(functionName: string, run: () => T): T {
+  return withSqlQuerySource(
+    {
+      filepath: "apps/jobs/src/discovery/audit-archive.ts",
+      functionName,
+      namespace: "apps.jobs.src.discovery.audit-archive",
+    },
+    run,
   );
-  return result.rows.length;
 }
 
 function groupRowsByPartitionDate(rows: AuditEventRow[]): Map<string, AuditEventRow[]> {

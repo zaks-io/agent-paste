@@ -1,4 +1,4 @@
-import type { SqlExecutor } from "@agent-paste/db";
+import { type SqlExecutor, withSqlQuerySource } from "@agent-paste/db";
 import { AUDIT_RETENTION_DAYS, IDEMPOTENCY_RETENTION_DAYS, MAINTENANCE_GC_SWEEP_CAP } from "../constants.js";
 import { withPlatformScope } from "../db.js";
 import type { R2Bucket } from "../env.js";
@@ -75,8 +75,9 @@ async function deleteIdempotencyRows(executor: SqlExecutor, cutoff: string, limi
   if (limit <= 0) {
     return 0;
   }
-  const result = await executor.query<{ id: string }>(
-    `delete from idempotency_records
+  return withSource("deleteIdempotencyRows", async () => {
+    const result = await executor.query<{ id: string }>(
+      `delete from idempotency_records
      where ctid in (
        select ctid
        from idempotency_records
@@ -86,9 +87,21 @@ async function deleteIdempotencyRows(executor: SqlExecutor, cutoff: string, limi
        limit $2
      )
      returning workspace_id::text || ':' || actor_id || ':' || operation || ':' || idempotency_key as id`,
-    [cutoff, limit],
+      [cutoff, limit],
+    );
+    return result.rows.length;
+  });
+}
+
+function withSource<T>(functionName: string, run: () => T): T {
+  return withSqlQuerySource(
+    {
+      filepath: "apps/jobs/src/discovery/maintenance-gc.ts",
+      functionName,
+      namespace: "apps.jobs.src.discovery.maintenance-gc",
+    },
+    run,
   );
-  return result.rows.length;
 }
 
 function subtractDays(iso: string, days: number): string {

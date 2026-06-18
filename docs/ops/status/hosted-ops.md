@@ -1,6 +1,6 @@
 # Hosted Ops
 
-Last updated: 2026-06-15.
+Last updated: 2026-06-18.
 
 ## Environment
 
@@ -256,6 +256,23 @@ called with incorrect this reference`. Example failed revisions:
   Hyperdrive in `.github/workflows/pr-preview.yml`.
 - After merging role migrations, update production/preview Hyperdrive configs and
   rotate GitHub secrets off legacy `PRODUCTION_DATABASE_URL` when ready.
+
+## Observability
+
+- Worker Sentry error capture is controlled by `SENTRY_DSN`.
+- DB query spans for Sentry Queries are emitted app-side from Hyperdrive-backed
+  Postgres executors on `api`, `upload`, and `jobs`. Spans use Sentry
+  Queries-compatible `op: db`, parameterized SQL as the span name, `db.system`,
+  `db.operation`, and non-secret connection metadata when available. OTel stable
+  aliases (`db.system.name`, `db.operation.name`, `db.query.text`,
+  `db.namespace`) are included for compatibility. Query-source attributes
+  (`code.filepath`, `code.function`, `code.namespace`, and `code.lineno` when
+  explicitly available) come from explicit async query-source context on shared
+  DB query helpers, not bundled Worker stack frames. Set
+  `SENTRY_TRACES_SAMPLE_RATE` to a value from `0` to `1` on the target Worker to
+  enable sampled trace export. Leave it unset to keep tracing disabled.
+- Neon OpenTelemetry export is separate database-side metrics/log export. It
+  does not replace app-side query spans for Sentry's Queries dashboard.
 
 ## Open Ops Items
 

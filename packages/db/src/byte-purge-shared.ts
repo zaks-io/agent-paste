@@ -1,5 +1,6 @@
 import { resolveUsagePolicy } from "@agent-paste/config";
 import { BytePurgeMessage, type BytePurgeMessage as BytePurgePayload } from "@agent-paste/contracts";
+import { withSqlQuerySource } from "./postgres/query-source.js";
 import type { SqlExecutor } from "./types.js";
 
 const DENYLIST_EXPIRATION_TTL_SECONDS = resolveUsagePolicy({ billingEnabled: false }).max_ttl_seconds;
@@ -105,12 +106,14 @@ export async function enqueueBytePurge(
   }
 
   try {
-    const result = await executor.query<{ id: string }>(
-      `update revisions
+    const result = await withSource("enqueueBytePurge.markRevisionEnqueued", () =>
+      executor.query<{ id: string }>(
+        `update revisions
        set bytes_purge_enqueued_at = now()
        where workspace_id = $1 and id = $2 and artifact_id = $3
        returning id`,
-      [input.workspaceId, input.revisionId, input.artifactId],
+        [input.workspaceId, input.revisionId, input.artifactId],
+      ),
     );
     if (result.rows.length === 0) {
       return false;
@@ -119,6 +122,17 @@ export async function enqueueBytePurge(
     return false;
   }
   return true;
+}
+
+function withSource<T>(functionName: string, run: () => T): T {
+  return withSqlQuerySource(
+    {
+      filepath: "packages/db/src/byte-purge-shared.ts",
+      functionName,
+      namespace: "packages.db.src.byte-purge-shared",
+    },
+    run,
+  );
 }
 
 function sleep(ms: number): Promise<void> {
