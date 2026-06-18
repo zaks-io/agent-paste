@@ -7,7 +7,7 @@ import {
 } from "@agent-paste/contracts";
 import type { Context } from "hono";
 import type { Principal, ScopedActor } from "./principal.js";
-import type { HeaderGuardState } from "./registrar.js";
+import type { HeaderGuardState } from "./registrar-types.js";
 
 export function idempotencyGuard<Contract extends RouteContract>(
   context: Context,

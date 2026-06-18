@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import { resolveApiBaseUrl } from "@agent-paste/api-client";
 import { CliVersionResponse } from "@agent-paste/contracts";
 import { ensureConfigDir, updateCheckCachePath } from "./credentials.js";
-import type { GlobalFlags } from "./index.js";
+import type { GlobalFlags } from "./global-flags.js";
 import { CLI_VERSION } from "./version.js";
 
 // Background staleness check (ADR 0080 §3). Runs after a real command, prints at

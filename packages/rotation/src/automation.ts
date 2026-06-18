@@ -1,7 +1,7 @@
 import type { KeyRing } from "./key-ring.js";
 import { createKeyRingFromVersionedEnv, KeyRing as KeyRingClass } from "./key-ring.js";
 import { PepperRing } from "./pepper-ring.js";
-import { describeKeyRingState, type RotationStage } from "./playbook.js";
+import { describeKeyRingState } from "./playbook.js";
 import {
   buildDrainRotationPlanPart,
   buildDropRotationPlanPart,
@@ -10,49 +10,27 @@ import {
   buildStageRotationPlanPart,
   type RotationPlanStepContext,
 } from "./rotation-plan-steps.js";
+import type {
+  RotationPlan,
+  VersionedSecretBinding,
+  VersionedSecretEnvSnapshot,
+  VersionedSecretProfile,
+  VersionedSecretProfileId,
+  VersionedSecretRotationStep,
+  WranglerSecretAction,
+} from "./versioned-secret.js";
 
-/** Operator-facing rotation profile for ADR 0045 versioned Worker secrets. */
-export type VersionedSecretProfileId =
-  | "content-signing"
-  | "upload-signing"
-  | "api-key-pepper"
-  | "artifact-bytes-encryption";
-
-export type VersionedSecretBinding = {
-  app: string;
-  worker: string;
-};
-
-export type VersionedSecretProfile = {
-  id: VersionedSecretProfileId;
-  baseSecretName: string;
-  secondarySecretName: string;
-  kidVarName: string;
-  bindings: VersionedSecretBinding[];
-  /** Human-readable drain guidance (TTL or operational notes). */
-  drainHint: string;
-};
-
-export type VersionedSecretRotationStep = "stage" | "flip" | "drain" | "drop" | "emergency";
-
-export type VersionedSecretEnvSnapshot = {
-  primaryBound: boolean;
-  secondaryBound: boolean;
-  signingKidLabel?: string;
-};
-
-export type WranglerSecretAction =
-  | { type: "put"; worker: string; name: string; valuePlaceholder: string }
-  | { type: "delete"; worker: string; name: string }
-  | { type: "deploy-var"; worker: string; cwd: string; envName: string; varName: string; varValue: string };
-
-export type RotationPlan = {
-  profileId: VersionedSecretProfileId;
-  step: VersionedSecretRotationStep;
-  stage: RotationStage;
-  operatorIdentity: string;
-  actions: WranglerSecretAction[];
-  notes: string[];
+// Versioned-secret shapes (ADR 0045) live in ./versioned-secret.js so the
+// step builders in ./rotation-plan-steps.js can share them without importing
+// back into this orchestrator. Re-exported here to preserve the public API.
+export type {
+  RotationPlan,
+  VersionedSecretBinding,
+  VersionedSecretEnvSnapshot,
+  VersionedSecretProfile,
+  VersionedSecretProfileId,
+  VersionedSecretRotationStep,
+  WranglerSecretAction,
 };
 
 export const ROTATION_AGENT_OPERATOR_ID = "rotation-agent@platform";

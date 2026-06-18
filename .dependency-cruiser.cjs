@@ -11,9 +11,10 @@
 //      `import`; the `content` and `stream` Workers stay isolated from
 //      Postgres / the DB.
 //
-// no-circular is `warn` for now: type-only cycles (which TypeScript erases) are
-// excluded, but a few pre-existing *runtime* cycles remain in worker-runtime,
-// rotation, and cli. AP-377 tracks fixing those and promoting this to `error`.
+// no-circular is `error`: the graph is cycle-free at runtime. The earlier
+// worker-runtime / rotation / cli cycles were all closed by an `import type`
+// back-edge; AP-377 broke them by extracting the shared types into leaf
+// modules, so the rule now blocks any new runtime cycle.
 //
 // Run via `pnpm depcruise` (wrapped by scripts/depcruise-check.mjs); part of
 // `pnpm verify`, so it gates CI Validate and the pre-push hook.
@@ -21,12 +22,12 @@ module.exports = {
   forbidden: [
     {
       name: "no-circular",
-      severity: "warn",
+      severity: "error",
       comment:
         "This dependency is part of a runtime circular relationship. Break the cycle (dependency inversion, " +
-        "single-responsibility split, or extract the shared piece into its own module). Type-only cycles are " +
-        "excluded because TypeScript erases them. `warn` until AP-377 clears the existing runtime cycles, then " +
-        "promote to `error`.",
+        "single-responsibility split, or extract the shared piece into its own module - e.g. move a shared type " +
+        "into a dependency-free leaf module both sides import). Type-only cycles are excluded because TypeScript " +
+        "erases them.",
       from: {},
       to: { circular: true, dependencyTypesNot: ["type-only"] },
     },
@@ -167,6 +168,7 @@ module.exports = {
         "(^|/)[.]output/",
         "(^|/)[.]turbo/",
         "(^|/)[.]wrangler/",
+        "(^|/)coverage/", // local coverage reports (lcov-report HTML/JS), not committed source
         "[.]gen[.]ts$",
         "worker-configuration[.]d[.]ts$",
         "[.](?:spec|test)[.](?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$",
