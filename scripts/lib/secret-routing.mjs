@@ -16,8 +16,8 @@
  * @typedef {Object} SecretBinding
  * @property {boolean} required Whether the consuming Worker hard-requires the secret.
  * @property {"all"|"production"|"preview"} [envs] Environment scope (default: all).
- * @property {"symmetric"|"workos"|"stripe"|"sentry"} [source] Where the value originates. `workos`,
- *   `stripe`, and `sentry` values come from their provider console / GitHub env,
+ * @property {"symmetric"|"workos"|"stripe"|"sentry"|"cloudflare"} [source] Where the value originates. `workos`,
+ *   `stripe`, `sentry`, and `cloudflare` values come from their provider console / GitHub env,
  *   not the symmetric generator.
  */
 
@@ -64,6 +64,18 @@ export const SECRET_ROUTING = {
     CONTENT_SIGNING_SECRET: { required: true },
     ARTIFACT_BYTES_ENCRYPTION_KEY: { required: true },
     SMOKE_HARNESS_SECRET: { required: false, envs: "preview" },
+    // Cloudflare URL Scanner creds for the post-publish ephemeral malicious-URL scan
+    // (AP-376). Optional/advisory by spec (docs/specs/jobs.md, ephemeral-publish.md):
+    // the scanner fail-opens to verdict "unknown" when absent, so a deploy without them
+    // must still succeed. Listing them here makes the gap visible and provisionable
+    // instead of silently inert. URL_SCANNER_API_TOKEN is the real gating provision
+    // (set it from the Cloudflare console to activate the scan). CLOUDFLARE_ACCOUNT_ID
+    // auto-populates: the deploy already exports the bare platform account id wrangler
+    // needs, and the URL Scanner runs under that same account, so it binds on every
+    // jobs deploy even before the token is set — the scanner stays inert until both
+    // are present (url-scanner.ts requires both).
+    URL_SCANNER_API_TOKEN: { required: false, source: "cloudflare" },
+    CLOUDFLARE_ACCOUNT_ID: { required: false, source: "cloudflare" },
   },
   stream: {
     STREAM_INTERNAL_SECRET: { required: true },
@@ -120,7 +132,7 @@ function bindingAppliesToEnv(binding, env) {
  * Secret names an app consumes in a given environment.
  * @param {string} app
  * @param {"preview"|"production"} env
- * @param {{ requiredOnly?: boolean, source?: "symmetric"|"workos"|"stripe"|"sentry" }} [opts]
+ * @param {{ requiredOnly?: boolean, source?: "symmetric"|"workos"|"stripe"|"sentry"|"cloudflare" }} [opts]
  * @returns {string[]}
  */
 export function secretsForApp(app, env, opts = {}) {
