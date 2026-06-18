@@ -14,6 +14,9 @@
     "apps/web": {
       "entry": ["src/server.ts"]
     },
+    "packages/billing": {
+      "entry": ["vitest.stryker.config.ts"]
+    },
     "apps/apex": {
       "entry": ["src/entry-server.tsx", "src/client.ts", "src/styles/apex.css"]
     }

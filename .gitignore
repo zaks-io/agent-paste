@@ -22,3 +22,7 @@ var/ops/
 # Local design-iteration scratch: rendered apex snapshots, fonts, brand assets
 # pulled down for offline preview. Never part of a commit.
 /preview/
+
+# Stryker mutation testing: sandbox, incremental cache, and generated reports.
+**/.stryker-tmp/
+**/reports/mutation/
