@@ -4,7 +4,7 @@ import {
   mcpProtectedResourceMetadata,
   trimTrailingSlashes,
 } from "@agent-paste/contracts";
-import { securityHeadersMiddleware, sentryOptions } from "@agent-paste/worker-runtime";
+import { captureWorkerError, securityHeadersMiddleware, sentryOptions } from "@agent-paste/worker-runtime";
 import type { CloudflareOptions } from "@sentry/cloudflare";
 import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
@@ -37,7 +37,13 @@ app.get("/", (context) => context.json(rootMetadata(context.env)));
 app.all("/", (context) => handleMcpEndpoint(context.req.raw, context.env));
 app.notFound((context) => context.json({ error: { code: "not_found", message: "not_found" } }, 404));
 app.onError((error, context) => {
-  console.error("Unhandled MCP error:", error);
+  captureWorkerError({
+    component: "mcp",
+    event: "mcp.unhandled_error",
+    error,
+    environment: context.env.AGENT_PASTE_ENV,
+    request: context.req.raw,
+  });
   return context.json({ error: { code: "internal_error", message: "internal_error" } }, 500);
 });
 

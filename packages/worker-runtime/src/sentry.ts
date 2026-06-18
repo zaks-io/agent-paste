@@ -1,4 +1,6 @@
 import type { CloudflareOptions } from "@sentry/cloudflare";
+import { sanitizeSentryLog } from "./logging.js";
+import { sanitizeSentryEvent } from "./sentry-sanitize.js";
 
 export type SentryEnv = {
   SENTRY_DSN?: string;
@@ -7,6 +9,7 @@ export type SentryEnv = {
 
 export function sentryOptions(env: SentryEnv): CloudflareOptions {
   const normalizedDsn = env.SENTRY_DSN?.trim() ?? "";
+  const enabled = normalizedDsn.length > 0;
 
   return {
     dsn: normalizedDsn,
@@ -17,6 +20,9 @@ export function sentryOptions(env: SentryEnv): CloudflareOptions {
       httpBodies: [],
       genAI: { inputs: false, outputs: false },
     },
-    enabled: normalizedDsn.length > 0,
+    enabled,
+    enableLogs: enabled,
+    beforeSend: sanitizeSentryEvent,
+    beforeSendLog: sanitizeSentryLog,
   };
 }

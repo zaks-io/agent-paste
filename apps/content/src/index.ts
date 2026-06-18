@@ -1,4 +1,4 @@
-import { type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
+import { getRequestId, type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
 import { buildContentOpenApiDocument, routeContractById } from "@agent-paste/contracts";
 import { resolveContentTokenSigner } from "@agent-paste/rotation";
 import { CONTENT_SECURITY_HEADERS } from "@agent-paste/storage";
@@ -7,6 +7,7 @@ import {
   BASELINE_SECURITY_HEADERS,
   type BoundRespondersVariables,
   boundRespondersMiddleware,
+  captureWorkerError,
   createRegistrar,
   getBoundResponders,
   type SignedContentTokenPrincipal,
@@ -96,7 +97,14 @@ contentRegistrar.mount(contractById("content.bundleHead"), async (context, princ
 );
 app.notFound((context) => getBoundResponders(context).respondError("not_found"));
 app.onError((error, context) => {
-  console.error("Unhandled content error:", error);
+  captureWorkerError({
+    component: "content",
+    event: "content.unhandled_error",
+    error,
+    environment: context.env.AGENT_PASTE_ENV,
+    request: context.req.raw,
+    requestId: getRequestId(context),
+  });
   return getBoundResponders(context).respondError("internal_error");
 });
 

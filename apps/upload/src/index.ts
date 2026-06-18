@@ -1,10 +1,11 @@
-import { type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
+import { getRequestId, type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
 import { buildUploadOpenApiDocument, routeContractById } from "@agent-paste/contracts";
 import { type Repository, repositoryErrorToAppError } from "@agent-paste/db";
 import type { SignedUploadPayload } from "@agent-paste/tokens/upload-url";
 import {
   type BoundRespondersVariables,
   boundRespondersMiddleware,
+  captureWorkerError,
   createApiKeyOrMcpOAuthResolver,
   createAuthenticateApiKey,
   createRegistrar,
@@ -105,7 +106,14 @@ app.onError((error, context) => {
   if (repositoryCode) {
     return respondError(repositoryCode);
   }
-  console.error("Unhandled upload error:", error);
+  captureWorkerError({
+    component: "upload",
+    event: "upload.unhandled_error",
+    error,
+    environment: context.env.AGENT_PASTE_ENV,
+    request: context.req.raw,
+    requestId: getRequestId(context),
+  });
   return respondError("internal_error");
 });
 

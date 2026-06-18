@@ -205,7 +205,7 @@ describe("runDeployPlan deploy step", () => {
     expect(deployFn).toHaveBeenCalledWith(["apex"], "preview");
   });
 
-  it("provisions optional apex Sentry DSN only when the environment provides it", async () => {
+  it("provisions optional Sentry DSN only when the environment provides it", async () => {
     const withDsn = createSecretPlanner({
       target: "preview",
       env: previewEnv({ PREVIEW_SENTRY_DSN: "https://public@example.ingest.us.sentry.io/1" }),
@@ -219,8 +219,14 @@ describe("runDeployPlan deploy step", () => {
       randomBytesFn: deterministicRandomBytes,
     });
 
-    expect((await withDsn.buildProvisionPlan(["apex"])).get("apex")).toEqual(["SENTRY_DSN"]);
-    expect((await withoutDsn.buildProvisionPlan(["apex"])).has("apex")).toBe(false);
+    const sentryApps = ["api", "upload", "content", "jobs", "stream", "mcp", "apex"];
+    const withDsnPlan = await withDsn.buildProvisionPlan(sentryApps);
+    const withoutDsnPlan = await withoutDsn.buildProvisionPlan(sentryApps);
+
+    for (const app of sentryApps) {
+      expect(withDsnPlan.get(app)).toContain("SENTRY_DSN");
+      expect(withoutDsnPlan.get(app) ?? []).not.toContain("SENTRY_DSN");
+    }
   });
 });
 
