@@ -247,8 +247,8 @@ function trackPromptCopied(id: string, promptVariant: string) {
 
   const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
-  // The scrollable body is capped at 400px; as lines reveal past it we keep the
-  // newest line in view by pinning the scroll to the bottom.
+  // The scrollable body is capped by its max-height (300px); as lines reveal past
+  // it we keep the newest line in view by pinning the scroll to the bottom.
   const body = shell.querySelector<HTMLElement>(".t-body");
   const scrollToLatest = () => {
     if (body) body.scrollTop = body.scrollHeight;
