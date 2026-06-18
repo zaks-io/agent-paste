@@ -12,7 +12,9 @@ const sentry = vi.hoisted(() => ({
 
 vi.mock("@sentry/cloudflare", () => sentry);
 
-const { captureWorkerError, emitWorkerLog, pathFromUrl, sanitizeWorkerLogAttributes } = await import("./logging.js");
+const { captureWorkerError, emitWorkerLog, pathFromUrl, sanitizeString, sanitizeWorkerLogAttributes } = await import(
+  "./logging.js"
+);
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -136,6 +138,16 @@ describe("worker logging", () => {
     expect(pathFromUrl("https://api.test/v1/public/agent-view/payload.signature")).toBe(
       "/v1/public/agent-view/[redacted_agent_view_token]",
     );
+  });
+
+  it("redacts JSON-style secret assignments before truncating", () => {
+    const escapedSecret = sanitizeString('failed {"token":"abc\\"def","safe":"ok"}');
+    expect(escapedSecret).toBe('failed {"token":"[redacted]","safe":"ok"}');
+
+    const boundarySecret = sanitizeString(`${"x".repeat(2032)} "token":"secret_after_boundary"`);
+    expect(boundarySecret).not.toContain("secret_after_boundary");
+    expect(boundarySecret).not.toContain("secret_");
+    expect(boundarySecret).toContain("[truncated]");
   });
 
   it("never throws if console and Sentry logging fail", () => {

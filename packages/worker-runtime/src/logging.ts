@@ -49,7 +49,7 @@ const BEARER_PATTERN = /bearer\s+[a-z0-9._~+/=-]+/giu;
 const SECRET_ASSIGNMENT_PATTERN =
   /\b((?:content_signing_secret|upload_signing_secret|api_key_pepper_v1|smoke_harness_secret|access_link_blob|content_token|idempotency[-_]?key|signature|token|kid|expires))\s*[:=]\s*[^,\s&]+/giu;
 const JSON_SECRET_ASSIGNMENT_PATTERN =
-  /"((?:content_signing_secret|upload_signing_secret|api_key_pepper_v1|smoke_harness_secret|access_link_blob|content_token|idempotency[-_]?key|signature|token|kid|expires))"\s*:\s*"[^"]*"/giu;
+  /"((?:content_signing_secret|upload_signing_secret|api_key_pepper_v1|smoke_harness_secret|access_link_blob|content_token|idempotency[-_]?key|signature|token|kid|expires))"\s*:\s*"(?:\\.|[^"\\])*"/giu;
 const URL_PATTERN = /https?:\/\/[^\s"'<>]+/giu;
 
 export function emitWorkerLog(input: WorkerLogInput): void {
@@ -215,13 +215,13 @@ function sanitizeScalar(key: string, value: unknown): string | number | boolean 
 }
 
 export function sanitizeString(value: string): string {
-  const trimmed = value.length > 2048 ? `${value.slice(0, 2048)}...[truncated]` : value;
-  return trimmed
+  const redacted = value
     .replace(API_KEY_PATTERN, "[redacted_api_key]")
     .replace(BEARER_PATTERN, "Bearer [redacted]")
     .replace(JSON_SECRET_ASSIGNMENT_PATTERN, '"$1":"[redacted]"')
     .replace(SECRET_ASSIGNMENT_PATTERN, "$1=[redacted]")
     .replace(URL_PATTERN, (match) => `[url:${pathFromUrl(match)}]`);
+  return redacted.length > 2048 ? `${redacted.slice(0, 2048)}...[truncated]` : redacted;
 }
 
 export function pathFromUrl(raw: string): string {
