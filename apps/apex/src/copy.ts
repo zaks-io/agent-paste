@@ -134,10 +134,11 @@ export type TranscriptLine = {
 // A pseudo-session modeled on a real coding-agent run (Codex / Claude Code) on the
 // accountless --ephemeral path: the agent reasons about the job, reads the docs,
 // looks at what it already knows about the user, runs one real publish command,
-// and hands back the no-login link. The output block mirrors the CLI's actual
-// ephemeral publish format byte-for-byte (apps/cli/src/publish-format.ts): Link /
-// Expires / Upload / Claim / → open. Generic enough to be any visitor's work,
-// true to the real tool. The prompt line is the page's single copy affordance
+// verifies the read-back, and hands back the no-login link. The output block
+// follows the CLI's actual ephemeral publish format (apps/cli/src/publish-format.ts):
+// the same labels and order (Published / Link / Expires / Upload / Claim), with the
+// Claim copy trimmed for the demo. Generic enough to be any visitor's work, true to
+// the real tool. The prompt line is the page's single copy affordance
 // (clicking it copies the bare EXAMPLE_PROMPT); every other line is read-only.
 // The animated demo (client.ts) reveals these one by one on Execute; with JS off
 // every line is visible, so this is also the static fallback.

@@ -203,7 +203,7 @@ export function TranscriptDemo() {
           </svg>
         </button>
       </div>
-      <div className="t-body font-mono text-mono leading-[1.85] px-4 py-4 bg-background text-foreground [font-feature-settings:'zero'] overflow-x-auto min-h-[148px] max-h-[300px] overflow-y-auto">
+      <div className="t-body font-mono text-mono leading-[1.85] px-4 py-4 bg-background text-foreground [font-feature-settings:'zero'] overflow-x-clip min-h-[136px] max-h-[300px] overflow-y-auto">
         <Line line={PROMPT_LINE} />
         {/* Execute affordance: a real-looking button, set a little lower under the
             prompt so it reads as the deliberate "run this" action. client.ts shows
