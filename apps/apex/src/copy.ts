@@ -192,19 +192,8 @@ export const TRANSCRIPT: TranscriptLine[] = [
   { kind: "output", wait: 180, text: "Expires  in 24 hours" },
   { kind: "output", wait: 180, text: "Upload   1/1 uploaded, 0 reused · 11.8 KB sent, 0 B cached" },
   { kind: "output", wait: 220, text: "Claim    log in and open to keep it and make it interactive" },
-  // A real agent verifies before handing back the link (the Codex read-back beat):
-  // confirm the published page is the one it built, not just that an upload
-  // returned a URL. Doubles as the "safe to open what your agent wrote" proof.
-  { kind: "reason", wait: 700, text: "Reading it back to confirm the published page matches what I built." },
-  {
-    kind: "tool",
-    wait: 900,
-    text: "Read(art_8KQ2WSDIEGO7XR/index.html)",
-    result: 'index.html · 11.8 KB · title "Ways you could use agent-paste" ✓ matches',
-    hint: "ctrl+o to expand",
-  },
   // The handoff: narrate, then the live link (the → open target).
-  { kind: "reason", wait: 600, text: "Verified. Here's your link, no login needed:" },
+  { kind: "reason", wait: 700, text: "Done. Here's your link, no login needed:" },
   { kind: "result", wait: 350, url: EXAMPLE_ACCESS_LINK_URL, href: EXAMPLE_STATIC_PAGE_PATH },
   { kind: "comment", wait: 700, text: "# copy the prompt above and run it in your own agent." },
 ];
