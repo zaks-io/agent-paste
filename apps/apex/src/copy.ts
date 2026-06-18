@@ -68,7 +68,9 @@ export const INSTALL_PS1_CMD = "irm https://agent-paste.sh/install.ps1 | iex";
 
 // The home demo: a flat, hairline transcript shell showing an agent publish
 // session (style-guide §8.1 sanctions the transcript; the terminal *look* is
-// still banned). Nothing in it animates.
+// still banned). The transcript animates on Execute as a progressive enhancement
+// (client.ts reveals lines one by one); it renders fully static for no-JS visitors,
+// crawlers, and reduced-motion.
 
 // The transcript prints an Access Link, while the clickable demo opens a static
 // page under public/ so production data is not required. The static path must
@@ -184,7 +186,10 @@ export const TRANSCRIPT: TranscriptLine[] = [
   // Expires → Upload → Claim), bursting in together.
   { kind: "success", wait: 1900, text: 'Published "Ways you could use agent-paste"' },
   { kind: "output", wait: 250, text: "Link     app.agent-paste.sh/al/art_8KQ2WSDIEGO7XR…" },
-  { kind: "output", wait: 180, text: "Expires  2026-06-19" },
+  // Relative, not a literal date: the real CLI prints a calendar date, but a
+  // hardcoded one ages out of the demo. "in 24 hours" is truthful to the ephemeral
+  // TTL and never goes stale.
+  { kind: "output", wait: 180, text: "Expires  in 24 hours" },
   { kind: "output", wait: 180, text: "Upload   1/1 uploaded, 0 reused · 11.8 KB sent, 0 B cached" },
   { kind: "output", wait: 220, text: "Claim    log in and open to keep it and make it interactive" },
   // A real agent verifies before handing back the link (the Codex read-back beat):

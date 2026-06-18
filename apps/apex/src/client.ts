@@ -247,6 +247,15 @@ function trackPromptCopied(id: string, promptVariant: string) {
 
   const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
+  // Reduced-motion: do not arm at all. Arming sets data-demo="armed", which the
+  // CSS uses to collapse (display:none) every line after the prompt until Execute
+  // is clicked. The reduced-motion CSS block forces opacity/transform but does NOT
+  // override that display:none, so arming under reduced-motion would hide the
+  // transcript behind a click. Leaving the shell un-armed keeps the full static
+  // transcript visible (the same baseline no-JS visitors and crawlers get), which
+  // is the correct "don't animate" behavior, so we never wire the controls.
+  if (reduceMotion) return;
+
   // The scrollable body is capped by its max-height (300px); as lines reveal past
   // it we keep the newest line in view by pinning the scroll to the bottom.
   const body = shell.querySelector<HTMLElement>(".t-body");
@@ -318,21 +327,8 @@ function trackPromptCopied(id: string, promptVariant: string) {
     });
   };
 
-  // Reduced-motion: skip the stagger. Execute / Replay reveal the whole transcript
-  // at once and settle into the done state, no animation.
-  const settle = () => {
-    clearTimers();
-    playable.forEach((el) => {
-      el.classList.add("is-played");
-      el.classList.remove("is-active");
-    });
-    shell.setAttribute("data-demo", "done");
-    running = false;
-  };
-
-  const onClick = reduceMotion ? settle : run;
-  runBtn.addEventListener("click", onClick);
-  replayBtn?.addEventListener("click", onClick);
+  runBtn.addEventListener("click", run);
+  replayBtn?.addEventListener("click", run);
 
   // Arm: hide everything after the prompt and reveal the inline Execute button.
   shell.setAttribute("data-demo", "armed");
