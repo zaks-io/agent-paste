@@ -72,28 +72,48 @@ export const INSTALL_PS1_CMD = "irm https://agent-paste.sh/install.ps1 | iex";
 // (client.ts reveals lines one by one); it renders fully static for no-JS visitors,
 // crawlers, and reduced-motion.
 
-// The transcript prints an Access Link, while the clickable demo opens a static
-// page under public/ so production data is not required. The static path must
-// not collide with a PRODUCT_PREFIXES redirect (redirects.ts) or the
-// TEXT_ASSET_PATHS whitelist (server.ts): `/a/` is free.
-// The clickable demo opens a static page that physically lives under public/ at
-// /a/<id> (no production data needed). The shown Access Link uses the SAME id so
-// the displayed URL and the link target read as one artifact — only the route
-// prefix differs (/al/ is the no-login Share Link route, /a/ is the static demo
-// page). The fragment is a realistic-looking opaque token; nothing here resolves
-// to real data.
+// The transcript prints a realistic Access Link in its "Link …" output line, the
+// same string a real ephemeral publish returns. The demo's payoff is an inline
+// preview (a mini access-link viewer) rendered as the final beat — it does NOT
+// link out to a separate page, so there is no static `/a/<id>` asset and no URL
+// shown in the preview's brand bar (the real collapsed /al brand bar shows only
+// the wordmark). The fragment is a realistic-looking opaque token; nothing here
+// resolves to real data.
 const EXAMPLE_ARTIFACT_ID = "art_8KQ2WSDIEGO7XR";
-export const EXAMPLE_STATIC_PAGE_PATH = `/a/${EXAMPLE_ARTIFACT_ID}`;
 export const EXAMPLE_ACCESS_LINK_URL = `app.agent-paste.sh/al/${EXAMPLE_ARTIFACT_ID}#AQEAAAGJk2YAAAEC9XQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz0`;
-// The personalized-marketer prompt. It asks the visitor's own agent to read the
-// agent-paste docs and turn them into concrete ways THEY could use agent-paste,
-// then publish that as an HTML report and hand back the link. The memory clause
-// is deliberately conditional: a memory-equipped agent (Claude Code, Codex,
-// ChatGPT, etc.) tailors the report to the user's real work; a cold agent with
-// no context produces a useful general report instead. Either way the run has
-// the same shape, which is all the demo shows — we never see the user's memory.
+// The published artifact's title, shown in the success line and echoed as the
+// title inside the inline preview so the two read as one artifact.
+export const EXAMPLE_ARTIFACT_TITLE = "Ways you could use agent-paste";
+// The handed-back link, as a browser shows it (no fragment). Used for both the
+// "here's your link" line and the preview's address bar so they read as one URL.
+export const PREVIEW_URL = `https://${EXAMPLE_ACCESS_LINK_URL.split("#")[0]}`;
+
+// The body of the artifact the agent published in answer to EXAMPLE_PROMPT. The
+// CONCEPT: the user's agent already knows them (memory of their real work), read the
+// agent-paste docs, and reports back exactly where the product fits THEIR life —
+// personalized, immediately-useful findings, not hypotheticals the visitor maps onto
+// themselves. The recurring SHAPE is "we just finished some work in this thread →
+// write it up → host it → hand it off once": an incident report after a fix, a
+// research writeup for a teammate, a migration plan for the team. NOT durable
+// reference docs / guides (agent-paste is temporary, throwaway, one-shot sharing).
+// Plain "you could…" lines, each NAMED so they read as pulled from real memory, not
+// the site guessing. Preview CHROME (a half-second glimpse; the real copy is the page
+// sections below), so only the first couple show before the fade; one line each.
+export const EXAMPLE_REPORT_ROWS = [
+  "You could write up that incident as a link.",
+  "You could share the research you pulled together.",
+  "You could hand off the migration plan as a URL.",
+  "You could send the Q3 roadmap as a link.",
+];
+// The personalized-discovery prompt. It leads with the memory angle on purpose: the
+// agent should mine what it already knows about the user's real work and report back
+// where agent-paste would actually save them time — not generic, hypothetical "ways
+// to use it." This is the whole concept of the demo: your agent goes and finds the
+// value FOR you. A memory-equipped agent (Claude Code, Codex, ChatGPT, etc.) makes
+// it personal; a cold agent still produces useful fits. Either way the run has the
+// same shape, which is all the demo shows — we never see the user's memory.
 export const EXAMPLE_PROMPT =
-  "Read the agent-paste.sh docs and come up with a bunch of ways I could use it. If you know anything about my work, tailor it to me; otherwise keep it general. Give me an HTML report I can open.";
+  "Read the agent-paste.sh docs, then from what you know about my work, tell me where it would actually save me time. Give me a page I can open.";
 export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v4_conditional_memory";
 
 // Inline run affordance shown right after the prompt line, and the replay control
@@ -102,6 +122,44 @@ export const DEMO_RUN = {
   execute: "Execute",
   replay: "Replay",
 };
+
+export type UseCase = {
+  // The recognizable situation, in the visitor's own terms.
+  scenario: string;
+  // The concrete payoff: the link, who opens it, what it saves them.
+  outcome: string;
+  // Optional real example page. Unset for now; real clickable examples are a
+  // deferred follow-up, not part of this change.
+  href?: string;
+};
+
+// The "is this for me" section: concrete jobs people already do, each ending in
+// the link they hand off. It sits right under the demo so the feat of strength is
+// immediately followed by "...and here is when that is you". Kept to four so the
+// reader is not asked to weigh a wall of equal options. Defined above TRANSCRIPT
+// because the inline demo preview renders these scenarios as its body rows.
+export const USE_CASES: UseCase[] = [
+  {
+    scenario: "Your agent wrote a research brief or analysis you need to send up.",
+    outcome:
+      "Hand your boss a link, not a 4,000-line chat scroll. It opens in any browser, formatted, no tool of theirs required.",
+  },
+  {
+    scenario: "You built something in one agent and the next person lives in another.",
+    outcome:
+      "Publish from Cursor, and a teammate on ChatGPT or Claude reads the work instead of re-deriving it. The handoff carries the files, not a copy-paste.",
+  },
+  {
+    scenario: "The agent keeps revising and people already have the link.",
+    outcome:
+      "Everyone you sent it to sees the newest version on their own, no reload and no re-send. One stable link for the whole back-and-forth.",
+  },
+  {
+    scenario: "Your agent generated a page that is meant to actually run.",
+    outcome:
+      "A self-contained dashboard or interactive report runs from a safe, isolated origin, so you can open what the agent wrote without standing up a server.",
+  },
+];
 
 // Each line carries `wait`: the ms of "work" that happens BEFORE it appears, so
 // the cadence models where real latency actually is, not an arbitrary per-line
@@ -127,8 +185,15 @@ export type TranscriptLine = {
   | { kind: "output"; text: string }
   // A green success summary line.
   | { kind: "success"; text: string }
-  // The returned no-login link (the payoff). Clickable to the static example.
-  | { kind: "result"; url: string; href: string }
+  // The returned no-login link, shown as the handed-back URL line right before the
+  // preview opens below it. Not clickable (the demo opens nothing); it is the link
+  // the agent reports, echoed by the preview's address bar.
+  | { kind: "link"; url: string }
+  // The payoff: an inline "mini access-link viewer" reveal that mirrors the real
+  // /al viewer in miniature (browser address bar + bottom-left wordmark brand bar),
+  // rendering the published page (`title` + `rows`) instead of linking out. `url`
+  // is the access link shown in the fake address bar (no fragment).
+  | { kind: "preview"; title: string; rows: string[]; url: string }
   // A trailing dim comment.
   | { kind: "comment"; text: string }
 );
@@ -184,18 +249,27 @@ export const TRANSCRIPT: TranscriptLine[] = [
   { kind: "cmd", wait: 700, text: "agent-paste publish ./report --ephemeral" },
   // The real CLI ephemeral output block (publish-format.ts: success → Link →
   // Expires → Upload → Claim), bursting in together.
-  { kind: "success", wait: 1900, text: 'Published "Ways you could use agent-paste"' },
-  { kind: "output", wait: 250, text: "Link     app.agent-paste.sh/al/art_8KQ2WSDIEGO7XR…" },
+  { kind: "success", wait: 1900, text: `Published "${EXAMPLE_ARTIFACT_TITLE}"` },
+  { kind: "output", wait: 250, text: `Link     ${EXAMPLE_ACCESS_LINK_URL.split("#")[0]}…` },
   // Relative, not a literal date: the real CLI prints a calendar date, but a
   // hardcoded one ages out of the demo. "in 24 hours" is truthful to the ephemeral
   // TTL and never goes stale.
   { kind: "output", wait: 180, text: "Expires  in 24 hours" },
   { kind: "output", wait: 180, text: "Upload   1/1 uploaded, 0 reused · 11.8 KB sent, 0 B cached" },
   { kind: "output", wait: 220, text: "Claim    log in and open to keep it and make it interactive" },
-  // The handoff: narrate, then the live link (the → open target).
+  // The handoff: narrate, hand back the link line, then open the preview below it.
   { kind: "reason", wait: 700, text: "Done. Here's your link, no login needed:" },
-  { kind: "result", wait: 350, url: EXAMPLE_ACCESS_LINK_URL, href: EXAMPLE_STATIC_PAGE_PATH },
-  { kind: "comment", wait: 700, text: "# copy the prompt above and run it in your own agent." },
+  { kind: "link", wait: 350, url: PREVIEW_URL },
+  // The rows are the agent's published report (EXAMPLE_REPORT_ROWS): concrete ways
+  // to use agent-paste, in the agent's voice answering the prompt. The address-bar
+  // URL is the same access link (no fragment), the way a browser shows it.
+  {
+    kind: "preview",
+    wait: 250,
+    title: EXAMPLE_ARTIFACT_TITLE,
+    rows: EXAMPLE_REPORT_ROWS,
+    url: PREVIEW_URL,
+  },
 ];
 
 export type Feature = {
@@ -225,43 +299,6 @@ export const FEATURES: Feature[] = [
   {
     title: "Safe to open what your agent wrote",
     body: "Generated pages are untrusted by construction, so they run from an isolated Content Origin: private storage, short-lived signed tokens, platform-derived MIME types, a strict execution policy, and per-artifact lockdown. You can host what an agent generated without it touching your account.",
-  },
-];
-
-export type UseCase = {
-  // The recognizable situation, in the visitor's own terms.
-  scenario: string;
-  // The concrete payoff: the link, who opens it, what it saves them.
-  outcome: string;
-  // Optional real example page (a static /a/<id>/ artifact). Unset for now; real
-  // clickable examples are a deferred follow-up, not part of this change.
-  href?: string;
-};
-
-// The "is this for me" section: concrete jobs people already do, each ending in
-// the link they hand off. It sits right under the demo so the feat of strength is
-// immediately followed by "...and here is when that is you". Kept to four so the
-// reader is not asked to weigh a wall of equal options.
-export const USE_CASES: UseCase[] = [
-  {
-    scenario: "Your agent wrote a research brief or analysis you need to send up.",
-    outcome:
-      "Hand your boss a link, not a 4,000-line chat scroll. It opens in any browser, formatted, no tool of theirs required.",
-  },
-  {
-    scenario: "You built something in one agent and the next person lives in another.",
-    outcome:
-      "Publish from Cursor, and a teammate on ChatGPT or Claude reads the work instead of re-deriving it. The handoff carries the files, not a copy-paste.",
-  },
-  {
-    scenario: "The agent keeps revising and people already have the link.",
-    outcome:
-      "Everyone you sent it to sees the newest version on their own, no reload and no re-send. One stable link for the whole back-and-forth.",
-  },
-  {
-    scenario: "Your agent generated a page that is meant to actually run.",
-    outcome:
-      "A self-contained dashboard or interactive report runs from a safe, isolated origin, so you can open what the agent wrote without standing up a server.",
   },
 ];
 
