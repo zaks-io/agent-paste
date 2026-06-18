@@ -134,9 +134,9 @@ export type TranscriptLine = {
 );
 
 // A pseudo-session modeled on a real coding-agent run (Codex / Claude Code) on the
-// accountless --ephemeral path: the agent reasons about the job, reads the docs,
-// looks at what it already knows about the user, runs one real publish command,
-// verifies the read-back, and hands back the no-login link. The output block
+// accountless --ephemeral path: the agent states its plan, reads the docs, reasons
+// from what it knows about the user, runs one real publish command, and hands back
+// the no-login link. The output block
 // follows the CLI's actual ephemeral publish format (apps/cli/src/publish-format.ts):
 // the same labels and order (Published / Link / Expires / Upload / Claim), with the
 // Claim copy trimmed for the demo. Generic enough to be any visitor's work, true to
@@ -162,22 +162,22 @@ export const TRANSCRIPT: TranscriptLine[] = [
     result: "the publishing layer for agent work · CLI + MCP · accountless --ephemeral publish",
     hint: "+18 lines (ctrl+o to expand)",
   },
-  // Pulls in what it already knows about the user. Conditional by design: a
-  // memory-equipped agent reads real context here; a cold agent finds none and
-  // generalizes. The demo only shows the shape.
+  // Draws on what it already knows about the user, as a plain thought, NOT a tool
+  // call: real agents reason from context they hold (project memory, the session),
+  // there is no universal "memory file" to read, so asserting a Read(...) of one
+  // would ring false to the savvy visitor. Conditional by design: a memory-equipped
+  // agent has real context here; a cold agent has none and the same line reads as
+  // common patterns. The demo only shows the shape.
   {
-    kind: "tool",
+    kind: "reason",
     wait: 800,
-    text: "Read(~/.agent/memory)",
-    result: "your work: research briefs, agent handoffs, dashboards that need a server to open",
-    hint: "ctrl+o to expand",
+    text: "From what I know about your work: research briefs, agent handoffs, dashboards you can't open without a server.",
   },
-  // Having read both, it states the conclusion in one beat (not a 3-line dump) and
-  // commits to the build.
+  // States the conclusion in one beat (not a 3-line dump) and commits to the build.
   {
     kind: "reason",
     wait: 700,
-    text: "Three clear fits with your work. I'll write them up and publish with no login so you can just open it.",
+    text: "Three clear fits. I'll write them up and publish with no login so you can just open it.",
   },
   // Runs the one real command. The wait AFTER it is the upload + publish round-trip
   // before the CLI output block returns.
