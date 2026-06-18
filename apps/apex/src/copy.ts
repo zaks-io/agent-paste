@@ -83,14 +83,16 @@ export const INSTALL_PS1_CMD = "irm https://agent-paste.sh/install.ps1 | iex";
 const EXAMPLE_ARTIFACT_ID = "art_8KQ2WSDIEGO7XR";
 export const EXAMPLE_STATIC_PAGE_PATH = `/a/${EXAMPLE_ARTIFACT_ID}`;
 export const EXAMPLE_ACCESS_LINK_URL = `app.agent-paste.sh/al/${EXAMPLE_ARTIFACT_ID}#AQEAAAGJk2YAAAEC9XQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz0`;
-// The personalized-marketer prompt. The visitor's own agent already knows their
-// work (its memory); this asks it to read the agent-paste docs and turn that
-// knowledge into concrete ways THEY should use agent-paste, then publish the
-// recommendation as a page and hand back the link. We never see their memory;
-// the demo only shows the shape of the run.
+// The personalized-marketer prompt. It asks the visitor's own agent to read the
+// agent-paste docs and turn them into concrete ways THEY could use agent-paste,
+// then publish that as an HTML report and hand back the link. The memory clause
+// is deliberately conditional: a memory-equipped agent (Claude Code, Codex,
+// ChatGPT, etc.) tailors the report to the user's real work; a cold agent with
+// no context produces a useful general report instead. Either way the run has
+// the same shape, which is all the demo shows — we never see the user's memory.
 export const EXAMPLE_PROMPT =
-  "Read the agent-paste.sh docs, then look at what you already know about my work and tell me the best ways I should be using agent-paste. Publish your recommendation as a page and give me the link.";
-export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v2_memory";
+  "Read the agent-paste.sh docs and come up with a bunch of ways I could use it. If you know anything about my work, tailor it to me; otherwise keep it general. Give me an HTML report I can open.";
+export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v4_conditional_memory";
 
 // Inline run affordance shown right after the prompt line, and the replay control
 // in the head once the run has played. Copy floats freely; not a test contract.
@@ -107,8 +109,7 @@ export const DEMO_RUN = {
 // directly (and scales it down for a snappy demo).
 export type TranscriptLine = {
   wait?: number;
-} & // affordance). Always visible; the inline Execute button sits under it. // The copyable prompt the visitor pastes into their own agent (the one copy
-(
+} & ( // affordance). Always visible; the inline Execute button sits under it. // The copyable prompt the visitor pastes into their own agent (the one copy
   | { kind: "prompt"; text: string }
   // First-person agent reasoning, the "thinking out loud" beats a real coding
   // agent prints (Codex's "• ...", Claude's "⏺ ...").
@@ -141,7 +142,7 @@ export const TRANSCRIPT: TranscriptLine[] = [
   {
     kind: "reason",
     wait: 900,
-    text: "I'll read the agent-paste docs, then match them to what I know about your work.",
+    text: "I'll read the agent-paste docs, then tailor the use cases to what I know about your work.",
   },
   // Fetches the agent guide. The wait is AFTER the action: the network round-trip
   // before the result lands — the beat sits on the agent's command, not its reply.
@@ -152,16 +153,16 @@ export const TRANSCRIPT: TranscriptLine[] = [
     text: "the publishing layer for agent work · CLI + MCP · accountless --ephemeral publish",
   },
   // It already has the result, so it responds promptly, then lists what it found.
-  { kind: "reason", wait: 650, text: "Three of those map onto what we've been doing:" },
+  { kind: "reason", wait: 650, text: "Three from what we've been doing:" },
   { kind: "output", wait: 350, text: "1. research briefs you keep pasting back into chat" },
   { kind: "output", wait: 250, text: "2. handing this agent's work off to a teammate on another tool" },
   { kind: "output", wait: 250, text: "3. the dashboards I generate that you can't open without a server" },
-  { kind: "reason", wait: 600, text: "I'll write that up and publish it with no login so you just get a link." },
+  { kind: "reason", wait: 600, text: "I'll write these up as an HTML report and publish it with no login." },
   // Runs the real publish command; the wait AFTER it is the upload + publish
   // round-trip before the output block returns — the beat after the action.
-  { kind: "cmd", wait: 600, text: "agent-paste publish ./recommendation --ephemeral" },
+  { kind: "cmd", wait: 600, text: "agent-paste publish ./report --ephemeral" },
   // The real CLI ephemeral output block (publish-format.ts), bursting in together.
-  { kind: "success", wait: 2000, text: 'Published "How you should use agent-paste"' },
+  { kind: "success", wait: 2000, text: 'Published "Ways to use agent-paste"' },
   { kind: "output", wait: 250, text: "Link     app.agent-paste.sh/al/art_8KQ2WSDIEGO7XR…" },
   { kind: "output", wait: 200, text: "Expires  2026-06-19" },
   { kind: "output", wait: 200, text: "Upload   1/1 uploaded, 0 reused · 11.8 KB sent, 0 B cached" },

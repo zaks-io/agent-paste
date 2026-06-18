@@ -109,7 +109,7 @@ function Line({ line }: { line: TranscriptLine }) {
       );
     case "comment":
       return (
-        <div className="t-line t-step text-faint" data-kind="comment" data-wait={line.wait}>
+        <div className="t-line t-step text-subtle" data-kind="comment" data-wait={line.wait}>
           {line.text}
         </div>
       );
@@ -161,52 +161,25 @@ export function TranscriptDemo() {
     <div className="t-shell border border-rule-strong rounded-md bg-surface overflow-hidden" data-demo>
       <div className="t-head flex items-center justify-between gap-3 px-4 py-2 border-b border-rule">
         <span className="font-mono text-mono-sm tracking-eyebrow uppercase text-subtle">demo session</span>
-        <div className="flex items-center gap-4">
-          {/* Replay: a circular refresh control that appears in the head only after
-              the run has played once (data-demo="done", styled in apex.css). It is
-              hidden by default so no-JS visitors never see an inert control. Sits to
-              the left of the Copy prompt button. */}
-          <button
-            type="button"
-            data-demo-replay
-            className="t-replay inline-flex items-center justify-center text-subtle bg-transparent border-0 cursor-pointer hover:text-foreground"
-            aria-label={DEMO_RUN.replay}
-            title={DEMO_RUN.replay}
-          >
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path
-                d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2v3h-3"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="square"
-              />
-            </svg>
-          </button>
-          {/* The labeled copy affordance. Clicking copies the bare EXAMPLE_PROMPT
-              (the instruction to paste into your own agent), not the `agent "..."`
-              shell wrapper. This button carries the funnel attribution; the inline
-              prompt-text copy below is the convenience twin. The shared
-              [data-clipboard] script (client.ts) copies and sets data-copied,
-              flipping the label to "Copied". The label is a fixed-size two-state grid
-              stack so the swap never reflows the toolbar. */}
-          <button
-            type="button"
-            className="t-copy group inline-flex items-center bg-transparent border-0 cursor-pointer"
-            data-clipboard={EXAMPLE_PROMPT}
-            data-claim-prompt-variant={EXAMPLE_PROMPT_VARIANT}
-            title="Copy the prompt to paste into your agent"
-            aria-label={`Copy the prompt to paste into your agent: ${EXAMPLE_PROMPT}`}
-          >
-            <span className="grid font-mono text-mono-sm tracking-eyebrow uppercase" aria-hidden="true">
-              <span className="col-start-1 row-start-1 text-subtle group-hover:text-foreground group-data-[copied=true]:invisible">
-                Copy prompt
-              </span>
-              <span className="col-start-1 row-start-1 invisible text-accent group-data-[copied=true]:visible">
-                Copied
-              </span>
-            </span>
-          </button>
-        </div>
+        {/* Replay: a circular refresh control that appears in the head only after
+            the run has played once (data-demo="done", styled in apex.css). It is
+            hidden by default so no-JS visitors never see an inert control. */}
+        <button
+          type="button"
+          data-demo-replay
+          className="t-replay inline-flex items-center justify-center text-subtle bg-transparent border-0 cursor-pointer hover:text-foreground"
+          aria-label={DEMO_RUN.replay}
+          title={DEMO_RUN.replay}
+        >
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path
+              d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2v3h-3"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="square"
+            />
+          </svg>
+        </button>
       </div>
       <div className="t-body font-mono text-mono leading-[1.85] px-4 py-4 bg-background text-foreground [font-feature-settings:'zero'] overflow-x-auto min-h-[148px] max-h-[300px] overflow-y-auto">
         <Line line={PROMPT_LINE} />
@@ -227,10 +200,34 @@ export function TranscriptDemo() {
           <Line key={lineKey(line)} line={line} />
         ))}
       </div>
-      {/* The next funnel step rail: claim the published work to keep it. The copy
-          affordance moved onto the prompt line above, so this footer carries the
-          post-copy path, not a second copy button. */}
-      <div className="t-foot border-t border-rule px-4 py-3 flex items-center justify-end gap-4">
+      {/* The footer rail. The Copy prompt button anchors the bottom-left as the
+          primary call to action (white default label so it reads as the ask, not an
+          aside); "claim it to keep" is the post-copy funnel step on the right. */}
+      <div className="t-foot border-t border-rule px-4 py-3 flex items-center justify-between gap-4">
+        {/* The labeled copy affordance. Clicking copies the bare EXAMPLE_PROMPT (the
+            instruction to paste into your own agent), not the `agent "..."` shell
+            wrapper. This button carries the funnel attribution; the inline prompt-text
+            copy in the body is the convenience twin. The shared [data-clipboard]
+            script (client.ts) copies and sets data-copied, flipping the label to
+            "Copied". The label is a fixed-size two-state grid stack so the swap never
+            reflows the rail. */}
+        <button
+          type="button"
+          className="t-copy group inline-flex items-center bg-transparent border-0 cursor-pointer"
+          data-clipboard={EXAMPLE_PROMPT}
+          data-claim-prompt-variant={EXAMPLE_PROMPT_VARIANT}
+          title="Copy the prompt to paste into your agent"
+          aria-label={`Copy the prompt to paste into your agent: ${EXAMPLE_PROMPT}`}
+        >
+          <span className="grid font-mono text-mono-sm tracking-eyebrow uppercase" aria-hidden="true">
+            <span className="col-start-1 row-start-1 text-foreground group-hover:text-accent group-data-[copied=true]:invisible">
+              Copy prompt
+            </span>
+            <span className="col-start-1 row-start-1 invisible text-accent group-data-[copied=true]:visible">
+              Copied
+            </span>
+          </span>
+        </button>
         <a
           className="group inline-flex items-center gap-2 font-mono text-mono-sm text-muted no-underline transition-colors duration-200 ease-out hover:text-foreground"
           href={SIGN_IN_URL}
