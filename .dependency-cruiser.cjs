@@ -58,7 +58,7 @@ module.exports = {
     },
     {
       name: "no-deprecated-core",
-      severity: "warn",
+      severity: "error",
       comment:
         "Depends on a deprecated Node core module. Find a supported alternative. (async_hooks is intentionally " +
         "absent from this list: the repo uses the supported `node:async_hooks` form for the ALS CSP-nonce bridge.)",
@@ -70,7 +70,7 @@ module.exports = {
     },
     {
       name: "not-to-deprecated",
-      severity: "warn",
+      severity: "error",
       comment:
         "Uses a deprecated npm package. Upgrade or replace it - deprecated modules are a maintenance and " +
         "security risk.",
@@ -89,7 +89,7 @@ module.exports = {
     },
     {
       name: "no-duplicate-dep-types",
-      severity: "warn",
+      severity: "error",
       comment:
         "An npm package appears under more than one dependency type in package.json (e.g. both dependencies " +
         "and devDependencies). Pick one.",
@@ -162,6 +162,30 @@ module.exports = {
         "apps/stream is SSE fan-out over Durable Objects only - no Postgres, R2, KV, or secrets " +
         "(docs/specs/architecture.md). It authorizes connections by calling api, not by reaching into the DB.",
       from: { path: "^apps/stream/" },
+      to: {
+        path: ["^packages/db(?:/|$)", "^node_modules/(?:postgres|drizzle-orm)(?:/|$)"],
+      },
+    },
+    {
+      name: "web-stays-db-free",
+      severity: "error",
+      comment:
+        "apps/web is the human dashboard - it must never reach Postgres directly. Durable product writes go " +
+        "through the api Worker over HTTP (ADR 0006, docs/specs/architecture.md Host Boundaries: web must not " +
+        "own Postgres, R2, KV, or durable product writes).",
+      from: { path: "^apps/web/" },
+      to: {
+        path: ["^packages/db(?:/|$)", "^node_modules/(?:postgres|drizzle-orm)(?:/|$)"],
+      },
+    },
+    {
+      name: "mcp-stays-db-free",
+      severity: "error",
+      comment:
+        "apps/mcp is an OAuth-only MCP transport - it verifies bearer shape and forwards to api and upload. It " +
+        "must never reach Postgres directly (docs/specs/architecture.md Host Boundaries: mcp must not own " +
+        "business writes, Postgres, or R2).",
+      from: { path: "^apps/mcp/" },
       to: {
         path: ["^packages/db(?:/|$)", "^node_modules/(?:postgres|drizzle-orm)(?:/|$)"],
       },

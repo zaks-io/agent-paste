@@ -3,6 +3,8 @@
 Source of truth for the module-dependency-graph gate (AP-372). Owner: Isaac.
 Snapshot date: 2026-06-17.
 
+Every rule is now blocking (`error`); there are no advisory rules left.
+
 [dependency-cruiser](https://github.com/sverweij/dependency-cruiser) validates
 the import graph across the monorepo. Rules live in
 [`.dependency-cruiser.cjs`](../../.dependency-cruiser.cjs); the gate runs via
@@ -37,30 +39,37 @@ workspace resolution), `tsConfig` points at `tsconfig.base.json`,
 
 ### Blocking (`error`)
 
-| Rule                      | What it catches                                                                                                                                                                                                  |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `no-circular`             | A runtime import cycle. Type-only cycles are excluded (TypeScript erases them). Break a cycle by inverting a dependency or moving the shared piece into a leaf module both sides import.                         |
-| `no-orphans`              | A module nothing imports and that imports nothing — dead code. Config/declaration files and framework entrypoints reached only via generated files (TanStack `routeTree.gen.ts`) are exempted in `from.pathNot`. |
-| `not-to-unresolvable`     | Imports that don't resolve to disk. `cloudflare:` virtual modules are exempt (Workers runtime, like `node:`).                                                                                                    |
-| `not-to-spec`             | Non-test code importing a `*.test.*` / `*.spec.*` file.                                                                                                                                                          |
-| `not-to-dev-dep`          | Shipped `src` code importing a `devDependency` (absent in production).                                                                                                                                           |
-| `not-to-app-from-package` | A `packages/*` module importing an `apps/*` module. The dependency only ever points package <- app.                                                                                                              |
-| `not-to-other-app`        | One app importing another app's source. Apps are deployment units; they talk over HTTP / service bindings / queues (ADR 0006).                                                                                   |
-| `content-stays-isolated`  | `apps/content` importing `packages/db`, `packages/billing`, `postgres`, or `drizzle-orm` (ADR 0028). The request-id middleware from `packages/auth` is allowed — it is a cross-cutting helper, not WorkOS auth.  |
-| `stream-stays-isolated`   | `apps/stream` importing `packages/db`, `postgres`, or `drizzle-orm`. Stream is SSE/Durable-Object fan-out only; it authorizes via `api`, not the DB.                                                             |
+| Rule                      | What it catches                                                                                                                                                                                                        |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `no-circular`             | A runtime import cycle. Type-only cycles are excluded (TypeScript erases them). Break a cycle by inverting a dependency or moving the shared piece into a leaf module both sides import.                               |
+| `no-orphans`              | A module nothing imports and that imports nothing — dead code. Config/declaration files and framework entrypoints reached only via generated files (TanStack `routeTree.gen.ts`) are exempted in `from.pathNot`.       |
+| `not-to-unresolvable`     | Imports that don't resolve to disk. `cloudflare:` virtual modules are exempt (Workers runtime, like `node:`).                                                                                                          |
+| `not-to-spec`             | Non-test code importing a `*.test.*` / `*.spec.*` file.                                                                                                                                                                |
+| `not-to-dev-dep`          | Shipped `src` code importing a `devDependency` (absent in production).                                                                                                                                                 |
+| `not-to-app-from-package` | A `packages/*` module importing an `apps/*` module. The dependency only ever points package <- app.                                                                                                                    |
+| `not-to-other-app`        | One app importing another app's source. Apps are deployment units; they talk over HTTP / service bindings / queues (ADR 0006).                                                                                         |
+| `content-stays-isolated`  | `apps/content` importing `packages/db`, `packages/billing`, `postgres`, or `drizzle-orm` (ADR 0028). The request-id middleware from `packages/auth` is allowed — it is a cross-cutting helper, not WorkOS auth.        |
+| `stream-stays-isolated`   | `apps/stream` importing `packages/db`, `postgres`, or `drizzle-orm`. Stream is SSE/Durable-Object fan-out only; it authorizes via `api`, not the DB.                                                                   |
+| `web-stays-db-free`       | `apps/web` importing `packages/db`, `postgres`, or `drizzle-orm`. The human dashboard never reaches Postgres directly; durable product writes go through `api` over HTTP (Host Boundaries: web must not own Postgres). |
+| `mcp-stays-db-free`       | `apps/mcp` importing `packages/db`, `postgres`, or `drizzle-orm`. The MCP transport verifies bearer shape and forwards to `api`/`upload`; it must not own Postgres (Host Boundaries).                                  |
+| `no-deprecated-core`      | A deprecated Node core module. `async_hooks` is intentionally **not** listed: the repo uses the supported `node:async_hooks` form for the ALS CSP-nonce bridge.                                                        |
+| `not-to-deprecated`       | A deprecated npm package.                                                                                                                                                                                              |
+| `no-duplicate-dep-types`  | A package declared under more than one dependency type.                                                                                                                                                                |
 
-### Advisory (`warn`) — non-blocking, surfaced for cleanup
-
-| Rule                     | Why it is advisory, not blocking                                                                                                                               |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `no-deprecated-core`     | Deprecated Node core modules. `async_hooks` is intentionally **not** listed: the repo uses the supported `node:async_hooks` form for the ALS CSP-nonce bridge. |
-| `not-to-deprecated`      | Deprecated npm packages.                                                                                                                                       |
-| `no-duplicate-dep-types` | A package declared under more than one dependency type.                                                                                                        |
+All rules block the build; there are no advisory (`warn`) rules.
 
 ## Baseline (2026-06-17)
 
-`pnpm depcruise`: **0 errors, 0 warnings** over 632 modules / 2225 dependencies.
-`no-circular` and `no-orphans` are both clean and blocking.
+`pnpm depcruise`: **0 errors, 0 warnings** over 635 modules / 2228 dependencies.
+Every rule is blocking and clean.
+
+The last three advisory rules (`no-deprecated-core`, `not-to-deprecated`,
+`no-duplicate-dep-types`) were promoted to `error` once they held at zero
+findings, and two spec-backed isolation rules were added: `web-stays-db-free`
+and `mcp-stays-db-free` enforce the `docs/specs/architecture.md` Host Boundaries
+("`web` / `mcp` must not own Postgres"). Both apps were already DB-free, so the
+rules landed green; verified by temporarily importing `@agent-paste/db` into
+each app and confirming the matching rule fired.
 
 The earlier orphan warnings were all false positives and are now resolved:
 the two apex install-script modules (`install-sh.ts` / `install-ps1.ts`) were
@@ -106,8 +115,13 @@ Deliberately deferred so the first landing stays defensible (AP-372 "do not
 invent broad architecture rules not backed by docs"). Add incrementally, each in
 its own change so any violations are reviewed in isolation:
 
-- The full per-Worker "must NOT own" matrix from `docs/specs/architecture.md`
-  (e.g. `web` must not import Postgres/R2/KV directly; `mcp` no business writes).
+- `apex-stays-product-free`: `apps/apex` (marketing) must not import
+  `packages/db`, `packages/auth` (WorkOS), or `packages/billing` — it owns no
+  authenticated state or product data (Host Boundaries). Clean today; deferred
+  only to keep this change scoped.
+- The rest of the per-Worker "must NOT own" matrix from
+  `docs/specs/architecture.md` not yet encoded (the `web`/`mcp` Postgres rows
+  landed as `web-stays-db-free` / `mcp-stays-db-free`).
 - Shared-package direction rules (UI/brand/config/contracts/tokens should not
   grow reverse dependencies on higher layers). Clean today, but encoding it is
   speculative until a near-miss justifies the rule.
