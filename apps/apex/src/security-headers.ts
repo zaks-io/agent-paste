@@ -13,6 +13,7 @@ import { THEME_INIT_JS } from "./app/scripts";
 export const THEME_INIT_SHA256 = `sha256-${createHash("sha256").update(THEME_INIT_JS, "utf8").digest("base64")}`;
 
 const BEACON_HOST = "https://static.cloudflareinsights.com";
+const SENTRY_INGEST_HOST = "https://*.ingest.us.sentry.io";
 
 export function apexCsp(): string {
   return [
@@ -24,7 +25,7 @@ export function apexCsp(): string {
     "base-uri 'none'",
     "frame-ancestors 'none'",
     "object-src 'none'",
-    "connect-src 'self' https://cloudflareinsights.com",
+    `connect-src 'self' https://cloudflareinsights.com ${SENTRY_INGEST_HOST}`,
   ].join("; ");
 }
 

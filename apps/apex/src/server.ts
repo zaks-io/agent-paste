@@ -37,6 +37,7 @@ const TEXT_ASSET_PATHS = new Set([
 ]);
 
 const ANALYTICS_BEACON_SELECTOR = 'script[src="https://static.cloudflareinsights.com/beacon.min.js"]';
+const CLIENT_CONFIG_PATH = "/__client/config.json";
 const FUNNEL_EVENTS_PATH = "/__funnel/events";
 const CLAIM_CODE_PATTERN = /^clm_[0-9A-HJKMNP-TV-Z]{26}$/;
 const PROMPT_VARIANT_PATTERN = /^[a-z0-9][a-z0-9_:-]{0,79}$/;
@@ -69,6 +70,10 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       status: 405,
       headers: { allow: "GET, HEAD, OPTIONS", "content-type": TEXT_PLAIN, ...security },
     });
+  }
+
+  if (url.pathname === CLIENT_CONFIG_PATH) {
+    return handleClientConfig(request, env, security);
   }
 
   const redirectTarget = productRedirect(url);
@@ -112,6 +117,22 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
   return new Response("not_found", {
     status: 404,
     headers: { "content-type": TEXT_PLAIN, ...security },
+  });
+}
+
+function handleClientConfig(request: Request, env: Env, security: Record<string, string>): Response {
+  const body = JSON.stringify({
+    sentry: {
+      dsn: env.SENTRY_DSN?.trim() || null,
+      environment: env.AGENT_PASTE_ENV ?? "dev",
+    },
+  });
+  return new Response(request.method === "HEAD" ? null : body, {
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      ...security,
+    },
   });
 }
 

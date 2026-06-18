@@ -262,6 +262,38 @@ describe("funnel events", () => {
   });
 });
 
+describe("client config", () => {
+  it("serves browser Sentry config from runtime env", async () => {
+    const response = await get("/__client/config.json", {
+      AGENT_PASTE_ENV: "production",
+      SENTRY_DSN: " https://public@example.ingest.us.sentry.io/1 ",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("content-security-policy")).toContain("https://*.ingest.us.sentry.io");
+    await expect(response.json()).resolves.toEqual({
+      sentry: {
+        dsn: "https://public@example.ingest.us.sentry.io/1",
+        environment: "production",
+      },
+    });
+  });
+
+  it("returns a stable null Sentry DSN when browser monitoring is not configured", async () => {
+    const response = await get("/__client/config.json");
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      sentry: {
+        dsn: null,
+        environment: "dev",
+      },
+    });
+  });
+});
+
 describe("billing-gated text assets", () => {
   it("lists pricing and billing docs in the sitemap only when billing is enabled", async () => {
     expect(await (await get("/sitemap.xml")).text()).not.toContain("<loc>https://agent-paste.sh/pricing</loc>");
@@ -465,6 +497,7 @@ it("never sets cookies on any apex response", async () => {
     "/robots.txt",
     "/.well-known/gpc.json",
     "/.well-known/security.txt",
+    "/__client/config.json",
     "/sitemap.xml",
     "/dashboard",
     "/healthz",

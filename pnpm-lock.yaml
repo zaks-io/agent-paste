@@ -149,6 +149,9 @@ importers:
       '@agent-paste/worker-runtime':
         specifier: workspace:*
         version: link:../../packages/worker-runtime
+      '@sentry/browser':
+        specifier: ^10.57.0
+        version: 10.57.0
       '@sentry/cloudflare':
         specifier: ^10.57.0
         version: 10.57.0(@cloudflare/workers-types@4.20260521.1)

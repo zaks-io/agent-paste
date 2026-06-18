@@ -1,6 +1,7 @@
-// The single client enhancement that ships to the browser. Framework-free, DOM
-// only, self-executing. It merges three behaviors that used to live as inline
-// <script> blobs in the hono/jsx Shell + home page:
+// The single client enhancement that ships to the browser. Framework-free,
+// self-executing, with browser-side error monitoring plus the three DOM
+// behaviors that used to live as inline <script> blobs in the hono/jsx Shell +
+// home page:
 //   1. sticky-header data-stuck toggle on scroll
 //   2. theme-toggle button (cycle system/dark/light, persist, paint icon + aria)
 //   3. scroll-reveal + click-to-copy for the marketing home page
@@ -19,8 +20,11 @@ import {
   THEME_ICON,
   type ThemeState,
 } from "@agent-paste/ui";
+import { initApexBrowserSentry } from "./sentry-browser";
 
 const CLAIM_CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+void initApexBrowserSentry();
 
 function browserAnalyticsSignalActive() {
   return (

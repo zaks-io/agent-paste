@@ -10,7 +10,7 @@ import {
 describe("secret-routing", () => {
   it("lists only apps that consume secrets", () => {
     expect(secretConsumingApps()).toEqual(Object.keys(SECRET_ROUTING));
-    expect(secretConsumingApps()).not.toContain("apex");
+    expect(secretConsumingApps()).toContain("apex");
   });
 
   it("scopes preview-only secrets out of production", () => {
@@ -80,11 +80,13 @@ describe("secret-routing", () => {
     expect(secretsForApp("api", "production", { source: "symmetric" })).toContain("CONTENT_SIGNING_SECRET");
   });
 
-  it("routes MCP Sentry DSN as optional provider config", () => {
+  it("routes Sentry DSN as optional provider config", () => {
     for (const env of ["preview", "production"]) {
-      expect(secretsForApp("mcp", env, { source: "sentry" })).toEqual(["SENTRY_DSN"]);
-      expect(secretsForApp("mcp", env, { source: "symmetric" })).not.toContain("SENTRY_DSN");
-      expect(requiredSecretsForApp("mcp", env)).not.toContain("SENTRY_DSN");
+      for (const app of ["apex", "mcp"]) {
+        expect(secretsForApp(app, env, { source: "sentry" })).toEqual(["SENTRY_DSN"]);
+        expect(secretsForApp(app, env, { source: "symmetric" })).not.toContain("SENTRY_DSN");
+        expect(requiredSecretsForApp(app, env)).not.toContain("SENTRY_DSN");
+      }
     }
   });
 
