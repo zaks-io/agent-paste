@@ -112,6 +112,7 @@
       "jsdom>ws": "^8.21.0",
       "miniflare>ws": "^8.21.0",
       "puppeteer-core>ws": "^8.21.0",
+      "typed-rest-client>qs": "6.15.2",
       "xmlbuilder2>js-yaml": "^4.2.0"
     }
   },
