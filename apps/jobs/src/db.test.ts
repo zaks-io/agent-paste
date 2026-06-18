@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
 import { createHyperdriveExecutor } from "@agent-paste/db";
+import { describe, expect, it, vi } from "vitest";
 import { resolveSqlExecutor } from "./db.js";
 
 vi.mock("@agent-paste/db", async (importOriginal) => {
@@ -30,6 +30,9 @@ describe("resolveSqlExecutor", () => {
     resolveSqlExecutor({ DB: { query: vi.fn() } });
     resolveSqlExecutor({ DB: hyperdrive });
     expect(createHyperdriveExecutor).toHaveBeenCalledTimes(2);
-    expect(createHyperdriveExecutor).toHaveBeenLastCalledWith(hyperdrive);
+    expect(createHyperdriveExecutor).toHaveBeenLastCalledWith(hyperdrive, {
+      instrumentQuery: expect.any(Function),
+      traceId: expect.any(Function),
+    });
   });
 });

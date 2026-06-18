@@ -1,9 +1,10 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
+import { defineSqlQuerySourceMap } from "../postgres/query-source.js";
 import { revisions } from "../schema.js";
 import type { PublishBundleStatus, Revision } from "../types.js";
 
-export const revisionQueries = {
+export const revisionQueries = defineSqlQuerySourceMap("packages/db/src/queries/revisions.ts", "revisionQueries", {
   async insert(db: DrizzleDb, row: Revision) {
     await db.insert(revisions).values({
       id: row.id,
@@ -105,7 +106,7 @@ export const revisionQueries = {
       .returning({ id: revisions.id });
     return rows.length > 0;
   },
-};
+});
 
 function mapRevision(row: typeof revisions.$inferSelect): Revision {
   return {

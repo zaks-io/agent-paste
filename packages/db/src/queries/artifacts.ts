@@ -1,9 +1,10 @@
 import { and, asc, desc, eq, isNotNull, lt, or, type SQL, sql } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
+import { defineSqlQuerySourceMap } from "../postgres/query-source.js";
 import { artifactFiles, artifacts } from "../schema.js";
 import type { Artifact, StoredFile, StoredFileStorageKind } from "../types.js";
 
-export const artifactQueries = {
+export const artifactQueries = defineSqlQuerySourceMap("packages/db/src/queries/artifacts.ts", "artifactQueries", {
   async insert(db: DrizzleDb, row: Artifact) {
     await db.insert(artifacts).values({
       id: row.id,
@@ -216,37 +217,41 @@ export const artifactQueries = {
       .returning({ id: artifacts.id });
     return rows.length > 0;
   },
-};
+});
 
 export type ArtifactCursor = {
   createdAt: Date;
   id: string;
 };
 
-export const artifactFileQueries = {
-  async insert(db: DrizzleDb, artifactId: string, revisionId: string, file: StoredFile, fallbackUploadedAt: string) {
-    await db.insert(artifactFiles).values({
-      workspaceId: file.workspace_id,
-      artifactId,
-      revisionId,
-      path: file.path,
-      sizeBytes: file.size_bytes,
-      servedContentType: file.content_type,
-      r2Key: file.r2_key,
-      sha256: file.sha256 ?? null,
-      storageKind: file.storage_kind ?? "revision",
-      uploadedAt: file.uploaded_at ? new Date(file.uploaded_at) : new Date(fallbackUploadedAt),
-    });
-  },
+export const artifactFileQueries = defineSqlQuerySourceMap(
+  "packages/db/src/queries/artifacts.ts",
+  "artifactFileQueries",
+  {
+    async insert(db: DrizzleDb, artifactId: string, revisionId: string, file: StoredFile, fallbackUploadedAt: string) {
+      await db.insert(artifactFiles).values({
+        workspaceId: file.workspace_id,
+        artifactId,
+        revisionId,
+        path: file.path,
+        sizeBytes: file.size_bytes,
+        servedContentType: file.content_type,
+        r2Key: file.r2_key,
+        sha256: file.sha256 ?? null,
+        storageKind: file.storage_kind ?? "revision",
+        uploadedAt: file.uploaded_at ? new Date(file.uploaded_at) : new Date(fallbackUploadedAt),
+      });
+    },
 
-  async listForArtifact(db: DrizzleDb, artifactId: string, revisionId?: string): Promise<StoredFile[]> {
-    const predicate = revisionId
-      ? and(eq(artifactFiles.artifactId, artifactId), eq(artifactFiles.revisionId, revisionId))
-      : eq(artifactFiles.artifactId, artifactId);
-    const rows = await db.select().from(artifactFiles).where(predicate).orderBy(asc(artifactFiles.path));
-    return rows.map(mapArtifactFile);
+    async listForArtifact(db: DrizzleDb, artifactId: string, revisionId?: string): Promise<StoredFile[]> {
+      const predicate = revisionId
+        ? and(eq(artifactFiles.artifactId, artifactId), eq(artifactFiles.revisionId, revisionId))
+        : eq(artifactFiles.artifactId, artifactId);
+      const rows = await db.select().from(artifactFiles).where(predicate).orderBy(asc(artifactFiles.path));
+      return rows.map(mapArtifactFile);
+    },
   },
-};
+);
 
 function mapArtifact(row: typeof artifacts.$inferSelect): Artifact {
   return {

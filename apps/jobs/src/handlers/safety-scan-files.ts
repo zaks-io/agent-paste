@@ -1,4 +1,4 @@
-import type { SqlExecutor } from "@agent-paste/db";
+import { type SqlExecutor, withSqlQuerySource } from "@agent-paste/db";
 import type { ArtifactBytesKeyRing } from "@agent-paste/storage";
 import type { Env } from "../env.js";
 import { readRevisionFileBytes } from "./revision-file-bytes.js";
@@ -47,12 +47,25 @@ async function loadRevisionFiles(
   artifactId: string,
   revisionId: string,
 ): Promise<RevisionFileRow[]> {
-  const result = await executor.query<RevisionFileRow>(
-    `select path, r2_key, served_content_type
+  return withSource("loadRevisionFiles", async () => {
+    const result = await executor.query<RevisionFileRow>(
+      `select path, r2_key, served_content_type
      from artifact_files
      where artifact_id = $1 and revision_id = $2
      order by path asc`,
-    [artifactId, revisionId],
+      [artifactId, revisionId],
+    );
+    return result.rows;
+  });
+}
+
+function withSource<T>(functionName: string, run: () => T): T {
+  return withSqlQuerySource(
+    {
+      filepath: "apps/jobs/src/handlers/safety-scan-files.ts",
+      functionName,
+      namespace: "apps.jobs.src.handlers.safety-scan-files",
+    },
+    run,
   );
-  return result.rows;
 }

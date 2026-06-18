@@ -1,4 +1,4 @@
-import { emitWorkerLog } from "@agent-paste/worker-runtime";
+import { emitWorkerLog } from "@agent-paste/worker-runtime/logging";
 
 export function logOp(event: string, fields: Record<string, unknown>): void {
   emitWorkerLog({ level: "info", component: "jobs", event, attributes: fields });

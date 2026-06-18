@@ -88,6 +88,12 @@ export {
 export { BASELINE_SECURITY_HEADERS, generateCspNonce, securityHeadersMiddleware } from "./security-headers.js";
 export { type SentryEnv, sentryOptions } from "./sentry.js";
 export {
+  createSentryPostgresQueryInstrumentation,
+  sentryPostgresExecutorOptions,
+  sentryPostgresQueryInstrumentation,
+  sentrySqlStatement,
+} from "./sentry-sql.js";
+export {
   isAuthorizedStreamInternalRequest,
   STREAM_INTERNAL_SECRET_HEADER,
   streamInternalSecretHeaders,

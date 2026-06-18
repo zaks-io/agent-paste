@@ -20,6 +20,7 @@ import type {
 import { createHyperdriveExecutor, type HyperdriveBinding, rlsExecutor, type SqlExecutor } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
+import { sentryPostgresExecutorOptions } from "@agent-paste/worker-runtime/sentry-sql";
 import { type AppContext, billingEnabled, type Env } from "../env.js";
 import { webMemberActor } from "../principals.js";
 import { runIdempotent } from "../responses.js";
@@ -47,7 +48,7 @@ export function resolveBillingExecutor(env: Env): SqlExecutor | undefined {
     return binding;
   }
   if (isHyperdriveDb(binding)) {
-    return createHyperdriveExecutor(binding);
+    return createHyperdriveExecutor(binding, sentryPostgresExecutorOptions);
   }
   return undefined;
 }

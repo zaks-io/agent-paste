@@ -1,4 +1,4 @@
-import type { SqlExecutor } from "@agent-paste/db";
+import { type SqlExecutor, withSqlQuerySource } from "@agent-paste/db";
 
 export type PurgeRecoveryEligibilityReason =
   | "eligible"
@@ -34,11 +34,13 @@ export async function inspectPurgeRecoveryArtifact(
   executor: SqlExecutor,
   artifactId: string,
 ): Promise<PurgeRecoveryArtifactInspection> {
-  const row = await executor.query<ArtifactLookupRow>(
-    `select id, workspace_id, revision_id, status, deleted_at
+  const row = await withSource("inspectPurgeRecoveryArtifact", () =>
+    executor.query<ArtifactLookupRow>(
+      `select id, workspace_id, revision_id, status, deleted_at
      from artifacts
      where id = $1`,
-    [artifactId],
+      [artifactId],
+    ),
   );
   const artifact = row.rows[0];
   if (!artifact) {
@@ -84,4 +86,15 @@ export async function inspectPurgeRecoveryArtifact(
       revision_id: artifact.revision_id,
     },
   };
+}
+
+function withSource<T>(functionName: string, run: () => T): T {
+  return withSqlQuerySource(
+    {
+      filepath: "apps/jobs/src/purge-recovery-eligibility.ts",
+      functionName,
+      namespace: "apps.jobs.src.purge-recovery-eligibility",
+    },
+    run,
+  );
 }

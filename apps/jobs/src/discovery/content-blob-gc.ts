@@ -1,4 +1,4 @@
-import type { SqlExecutor } from "@agent-paste/db";
+import { type SqlExecutor, withSqlQuerySource } from "@agent-paste/db";
 import { CONTENT_BLOB_GC_SWEEP_CAP } from "../constants.js";
 import { withPlatformScope } from "../db.js";
 import { logOp } from "../op-log.js";
@@ -20,8 +20,9 @@ export async function runContentBlobGc(executor: SqlExecutor, now: string): Prom
 }
 
 function deleteUnreferencedBlobRows(executor: SqlExecutor, now: string, limit: number) {
-  return executor.query<BlobGcRow>(
-    `delete from content_blobs cb
+  return withSource("deleteUnreferencedBlobRows", () =>
+    executor.query<BlobGcRow>(
+      `delete from content_blobs cb
      where ctid in (
        select cb_inner.ctid
        from content_blobs cb_inner
@@ -57,6 +58,18 @@ function deleteUnreferencedBlobRows(executor: SqlExecutor, now: string, limit: n
        limit $2
      )
      returning workspace_id, sha256, size_bytes, r2_key`,
-    [now, limit],
+      [now, limit],
+    ),
+  );
+}
+
+function withSource<T>(functionName: string, run: () => T): T {
+  return withSqlQuerySource(
+    {
+      filepath: "apps/jobs/src/discovery/content-blob-gc.ts",
+      functionName,
+      namespace: "apps.jobs.src.discovery.content-blob-gc",
+    },
+    run,
   );
 }

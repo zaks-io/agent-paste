@@ -1,5 +1,5 @@
 import { BytePurgeMessage } from "@agent-paste/contracts";
-import type { SqlExecutor } from "@agent-paste/db";
+import { type SqlExecutor, withSqlQuerySource } from "@agent-paste/db";
 import { UPLOAD_CLEANUP_SWEEP_CAP } from "../constants.js";
 import { withPlatformScope } from "../db.js";
 import type { QueueBinding } from "../env.js";
@@ -25,13 +25,15 @@ export async function runUploadCleanupDiscovery(
 ): Promise<SweepResult> {
   const platformExecutor = withPlatformScope(executor);
   const limit = UPLOAD_CLEANUP_SWEEP_CAP + 1;
-  const sessions = await platformExecutor.query<ExpiredSessionRow>(
-    `select id, workspace_id, artifact_id, revision_id
+  const sessions = await withSource("runUploadCleanupDiscovery.selectExpiredSessions", () =>
+    platformExecutor.query<ExpiredSessionRow>(
+      `select id, workspace_id, artifact_id, revision_id
      from upload_sessions
      where status = 'pending' and expires_at <= $1
      order by expires_at asc
      limit $2`,
-    [now, limit],
+      [now, limit],
+    ),
   );
   const cap_hit = sessions.rows.length > UPLOAD_CLEANUP_SWEEP_CAP;
   const batch = sessions.rows.slice(0, UPLOAD_CLEANUP_SWEEP_CAP);
@@ -42,11 +44,13 @@ export async function runUploadCleanupDiscovery(
   let enqueued = 0;
   for (const session of batch) {
     try {
-      const files = await platformExecutor.query<SessionFileRow>(
-        `select r2_key, storage_kind
+      const files = await withSource("runUploadCleanupDiscovery.selectSessionFiles", () =>
+        platformExecutor.query<SessionFileRow>(
+          `select r2_key, storage_kind
          from upload_session_files
          where upload_session_id = $1`,
-        [session.id],
+          [session.id],
+        ),
       );
       const prefixes = uniquePrefixes(files.rows.filter((row) => row.storage_kind !== "blob").map((row) => row.r2_key));
       if (prefixes.length > 0) {
@@ -76,11 +80,24 @@ export async function runUploadCleanupDiscovery(
 }
 
 async function expireUploadSession(executor: SqlExecutor, sessionId: string, now: string): Promise<void> {
-  await executor.query(
-    `update upload_sessions
+  await withSource("expireUploadSession", () =>
+    executor.query(
+      `update upload_sessions
      set status = 'expired'
      where id = $1 and status = 'pending' and expires_at <= $2`,
-    [sessionId, now],
+      [sessionId, now],
+    ),
+  );
+}
+
+function withSource<T>(functionName: string, run: () => T): T {
+  return withSqlQuerySource(
+    {
+      filepath: "apps/jobs/src/discovery/upload-cleanup.ts",
+      functionName,
+      namespace: "apps.jobs.src.discovery.upload-cleanup",
+    },
+    run,
   );
 }
 

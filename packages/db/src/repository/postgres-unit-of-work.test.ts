@@ -36,6 +36,7 @@ describe("PostgresUnitOfWork", () => {
     expect(sql.queries).toEqual([
       ["select set_config('app.workspace_id', $1, true)", ["workspace_1"]],
       ["select set_config('app.platform', '', true)", []],
+      ["select set_config('app.sentry_trace_id', $1, true)", [""]],
     ]);
   });
 
