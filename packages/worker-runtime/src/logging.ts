@@ -48,6 +48,8 @@ const API_KEY_PATTERN = /ap_pk_[a-z0-9_:-]+/giu;
 const BEARER_PATTERN = /bearer\s+[a-z0-9._~+/=-]+/giu;
 const SECRET_ASSIGNMENT_PATTERN =
   /\b((?:content_signing_secret|upload_signing_secret|api_key_pepper_v1|smoke_harness_secret|access_link_blob|content_token|idempotency[-_]?key|signature|token|kid|expires))\s*[:=]\s*[^,\s&]+/giu;
+const JSON_SECRET_ASSIGNMENT_PATTERN =
+  /"((?:content_signing_secret|upload_signing_secret|api_key_pepper_v1|smoke_harness_secret|access_link_blob|content_token|idempotency[-_]?key|signature|token|kid|expires))"\s*:\s*"[^"]*"/giu;
 const URL_PATTERN = /https?:\/\/[^\s"'<>]+/giu;
 
 export function emitWorkerLog(input: WorkerLogInput): void {
@@ -217,6 +219,7 @@ export function sanitizeString(value: string): string {
   return trimmed
     .replace(API_KEY_PATTERN, "[redacted_api_key]")
     .replace(BEARER_PATTERN, "Bearer [redacted]")
+    .replace(JSON_SECRET_ASSIGNMENT_PATTERN, '"$1":"[redacted]"')
     .replace(SECRET_ASSIGNMENT_PATTERN, "$1=[redacted]")
     .replace(URL_PATTERN, (match) => `[url:${pathFromUrl(match)}]`);
 }

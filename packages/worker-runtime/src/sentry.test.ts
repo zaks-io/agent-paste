@@ -62,12 +62,12 @@ describe("sentryOptions", () => {
     expect(
       options.beforeSendLog?.({
         level: "error",
-        message: "failed https://api.test/v1/upload?token=secret with ap_pk_prod_secret",
+        message: 'failed https://api.test/v1/upload?token=secret with ap_pk_prod_secret and "token":"json_secret"',
         attributes: { token: "secret", safe: "ok" },
       }),
     ).toMatchObject({
       level: "error",
-      message: "failed [url:/v1/upload] with [redacted_api_key]",
+      message: 'failed [url:/v1/upload] with [redacted_api_key] and "token":"[redacted]"',
       attributes: { safe: "ok" },
     });
   });
@@ -97,6 +97,11 @@ describe("sentryOptions", () => {
             Authorization: "Bearer secret",
             "User-Agent": "vitest",
           },
+        },
+        user: {
+          id: "user_secret",
+          email: "secret@example.com",
+          ip_address: "127.0.0.1",
         },
         breadcrumbs: [
           {
@@ -137,6 +142,7 @@ describe("sentryOptions", () => {
         note: "fetch [url:/v/[redacted_content_token]]",
       },
     });
+    expect(event).not.toHaveProperty("user");
     expect(JSON.stringify(event)).not.toContain("secret");
     expect(JSON.stringify(event)).not.toContain("ap_pk_prod");
     expect(JSON.stringify(event)).not.toContain("access-link-fragment");

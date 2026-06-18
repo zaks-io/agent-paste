@@ -35,6 +35,7 @@ export function sanitizeSentryEvent(event: ErrorEvent): ErrorEvent {
   if (event.request) {
     safe.request = sanitizeSentryRequest(event.request);
   }
+  delete safe.user;
   if (event.breadcrumbs) {
     safe.breadcrumbs = event.breadcrumbs.map(sanitizeSentryBreadcrumb);
   }
