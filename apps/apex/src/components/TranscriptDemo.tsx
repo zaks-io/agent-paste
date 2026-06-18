@@ -157,7 +157,7 @@ function Line({ line }: { line: TranscriptLine }) {
           data-kind="result"
           data-wait={line.wait}
           href={line.href}
-          aria-label={`Open the static example shown by this Access Link: ${line.url}`}
+          aria-label={`Open example: https://${line.url}`}
         >
           <span className="t-gesture" aria-hidden="true">
             {GESTURE_WIRE}

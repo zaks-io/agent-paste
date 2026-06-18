@@ -5,7 +5,7 @@ import type { DocsPage } from "../docs/types";
 
 export function DocsIndexPage({ pages }: { pages: readonly DocsPage[] }) {
   return (
-    <main>
+    <main id="main-content" tabIndex={-1}>
       <div className="flex flex-col gap-[clamp(40px,6vh,56px)]">
         <PageHeader
           eyebrow="Docs"

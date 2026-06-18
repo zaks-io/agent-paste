@@ -117,20 +117,20 @@ export function Footer({ billingEnabled }: { billingEnabled: boolean }) {
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-3 mt-12 pt-8 border-t border-rule">
-          <span className="font-mono text-mono-sm text-faint">where agents publish</span>
+          <span className="font-mono text-mono-sm text-subtle">where agents publish</span>
           <button
             type="button"
             id="analytics-toggle"
-            className="font-mono text-mono-sm text-faint transition-colors duration-[120ms] ease-out hover:text-accent disabled:cursor-not-allowed disabled:text-faint/70"
+            className="font-mono text-mono-sm text-subtle transition-colors duration-[120ms] ease-out hover:text-accent disabled:cursor-not-allowed disabled:text-subtle"
           >
             Analytics on
           </button>
           <span className="flex flex-wrap items-baseline gap-4 ml-auto">
-            <span className="font-mono text-mono-sm tracking-wide text-faint/70">install</span>
+            <span className="font-mono text-mono-sm tracking-wide text-subtle">install</span>
             {INSTALL_LINKS.map((link) => (
               <a
                 key={link.href}
-                className="font-mono text-mono-sm text-faint hover:text-accent transition-colors duration-[120ms] ease-out"
+                className="font-mono text-mono-sm text-subtle hover:text-accent transition-colors duration-[120ms] ease-out"
                 href={link.href}
               >
                 {link.label}

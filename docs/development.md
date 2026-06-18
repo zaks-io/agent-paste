@@ -173,6 +173,7 @@ deploy production from a laptop.
 | `pnpm smoke:mcp`                  | Build and run local MCP transport + OAuth + publish/read/delete smoke.                                                  |
 | `pnpm smoke:mcp:preview`          | Build and run hosted preview MCP smoke (optional token for authenticated checks).                                       |
 | `pnpm smoke:mcp:production`       | Build and run hosted production MCP smoke (requires explicit approval and token).                                       |
+| `pnpm lighthouse:apex-a11y`       | Run the local Lighthouse accessibility gate across all prerendered apex routes (requires `apps/apex` built first).      |
 | `pnpm lighthouse:dashboard-a11y`  | Run the local Lighthouse accessibility gate on authenticated `/dashboard` empty chrome (requires `pnpm build` first).   |
 | `pnpm smoke:preview`              | Build and run hosted preview smoke assertions.                                                                          |
 | `pnpm smoke:preview:ephemeral`    | Build and run hosted preview ephemeral publish smoke.                                                                   |

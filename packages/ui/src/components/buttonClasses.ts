@@ -16,19 +16,18 @@ const BASE =
   "disabled:opacity-45 disabled:cursor-not-allowed";
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  // Primary IS the accent — one voltage, one job.
-  primary: "bg-accent text-accent-foreground hover:bg-accent-dim",
-  accent: "bg-accent text-accent-foreground hover:bg-accent-dim",
-  secondary: "bg-transparent text-foreground border border-rule-strong hover:bg-surface-2 hover:border-rule-strong",
-  ghost: "bg-transparent text-muted hover:text-foreground hover:bg-surface-2",
-  destructive: "bg-destructive text-accent-foreground hover:opacity-90",
-  link: "bg-transparent text-accent underline-offset-4 hover:underline px-0 py-0 h-auto rounded-none",
+  primary: "bg-primary !text-primary-foreground hover:bg-muted",
+  accent: "bg-accent !text-accent-foreground hover:bg-accent-dim",
+  secondary: "bg-transparent !text-foreground border border-rule-strong hover:bg-surface-2 hover:border-rule-strong",
+  ghost: "bg-transparent !text-muted hover:!text-foreground hover:bg-surface-2",
+  destructive: "bg-destructive !text-accent-foreground hover:opacity-90",
+  link: "bg-transparent !text-accent underline-offset-4 hover:underline px-0 py-0 h-auto rounded-none",
 };
 
 const SIZES: Record<ButtonSize, string> = {
-  sm: "h-[30px] px-3 text-mono",
-  md: "h-[35px] px-4 text-base",
-  lg: "h-[40px] px-4 text-base",
+  sm: "h-[30px] px-3 [font-size:var(--text-mono)] [line-height:var(--text-mono--line-height)]",
+  md: "h-[35px] px-4 [font-size:var(--text-base)] [line-height:var(--text-base--line-height)]",
+  lg: "h-[40px] px-4 [font-size:var(--text-base)] [line-height:var(--text-base--line-height)]",
 };
 
 /** Compose the button look for a given variant/size, merging caller overrides last. */

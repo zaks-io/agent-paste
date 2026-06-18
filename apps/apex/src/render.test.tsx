@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { type ApexAssets, Shell } from "./app/Shell";
-import { EXAMPLE_PROMPT, PUBLISH_EPHEMERAL_CMD } from "./copy";
+import { EXAMPLE_ACCESS_LINK_URL, EXAMPLE_PROMPT, PUBLISH_EPHEMERAL_CMD } from "./copy";
 import { docsPagesForBilling } from "./docs/registry";
 import { getRoutes } from "./routes";
 
@@ -88,6 +88,11 @@ describe("apex shell", () => {
   it("renders the optional analytics preference control", () => {
     expect(html).toContain('id="analytics-toggle"');
     expect(html).toContain("Analytics on");
+  });
+
+  it("renders a skip link to the main content landmark", () => {
+    expect(html).toContain('href="#main-content"');
+    expect(html).toContain('<main id="main-content" tabindex="-1"');
   });
 
   it("renders the operating company attribution in the footer", () => {
@@ -207,6 +212,7 @@ describe("home page", () => {
     expect(body).toContain(
       '<span class="t-gesture" aria-hidden="true">&gt;─<span class="t-gesture-node">●</span></span>',
     );
+    expect(body).toContain(`aria-label="Open example: https://${EXAMPLE_ACCESS_LINK_URL}"`);
     expect(body).not.toContain("—");
   });
 

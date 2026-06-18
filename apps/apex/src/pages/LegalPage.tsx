@@ -42,7 +42,7 @@ function LegalSectionView({ section }: { section: LegalSection }) {
 
 export function LegalPage({ document }: { document: LegalDocument }) {
   return (
-    <main>
+    <main id="main-content" tabIndex={-1}>
       <div className="flex flex-col gap-[clamp(40px,6vh,64px)]">
         <PageHeader eyebrow={<Eyebrow dot={false}>{document.eyebrow}</Eyebrow>} title={document.title}>
           <p className="m-0 font-mono text-xs tracking-wide text-subtle">Effective {document.effectiveDate}</p>
