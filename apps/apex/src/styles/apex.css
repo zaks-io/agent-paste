@@ -111,6 +111,23 @@
  * the prompt and shows the button. data-demo="playing"/"done" drive the run.
  */
 
+/* Beat spacing. A real agent feed groups a thought with the lines it produced:
+ * the narration (⏺) and tool calls start a new beat and want air above them; the
+ * output/result lines that belong to a beat stay tight underneath. We add top
+ * margin to the beat-starting kinds rather than a flat gap on every line, so the
+ * grouping reads (Claude/Codex both separate beats this way). The prompt is the
+ * first line and never needs a top margin. */
+.t-shell .t-step[data-kind="reason"],
+.t-shell .t-step[data-kind="tool"],
+.t-shell .t-step[data-kind="cmd"],
+.t-shell .t-step[data-kind="success"] {
+  margin-top: 0.85em;
+}
+/* The closing comment sits a touch further out as its own coda. */
+.t-shell .t-step[data-kind="comment"] {
+  margin-top: 1.1em;
+}
+
 /* The inline Execute button sits right under the prompt. It is hidden by default
  * (no-JS visitors never see an inert control), shown only once JS arms the shell,
  * and removed the moment the run starts so it never competes with the output. */

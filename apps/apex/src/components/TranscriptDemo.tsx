@@ -86,14 +86,36 @@ function Line({ line }: { line: TranscriptLine }) {
         </button>
       );
     case "reason":
-      // First-person agent thinking, marked with the brand dot like a real coding
-      // agent's reasoning bullet. Muted, not dim, so it reads as the through-line.
+      // First-person agent narration, marked with Claude Code's ⏺ glyph so it
+      // reads as the agent's own voice. Muted, not dim, so it's the through-line.
       return (
         <div className="t-line t-step text-muted" data-kind="reason" data-wait={line.wait}>
           <span className="text-accent select-none" aria-hidden="true">
-            ●{" "}
+            ⏺{" "}
           </span>
           {line.text}
+        </div>
+      );
+    case "tool":
+      // A collapsed tool call, the signature of a real Claude Code feed: the tool
+      // invocation on its own muted line, then the single-line result on a `⎿`
+      // gutter beneath it, with an optional faint "(ctrl+o to expand)" tail. The
+      // pair is one `t-step` so it reveals as a single beat in the animation.
+      return (
+        <div className="t-line t-step" data-kind="tool" data-wait={line.wait}>
+          <div className="text-muted">
+            <span className="text-accent select-none" aria-hidden="true">
+              ⏺{" "}
+            </span>
+            {line.text}
+          </div>
+          <div className="text-subtle pl-[1.6ch]">
+            <span className="select-none" aria-hidden="true">
+              ⎿{" "}
+            </span>
+            {line.result}
+            {line.hint ? <span className="text-faint">{`  ${line.hint}`}</span> : null}
+          </div>
         </div>
       );
     case "cmd":

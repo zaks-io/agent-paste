@@ -111,9 +111,14 @@ export type TranscriptLine = {
   wait?: number;
 } & ( // affordance). Always visible; the inline Execute button sits under it. // The copyable prompt the visitor pastes into their own agent (the one copy
   | { kind: "prompt"; text: string }
-  // First-person agent reasoning, the "thinking out loud" beats a real coding
-  // agent prints (Codex's "• ...", Claude's "⏺ ...").
+  // First-person agent narration, the "thinking out loud" beats a real coding
+  // agent prints before it acts: Claude Code's "⏺ ...". Marked with the ⏺ glyph.
   | { kind: "reason"; text: string }
+  // A collapsed tool-call summary, the signature of a real Claude Code feed: the
+  // tool invocation (`Fetch(...)`, `Read(...)`, `Bash(...)`) on its own line, then
+  // the single-line result on a `⎿` gutter beneath it. `result` is the dim line
+  // the tool returned; `hint` is the optional faint "(ctrl+o to expand)" tail.
+  | { kind: "tool"; text: string; result: string; hint?: string }
   // A shell command the agent actually runs, shown with a caret.
   | { kind: "cmd"; text: string }
   // Tool/command output the agent gets back, dim and indented.
@@ -138,38 +143,64 @@ export type TranscriptLine = {
 // every line is visible, so this is also the static fallback.
 export const TRANSCRIPT: TranscriptLine[] = [
   { kind: "prompt", text: `agent "${EXAMPLE_PROMPT}"` },
-  // Thinks, then states the plan.
+  // Narrates intent before acting, the way a real Claude Code session opens: state
+  // the first move and why, then do it. Not a full plan dumped up front.
   {
     kind: "reason",
     wait: 900,
-    text: "I'll read the agent-paste docs, then tailor the use cases to what I know about your work.",
+    text: "I'll read the agent-paste.sh docs first, since that's the tool I'd be publishing with.",
   },
-  // Fetches the agent guide. The wait is AFTER the action: the network round-trip
-  // before the result lands — the beat sits on the agent's command, not its reply.
-  { kind: "cmd", wait: 550, text: "fetch agent-paste.sh/llms.txt" },
+  // The signature Claude Code beat: a collapsed tool call with a `⎿` result gutter.
+  // The wait is AFTER the call — the network round-trip before the result lands.
   {
-    kind: "output",
-    wait: 1400,
-    text: "the publishing layer for agent work · CLI + MCP · accountless --ephemeral publish",
+    kind: "tool",
+    wait: 1300,
+    text: "Fetch(agent-paste.sh/llms.txt)",
+    result: "the publishing layer for agent work · CLI + MCP · accountless --ephemeral publish",
+    hint: "+18 lines (ctrl+o to expand)",
   },
-  // It already has the result, so it responds promptly, then lists what it found.
-  { kind: "reason", wait: 650, text: "Three from what we've been doing:" },
-  { kind: "output", wait: 350, text: "1. research briefs you keep pasting back into chat" },
-  { kind: "output", wait: 250, text: "2. handing this agent's work off to a teammate on another tool" },
-  { kind: "output", wait: 250, text: "3. the dashboards I generate that you can't open without a server" },
-  { kind: "reason", wait: 600, text: "I'll write these up as an HTML report and publish it with no login." },
-  // Runs the real publish command; the wait AFTER it is the upload + publish
-  // round-trip before the output block returns — the beat after the action.
-  { kind: "cmd", wait: 600, text: "agent-paste publish ./report --ephemeral" },
-  // The real CLI ephemeral output block (publish-format.ts), bursting in together.
-  { kind: "success", wait: 2000, text: 'Published "Ways to use agent-paste"' },
+  // Pulls in what it already knows about the user. Conditional by design: a
+  // memory-equipped agent reads real context here; a cold agent finds none and
+  // generalizes. The demo only shows the shape.
+  {
+    kind: "tool",
+    wait: 800,
+    text: "Read(~/.agent/memory)",
+    result: "your work: research briefs, agent handoffs, dashboards that need a server to open",
+    hint: "ctrl+o to expand",
+  },
+  // Having read both, it states the conclusion in one beat (not a 3-line dump) and
+  // commits to the build.
+  {
+    kind: "reason",
+    wait: 700,
+    text: "Three clear fits with your work. I'll write them up and publish with no login so you can just open it.",
+  },
+  // Runs the one real command. The wait AFTER it is the upload + publish round-trip
+  // before the CLI output block returns.
+  { kind: "cmd", wait: 700, text: "agent-paste publish ./report --ephemeral" },
+  // The real CLI ephemeral output block (publish-format.ts: success → Link →
+  // Expires → Upload → Claim), bursting in together.
+  { kind: "success", wait: 1900, text: 'Published "Ways you could use agent-paste"' },
   { kind: "output", wait: 250, text: "Link     app.agent-paste.sh/al/art_8KQ2WSDIEGO7XR…" },
-  { kind: "output", wait: 200, text: "Expires  2026-06-19" },
-  { kind: "output", wait: 200, text: "Upload   1/1 uploaded, 0 reused · 11.8 KB sent, 0 B cached" },
-  // The handoff line + the live link (the → open target).
-  { kind: "output", wait: 450, text: "→ open" },
-  { kind: "result", wait: 200, url: EXAMPLE_ACCESS_LINK_URL, href: EXAMPLE_STATIC_PAGE_PATH },
-  { kind: "comment", wait: 600, text: "# no login needed. copy the prompt above and run it in your own agent." },
+  { kind: "output", wait: 180, text: "Expires  2026-06-19" },
+  { kind: "output", wait: 180, text: "Upload   1/1 uploaded, 0 reused · 11.8 KB sent, 0 B cached" },
+  { kind: "output", wait: 220, text: "Claim    log in and open to keep it and make it interactive" },
+  // A real agent verifies before handing back the link (the Codex read-back beat):
+  // confirm the published page is the one it built, not just that an upload
+  // returned a URL. Doubles as the "safe to open what your agent wrote" proof.
+  { kind: "reason", wait: 700, text: "Reading it back to confirm the published page matches what I built." },
+  {
+    kind: "tool",
+    wait: 900,
+    text: "Read(art_8KQ2WSDIEGO7XR/index.html)",
+    result: 'index.html · 11.8 KB · title "Ways you could use agent-paste" ✓ matches',
+    hint: "ctrl+o to expand",
+  },
+  // The handoff: narrate, then the live link (the → open target).
+  { kind: "reason", wait: 600, text: "Verified. Here's your link, no login needed:" },
+  { kind: "result", wait: 350, url: EXAMPLE_ACCESS_LINK_URL, href: EXAMPLE_STATIC_PAGE_PATH },
+  { kind: "comment", wait: 700, text: "# copy the prompt above and run it in your own agent." },
 ];
 
 export type Feature = {
