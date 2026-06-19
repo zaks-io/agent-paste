@@ -1,10 +1,11 @@
 import type { LiveUpdatePointer, WebArtifactDetailResponse } from "@agent-paste/contracts";
-import { Badge, Card, cn } from "@agent-paste/ui";
+import { Badge, Card } from "@agent-paste/ui";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { connectLiveUpdates } from "../../lib/live-updates";
 import { queryKeys } from "../../lib/queries";
 import { EmptyState } from "../ui/EmptyState";
+import { ArtifactViewerIframe } from "./ArtifactViewerIframe";
 
 /**
  * The live artifact viewer iframe shared by the member console
@@ -28,15 +29,7 @@ export function ArtifactLiveViewer({
     return <EmptyState title="No published viewer." body="This artifact has no live revision to display right now." />;
   }
 
-  const frame = (
-    <iframe
-      title="Artifact content"
-      src={iframeSrc}
-      sandbox="allow-scripts allow-popups"
-      referrerPolicy="no-referrer"
-      className={cn("h-full w-full border-0")}
-    />
-  );
+  const frame = <ArtifactViewerIframe src={iframeSrc} />;
 
   if (!chrome) {
     return <div className="h-full w-full bg-background">{frame}</div>;

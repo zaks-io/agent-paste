@@ -1,8 +1,8 @@
 import type { LiveUpdatePointer } from "@agent-paste/contracts";
-import { cn } from "@agent-paste/ui";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AccessLinkBrandBar } from "../components/access-links/AccessLinkBrandBar";
+import { ArtifactViewerIframe } from "../components/artifacts/ArtifactViewerIframe";
 import { connectLiveUpdates } from "../lib/live-updates";
 import { publicPageMeta } from "../lib/page-meta";
 
@@ -157,13 +157,7 @@ function AccessLinkViewer() {
     <main className="h-screen w-screen overflow-hidden bg-background">
       <div className="grid h-full">
         {state.iframe_src ? (
-          <iframe
-            title="Artifact content"
-            src={state.iframe_src}
-            sandbox="allow-scripts allow-popups"
-            referrerPolicy="no-referrer"
-            className={cn("w-full h-full border-0")}
-          />
+          <ArtifactViewerIframe src={state.iframe_src} />
         ) : (
           <p className="m-auto text-base text-muted">No preview available.</p>
         )}
