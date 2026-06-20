@@ -1,5 +1,6 @@
+import { hmac } from "@agent-paste/tokens/crypto";
 import { describe, expect, it } from "vitest";
-import { generateClaimToken, parseClaimToken, verifyClaimTokenSecret } from "./claim-tokens.js";
+import { digestToBytes, generateClaimToken, parseClaimToken, verifyClaimTokenSecret } from "./claim-tokens.js";
 
 describe("claim tokens", () => {
   const claimCode = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
@@ -29,6 +30,18 @@ describe("claim tokens", () => {
     await expect(
       verifyClaimTokenSecret(generated.secret.replace(`.${claimCode}`, ""), generated.tokenHash, pepper),
     ).resolves.toBe(false);
+  });
+
+  it("accepts legacy hashes only when no claim code is embedded", async () => {
+    const pepper = "test-pepper";
+    const legacySecretSegment = "abcdefghijklmnopqrstuvwxyz012345";
+    const legacySecret = `ap_ct_preview_0123456789ABCDEF_${legacySecretSegment}`;
+    const legacyHash = digestToBytes(await hmac(legacySecretSegment, pepper));
+    const forged = `ap_ct_preview_0123456789ABCDEF.${claimCode}_${legacySecretSegment}`;
+
+    await expect(verifyClaimTokenSecret(legacySecret, legacyHash, pepper)).resolves.toBe(true);
+    expect(parseClaimToken(forged)?.claimCode).toBe(claimCode);
+    await expect(verifyClaimTokenSecret(forged, legacyHash, pepper)).resolves.toBe(false);
   });
 
   it("rejects malformed bearers and wrong peppers", async () => {

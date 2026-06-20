@@ -63,17 +63,29 @@ export async function verifyClaimTokenSecret(
   if (!parsed) {
     return false;
   }
-  const computed = digestToBytes(await hmac(claimTokenMacInput(parsed), pepper));
-  if (computed.length !== expectedTokenHash.length) {
-    return false;
+  const macInputs = [claimTokenMacInput(parsed)];
+  if (!parsed.claimCode) {
+    macInputs.push(parsed.secret);
   }
-  let diff = 0;
-  for (let index = 0; index < computed.length; index += 1) {
-    diff |= (computed[index] ?? 0) ^ (expectedTokenHash[index] ?? 0);
+  for (const input of macInputs) {
+    if (constantTimeEquals(digestToBytes(await hmac(input, pepper)), expectedTokenHash)) {
+      return true;
+    }
   }
-  return diff === 0;
+  return false;
 }
 
 function claimTokenMacInput(parsed: ParsedClaimToken): string {
   return `${parsed.publicId}.${parsed.claimCode ?? ""}.${parsed.secret}`;
+}
+
+function constantTimeEquals(computed: Uint8Array, expected: Uint8Array): boolean {
+  if (computed.length !== expected.length) {
+    return false;
+  }
+  let diff = 0;
+  for (let index = 0; index < computed.length; index += 1) {
+    diff |= (computed[index] ?? 0) ^ (expected[index] ?? 0);
+  }
+  return diff === 0;
 }
