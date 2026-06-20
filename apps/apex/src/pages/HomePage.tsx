@@ -152,7 +152,7 @@ function DemoBlock() {
       </h2>
       <p className="text-base leading-relaxed text-muted mb-8 max-w-[46ch]">
         Press play to watch a stand-in agent run the prompt, or copy it and paste it into your own. It reads the docs,
-        looks at what it already knows about your work, and hands back a link spelling out how you should be using
+        uses your work as broad context, and hands back a public-safe link spelling out how you should be using
         agent-paste. When you want to keep it, revise it, or run JavaScript, ask the agent to claim it and sign in free.
       </p>
       <TranscriptDemo />

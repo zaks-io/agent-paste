@@ -88,33 +88,22 @@ export const EXAMPLE_ARTIFACT_TITLE = "Ways you could use agent-paste";
 // "here's your link" line and the preview's address bar so they read as one URL.
 export const PREVIEW_URL = `https://${EXAMPLE_ACCESS_LINK_URL.split("#")[0]}`;
 
-// The body of the artifact the agent published in answer to EXAMPLE_PROMPT. The
-// CONCEPT: the user's agent already knows them (memory of their real work), read the
-// agent-paste docs, and reports back exactly where the product fits THEIR life —
-// personalized, immediately-useful findings, not hypotheticals the visitor maps onto
-// themselves. The recurring SHAPE is "we just finished some work in this thread →
-// write it up → host it → hand it off once": an incident report after a fix, a
-// research writeup for a teammate, a migration plan for the team. NOT durable
-// reference docs / guides (agent-paste is temporary, throwaway, one-shot sharing).
-// Plain "you could…" lines, each NAMED so they read as pulled from real memory, not
-// the site guessing. Preview CHROME (a half-second glimpse; the real copy is the page
-// sections below), so only the first couple show before the fade; one line each.
+// The body of the artifact the agent published in answer to EXAMPLE_PROMPT.
+// It reads like a tailored answer, but stays public-safe: broad work patterns,
+// no private repo names, incidents, clients, internal URLs, or credentials.
 export const EXAMPLE_REPORT_ROWS = [
-  "You could write up that incident as a link.",
-  "You could share the research you pulled together.",
-  "You could hand off the migration plan as a URL.",
-  "You could send the Q3 roadmap as a link.",
+  "You could turn agent handoffs into one link.",
+  "You could share review evidence without the whole thread.",
+  "You could publish a decision plan as a URL.",
+  "You could open generated pages without a local server.",
 ];
-// The personalized-discovery prompt. It leads with the memory angle on purpose: the
-// agent should mine what it already knows about the user's real work and report back
-// where agent-paste would actually save them time — not generic, hypothetical "ways
-// to use it." This is the whole concept of the demo: your agent goes and finds the
-// value FOR you. A memory-equipped agent (Claude Code, Codex, ChatGPT, etc.) makes
-// it personal; a cold agent still produces useful fits. Either way the run has the
-// same shape, which is all the demo shows — we never see the user's memory.
+// The personalized-discovery prompt. It asks the visitor's own agent to read the
+// docs, use the user's work only as broad context, then publish a shareable HTML
+// report and hand back the link. The prompt stays short because it is marketing
+// copy; the demo narration and docs carry the detailed safety rules.
 export const EXAMPLE_PROMPT =
-  "Read the agent-paste.sh docs, then from what you know about my work, tell me where it would actually save me time. Give me a page I can open.";
-export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v4_conditional_memory";
+  "Read https://agent-paste.sh/llms-full.txt. Make me a practical HTML page on where agent-paste would actually save me time. Use my work as broad context, keep it safe to share publicly, publish it with agent-paste, and give me the link.";
+export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v5_public_safe_fetch";
 
 // Inline run affordance shown right after the prompt line, and the replay control
 // in the head once the run has played. Copy floats freely; not a test contract.
@@ -199,9 +188,9 @@ export type TranscriptLine = {
 );
 
 // A pseudo-session modeled on a real coding-agent run (Codex / Claude Code) on the
-// accountless --ephemeral path: the agent states its plan, reads the docs, reasons
-// from what it knows about the user, runs one real publish command, and hands back
-// the no-login link. The output block
+// accountless --ephemeral path: the agent states its plan, reads the docs, keeps
+// the report shareable, runs one real publish command, and hands back the
+// no-login link. The output block
 // follows the CLI's actual ephemeral publish format (apps/cli/src/publish-format.ts):
 // the same labels and order (Published / Link / Expires / Upload / Claim), with the
 // Claim copy trimmed for the demo. Generic enough to be any visitor's work, true to
@@ -216,33 +205,27 @@ export const TRANSCRIPT: TranscriptLine[] = [
   {
     kind: "reason",
     wait: 900,
-    text: "I'll read the agent-paste.sh docs first, since that's the tool I'd be publishing with.",
+    text: "I'll read the public agent-paste docs first, since that's the tool I'd be publishing with.",
   },
   // The signature Claude Code beat: a collapsed tool call with a `⎿` result gutter.
   // The wait is AFTER the call — the network round-trip before the result lands.
   {
     kind: "tool",
     wait: 1300,
-    text: "Fetch(agent-paste.sh/llms.txt)",
-    result: "the publishing layer for agent work · CLI + MCP · accountless --ephemeral publish",
+    text: "Fetch(https://agent-paste.sh/llms-full.txt)",
+    result: "CLI + MCP publish · public-safe sharing · accountless --ephemeral links",
     hint: "+18 lines (ctrl+o to expand)",
   },
-  // Draws on what it already knows about the user, as a plain thought, NOT a tool
-  // call: real agents reason from context they hold (project memory, the session),
-  // there is no universal "memory file" to read, so asserting a Read(...) of one
-  // would ring false to the savvy visitor. Conditional by design: a memory-equipped
-  // agent has real context here; a cold agent has none and the same line reads as
-  // common patterns. The demo only shows the shape.
   {
     kind: "reason",
     wait: 800,
-    text: "From what I know about your work: research briefs, agent handoffs, dashboards you can't open without a server.",
+    text: "I'll keep this shareable, so I'll use broad work patterns without private details.",
   },
   // States the conclusion in one beat (not a 3-line dump) and commits to the build.
   {
     kind: "reason",
     wait: 700,
-    text: "Three clear fits. I'll write them up and publish with no login so you can just open it.",
+    text: "Three clear fits: agent handoffs, review evidence, and pages people can open without a server.",
   },
   // Runs the one real command. The wait AFTER it is the upload + publish round-trip
   // before the CLI output block returns.

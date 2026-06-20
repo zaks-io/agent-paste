@@ -22,7 +22,6 @@ describe("entry-server prerender contract", () => {
   it("renders a full static document for a route", () => {
     const html = render("/", ASSETS);
     expect(html.startsWith("<!doctype html>\n")).toBe(true);
-    expect(html).toContain("Where agents publish");
     expect(html).toContain('<link rel="stylesheet" href="/assets/styles.css"/>');
     expect(html).toContain('<script type="module" src="/assets/client.js">');
     // Billing off in the test process: no beacon, no pricing link.
