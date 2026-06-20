@@ -83,6 +83,20 @@ describe("text and data assets", () => {
     expect(body).toContain("https://agent-paste.sh/llms-full.txt");
   });
 
+  it("keeps claim-code query strings out of public agent docs", async () => {
+    for (const path of [
+      "/llms.txt",
+      "/agents.md",
+      "/llms-full.txt",
+      "/docs/cli.md",
+      "/docs/ephemeral.md",
+      "/docs/getting-started.md",
+    ]) {
+      const body = await (await get(path)).text();
+      expect(body).not.toContain("?claim_code");
+    }
+  });
+
   it("serves the docs index Markdown twin from the page registry", async () => {
     const response = await get("/docs.md");
     expect(response.status).toBe(200);

@@ -53,6 +53,10 @@ describe("ephemeral provision gate route", () => {
     );
 
     expect(response.status).toBe(201);
+    expect(createEphemeralWorkspace).toHaveBeenCalledWith({
+      idempotencyKey: `ephemeral-provision:${body.challenge.nonce}`,
+      claimCode,
+    });
     expect(writeDataPoint).toHaveBeenCalledWith({
       indexes: [claimCode],
       blobs: [

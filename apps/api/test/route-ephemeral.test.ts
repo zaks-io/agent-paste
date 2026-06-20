@@ -13,6 +13,8 @@ import { contextFor, guardFor, responseJson } from "./route-test-helpers.js";
 
 const powSecret = "test-ephemeral-pow-secret";
 const claimCode = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
+const claimToken = "ap_ct_preview_0123456789ABCDEF_abcdefghijklmnopqrstuvwxyz012345";
+const claimTokenWithClaimCode = `ap_ct_preview_0123456789ABCDEF.${claimCode}_abcdefghijklmnopqrstuvwxyz012345`;
 
 // A hardcoded counter clears `difficulty` ~1/256 of the time by chance, which made
 // the "rejects invalid solutions" assertion flake (AP-150). Search for a counter
@@ -51,31 +53,36 @@ describe("ephemeral provision route", () => {
   });
 
   it("lets the Durable Object, not the native global limiter, enforce the 18th valid provision", async () => {
-    resetMemoryEphemeralProvisionGate();
-    const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
-    const nativeGlobalLimit = vi.fn(async () => ({ success: true }));
-    const env: Env = {
-      EPHEMERAL_POW_SECRET: powSecret,
-      EPHEMERAL_PROVISION_GATE:
-        createMemoryEphemeralProvisionGateNamespace() as unknown as Env["EPHEMERAL_PROVISION_GATE"],
-      EPHEMERAL_PROVISION_IP_RATE_LIMIT: { limit: async () => ({ success: true }) },
-      EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT: { limit: nativeGlobalLimit },
-      DB: { getWhoami: vi.fn(), createEphemeralWorkspace } as never,
-    };
+    vi.useFakeTimers({ now: new Date("2026-06-20T12:00:00.000Z") });
+    try {
+      resetMemoryEphemeralProvisionGate();
+      const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
+      const nativeGlobalLimit = vi.fn(async () => ({ success: true }));
+      const env: Env = {
+        EPHEMERAL_POW_SECRET: powSecret,
+        EPHEMERAL_PROVISION_GATE:
+          createMemoryEphemeralProvisionGateNamespace() as unknown as Env["EPHEMERAL_PROVISION_GATE"],
+        EPHEMERAL_PROVISION_IP_RATE_LIMIT: { limit: async () => ({ success: true }) },
+        EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT: { limit: nativeGlobalLimit },
+        DB: { getWhoami: vi.fn(), createEphemeralWorkspace } as never,
+      };
 
-    for (let index = 0; index < EPHEMERAL_PROVISION_LIMIT_PER_MINUTE; index += 1) {
-      const response = await handleRequest(await validProvisionRequest(), env);
-      expect(response.status).toBe(201);
+      for (let index = 0; index < EPHEMERAL_PROVISION_LIMIT_PER_MINUTE; index += 1) {
+        const response = await handleRequest(await validProvisionRequest(), env);
+        expect(response.status).toBe(201);
+      }
+
+      const limited = await handleRequest(await validProvisionRequest(), env);
+      expect(limited.status).toBe(429);
+      expect(limited.headers.get("Retry-After")).toMatch(/^\d+$/);
+      await expect(limited.json()).resolves.toMatchObject({
+        error: { code: "ephemeral_provision_rate_limited" },
+      });
+      expect(createEphemeralWorkspace).toHaveBeenCalledTimes(EPHEMERAL_PROVISION_LIMIT_PER_MINUTE);
+      expect(nativeGlobalLimit).toHaveBeenCalledTimes(EPHEMERAL_PROVISION_LIMIT_PER_MINUTE + 1);
+    } finally {
+      vi.useRealTimers();
     }
-
-    const limited = await handleRequest(await validProvisionRequest(), env);
-    expect(limited.status).toBe(429);
-    expect(limited.headers.get("Retry-After")).toMatch(/^\d+$/);
-    await expect(limited.json()).resolves.toMatchObject({
-      error: { code: "ephemeral_provision_rate_limited" },
-    });
-    expect(createEphemeralWorkspace).toHaveBeenCalledTimes(EPHEMERAL_PROVISION_LIMIT_PER_MINUTE);
-    expect(nativeGlobalLimit).toHaveBeenCalledTimes(EPHEMERAL_PROVISION_LIMIT_PER_MINUTE + 1);
   });
 
   it("returns a challenge when proof-of-work is missing", async () => {
@@ -182,7 +189,7 @@ describe("ephemeral claim route", () => {
         },
       },
       { claimEphemeralWorkspaceWithReplayState } as never,
-      guardFor({ claim_code: claimCode, claim_token: "ap_ct_preview_testsecret000000_abc" }, "claim-1"),
+      guardFor({ claim_token: claimTokenWithClaimCode }, "claim-1"),
     );
 
     expect(response.status).toBe(200);
@@ -200,7 +207,7 @@ describe("ephemeral claim route", () => {
         email: "user@example.test",
         scopes: ["publish", "read", "admin"],
       },
-      claimTokenSecret: "ap_ct_preview_testsecret000000_abc",
+      claimTokenSecret: claimTokenWithClaimCode,
       idempotencyKey: "claim-1",
     });
     expect(writeDataPoint).toHaveBeenCalledWith({
@@ -236,7 +243,7 @@ describe("ephemeral claim route", () => {
         },
       },
       { claimEphemeralWorkspaceWithReplayState } as never,
-      guardFor({ claim_code: claimCode, claim_token: "ap_ct_preview_testsecret000000_abc" }, "claim-1"),
+      guardFor({ claim_token: claimTokenWithClaimCode }, "claim-1"),
     );
 
     expect(response.status).toBe(200);
@@ -248,7 +255,7 @@ describe("ephemeral claim route", () => {
         email: "user@example.test",
         scopes: ["publish", "read", "admin"],
       },
-      claimTokenSecret: "ap_ct_preview_testsecret000000_abc",
+      claimTokenSecret: claimTokenWithClaimCode,
       idempotencyKey: "claim-1",
     });
     expect(writeDataPoint).not.toHaveBeenCalled();
@@ -273,7 +280,7 @@ describe("ephemeral claim route", () => {
           throw new RepositoryError("not_found");
         }),
       } as never,
-      guardFor({ claim_token: "ap_ct_preview_badtoken000000000_bad" }, "claim-2"),
+      guardFor({ claim_token: claimToken }, "claim-2"),
     );
     expect(response.status).toBe(404);
   });
@@ -283,7 +290,7 @@ describe("ephemeral claim route", () => {
       contextFor({}),
       { kind: "workos_access_token", identity: { workos_user_id: "user", email: "user@example.test" } },
       {} as never,
-      guardFor({ claim_token: "ap_ct_preview_testsecret000000_abc" }, "claim-3"),
+      guardFor({ claim_token: claimToken }, "claim-3"),
     );
     expect(response.status).toBe(403);
   });
@@ -307,7 +314,7 @@ describe("ephemeral claim route", () => {
           throw new RepositoryError("forbidden");
         }),
       } as never,
-      guardFor({ claim_token: "ap_ct_preview_testsecret000000_abc" }, "claim-4"),
+      guardFor({ claim_token: claimToken }, "claim-4"),
     );
     expect(response.status).toBe(403);
   });

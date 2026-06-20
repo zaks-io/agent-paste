@@ -258,6 +258,7 @@ export async function signPublishResult(
     agent_view_url: rawAgentViewUrl,
     entrypoint_object_key: rawEntrypointObjectKey,
     file_object_keys: rawFileObjectKeys,
+    ephemeral_tier: _internalEphemeralTier,
     render_mode: _internalRenderMode,
     ...rest
   } = data;
@@ -296,7 +297,9 @@ export async function signPublishResult(
     // The member viewer link (`/v/<id>`) is login-walled and member-only. Emit it only
     // when a workspace member is the viewer; the public/share path passes no auth and must
     // not receive it (it is absent from `PublicAgentView` and stays off the wire here).
-    ...(auth?.workspaceId ? { private_url: `${webBaseUrl(env)}/v/${encodeURIComponent(data.artifact_id)}` } : {}),
+    ...(auth?.workspaceId && !auth.ephemeralTier
+      ? { private_url: `${webBaseUrl(env)}/v/${encodeURIComponent(data.artifact_id)}` }
+      : {}),
     revision_content_url: revisionContentUrl,
     agent_view_url: secret
       ? await mintAgentViewUrl({

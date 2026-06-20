@@ -83,8 +83,8 @@ export const EPHEMERAL_DOC: DocsPage = {
           items: [
             "A Claim Code has the public shape `clm_...` and is optional analytics attribution for copied prompts.",
             "It is not auth, ownership, billing, idempotency, a Claim Token, or a secret.",
-            "When present on `publish --ephemeral`, the CLI carries it into `unlisted_url` and `claim_url` as the `claim_code` query parameter.",
-            "The Claim Token and Access Link credential still ride URL hashes, not the query string.",
+            "When present on `publish --ephemeral`, the CLI sends it to the API and the API embeds it in the Claim Token for conversion attribution.",
+            "It is never returned as `claim_code`, never added to `unlisted_url` or `claim_url`, and never placed in URL query strings.",
           ],
         },
       ],

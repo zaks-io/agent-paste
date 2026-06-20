@@ -172,8 +172,8 @@ clean viewer works only after claim.
 If a copied prompt includes \`--claim-code <clm_...>\`, preserve that flag on the
 \`publish --ephemeral\` command. The Claim Code is public attribution for the
 claim flow, not auth, ownership, billing, idempotency, a Claim Token, or a
-secret. The CLI carries it into \`unlisted_url\` and \`claim_url\` as the
-\`claim_code\` query parameter while keeping bearer secrets in URL hashes.
+secret. The CLI sends it to the API for attribution, and the API embeds it in
+the claim token. Do not return it separately and do not put it in URL queries.
 
 Unclaimed ephemeral HTML is script-disabled. Text, markdown, images, and static
 HTML/CSS render, but JavaScript does not run. After claim, newly minted viewer

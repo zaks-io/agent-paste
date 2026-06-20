@@ -156,7 +156,7 @@ describe("viewer live-update revocation", () => {
     expect(screen.getByText(/invalid, expired, locked/i)).toBeInTheDocument();
   });
 
-  it("sends claim-code attribution when resolving an Access Link", async () => {
+  it("does not send claim-code query state when resolving an Access Link", async () => {
     window.history.replaceState({}, "", "/al/pub_1?claim_code=clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD#signed-blob");
     const fetchMock = vi.fn(async (url: string) => {
       if (url === "/api/access-links/resolve") {
@@ -176,7 +176,6 @@ describe("viewer live-update revocation", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
       public_id: "pub_1",
       blob: "signed-blob",
-      claim_code: "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD",
     });
   });
 

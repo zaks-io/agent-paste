@@ -1,13 +1,5 @@
 import { PublicAgentView } from "./agentView.js";
-import {
-  AccessLinkId,
-  ArtifactId,
-  IsoDateTime,
-  OptionalClaimCodeInput,
-  PlainTextTitle,
-  RevisionId,
-  UrlString,
-} from "./primitives.js";
+import { AccessLinkId, ArtifactId, IsoDateTime, PlainTextTitle, RevisionId, UrlString } from "./primitives.js";
 import { RenderMode } from "./revisions.js";
 import { z } from "./zod.js";
 
@@ -82,7 +74,6 @@ export type UpdateDisplayMetadataRequest = z.infer<typeof UpdateDisplayMetadataR
 export const AccessLinkResolveRequest = z.object({
   public_id: AccessLinkPublicId,
   blob: z.string().min(1),
-  claim_code: OptionalClaimCodeInput,
 });
 export type AccessLinkResolveRequest = z.infer<typeof AccessLinkResolveRequest>;
 

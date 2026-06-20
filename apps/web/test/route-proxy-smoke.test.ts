@@ -172,7 +172,7 @@ describe("web API proxy routes", () => {
       request: new Request("https://app.test/api/access-links/resolve", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ public_id: "pub_1", fragment: "sig" }),
+        body: JSON.stringify({ public_id: "0123456789ABCDEF", blob: "sig" }),
       }),
     });
 
@@ -182,13 +182,13 @@ describe("web API proxy routes", () => {
         accept: "application/json",
         "content-type": "application/json",
       },
-      body: JSON.stringify({ public_id: "pub_1", fragment: "sig" }),
+      body: JSON.stringify({ public_id: "0123456789ABCDEF", blob: "sig" }),
     });
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ artifact_id: "art_1" });
   });
 
-  it("passes claim-code attribution through access-link resolve", async () => {
+  it("strips stale claim-code fields from access-link resolve", async () => {
     state.apiFetch.mockResolvedValue({ artifact_id: "art_1" });
     const { Route } = accessLinkResolveRoute;
     const response = await Route.server.handlers.POST({
@@ -196,7 +196,7 @@ describe("web API proxy routes", () => {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          public_id: "pub_1",
+          public_id: "0123456789ABCDEF",
           blob: "sig",
           claim_code: "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD",
         }),
@@ -210,9 +210,8 @@ describe("web API proxy routes", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        public_id: "pub_1",
+        public_id: "0123456789ABCDEF",
         blob: "sig",
-        claim_code: "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD",
       }),
     });
     expect(response.status).toBe(200);

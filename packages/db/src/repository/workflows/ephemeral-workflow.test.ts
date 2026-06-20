@@ -8,6 +8,8 @@ import { localClaimTokens } from "../local-entities/claim-tokens.js";
 import { createLocalState } from "../local-state.js";
 
 describe("createEphemeralWorkspace", () => {
+  const claimCode = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
+
   afterEach(() => {
     vi.useRealTimers();
   });
@@ -52,6 +54,21 @@ describe("createEphemeralWorkspace", () => {
     const result = await repo.createEphemeralWorkspace({ idempotencyKey: "ephemeral-ring" });
     expect(result.claim_token_secret).toMatch(/^ap_ct_production_/);
     expect(result.claim_token.pepper_kid).toBe(1);
+  });
+
+  it("embeds claim code attribution in the claim token secret", async () => {
+    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const result = await repo.createEphemeralWorkspace({
+      idempotencyKey: "ephemeral-claim-code",
+      claimCode,
+    });
+    expect(result.claim_token_secret).toMatch(
+      /^ap_ct_preview_[0-9A-HJKMNP-TV-Z]{16}\.clm_[0-9A-HJKMNP-TV-Z]{26}_[A-Za-z0-9_-]{32,}$/,
+    );
+    expect(result.claim_token_secret).toContain(`.${claimCode}_`);
+    await expect(
+      verifyClaimTokenSecret(result.claim_token_secret, result.claim_token.token_hash, "test-pepper"),
+    ).resolves.toBe(true);
   });
 
   it("honors a custom claim-token TTL", async () => {

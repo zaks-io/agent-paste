@@ -4,7 +4,7 @@ export type PublishResultShape = {
   artifact_id: string;
   revision_id: string;
   title: string;
-  private_url: string;
+  private_url?: string | undefined;
   revision_content_url: string;
   agent_view_url: string;
   expires_at: string;
@@ -40,6 +40,9 @@ function uploadStatsLine(mode: OutputMode, stats: NonNullable<PublishResultShape
 export function formatPublishResult(mode: OutputMode, result: PublishResultShape, updateCommand: string): string {
   const label = (text: string) => paint(mode, "dim", text);
   const privateUrl = result.private_url;
+  if (!privateUrl) {
+    throw new Error("Authenticated publish result must include private_url");
+  }
   return [
     `${paint(mode, "green", "✓")} Published ${paint(mode, "bold", `"${result.title}"`)}`,
     "",
@@ -53,38 +56,15 @@ export function formatPublishResult(mode: OutputMode, result: PublishResultShape
   ].join("\n");
 }
 
-export function ephemeralClaimUrl(claimToken: string, claimCode?: string): string {
+export function ephemeralClaimUrl(claimToken: string): string {
   const base = (process.env.AGENT_PASTE_WEB_URL ?? "https://app.agent-paste.sh").replace(/\/+$/, "");
-  const params = new URLSearchParams();
-  if (claimCode) {
-    params.set("claim_code", claimCode);
-  }
-  const query = params.size > 0 ? `?${params.toString()}` : "";
-  return `${base}/claim${query}#${claimToken}`;
+  return `${base}/claim#${claimToken}`;
 }
 
-export function ephemeralAttributionUrl(url: string | undefined, claimCode?: string): string | undefined {
-  if (!url || !claimCode) {
-    return url;
-  }
-  try {
-    const parsed = new URL(url);
-    parsed.searchParams.set("claim_code", claimCode);
-    return parsed.toString();
-  } catch {
-    return url;
-  }
-}
-
-export function formatEphemeralPublishResult(
-  mode: OutputMode,
-  result: PublishResultShape,
-  claimUrl: string,
-  claimCode?: string,
-): string {
+export function formatEphemeralPublishResult(mode: OutputMode, result: PublishResultShape, claimUrl: string): string {
   assertClaimTokenNotInPublicUrls(result, claimUrl);
   const label = (text: string) => paint(mode, "dim", text);
-  const sharedUrl = ephemeralAttributionUrl(result.unlisted_url, claimCode);
+  const sharedUrl = result.unlisted_url;
   return [
     `${paint(mode, "green", "✓")} Published ${paint(mode, "bold", `"${result.title}"`)}`,
     "",
@@ -117,7 +97,7 @@ function assertClaimTokenNotInPublicUrls(result: PublishResultShape, claimUrl: s
     throw new Error("Claim Token must not appear in the URL query string");
   }
   if (
-    result.private_url.includes(claimToken) ||
+    (result.private_url?.includes(claimToken) ?? false) ||
     result.revision_content_url.includes(claimToken) ||
     result.agent_view_url.includes(claimToken) ||
     (result.unlisted_url?.includes(claimToken) ?? false)

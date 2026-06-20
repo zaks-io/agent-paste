@@ -71,40 +71,33 @@ describe("parseRequestBody request-body cap", () => {
     expect(result.value.claim_code).toBeUndefined();
   });
 
-  it("ignores null claim codes on ephemeral claim requests", async () => {
+  it("ignores malformed string claim codes on ephemeral provision requests", async () => {
     const raw = new Request("https://worker.test/test", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        claim_code: null,
-        claim_token: "ap_ct_preview_testsecret000000_abc",
-      }),
+      body: JSON.stringify({ claim_code: "bad" }),
     });
 
-    const result = await parseRequestBody(contextFor(raw), claimContract);
+    const result = await parseRequestBody(contextFor(raw), bodyContract);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.claim_code).toBeUndefined();
-    expect(result.value.claim_token).toBe("ap_ct_preview_testsecret000000_abc");
   });
 
-  it("ignores malformed string claim codes on ephemeral claim requests", async () => {
+  it("rejects claim-code fields on ephemeral claim requests", async () => {
     const raw = new Request("https://worker.test/test", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        claim_code: "bad",
-        claim_token: "ap_ct_preview_testsecret000000_abc",
+        claim_code: "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD",
+        claim_token: "ap_ct_preview_0123456789ABCDEF_abcdefghijklmnopqrstuvwxyz012345",
       }),
     });
 
     const result = await parseRequestBody(contextFor(raw), claimContract);
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.value.claim_code).toBeUndefined();
-    expect(result.value.claim_token).toBe("ap_ct_preview_testsecret000000_abc");
+    expect(result.ok).toBe(false);
   });
 
   it("rejects a body whose content-length exceeds the cap before reading it", async () => {

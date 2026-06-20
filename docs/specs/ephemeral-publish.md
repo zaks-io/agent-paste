@@ -53,12 +53,12 @@ flow itself reuses the existing authenticated **Upload Session** and **Publish**
 routes with the provisioned credential; no separate upload or publish endpoints
 are introduced.
 
-Both routes accept an optional `claim_code` string for analytics correlation.
-The claim code public shape is `clm_` plus the same 26-character Crockford ULID
-body used by other public IDs. It is not identity, auth, idempotency, billing,
-or ownership state. It must not change provision, publish, claim, or entitlement
-behavior. Malformed claim-code strings are ignored for telemetry rather than
-failing the product flow.
+`POST /v1/ephemeral/provision` accepts an optional `claim_code` string for
+analytics correlation. The claim code public shape is `clm_` plus the same
+26-character Crockford ULID body used by other public IDs. It is not identity,
+auth, idempotency, billing, or ownership state. It must not change provision,
+publish, claim, or entitlement behavior. Malformed claim-code strings are
+ignored for telemetry rather than failing the product flow.
 
 **Upload Worker** (`content` and `upload`):
 Unchanged. `content` stays DB-free ([ADR 0028](../adr/0028-signed-url-tokens-for-content-gateway-authorization.md)); ephemeral status is carried on rows the authenticated paths already load.
@@ -92,12 +92,14 @@ Hosts the claim/upgrade UI. Turnstile guards these human surfaces only.
    - creates a **Workspace** flagged ephemeral, no **Workspace Member**, ephemeral cap set;
    - creates a short-lived scoped credential with `publish` + `read` **Scopes**;
    - generates a one-time **Claim Token** (signed, single-use, stored hashed);
+     if a valid claim code was supplied, it is embedded inside the opaque Claim
+     Token bearer so it can attribute claim conversion without query strings;
    - emits an **Audit Event**.
 3. Response returns the credential secret and the **Claim Token** to the caller only. The **Claim Token** is never placed in any **Access Link Signed URL**.
 
 ## Claim Flow
 
-1. An authenticated **Workspace Member** calls `POST /v1/ephemeral/claim` with `{ claim_token }` and may include `{ claim_code }` when the claim URL carried it.
+1. An authenticated **Workspace Member** calls `POST /v1/ephemeral/claim` with `{ claim_token }`. The API parses any embedded claim code from the token for claim-conversion telemetry.
 2. `api` verifies the token is valid, unredeemed, and not expired.
 3. Under `runCommand`: **reparents** the ephemeral tenant's **Artifacts** into the claiming member's existing **Personal Workspace** (single-workspace-per-member is preserved - claim does not create a standalone tenant the member must juggle in a multi-workspace dashboard the product does not yet have), raises the surviving content to the destination workspace's `free` tier, marks the source **Ephemeral Workspace** consumed, marks the **Claim Token** redeemed, emits an **Audit Event**. The reparent is the single-core write ([ADR 0070](../adr/0070-repository-core-ports-and-adapters.md)) and re-stamps `workspace_id` so RLS continues to hold against the destination tenant.
 4. A redeemed or expired token fails closed as not-found ([ADR 0036](../adr/0036-error-envelope-and-generic-404-boundary.md)). No retained **Claim Token** means the **Artifact** cannot be promoted and reaches **Auto Deletion**; it must be re-published to gain an owner.
@@ -113,13 +115,13 @@ The marketing-to-claim funnel is tracked in Workers Analytics Engine through the
 - `ephemeral_provision_rate_limited` and `ephemeral_provision_unavailable` for failed provision gate outcomes;
 - `ephemeral_publish_created` when the first ephemeral publish finalizes;
 - `ephemeral_link_opened` when the generated unlisted Share Link resolves;
-- `link_claimed` when a Claim Token reparents Artifacts into a Personal Workspace.
+- `link_claimed` when a Claim Token reparents Artifacts into a Personal Workspace; this is where embedded claim-code conversion attribution is recorded.
 
 The CLI accepts `--claim-code <clm_...>`, then passes it through provision,
-publish, the generated unlisted Share Link query string, and the claim URL. The
-Claim Token remains in the URL hash only; the claim code can be placed in link
-query strings because it is non-secret telemetry. The apex marketing page records
-`prompt_variant` only on
+and publish. The API embeds it in the Claim Token returned by provision. The
+unlisted Share Link is unchanged, the claim link is always `/claim#<claim_token>`,
+and no generated URL contains `claim_code` in a query string. The apex marketing
+page records `prompt_variant` only on
 `prompt_copied`, keyed by the same claim code, so future LaunchDarkly assignment
 can plug in without changing the event schema.
 

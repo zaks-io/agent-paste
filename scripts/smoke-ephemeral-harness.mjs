@@ -144,7 +144,8 @@ export function assertNoClaimTokenLeakage(published, stderrOutput) {
   assertBoundary(claimToken?.startsWith("ap_ct_"), "publish", "JSON output includes Claim Token");
   assertBoundary(published.claim_url?.includes(`#${claimToken}`), "publish", "claim_url carries token in URL hash");
   assertBoundary(!published.claim_url?.includes("?"), "publish", "claim_url does not use query string");
-  assertBoundary(!published.private_url?.includes(claimToken), "publish", "private_url does not embed Claim Token");
+  assertBoundary(!("private_url" in published), "publish", "ephemeral JSON output omits private_url");
+  assertBoundary(!published.unlisted_url?.includes(claimToken), "publish", "unlisted_url does not embed Claim Token");
   assertBoundary(
     !published.revision_content_url?.includes(claimToken),
     "publish",
@@ -166,7 +167,7 @@ export async function assertPublishOutput(
 ) {
   assertBoundary(published.artifact_id?.startsWith("art_"), "publish", "artifact_id returned");
   assertBoundary(published.revision_id?.startsWith("rev_"), "publish", "revision_id returned");
-  const viewerUrl = parseSmokeUrl(published.private_url, "publish", "private_url is a valid URL");
+  const viewerUrl = parseSmokeUrl(published.unlisted_url, "publish", "unlisted_url is a valid URL");
   const revisionContentUrl = parseSmokeUrl(
     published.revision_content_url,
     "content",
@@ -175,9 +176,9 @@ export async function assertPublishOutput(
   const agentViewUrl = parseSmokeUrl(published.agent_view_url, "content", "agent_view_url is a valid URL");
   if (webBaseUrl) {
     const webUrl = parseSmokeUrl(webBaseUrl, "publish", "webBaseUrl is a valid URL");
-    assertBoundary(viewerUrl.origin === webUrl.origin, "publish", "private_url targets web origin");
+    assertBoundary(viewerUrl.origin === webUrl.origin, "publish", "unlisted_url targets web origin");
   }
-  assertBoundary(viewerUrl.pathname === `/v/${published.artifact_id}`, "publish", "private_url targets private viewer");
+  assertBoundary(viewerUrl.pathname.startsWith("/al/"), "publish", "unlisted_url targets Share Link");
   const contentUrl = parseSmokeUrl(contentBaseUrl, "content", "contentBaseUrl is a valid URL");
   assertBoundary(
     revisionContentUrl.origin === contentUrl.origin && revisionContentUrl.pathname.startsWith("/v/"),

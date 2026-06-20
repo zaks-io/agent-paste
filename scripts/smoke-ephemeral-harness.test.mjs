@@ -34,7 +34,7 @@ describe("smoke-ephemeral-harness", () => {
     expect(() => ephemeralHostedConfig("pr")).toThrow(/AGENT_PASTE_PR_API_URL/);
   });
 
-  it("allows PR smoke to skip exact Artifact URL origin assertion", async () => {
+  it("allows PR smoke to skip exact Share Link origin assertion", async () => {
     await expect(
       assertPublishOutput(samplePublishResult("https://agent-paste-web-pr-460.example.workers.dev"), {
         apiBaseUrl: "https://api.example.test",
@@ -46,7 +46,7 @@ describe("smoke-ephemeral-harness", () => {
     ).resolves.toBeUndefined();
   });
 
-  it("checks exact Artifact URL origin when configured", async () => {
+  it("checks exact Share Link origin when configured", async () => {
     await expect(
       assertPublishOutput(samplePublishResult("https://app.preview.agent-paste.sh.evil"), {
         apiBaseUrl: "https://api.example.test",
@@ -55,7 +55,7 @@ describe("smoke-ephemeral-harness", () => {
         claimWebOrigin: "https://app.preview.agent-paste.sh",
         expectedClaimTokenPrefix: "ap_ct_preview_",
       }),
-    ).rejects.toThrow(/private_url targets web origin/);
+    ).rejects.toThrow(/unlisted_url targets web origin/);
   });
 
   it("checks exact revision content URL origin", async () => {
@@ -188,7 +188,7 @@ function samplePublishResult(artifactOrigin, overrides = {}) {
   return {
     artifact_id: "art_test",
     revision_id: "rev_test",
-    private_url: `${artifactOrigin}/v/art_test`,
+    unlisted_url: `${artifactOrigin}/al/pub_test#signed`,
     revision_content_url: revisionContentUrl,
     agent_view_url: "https://api.example.test/v1/public/agent-view/art_test",
     claim_token: "ap_ct_preview_test",

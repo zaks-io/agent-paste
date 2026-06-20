@@ -516,134 +516,263 @@
         ]
       },
       "PublishResult": {
-        "type": "object",
-        "properties": {
-          "artifact_id": {
-            "type": "string",
-            "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
-          },
-          "revision_id": {
-            "type": "string",
-            "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
-          },
-          "title": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 160
-          },
-          "private_url": {
-            "type": "string",
-            "format": "uri"
-          },
-          "revision_content_url": {
-            "type": "string",
-            "format": "uri"
-          },
-          "agent_view_url": {
-            "type": "string",
-            "format": "uri"
-          },
-          "expires_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "bundle": {
-            "oneOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "pending"
-                    ]
-                  },
-                  "retry_after_seconds": {
-                    "type": "integer",
-                    "exclusiveMinimum": 0
-                  }
-                },
-                "required": [
-                  "status",
-                  "retry_after_seconds"
-                ],
-                "additionalProperties": false
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "artifact_id": {
+                "type": "string",
+                "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
               },
-              {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "ready"
-                    ]
-                  },
-                  "url": {
-                    "type": "string",
-                    "format": "uri"
-                  },
-                  "size_bytes": {
-                    "type": "integer",
-                    "minimum": 0
-                  },
-                  "generated_at": {
-                    "type": "string",
-                    "format": "date-time"
-                  }
-                },
-                "required": [
-                  "status",
-                  "url",
-                  "generated_at"
-                ],
-                "additionalProperties": false
+              "revision_id": {
+                "type": "string",
+                "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
               },
-              {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "failed"
-                    ]
-                  }
-                },
-                "required": [
-                  "status"
-                ],
-                "additionalProperties": false
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
               },
-              {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "disabled"
-                    ]
+              "revision_content_url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "agent_view_url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "bundle": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "pending"
+                        ]
+                      },
+                      "retry_after_seconds": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "required": [
+                      "status",
+                      "retry_after_seconds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "ready"
+                        ]
+                      },
+                      "url": {
+                        "type": "string",
+                        "format": "uri"
+                      },
+                      "size_bytes": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "generated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "status",
+                      "url",
+                      "generated_at"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "failed"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "disabled"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ],
+                    "additionalProperties": false
                   }
-                },
-                "required": [
-                  "status"
-                ],
-                "additionalProperties": false
+                ]
+              },
+              "private_url": {
+                "type": "string",
+                "format": "uri"
               }
-            ]
+            },
+            "required": [
+              "artifact_id",
+              "revision_id",
+              "title",
+              "revision_content_url",
+              "agent_view_url",
+              "expires_at",
+              "bundle",
+              "private_url"
+            ],
+            "additionalProperties": false
           },
-          "unlisted_url": {
-            "type": "string",
-            "format": "uri"
+          {
+            "type": "object",
+            "properties": {
+              "artifact_id": {
+                "type": "string",
+                "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "revision_id": {
+                "type": "string",
+                "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "revision_content_url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "agent_view_url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "bundle": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "pending"
+                        ]
+                      },
+                      "retry_after_seconds": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "required": [
+                      "status",
+                      "retry_after_seconds"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "ready"
+                        ]
+                      },
+                      "url": {
+                        "type": "string",
+                        "format": "uri"
+                      },
+                      "size_bytes": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "generated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "status",
+                      "url",
+                      "generated_at"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "failed"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "disabled"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "status"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "unlisted_url": {
+                "type": "string",
+                "format": "uri"
+              }
+            },
+            "required": [
+              "artifact_id",
+              "revision_id",
+              "title",
+              "revision_content_url",
+              "agent_view_url",
+              "expires_at",
+              "bundle",
+              "unlisted_url"
+            ],
+            "additionalProperties": false
           }
-        },
-        "required": [
-          "artifact_id",
-          "revision_id",
-          "title",
-          "private_url",
-          "revision_content_url",
-          "agent_view_url",
-          "expires_at",
-          "bundle"
         ]
       },
       "RevisionSummary": {

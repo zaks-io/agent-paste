@@ -21,8 +21,6 @@ import {
   workspaceId,
 } from "./route-test-helpers.js";
 
-const claimCode = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
-
 describe("AP-91 access link route modules", () => {
   it("creates member access links and maps repository not-found failures", async () => {
     const createMemberAccessLink = vi.fn(async () => ({ access_link_id: "al_1" }));
@@ -177,19 +175,19 @@ describe("AP-91 access link route modules", () => {
           },
         },
       },
-      body: { public_id: "0123456789ABCDEF", blob, claim_code: claimCode },
+      body: { public_id: "0123456789ABCDEF", blob },
     });
 
     const ok = await resolveAccessLinkRoute(
       baseContext,
       { resolveAccessLink } as never,
-      guardFor({ public_id: "0123456789ABCDEF", blob, claim_code: claimCode }),
+      guardFor({ public_id: "0123456789ABCDEF", blob }),
     );
     expect(ok.status).toBe(200);
     await expect(responseJson(ok)).resolves.toMatchObject({ iframe_src: "https://content.test/original" });
     expect(writeDataPoint).toHaveBeenCalledWith({
-      indexes: [claimCode],
-      blobs: ["ephemeral_link_opened", "web", claimCode, workspaceId, "art_1", "", "", ""],
+      indexes: [workspaceId],
+      blobs: ["ephemeral_link_opened", "web", "", workspaceId, "art_1", "", "", ""],
       doubles: [1, 0],
     });
 

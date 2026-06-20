@@ -66,7 +66,6 @@ export type EphemeralProvisionResponse = z.infer<typeof EphemeralProvisionRespon
 
 export const EphemeralClaimRequest = z
   .object({
-    claim_code: OptionalClaimCodeInput,
     claim_token: z.string().min(1),
   })
   .strict();

@@ -149,8 +149,8 @@ async function runPostPublishFanout(
 // call, so the unlisted Share Link is minted here rather than left to a separate
 // set-visibility step. The Share-Link create dedupes on the artifact's one active
 // link, so an idempotent publish replay reuses it instead of stacking links.
-// If signing config is missing the publish still succeeds; the caller falls back
-// to the claim link rather than failing the whole publish.
+// Ephemeral publish has one public viewing link. Missing signing config is a
+// platform misconfiguration, so fail loudly instead of returning claim-only output.
 async function attachUnlistedUrl(
   deps: PublishCoordinatorDeps,
   input: PublishCoordinatorInput,
@@ -161,7 +161,7 @@ async function attachUnlistedUrl(
   }
   const signing = accessLinkSigningSecret(deps.env);
   if (!signing) {
-    return signed;
+    throw new Error("ephemeral_access_link_signing_unavailable");
   }
   try {
     const link = await deps.db.createMemberAccessLink({
@@ -179,11 +179,11 @@ async function attachUnlistedUrl(
     });
     return { ...(signed as Record<string, unknown>), unlisted_url: minted.url };
   } catch (error) {
-    console.warn("Ephemeral unlisted Share Link mint failed after publish; returning claim-only link.", {
+    console.warn("Ephemeral unlisted Share Link mint failed after publish.", {
       artifactId: input.artifactId,
       error: error instanceof Error ? error.message : String(error),
     });
-    return signed;
+    throw error;
   }
 }
 

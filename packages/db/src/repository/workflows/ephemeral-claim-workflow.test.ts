@@ -8,6 +8,8 @@ const ROOT_SECRET = "test-artifact-bytes-root-secret-32chars";
 const HELLO_SHA256 = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
 const STALE_SHA256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const EXPIRED_SHA256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+const CLAIM_CODE = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
+const FORGED_CLAIM_CODE = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCE";
 
 function memoryArtifactsBucket() {
   const objects = new Map<string, { bytes: Uint8Array; customMetadata?: Record<string, string> }>();
@@ -783,6 +785,35 @@ describe("claimEphemeralWorkspace", () => {
         },
         claimTokenSecret: `${provisioned.claim_token_secret}x`,
         idempotencyKey: "claim-wrong-secret",
+      }),
+    ).rejects.toThrow("not_found");
+  });
+
+  it("rejects claim tokens with forged claim-code attribution", async () => {
+    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const provisioned = await repo.createEphemeralWorkspace({
+      idempotencyKey: "ephemeral-forged-claim-code",
+      claimCode: CLAIM_CODE,
+      now: new Date("2099-06-01T00:00:00.000Z"),
+    });
+    const member = await repo.resolveWebMember({
+      workosUserId: "user_claim_forged_claim_code",
+      email: "user_claim_forged_claim_code@example.test",
+      idempotencyKey: "claim-forged-claim-code-member",
+      now: "2099-06-01T00:00:00.000Z",
+    });
+
+    await expect(
+      repo.claimEphemeralWorkspace({
+        actor: {
+          type: "member",
+          id: member.workspace_member.id,
+          workspace_id: member.workspace.id,
+          email: member.workspace_member.email,
+          scopes: member.scopes,
+        },
+        claimTokenSecret: provisioned.claim_token_secret.replace(CLAIM_CODE, FORGED_CLAIM_CODE),
+        idempotencyKey: "claim-forged-claim-code",
       }),
     ).rejects.toThrow("not_found");
   });

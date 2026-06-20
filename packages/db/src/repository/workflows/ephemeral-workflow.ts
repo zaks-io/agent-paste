@@ -36,6 +36,7 @@ export async function createEphemeralWorkspace(
     idempotencyKey: string;
     now?: Date;
     claimTokenExpiresInSeconds?: number;
+    claimCode?: string;
   },
 ): Promise<CreateEphemeralWorkspaceResult> {
   const now = nowIso(input.now);
@@ -75,7 +76,11 @@ export async function createEphemeralWorkspace(
       await entities.apiKeys.insert(apiKey);
 
       const pepperRing = ctx.options.pepperRing ?? PepperRing.single(ctx.options.apiKeyPepper, 1);
-      const generated = await generateClaimToken(ctx.options.apiKeyEnv ?? "preview", pepperRing.currentPepper());
+      const generated = await generateClaimToken(
+        ctx.options.apiKeyEnv ?? "preview",
+        pepperRing.currentPepper(),
+        input.claimCode,
+      );
       const claimToken: ClaimToken = {
         id: createId("ct"),
         workspace_id: workspaceId,

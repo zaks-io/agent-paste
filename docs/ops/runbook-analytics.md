@@ -75,8 +75,8 @@ GROUP BY tier
 - Shared helper: `packages/worker-runtime/src/analytics.ts` (`writeFunnelEvent`). Fire-and-forget, same failure behavior as artifact events.
 - `apps/apex` emits `prompt_copied` through `POST /__funnel/events` when the hero prompt is copied and optional analytics are allowed.
 - `apps/api` emits server-side lifecycle events for ephemeral provision, publish, unlisted-link resolve, and claim.
-- `apps/web` preserves `claim_code` from `/claim?claim_code=...#<claim_token>` across the auth redirect, then includes it in the claim mutation.
-- `apps/cli` accepts `--claim-code <clm_...>`, forwards it to provision, publish, unlisted URL construction, and claim URL construction, and includes it in ephemeral JSON output.
+- `apps/web` preserves the claim token from `/claim#<claim_token>` across the auth redirect and submits only the token during claim.
+- `apps/cli` accepts `--claim-code <clm_...>` and forwards it to provision and publish. The API embeds it in the claim token for claim conversion attribution; CLI output never includes `claim_code` separately.
 - Binding `FUNNEL_EVENTS` is declared in `apps/apex/wrangler.jsonc` and `apps/api/wrangler.jsonc` for `dev`, `preview`, and `production`. Both Workers point at the same dataset per environment:
   - `agent_paste_funnel_events_preview`
   - `agent_paste_funnel_events_production`
@@ -90,10 +90,10 @@ No Cloudflare dashboard setup is needed. Analytics Engine datasets are created o
 - the copied marketing prompt as `--claim-code <clm_...>`;
 - `POST /v1/ephemeral/provision` as `claim_code`;
 - the publish request header `X-Agent-Paste-Claim-Code`;
-- the generated unlisted Share Link query string as `claim_code`, while the Access Link credential stays in the URL hash;
-- `POST /v1/access-links/resolve` as `claim_code`;
-- the claim URL query string as `claim_code`, while the Claim Token stays in the URL hash;
-- `POST /v1/ephemeral/claim` as `claim_code`.
+- inside the opaque Claim Token bearer returned by provision.
+
+It must not appear as a URL query parameter, in `unlisted_url`, in `claim_url`,
+in Access Link resolve requests, in claim requests, or in CLI JSON output.
 
 Missing or invalid claim codes must not block provision, publish, link open, or claim. Invalid public inputs are ignored or rejected only on the telemetry endpoint.
 

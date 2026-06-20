@@ -54,10 +54,11 @@ uploaded_bytes, reused_files, reused_bytes }`.
 - There is no `--share` input and no `shared` output bit. No-login unlisted
   sharing is the separate `set-visibility <artifact-id> unlisted` command, which
   mints or reuses the one Share Link and prints `unlisted_url`.
-- `publish --ephemeral --json` emits the normal publish fields plus
-  `{ unlisted_url, claim_token, claim_url, workspace_id, api_key_id,
-claim_token_id, claim_code? }`. `claim_code` is present only when the caller
-  supplied `--claim-code <clm_...>`.
+- `publish --ephemeral --json` emits the normal publish fields except
+  `private_url`, plus `{ unlisted_url, claim_token, claim_url, workspace_id,
+api_key_id, claim_token_id }`. When the caller supplies
+  `--claim-code <clm_...>`, the API embeds it in the claim token; the CLI never
+  returns `claim_code` as a separate field.
 - `set-visibility <artifact-id> unlisted --json` emits
   `{ schema_version, artifact_id, visibility, access_link_id, unlisted_url }`.
   `unlisted_url` is the no-login Access Link Signed URL for the Artifact's Share
@@ -219,15 +220,14 @@ the upload summary, and an **Update** line:
 
 `publish --ephemeral` uses the same JSON fields as authenticated publish plus the
 server-minted `unlisted_url` and the claim fields `claim_token`, `claim_url`,
-`workspace_id`, `api_key_id`, `claim_token_id`, and `claim_code` when supplied.
+`workspace_id`, `api_key_id`, and `claim_token_id`. It omits `private_url`.
 
-`--claim-code <clm_...>` is optional public attribution for the claim flow. It is
-valid only on `publish --ephemeral`. When present, the CLI sends it through
-ephemeral provision and publish, includes it in JSON as `claim_code`, and carries
-it into both `unlisted_url` and `claim_url` as the public `claim_code` query
-parameter. The bearer Access Link credential and Claim Token still ride URL
-hashes, never the query string. Invalid claim-code inputs are ignored rather than
-blocking ephemeral publish.
+`--claim-code <clm_...>` is optional attribution for the claim flow. It is valid
+only on `publish --ephemeral`. When present, the CLI sends it through ephemeral
+provision and publish; the API embeds it in the Claim Token returned by
+provision. The CLI never returns it as `claim_code`, never changes
+`unlisted_url`, and never puts it in URL query strings. Invalid claim-code inputs
+are ignored rather than blocking ephemeral publish.
 
 In `rich`/`plain` mode, the working no-login link is the primary handoff and the
 claim link is the upgrade path:

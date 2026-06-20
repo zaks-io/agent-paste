@@ -1,4 +1,4 @@
-import type { AccessLinkResolveResponse } from "@agent-paste/contracts";
+import { AccessLinkResolveRequest, type AccessLinkResolveResponse } from "@agent-paste/contracts";
 import { createFileRoute } from "@tanstack/react-router";
 import { accessLinkProxyHeaders } from "../../../security-headers";
 
@@ -12,6 +12,10 @@ export const Route = createFileRoute("/api/access-links/resolve")({
         } catch {
           return resolveErrorResponse(400);
         }
+        const input = AccessLinkResolveRequest.safeParse(body);
+        if (!input.success) {
+          return resolveErrorResponse(400);
+        }
         try {
           const { apiFetch } = await import("../../../server/api-client");
           const data = await apiFetch<AccessLinkResolveResponse>("/v1/access-links/resolve", {
@@ -20,7 +24,7 @@ export const Route = createFileRoute("/api/access-links/resolve")({
               accept: "application/json",
               "content-type": "application/json",
             },
-            body: JSON.stringify(body),
+            body: JSON.stringify(input.data),
           });
           return Response.json(data, {
             status: 200,

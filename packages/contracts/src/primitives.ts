@@ -70,7 +70,7 @@ export type ApiKeyBearer = z.infer<typeof ApiKeyBearer>;
 
 export const ClaimTokenBearer = z
   .string()
-  .regex(/^ap_ct_(preview|production)_[0-9A-HJKMNP-TV-Z]{16}_[A-Za-z0-9_-]{32,}$/)
+  .regex(/^ap_ct_(preview|production)_[0-9A-HJKMNP-TV-Z]{16}(\.clm_[0-9A-HJKMNP-TV-Z]{26})?_[A-Za-z0-9_-]{32,}$/)
   .brand<"ClaimTokenBearer">();
 export type ClaimTokenBearer = z.infer<typeof ClaimTokenBearer>;
 

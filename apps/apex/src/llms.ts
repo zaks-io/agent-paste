@@ -47,8 +47,9 @@ to the usercontent Revision Content URL as the final live page.
 - If the user's prompt includes \`--claim-code <clm_...>\`, preserve that exact
   flag on \`publish --ephemeral\`. A Claim Code is public attribution for the
   claim funnel, not auth, ownership, billing, idempotency, a Claim Token, or a
-  secret. The CLI copies it into \`unlisted_url\` and \`claim_url\` as
-  \`?claim_code=<clm_...>\`; the bearer secrets stay in URL hashes.
+  secret. The CLI sends it to the API for attribution. The API embeds it in the
+  claim token returned by provision. Do not return it separately and do not put
+  it in any URL query string.
 - Read an artifact from agent-facing surfaces through the CLI, \`${MCP_BASE_URL}\`
   (MCP tool \`read_artifact\`), or the dashboard for humans.
 - Verification: \`private_url\` is login-walled app navigation; a plain HTTP 200
@@ -103,8 +104,8 @@ bearer token.
   minted from a Share Link is the unlisted no-login link returned as
   \`unlisted_url\`.
 - Claim Code - optional \`clm_...\` analytics attribution from copied prompts.
-  Preserve it when present on \`publish --ephemeral\`; it is safe to appear in the
-  public \`claim_code\` query parameter and is not the Claim Token.
+  Preserve it when present on \`publish --ephemeral\`; it is embedded in the
+  opaque Claim Token for conversion attribution and is not returned separately.
 
 ## Longer agent guide
 
