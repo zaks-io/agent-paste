@@ -20,11 +20,12 @@ import {
 // appears in the head. Each animated line carries `t-step`; the fade/caret/jitter
 // live in apex.css + client.ts.
 
-// The result gesture echoes the brand mark on the home page: a caret-along-a-wire
-// into an accent node. The wire is U+2500, deliberately NOT an em dash, so the
-// no-em-dash rule and the banned-token test hold.
-const GESTURE_WIRE = ">─";
-const GESTURE_NODE = "●";
+// The inline preview shows only the first couple of report rows and fades them out
+// at the bottom (apex.css .t-preview-fade), so it reads as a truncated peek at a
+// longer artifact rather than the whole page. Two rows keeps the panel short enough
+// that the whole "Done. Here's your link" handoff + preview lands as the final
+// frame inside the shell with no scroll.
+const PREVIEW_ROWS = 2;
 
 // Keep the wordmark from breaking at its hyphen ("agent-" / "paste.sh"). Splits the
 // prompt on the wordmark token (capturing group keeps the delimiter) and wraps each
@@ -49,15 +50,17 @@ function Line({ line }: { line: TranscriptLine }) {
       // One runnable command line: `$ agent "…"` flows as a single continuous,
       // naturally-wrapping line of terminal text — no separate boxes, no forced
       // breaks between the `$ agent "` framing, the prompt, and the closing `"`.
-      // The whole command is one inline <button> (click-to-copy, copies the bare
-      // EXAMPLE_PROMPT); the `$`, `agent`, and quotes are dim inline spans within
-      // that flow. The labeled toolbar "Copy prompt" button carries the funnel
-      // attribution; this is the inline twin.
+      // The whole command is one inline <button> (click-to-copy); the `$`, `agent`,
+      // and quotes are dim inline spans within that flow. It carries the same
+      // data-claim-prompt-variant as the labeled "Copy prompt" button so BOTH copy
+      // the identical text — the prompt plus the appended --claim-code line — and
+      // both fire the funnel attribution.
       return (
         <button
           type="button"
           className="t-line t-step t-prompt-copy relative block w-full text-left whitespace-pre-wrap leading-relaxed text-foreground border-0 bg-transparent cursor-pointer rounded-xs group/prompt"
           data-clipboard={EXAMPLE_PROMPT}
+          data-claim-prompt-variant={EXAMPLE_PROMPT_VARIANT}
           title="Click to copy this prompt"
           aria-label={`Copy the prompt to paste into your agent: ${EXAMPLE_PROMPT}`}
         >
@@ -150,22 +153,74 @@ function Line({ line }: { line: TranscriptLine }) {
           {line.text}
         </div>
       );
-    case "result":
+    case "link":
+      // The handed-back no-login link, on its own line right before the preview
+      // opens below it. Styled like a URL (accent), not clickable — the demo opens
+      // nothing; the preview's address bar echoes the same URL.
       return (
-        <a
-          className="t-line t-step t-result block break-all text-muted no-underline rounded-xs px-1 -mx-1 transition-[background] duration-[140ms] ease-out hover:bg-accent-tint"
-          data-kind="result"
+        <div className="t-line t-step break-all text-accent" data-kind="link" data-wait={line.wait}>
+          {line.url}
+        </div>
+      );
+    case "preview":
+      // The payoff: a miniature of the real /al access-link viewer. A narrow,
+      // fixed-width "viewer" surface (the iframe area) with the wordmark brand bar
+      // pinned bottom-left, exactly the collapsed state of the real
+      // AccessLinkBrandBar (wordmark only, no URL). apex.css inverts the frame's
+      // theme against the page (light frame on the dark site, and vice versa) so it
+      // reads as a separate opened page. It is a rendered panel, not a typed line,
+      // so apex.css also suppresses the trailing caret on it.
+      return (
+        <figure
+          className="t-line t-step t-preview m-0 mt-3"
+          data-kind="preview"
           data-wait={line.wait}
-          href={line.href}
-          aria-label={`Open example: https://${line.url}`}
+          aria-label={`Inline preview of the published artifact: ${line.title}`}
         >
-          <span className="t-gesture" aria-hidden="true">
-            {GESTURE_WIRE}
-            <span className="t-gesture-node">{GESTURE_NODE}</span>
-          </span>
-          <span className="text-subtle">https://</span>
-          <span className="text-accent">{line.url}</span>
-        </a>
+          <div className="t-preview-frame relative mx-auto w-full max-w-[384px] overflow-hidden rounded-md border border-rule-strong bg-background">
+            {/* A minimal browser address bar so the snippet reads as a real opened
+                page. Its fill is a distinctly grayer shade (t-preview-bar in apex.css)
+                than the page body so it reads as chrome; the dots and URL field sit on
+                it. The URL is the access link, truncated to fit (no fragment). */}
+            <div className="t-preview-bar flex items-center gap-2 border-b border-rule-strong px-3 py-2">
+              <span className="flex flex-none items-center gap-1.5" aria-hidden="true">
+                <span className="t-preview-dot h-2 w-2 rounded-full" />
+                <span className="t-preview-dot h-2 w-2 rounded-full" />
+                <span className="t-preview-dot h-2 w-2 rounded-full" />
+              </span>
+              <span className="t-preview-url min-w-0 flex-1 truncate rounded-sm border border-rule-strong px-2 py-0.5 font-mono text-mono-sm text-muted">
+                {line.url}
+              </span>
+            </div>
+            <div className="t-preview-page px-4 pt-3 pb-8">
+              <p className="t-preview-title font-display font-semibold text-h3 leading-snug tracking-tight text-foreground">
+                {line.title}
+              </p>
+              {/* A peek at the report body that fades out at the bottom (t-preview-fade
+                  mask in apex.css), implying the artifact continues past the snippet —
+                  no explicit "more" label. */}
+              <ul className="t-preview-rows t-preview-fade mt-3 list-none m-0 p-0">
+                {line.rows.slice(0, PREVIEW_ROWS).map((row, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: rows are positional and static.
+                  <li key={i} className="t-preview-row grid grid-cols-[1.6rem_1fr] gap-2 border-t border-rule py-1.5">
+                    <span className="font-mono text-mono-sm text-accent [font-feature-settings:'zero']">
+                      {(i + 1).toString().padStart(2, "0")}
+                    </span>
+                    {/* truncate so a row stays a single line: this is preview chrome,
+                        a one-line glimpse, never a wrapping paragraph. */}
+                    <span className="min-w-0 truncate text-xs leading-snug text-muted">{row}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <span
+              className="t-preview-brandbar absolute bottom-2 left-2 inline-flex items-center rounded-sm border border-rule-strong bg-background px-2 py-1 font-mono text-mono-sm font-medium text-foreground"
+              aria-hidden="true"
+            >
+              agent<span className="text-accent">-</span>paste<span className="text-subtle">.sh</span>
+            </span>
+          </div>
+        </figure>
       );
   }
 }
@@ -175,7 +230,11 @@ function Line({ line }: { line: TranscriptLine }) {
 // run reveals. TRANSCRIPT always leads with the prompt line.
 const PROMPT_LINE = TRANSCRIPT[0];
 const RUN_LINES = TRANSCRIPT.slice(1);
-const lineKey = (line: TranscriptLine) => (line.kind === "result" ? line.url : `${line.kind}:${line.text}`);
+const lineKey = (line: TranscriptLine) => {
+  if (line.kind === "preview") return `preview:${line.title}`;
+  if (line.kind === "link") return `link:${line.url}`;
+  return `${line.kind}:${line.text}`;
+};
 
 export function TranscriptDemo() {
   if (!PROMPT_LINE) return null;
@@ -203,7 +262,7 @@ export function TranscriptDemo() {
           </svg>
         </button>
       </div>
-      <div className="t-body font-mono text-mono leading-[1.85] px-4 py-4 bg-background text-foreground [font-feature-settings:'zero'] overflow-x-clip min-h-[136px] max-h-[300px] overflow-y-auto">
+      <div className="t-body font-mono text-mono leading-[1.85] px-4 py-4 bg-background text-foreground [font-feature-settings:'zero'] overflow-x-clip min-h-[136px] max-h-[290px] overflow-y-auto">
         <Line line={PROMPT_LINE} />
         {/* Execute affordance: a real-looking button, set a little lower under the
             prompt so it reads as the deliberate "run this" action. client.ts shows

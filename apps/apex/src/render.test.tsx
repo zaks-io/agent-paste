@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { type ApexAssets, Shell } from "./app/Shell";
-import { EXAMPLE_ACCESS_LINK_URL, EXAMPLE_PROMPT, PUBLISH_EPHEMERAL_CMD } from "./copy";
+import { EXAMPLE_ACCESS_LINK_URL, EXAMPLE_ARTIFACT_TITLE, EXAMPLE_PROMPT, PUBLISH_EPHEMERAL_CMD } from "./copy";
 import { docsPagesForBilling } from "./docs/registry";
 import { getRoutes } from "./routes";
 
@@ -144,12 +144,20 @@ describe("home page", () => {
     expect(body).toContain("/fonts/SplineSansMono-Variable.woff2");
   });
 
-  it("renders the demo transcript as an Access Link with a static example fallback", () => {
-    // The visible result is the shareable no-login Access Link contract. The href
-    // still opens the id-shaped static page because this demo cannot depend on
-    // production data.
-    expect(body).toContain('https://</span><span class="text-accent">app.agent-paste.sh/al/');
-    expect(body).toContain('href="/a/art_8KQ2WSDIEGO7XR"');
+  it("ends the demo with an inline access-link preview, not a link out to a separate page", () => {
+    // The payoff is rendered inline (a mini access-link viewer), so there is no
+    // separate static example page to drift from the real viewer. Contract: the
+    // preview beat renders with the published title, and no /a/<id> link-out exists.
+    expect(body).toContain('data-kind="preview"');
+    expect(body).toContain(EXAMPLE_ARTIFACT_TITLE);
+    expect(body).not.toContain('href="/a/');
+  });
+
+  it("prints the shareable no-login Access Link in the demo output", () => {
+    // The transcript's CLI-style output still surfaces the real share-link contract
+    // (the /al/ URL a real ephemeral publish returns), just no longer as a link.
+    expect(body).toContain("app.agent-paste.sh/al/");
+    expect(body).toContain(EXAMPLE_ACCESS_LINK_URL.split("#")[0]);
   });
 
   it("leads with OAuth login, not manual credential setup", () => {
@@ -206,14 +214,6 @@ describe("home page", () => {
     expect(lower).not.toMatch(/box-shadow:[^;]*var\(--accent\)/);
     expect(lower).not.toContain("gradient");
     expect(lower).not.toContain("feturbulence");
-  });
-
-  it("renders the result gesture as a box-drawing wire, never an em dash", () => {
-    expect(body).toContain(
-      '<span class="t-gesture" aria-hidden="true">&gt;─<span class="t-gesture-node">●</span></span>',
-    );
-    expect(body).toContain(`aria-label="Open example: https://${EXAMPLE_ACCESS_LINK_URL}"`);
-    expect(body).not.toContain("—");
   });
 
   // Assert the hrefs are wired (the contract), not the class strings (presentation

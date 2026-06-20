@@ -10,7 +10,8 @@
  * What remains here is the handful of marketing-only effects that cannot be
  * expressed as inline utilities: the scroll-reveal entrance (driven by the
  * vanilla enhancement script toggling `.in`), the live-pulse eyebrow dot, and
- * the result-gesture wire. These are apex-only; they are not shared.
+ * the demo transcript reveal + inline preview. These are apex-only; they are not
+ * shared.
  */
 @import "@agent-paste/ui/styles.css";
 
@@ -89,18 +90,6 @@
   }
 }
 
-/* The result gesture: a caret-along-a-wire into an accent node (the hand-off
- * motif). The wire is U+2500, deliberately not an em dash. */
-.t-gesture {
-  color: hsl(var(--muted));
-  letter-spacing: -0.04em;
-  margin-right: 6px;
-}
-
-.t-gesture-node {
-  color: hsl(var(--accent));
-}
-
 /* ── Pseudo-agent demo (the "Execute pseudo prompt" run) ───────────────────────
  *
  * Progressive enhancement, gated entirely behind the JS-set `data-demo`
@@ -166,14 +155,77 @@
 .t-shell[data-demo] .t-step.is-played {
   display: block;
 }
-/* The result line is an <a> (inline-level); restore its block display when shown. */
-.t-shell[data-demo="armed"] .t-result:first-child,
-.t-shell[data-demo="playing"] .t-result.is-played,
-.t-shell[data-demo] .t-result.is-played {
-  display: block;
-}
 .t-shell[data-demo="playing"] .t-step.is-played {
   animation: t-line-in 0.4s var(--ease-out);
+}
+
+/* The inline preview is a rendered panel, not a typed line: it gets its own air
+ * above and never carries the trailing block caret (which only reads on a line of
+ * "typed" text). */
+.t-shell .t-step.t-preview {
+  margin-top: 1em;
+}
+.t-shell[data-demo="playing"] .t-step.t-preview.is-active::after {
+  content: none;
+}
+
+/* Fade the report rows out at the bottom so the snippet dissolves into the frame,
+ * implying the artifact continues past the preview — no explicit "more" label. */
+.t-preview-fade {
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+}
+
+/* Invert the preview against the page so the "opened artifact" reads as a separate
+ * surface, not part of the marketing page. The page is dark-first (bare :root and
+ * [data-theme="dark"] are dark), so the frame re-declares the OPPOSITE theme's
+ * colors and the preview's semantic utilities (bg-background, text-foreground,
+ * border-rule, …) resolve to the inverted palette with no markup change.
+ *
+ * We override the resolved --color-* tokens (what the utilities consume), NOT the
+ * raw --background/--foreground ramps: those feed --color-* through a var() that is
+ * resolved once at the @theme/:root scope, so redefining them on a descendant does
+ * not recompute the --color-* the utilities read. The accent is identical across
+ * themes, so it is intentionally left untouched. Values mirror the [data-theme]
+ * blocks in @agent-paste/ui globals.css; keep them in sync if the brand ramps
+ * change. */
+:root .t-preview-frame,
+[data-theme="dark"] .t-preview-frame {
+  /* light palette */
+  --color-background: hsl(60 17% 98%);
+  --color-surface: hsl(0 0% 100%);
+  --color-rule: hsl(45 16% 88%);
+  --color-rule-strong: hsl(44 13% 80%);
+  --color-foreground: hsl(0 0% 4%);
+  --color-muted: hsl(60 4% 22%);
+  --color-subtle: hsl(0 0% 42%);
+  /* Address-bar chrome: a distinctly grayer band than the body, plus the dot fill. */
+  --preview-chrome: hsl(48 10% 90%);
+  --preview-dot: hsl(0 0% 64%);
+}
+[data-theme="light"] .t-preview-frame {
+  /* dark palette */
+  --color-background: hsl(240 6% 5%);
+  --color-surface: hsl(240 7% 8%);
+  --color-rule: hsl(240 8% 15%);
+  --color-rule-strong: hsl(240 7% 24%);
+  --color-foreground: hsl(60 9% 95%);
+  --color-muted: hsl(240 5% 80%);
+  --color-subtle: hsl(240 5% 55%);
+  --preview-chrome: hsl(240 6% 15%);
+  --preview-dot: hsl(240 5% 48%);
+}
+
+/* Browser chrome: the address bar sits on the grayer --preview-chrome band so it
+ * reads as window chrome, with filled dots and a URL field on the page body color. */
+.t-preview-bar {
+  background: var(--preview-chrome);
+}
+.t-preview-dot {
+  background: var(--preview-dot);
+}
+.t-preview-url {
+  background: var(--color-background);
 }
 
 @keyframes t-line-in {
