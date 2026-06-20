@@ -156,6 +156,7 @@ non-interactive work such as text, markdown, images, and static HTML/CSS.
 
 \`\`\`
 npx @zaks-io/agent-paste publish ./report --ephemeral
+npx @zaks-io/agent-paste publish ./report --ephemeral --claim-code <clm_...>
 \`\`\`
 
 Ephemeral is not the Free Plan. It is an unclaimed restricted tier with low
@@ -167,6 +168,12 @@ owning, and unlocking interactivity. **Relay \`unlisted_url\` for viewing** — 
 into their Workspace. The token rides the URL **hash** only: it never appears in
 the query string or in any public Access Link Signed URL. The \`private_url\`
 clean viewer works only after claim.
+
+If a copied prompt includes \`--claim-code <clm_...>\`, preserve that flag on the
+\`publish --ephemeral\` command. The Claim Code is public attribution for the
+claim flow, not auth, ownership, billing, idempotency, a Claim Token, or a
+secret. The CLI carries it into \`unlisted_url\` and \`claim_url\` as the
+\`claim_code\` query parameter while keeping bearer secrets in URL hashes.
 
 Unclaimed ephemeral HTML is script-disabled. Text, markdown, images, and static
 HTML/CSS render, but JavaScript does not run. After claim, newly minted viewer

@@ -74,11 +74,8 @@ function Line({ line }: { line: TranscriptLine }) {
             &quot;
           </span>
           {/* Click-to-copy hint: reliably tells the reader the prompt copies on
-              click (more discoverable than the slow native title). Follows the
-              cursor — client.ts writes the pointer position into --tip-x/--tip-y
-              and apex.css (.t-prompt-tip) places it just below-right of the
-              cursor. Fades in on hover/focus; flips to a confirmation while
-              data-copied is set. Non-interactive. */}
+              click (more discoverable than the slow native title). Positioned
+              entirely by CSS so the locked style-src CSP stays clean. */}
           <span
             className="t-prompt-tip pointer-events-none absolute rounded-xs border border-rule-strong bg-surface px-2 py-0.5 font-mono text-mono-sm tracking-wider uppercase text-subtle opacity-0 transition-opacity duration-[140ms] ease-out group-hover/prompt:opacity-100 group-focus-visible/prompt:opacity-100"
             aria-hidden="true"

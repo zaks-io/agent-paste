@@ -40,6 +40,21 @@ function HeroCta({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
+const SUPPORT_EMAIL_CODES = "115,117,112,112,111,114,116,64,97,103,101,110,116,45,112,97,115,116,101,46,115,104";
+
+function SupportEmailLink() {
+  return (
+    <a
+      className="text-subtle underline decoration-rule underline-offset-4 transition-colors duration-200 ease-out hover:text-foreground"
+      href="#support"
+      data-email-codes={SUPPORT_EMAIL_CODES}
+      aria-label="Email support"
+    >
+      email support
+    </a>
+  );
+}
+
 // A mono command box: accent prompt, the command, and a Copy button that flips to
 // the accent on success (data-copied is set by the shared clipboard script bound
 // to [data-clipboard]). An optional label tags the box (e.g. the target OS); an
@@ -87,7 +102,9 @@ function HeroPane() {
       <p className="reveal d3 text-lg leading-relaxed text-muted mb-8 max-w-[52ch] min-[900px]:text-lg min-[900px]:max-w-[38ch]">
         {HERO.lead}
       </p>
-      <p className="reveal d4 font-mono text-mono leading-normal text-subtle mb-6 max-w-[52ch]">{HERO.status}</p>
+      <p className="reveal d4 font-mono text-mono leading-normal text-subtle mb-6 max-w-[52ch]">
+        {HERO.status} Report bugs to <SupportEmailLink />.
+      </p>
       <div className="reveal d4 flex items-center gap-6 flex-wrap">
         <a
           className="font-ui text-base text-muted py-1 transition-colors duration-200 ease-out hover:text-foreground"

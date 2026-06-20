@@ -69,6 +69,10 @@ export const CLI_DOC: DocsPage = {
               "`--ephemeral`",
               "Restricted accountless fallback for non-interactive text/images/static output. Ignores stored login, disables scripts while unclaimed, and prints `unlisted_url` plus `claim_url`.",
             ],
+            [
+              "`--claim-code <clm_...>`",
+              "Optional public attribution for `--ephemeral`. Preserve it when copied instructions include one; the CLI carries it into `unlisted_url` and `claim_url` as `claim_code`.",
+            ],
             ["`--revision-id <id>`", "With `pull`, read a specific Revision instead of the latest Published Revision."],
             ["`--edits <file>`", "With `edit`, read the JSON edit array from a file instead of stdin."],
             ["`--json`", "Emit pure JSON on stdout. Errors still go to stderr."],
@@ -109,7 +113,7 @@ export const CLI_DOC: DocsPage = {
           kind: "note",
           title: "Ephemeral output leads with the no-login link",
           body: [
-            "With `--ephemeral`, human-readable output leads with `unlisted_url`, the no-login script-disabled Share Link that works immediately. The `claim_url` is the keep/upgrade path for owning the Artifact and unlocking interactivity. Agents should relay `unlisted_url` for viewing and never relay `private_url` from an unclaimed ephemeral publish.",
+            "With `--ephemeral`, human-readable output leads with `unlisted_url`, the no-login script-disabled Share Link that works immediately. The `claim_url` is the keep/upgrade path for owning the Artifact and unlocking interactivity. If the publish command includes `--claim-code <clm_...>`, the CLI carries it into both links as the public `claim_code` query parameter. Agents should relay `unlisted_url` for viewing and never relay `private_url` from an unclaimed ephemeral publish.",
           ],
         },
         {

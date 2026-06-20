@@ -54,6 +54,10 @@ uploaded_bytes, reused_files, reused_bytes }`.
 - There is no `--share` input and no `shared` output bit. No-login unlisted
   sharing is the separate `set-visibility <artifact-id> unlisted` command, which
   mints or reuses the one Share Link and prints `unlisted_url`.
+- `publish --ephemeral --json` emits the normal publish fields plus
+  `{ unlisted_url, claim_token, claim_url, workspace_id, api_key_id,
+claim_token_id, claim_code? }`. `claim_code` is present only when the caller
+  supplied `--claim-code <clm_...>`.
 - `set-visibility <artifact-id> unlisted --json` emits
   `{ schema_version, artifact_id, visibility, access_link_id, unlisted_url }`.
   `unlisted_url` is the no-login Access Link Signed URL for the Artifact's Share
@@ -182,15 +186,18 @@ keep the install small and the supply chain clean.
 selection. `agent-paste publish --help` prints the same guide. The guide must
 lead with mode choice and exact commands before longer flag descriptions:
 
-| Mode      | Current shipped meaning                                                                                     | Command sequence                                                                                    | Agent returns                                                               |
-| --------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Private   | Default authenticated publish. Login-walled `private_url`; no unauthenticated access.                       | `agent-paste publish <path> --json`                                                                 | `private_url` only when the recipient can log in                            |
-| Unlisted  | No-login Share Link that follows later publishes and can be revoked.                                        | `agent-paste publish <path> --json` then `agent-paste set-visibility <artifact_id> unlisted --json` | `unlisted_url`                                                              |
-| Ephemeral | Accountless publish for no-login environments. Short-lived, claimable, and script-disabled while unclaimed. | `agent-paste publish <path> --ephemeral --json`                                                     | `unlisted_url` (working no-login link) and `claim_url`; never `private_url` |
+| Mode      | Current shipped meaning                                                                                     | Command sequence                                                                                                          | Agent returns                                                               |
+| --------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Private   | Default authenticated publish. Login-walled `private_url`; no unauthenticated access.                       | `agent-paste publish <path> --json`                                                                                       | `private_url` only when the recipient can log in                            |
+| Unlisted  | No-login Share Link that follows later publishes and can be revoked.                                        | `agent-paste publish <path> --json` then `agent-paste set-visibility <artifact_id> unlisted --json`                       | `unlisted_url`                                                              |
+| Ephemeral | Accountless publish for no-login environments. Short-lived, claimable, and script-disabled while unclaimed. | `agent-paste publish <path> --ephemeral --json` or `agent-paste publish <path> --ephemeral --claim-code <clm_...> --json` | `unlisted_url` (working no-login link) and `claim_url`; never `private_url` |
 
 The guide should tell agents to run `whoami --json` before choosing
 `--ephemeral`, to use `--artifact-id` when revising an existing Artifact, and to
-avoid handing `revision_content_url` back as the final live page.
+avoid handing `revision_content_url` back as the final live page. If copied
+instructions include `--claim-code <clm_...>`, the guide must tell agents to
+preserve it on `publish --ephemeral`: it is public claim-funnel attribution, not
+authorization, ownership, billing, idempotency, a Claim Token, or a secret.
 
 ## Publish human output
 
@@ -212,7 +219,15 @@ the upload summary, and an **Update** line:
 
 `publish --ephemeral` uses the same JSON fields as authenticated publish plus the
 server-minted `unlisted_url` and the claim fields `claim_token`, `claim_url`,
-`workspace_id`, `api_key_id`, and `claim_token_id`.
+`workspace_id`, `api_key_id`, `claim_token_id`, and `claim_code` when supplied.
+
+`--claim-code <clm_...>` is optional public attribution for the claim flow. It is
+valid only on `publish --ephemeral`. When present, the CLI sends it through
+ephemeral provision and publish, includes it in JSON as `claim_code`, and carries
+it into both `unlisted_url` and `claim_url` as the public `claim_code` query
+parameter. The bearer Access Link credential and Claim Token still ride URL
+hashes, never the query string. Invalid claim-code inputs are ignored rather than
+blocking ephemeral publish.
 
 In `rich`/`plain` mode, the working no-login link is the primary handoff and the
 claim link is the upgrade path:

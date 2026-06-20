@@ -44,6 +44,11 @@ to the usercontent Revision Content URL as the final live page.
   HTML/CSS. Unclaimed ephemeral HTML is script-disabled, so use authenticated
   publish for interactive pages, browser apps, or visualizations that need
   JavaScript.
+- If the user's prompt includes \`--claim-code <clm_...>\`, preserve that exact
+  flag on \`publish --ephemeral\`. A Claim Code is public attribution for the
+  claim funnel, not auth, ownership, billing, idempotency, a Claim Token, or a
+  secret. The CLI copies it into \`unlisted_url\` and \`claim_url\` as
+  \`?claim_code=<clm_...>\`; the bearer secrets stay in URL hashes.
 - Read an artifact from agent-facing surfaces through the CLI, \`${MCP_BASE_URL}\`
   (MCP tool \`read_artifact\`), or the dashboard for humans.
 - Verification: \`private_url\` is login-walled app navigation; a plain HTTP 200
@@ -97,6 +102,9 @@ bearer token.
 - Access Link Signed URL - the URL string minted from an Access Link. The one
   minted from a Share Link is the unlisted no-login link returned as
   \`unlisted_url\`.
+- Claim Code - optional \`clm_...\` analytics attribution from copied prompts.
+  Preserve it when present on \`publish --ephemeral\`; it is safe to appear in the
+  public \`claim_code\` query parameter and is not the Claim Token.
 
 ## Longer agent guide
 

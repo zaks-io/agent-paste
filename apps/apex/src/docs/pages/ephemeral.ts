@@ -28,6 +28,7 @@ export const EPHEMERAL_DOC: DocsPage = {
           kind: "ordered",
           items: [
             "An agent runs `agent-paste publish <path> --ephemeral`.",
+            "If copied instructions include `--claim-code <clm_...>`, the agent preserves it on the publish command.",
             "The CLI provisions an Ephemeral Workspace, then publishes through the normal Upload Session flow.",
             "Human-readable output leads with `unlisted_url`, a working no-login Share Link. Relay this link for immediate viewing, not the `private_url`.",
             "A signed-in human opens the `claim_url` to keep, unlock interactivity, and move the Artifact into their Personal Workspace.",
@@ -69,6 +70,21 @@ export const EPHEMERAL_DOC: DocsPage = {
             "The claim link carries the token in the URL hash, never the query string.",
             "The token is not embedded in Access Link Signed URLs.",
             "Expired, missing, or already redeemed tokens fail closed.",
+          ],
+        },
+      ],
+    },
+    {
+      id: "claim-code",
+      title: "Claim Code rules",
+      blocks: [
+        {
+          kind: "list",
+          items: [
+            "A Claim Code has the public shape `clm_...` and is optional analytics attribution for copied prompts.",
+            "It is not auth, ownership, billing, idempotency, a Claim Token, or a secret.",
+            "When present on `publish --ephemeral`, the CLI carries it into `unlisted_url` and `claim_url` as the `claim_code` query parameter.",
+            "The Claim Token and Access Link credential still ride URL hashes, not the query string.",
           ],
         },
       ],

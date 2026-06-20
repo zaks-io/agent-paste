@@ -258,19 +258,17 @@
   }
 }
 
-/* The click-to-copy hint follows the cursor: client.ts writes the pointer's
- * position into --tip-x/--tip-y on the prompt button and we place the tip just
- * below-right of it. Before the first pointermove the vars are unset; the fallback
- * anchors INSIDE the prompt button (top 0, not 100%) so the at-rest, invisible tip
- * never extends the scrollable content height of the overflow:auto t-body, which
- * was tripping a phantom vertical scrollbar before any hover. The tip is
- * pointer-events-none and opacity-0 until hover, so its fallback position only
- * matters for not growing the scroll region; on hover the live --tip-x/--tip-y put
- * it under the cursor as before. */
+.clipboard-fallback {
+  position: fixed;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Keep the prompt copy hint positioned by stylesheet only. Writing style
+ * attributes from client.ts violates the marketing site's locked style-src CSP. */
 .t-prompt-tip {
-  left: var(--tip-x, 0);
-  top: var(--tip-y, 0);
-  transform: translate(calc(0.9rem * var(--tip-side, 1) + (var(--tip-side, 1) - 1) * 50%), 0.9rem);
+  right: 0.35rem;
+  top: 0.35rem;
 }
 
 @media (prefers-reduced-motion: reduce) {

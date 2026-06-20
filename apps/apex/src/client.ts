@@ -58,7 +58,7 @@ function randomCrockford(length: number) {
 }
 
 function promptWithClaimCode(prompt: string, id: string) {
-  return `${prompt}\n\nWhen you publish with agent-paste, include --claim-code ${id}.`;
+  return `${prompt}\n\nWhen you publish with agent-paste, include this attribution flag: --claim-code ${id}.`;
 }
 
 function trackPromptCopied(id: string, promptVariant: string) {
@@ -170,6 +170,24 @@ function trackPromptCopied(id: string, promptVariant: string) {
   });
 })();
 
+// Public marketing pages avoid shipping the support address in prerendered HTML.
+// Assemble it in-browser so humans get a normal mailto link while simple crawlers
+// only see the generic support affordance.
+(() => {
+  document.querySelectorAll<HTMLAnchorElement>("[data-email-codes]").forEach((link) => {
+    const codes = link.getAttribute("data-email-codes");
+    if (!codes) return;
+    const email = codes
+      .split(",")
+      .map((code) => String.fromCharCode(Number(code)))
+      .join("");
+    if (!email.includes("@")) return;
+    link.href = `mailto:${email}`;
+    link.textContent = email;
+    link.setAttribute("aria-label", `Email ${email}`);
+  });
+})();
+
 // Click-to-copy on every [data-clipboard] element, with a textarea fallback for
 // browsers without the async clipboard API, and a data-copied flash.
 (() => {
@@ -189,8 +207,7 @@ function trackPromptCopied(id: string, promptVariant: string) {
           const ta = document.createElement("textarea");
           ta.value = clipboardText;
           ta.setAttribute("readonly", "");
-          ta.style.position = "fixed";
-          ta.style.opacity = "0";
+          ta.className = "clipboard-fallback";
           document.body.appendChild(ta);
           ta.select();
           document.execCommand("copy");
@@ -205,26 +222,6 @@ function trackPromptCopied(id: string, promptVariant: string) {
         console.error("clipboard write failed", err);
       }
     });
-  });
-})();
-
-// Make the prompt's "click to copy" hint follow the cursor. The tip lives inside
-// the prompt button; we write the pointer's position (relative to the button) into
-// CSS custom properties and let apex.css place the tip from them. No-ops with no
-// prompt button on the page.
-(() => {
-  const prompt = document.querySelector<HTMLElement>(".t-prompt-copy");
-  if (!prompt) return;
-  const tip = prompt.querySelector<HTMLElement>(".t-prompt-tip");
-  prompt.addEventListener("pointermove", (event) => {
-    const rect = prompt.getBoundingClientRect();
-    prompt.style.setProperty("--tip-x", `${event.clientX - rect.left}px`);
-    prompt.style.setProperty("--tip-y", `${event.clientY - rect.top}px`);
-    // Flip to the cursor's left near the right edge so the tip never spills out
-    // of the (overflow-clipping) terminal body.
-    const tipW = tip?.offsetWidth ?? 0;
-    const flip = event.clientX + 16 + tipW > rect.right;
-    prompt.style.setProperty("--tip-side", flip ? "-1" : "1");
   });
 })();
 
