@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { type ApexAssets, Shell } from "./app/Shell";
-import { EXAMPLE_ACCESS_LINK_URL, EXAMPLE_ARTIFACT_TITLE, EXAMPLE_PROMPT, PUBLISH_EPHEMERAL_CMD } from "./copy";
+import { EXAMPLE_ACCESS_LINK_URL, EXAMPLE_ARTIFACT_TITLE, PUBLISH_EPHEMERAL_CMD } from "./copy";
 import { docsPagesForBilling } from "./docs/registry";
 import { getRoutes } from "./routes";
 
@@ -162,11 +162,11 @@ describe("home page", () => {
     expect(main).not.toContain("REST API");
   });
 
-  it("makes the copyable agent prompt and the accountless publish the primary path", () => {
-    // The hero's primary action is a copy-to-clipboard of the real example prompt,
-    // and the shell path leads with the no-account --ephemeral publish. These are
-    // funnel contracts (the clipboard targets), not prose.
-    expect(body).toContain(`data-clipboard="${EXAMPLE_PROMPT}"`);
+  it("makes the attributed agent prompt and the accountless publish the primary path", () => {
+    // The hero's primary action is a claim-attributed copy-to-clipboard prompt,
+    // and the shell path leads with the no-account --ephemeral publish. Assert
+    // the wiring, not the prompt wording.
+    expect(body).toContain("data-claim-prompt-variant=");
     expect(body).toContain(`data-clipboard="${PUBLISH_EPHEMERAL_CMD}"`);
     // The dashboard sign-in stays reachable, demoted to a secondary link.
     expect(body).toContain('href="https://app.agent-paste.sh/api/auth/sign-in"');
