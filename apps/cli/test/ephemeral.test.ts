@@ -4,7 +4,7 @@ import path from "node:path";
 import { AgentPasteError } from "@agent-paste/api-client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as credentials from "../src/credentials.js";
-import { ephemeralAttributionUrl, ephemeralClaimUrl, parseArgs, publishEphemeral } from "../src/index.js";
+import { ephemeralClaimUrl, parseArgs, publishEphemeral } from "../src/index.js";
 
 const usagePolicy = {
   file_size_cap_bytes: 10 * 1024 * 1024,
@@ -30,6 +30,7 @@ const uploadSessionId = "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const claimToken = "ap_ct_preview_claimsecret000000000000000000_abc";
 const ephemeralApiKey = "ap_pk_preview_0123456789ABCDEF_ephemeralpublishsecret";
 const claimCode = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
+const claimTokenWithClaimCode = `ap_ct_preview_0123456789ABCDEF.${claimCode}_abcdefghijklmnopqrstuvwxyz012345`;
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -101,14 +102,14 @@ describe("cli ephemeral publish", () => {
     }
   });
 
-  it("passes claim code through provision, the visible link, and the claim URL", async () => {
+  it("passes claim code through provision and uses the embedded-token claim URL", async () => {
     const stdout = mockStdout();
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     vi.stubEnv("AGENT_PASTE_WEB_URL", "https://app.agent-paste.sh");
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-activation-"));
     try {
       await fs.writeFile(path.join(root, "index.html"), "<h1>Ephemeral</h1>");
-      const provision = vi.fn().mockResolvedValue(provisionedCredentials());
+      const provision = vi.fn().mockResolvedValue(provisionedCredentials({ claim_token: claimTokenWithClaimCode }));
 
       await publishEphemeral(parsedPublishArgs(root, { "claim-code": ` ${claimCode} ` }), {
         provision,
@@ -117,8 +118,9 @@ describe("cli ephemeral publish", () => {
 
       expect(provision).toHaveBeenCalledWith({ claimCode });
       const human = String(stdout.mock.calls.at(-1)?.[0]);
-      expect(human).toContain(`https://app.test/al/PUBLICLINK123456?claim_code=${claimCode}#secret`);
-      expect(human).toContain(`https://app.agent-paste.sh/claim?claim_code=${claimCode}#${claimToken}`);
+      expect(human).toContain("https://app.test/al/PUBLICLINK123456#secret");
+      expect(human).toContain(`https://app.agent-paste.sh/claim#${claimTokenWithClaimCode}`);
+      expect(human).not.toContain("claim_code=");
       expect(human).not.toContain(`?${claimToken}`);
     } finally {
       await fs.rm(root, { recursive: true, force: true });
@@ -143,6 +145,30 @@ describe("cli ephemeral publish", () => {
       const human = String(stdout.mock.calls.at(-1)?.[0]);
       expect(human).toContain(`https://app.agent-paste.sh/claim#${claimToken}`);
       expect(human).not.toContain("claim_code=");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("omits claim_code and private_url from ephemeral JSON output", async () => {
+    const stdout = mockStdout();
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    vi.stubEnv("AGENT_PASTE_WEB_URL", "https://app.agent-paste.sh");
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-json-"));
+    try {
+      await fs.writeFile(path.join(root, "index.html"), "<h1>Ephemeral</h1>");
+
+      await publishEphemeral(parsedPublishArgs(root, { json: true, "claim-code": claimCode }), {
+        provision: vi.fn().mockResolvedValue(provisionedCredentials({ claim_token: claimTokenWithClaimCode })),
+        createPublishClient: () => fakePublishClient(),
+      });
+
+      const payload = JSON.parse(String(stdout.mock.calls.at(-1)?.[0]));
+      expect(payload).not.toHaveProperty("claim_code");
+      expect(payload).not.toHaveProperty("private_url");
+      expect(payload.unlisted_url).toBe("https://app.test/al/PUBLICLINK123456#secret");
+      expect(payload.claim_url).toBe(`https://app.agent-paste.sh/claim#${claimTokenWithClaimCode}`);
+      expect(payload.claim_url).not.toContain("?");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
@@ -271,36 +297,30 @@ describe("ephemeralClaimUrl", () => {
     expect(ephemeralClaimUrl(claimToken)).not.toContain("?");
   });
 
-  it("keeps the claim code in query and the claim token in the hash", () => {
+  it("keeps embedded claim-code attribution inside the hash token", () => {
     vi.stubEnv("AGENT_PASTE_WEB_URL", "https://app.agent-paste.sh/");
-    expect(ephemeralClaimUrl(claimToken, claimCode)).toBe(
-      `https://app.agent-paste.sh/claim?claim_code=${claimCode}#${claimToken}`,
+    expect(ephemeralClaimUrl(claimTokenWithClaimCode)).toBe(
+      `https://app.agent-paste.sh/claim#${claimTokenWithClaimCode}`,
     );
-  });
-});
-
-describe("ephemeralAttributionUrl", () => {
-  it("places claim code in the query before a signed URL fragment", () => {
-    expect(ephemeralAttributionUrl("https://app.test/al/PUBLICLINK123456#secret", claimCode)).toBe(
-      `https://app.test/al/PUBLICLINK123456?claim_code=${claimCode}#secret`,
-    );
-  });
-
-  it("keeps optional attribution from breaking malformed fallback URLs", () => {
-    expect(ephemeralAttributionUrl("not a url", claimCode)).toBe("not a url");
+    expect(ephemeralClaimUrl(claimTokenWithClaimCode)).not.toContain("?");
   });
 });
 
 function parsedPublishArgs(root: string, flags: Record<string, string | boolean> = {}) {
+  const { json = false, quiet = false, ...commandFlags } = flags;
   return {
     command: ["publish"],
     positionals: [root],
-    flags: new Map<string, string | boolean>(Object.entries(flags)),
-    global: { json: false, quiet: false },
+    flags: new Map<string, string | boolean>(Object.entries(commandFlags)),
+    global: { json: json === true, quiet: quiet === true },
   };
 }
 
-function provisionedCredentials() {
+function provisionedCredentials(overrides: Partial<ReturnType<typeof provisionedCredentialsBase>> = {}) {
+  return { ...provisionedCredentialsBase(), ...overrides };
+}
+
+function provisionedCredentialsBase() {
   return {
     api_key_secret: ephemeralApiKey,
     claim_token: claimToken,

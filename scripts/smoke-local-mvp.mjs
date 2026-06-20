@@ -154,7 +154,7 @@ try {
   Artifact:  ${published.artifact_id}
   Artifact URL: ${published.private_url}
   Revision URL: ${published.revision_content_url}
-  Ephemeral: ${ephemeral.artifact_id} (claimed into ${ephemeral.member_workspace_id})
+  Ephemeral: ${ephemeral.artifact_id} ${ephemeral.unlisted_url} (claimed into ${ephemeral.member_workspace_id})
 
 `);
 } catch (error) {

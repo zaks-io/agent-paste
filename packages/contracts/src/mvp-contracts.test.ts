@@ -3,6 +3,7 @@ import {
   AgentView,
   buildApiOpenApiDocument,
   buildContentOpenApiDocument,
+  ClaimTokenBearer,
   CreateUploadSessionRequest,
   CreateUploadSessionResponse,
   ErrorCode,
@@ -562,7 +563,34 @@ describe("MVP schemas", () => {
       expires_at: "2026-06-19T12:00:00.000Z",
     });
     expect(result).toMatchObject({ title: "demo" });
-    expect(result.private_url.endsWith(`/v/${artifactId}`)).toBe(true);
+    expect("private_url" in result && result.private_url.endsWith(`/v/${artifactId}`)).toBe(true);
     expect(result).not.toHaveProperty("access_link_url");
+
+    const ephemeral = PublishResult.parse({
+      artifact_id: artifactId,
+      revision_id: revisionId,
+      title: "demo",
+      bundle: { status: "pending", retry_after_seconds: 5 },
+      unlisted_url: "https://app.agent-paste.sh/al/0123456789ABCDEF#secret",
+      revision_content_url: "https://usercontent.agent-paste.sh/v/token/index.html",
+      agent_view_url: "https://api.agent-paste.sh/v1/public/agent-view/token",
+      expires_at: "2026-06-19T12:00:00.000Z",
+    });
+    expect(ephemeral).toHaveProperty("unlisted_url");
+    expect(ephemeral).not.toHaveProperty("private_url");
+    expect(
+      PublishResult.safeParse({
+        ...ephemeral,
+        private_url: `https://app.agent-paste.sh/v/${artifactId}`,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("allows claim tokens with embedded claim-code attribution", () => {
+    expect(
+      ClaimTokenBearer.parse(
+        "ap_ct_preview_0123456789ABCDEF.clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD_abcdefghijklmnopqrstuvwxyz012345",
+      ),
+    ).toContain(".clm_");
   });
 });

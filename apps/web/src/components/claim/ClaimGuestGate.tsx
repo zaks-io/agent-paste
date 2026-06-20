@@ -1,9 +1,7 @@
 import { useLayoutEffect } from "react";
 import {
-  claimCodeFromLocationSearch,
   claimTokenFromLocationHash,
   clearClaimTokenFromLocation,
-  stashPendingClaimCode,
   stashPendingClaimToken,
 } from "../../lib/claim-redemption";
 
@@ -11,13 +9,9 @@ import {
 export function ClaimGuestGate() {
   useLayoutEffect(() => {
     const token = claimTokenFromLocationHash();
-    const claimCode = claimCodeFromLocationSearch();
     if (token) {
       stashPendingClaimToken(token);
       clearClaimTokenFromLocation();
-    }
-    if (claimCode) {
-      stashPendingClaimCode(claimCode);
     }
     window.location.assign("/api/auth/sign-in?returnPathname=%2Fclaim");
   }, []);

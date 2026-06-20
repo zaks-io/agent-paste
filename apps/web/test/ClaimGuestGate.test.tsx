@@ -1,10 +1,8 @@
 import { render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ClaimGuestGate } from "../src/components/claim/ClaimGuestGate";
-import { PENDING_CLAIM_CODE_STORAGE_KEY, PENDING_CLAIM_TOKEN_STORAGE_KEY } from "../src/lib/claim-redemption";
+import { PENDING_CLAIM_TOKEN_STORAGE_KEY } from "../src/lib/claim-redemption";
 import { VALID_TOKEN } from "./claim-fixtures";
-
-const claimCode = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
 
 describe("ClaimGuestGate", () => {
   afterEach(() => {
@@ -29,9 +27,9 @@ describe("ClaimGuestGate", () => {
     vi.unstubAllGlobals();
   });
 
-  it("stashes claim code from query while keeping the claim token in storage", async () => {
+  it("ignores claim-code query state while keeping the claim token in storage", async () => {
     const assign = vi.fn();
-    window.history.replaceState({}, "", `/claim?claim_code=${claimCode}#${VALID_TOKEN}`);
+    window.history.replaceState({}, "", `/claim?claim_code=clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD#${VALID_TOKEN}`);
     vi.stubGlobal("location", {
       ...window.location,
       hash: `#${VALID_TOKEN}`,
@@ -43,7 +41,7 @@ describe("ClaimGuestGate", () => {
 
     await waitFor(() => expect(assign).toHaveBeenCalledWith("/api/auth/sign-in?returnPathname=%2Fclaim"));
     expect(sessionStorage.getItem(PENDING_CLAIM_TOKEN_STORAGE_KEY)).toBe(VALID_TOKEN);
-    expect(sessionStorage.getItem(PENDING_CLAIM_CODE_STORAGE_KEY)).toBe(claimCode);
+    expect(sessionStorage.length).toBe(1);
     vi.unstubAllGlobals();
   });
 });

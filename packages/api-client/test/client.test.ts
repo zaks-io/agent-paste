@@ -230,7 +230,7 @@ describe("ApiClient", () => {
     expect(calls[0]?.method).toBe("POST");
     expect(calls[0]?.headers.get("idempotency-key")).toBe("idem_publish");
     await expect(calls[0]?.text()).resolves.toBe("");
-    expect(result.private_url.endsWith(`/v/${artifactId}`)).toBe(true);
+    expect("private_url" in result && result.private_url.endsWith(`/v/${artifactId}`)).toBe(true);
     expect(result).not.toHaveProperty("access_link_url");
   });
 

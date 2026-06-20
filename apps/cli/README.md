@@ -164,16 +164,16 @@ keep it, a signed-in human opens the claim link to reparent the Artifact into
 their Personal Workspace.
 
 If a copied Agent Paste prompt includes `--claim-code <clm_...>`, preserve that
-flag on the `--ephemeral` publish. It is optional public attribution for the
-claim-link flow: not auth, ownership, idempotency, billing, a Claim Token, or a
-secret. When present, the CLI passes it through provision and publish, then
-carries it into `unlisted_url` and `claim_url` as the public `claim_code` query
-parameter.
+flag on the `--ephemeral` publish. It is optional attribution for claim
+conversion: not auth, ownership, idempotency, billing, a Claim Token, or a
+secret. The CLI sends it to the API for attribution; the API embeds it in the
+Claim Token returned by provision. The CLI never returns `claim_code` as a JSON
+field and never adds it to `unlisted_url`, `claim_url`, or any query string.
 
-The Claim Token rides the URL **hash** only (`/claim#<token>` or
-`/claim?claim_code=<clm_...>#<token>`): never the query string, and never the
-`private_url`, `revision_content_url`, or `agent_view_url`. The claim link points
-at `AGENT_PASTE_WEB_URL` (default `https://app.agent-paste.sh`).
+The Claim Token rides the URL **hash** only (`/claim#<token>`): never the query
+string, and never the `private_url`, `revision_content_url`, or
+`agent_view_url`. The claim link points at `AGENT_PASTE_WEB_URL` (default
+`https://app.agent-paste.sh`).
 
 Ephemeral content uses the script-disabled execution policy while unclaimed.
 Text, markdown, images, and static HTML/CSS render, but JavaScript, inline event
@@ -206,7 +206,7 @@ from a signed-in Workspace instead of passing `--ephemeral`.
 | `--entrypoint <path>`    | Override the inferred entrypoint. Must be a file inside the upload.                                                                                                           |
 | `--render-mode <mode>`   | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.                                                                                     |
 | `--ephemeral`            | Restricted accountless fallback for non-interactive text/images/static output. Ignores stored login and environment credentials, then prints `unlisted_url` plus `claim_url`. |
-| `--claim-code <clm_...>` | Optional public attribution for `--ephemeral`. Preserve it when copied instructions include one; the CLI carries it into `unlisted_url` and `claim_url` as `claim_code`.      |
+| `--claim-code <clm_...>` | Optional attribution for `--ephemeral`. Preserve it when copied instructions include one; the API embeds it in the claim token and the CLI never returns it separately.       |
 | `--revision-id <id>`     | With `pull`, read a specific Revision instead of the latest published Revision.                                                                                               |
 | `--edits <file>`         | With `edit`, read the JSON edit array from a file instead of stdin.                                                                                                           |
 | `--json`                 | Emit the result as JSON on stdout. Stdout becomes pure JSON and carries a stable `schema_version`.                                                                            |
@@ -302,8 +302,7 @@ human wants to keep, own, or unlock interactivity. Never relay `private_url` fro
 an unclaimed ephemeral publish.
 
 With `--json` and `--ephemeral`, the result also carries `unlisted_url`,
-`claim_token`, `claim_url`, `workspace_id`, `api_key_id`, `claim_token_id`, and
-`claim_code` when supplied.
+`claim_token`, `claim_url`, `workspace_id`, `api_key_id`, and `claim_token_id`.
 
 ## Pull and edit
 

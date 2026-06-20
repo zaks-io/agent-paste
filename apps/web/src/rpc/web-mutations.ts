@@ -76,7 +76,7 @@ export const openPortalFn = createServerFn({ method: "POST" }).handler(async () 
 });
 
 export const claimEphemeralFn = createServerFn({ method: "POST" })
-  .inputValidator((input: { claim_code?: string; claim_token: string; turnstile_token: string }) => input)
+  .inputValidator((input: { claim_token: string; turnstile_token: string }) => input)
   .handler(async ({ data }) => {
     const { claimEphemeral } = await import("../server/web-mutations");
     return claimEphemeral(data);

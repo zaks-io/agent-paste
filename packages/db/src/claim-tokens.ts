@@ -7,26 +7,35 @@ export type GeneratedClaimToken = {
   tokenHash: Uint8Array;
 };
 
+const CLAIM_CODE_PATTERN = /^clm_[0-9A-HJKMNP-TV-Z]{26}$/;
+const CLAIM_TOKEN_PATTERN =
+  /^ap_ct_(preview|production)_([0-9A-HJKMNP-TV-Z]{16})(?:\.(clm_[0-9A-HJKMNP-TV-Z]{26}))?_([A-Za-z0-9_-]{32,})$/;
+
 export function digestToBytes(digest: string): Uint8Array {
   return base64UrlDecode(digest);
 }
 
-export async function generateClaimToken(env: "preview" | "production", pepper: string): Promise<GeneratedClaimToken> {
+export async function generateClaimToken(
+  env: "preview" | "production",
+  pepper: string,
+  claimCode?: string,
+): Promise<GeneratedClaimToken> {
   const publicId = randomCrockford(16);
   const secretSegment = base64UrlEncode(crypto.getRandomValues(new Uint8Array(32)));
+  const claimCodeSegment = claimCode && CLAIM_CODE_PATTERN.test(claimCode) ? `.${claimCode}` : "";
   return {
-    secret: `ap_ct_${env}_${publicId}_${secretSegment}`,
+    secret: `ap_ct_${env}_${publicId}${claimCodeSegment}_${secretSegment}`,
     publicId,
     tokenHash: digestToBytes(await hmac(secretSegment, pepper)),
   };
 }
 
 export function parseClaimToken(value: string) {
-  const match = value.match(/^ap_ct_(preview|production)_([0-9A-HJKMNP-TV-Z]{16})_([A-Za-z0-9_-]{32,})$/);
-  if (!match?.[2] || !match[3]) {
+  const match = value.match(CLAIM_TOKEN_PATTERN);
+  if (!match?.[2] || !match[4]) {
     return null;
   }
-  return { publicId: match[2], secret: match[3] };
+  return { publicId: match[2], secret: match[4], claimCode: match[3] };
 }
 
 export async function verifyClaimTokenSecret(

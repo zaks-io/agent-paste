@@ -1,6 +1,6 @@
 import { buildErrorBody, getRequestId, REQUEST_ID_HEADER } from "@agent-paste/auth";
 import { ClaimCode } from "@agent-paste/contracts";
-import type { Repository } from "@agent-paste/db";
+import { parseClaimToken, type Repository } from "@agent-paste/db";
 import { DEFAULT_POW_CHALLENGE_TTL_SECONDS, issuePowChallenge, verifyPowSolution } from "@agent-paste/tokens/pow";
 import { getBoundResponders, writeFunnelEvent } from "@agent-paste/worker-runtime";
 import type { AppContext } from "../env.js";
@@ -71,6 +71,7 @@ export async function ephemeralProvisionRoute(
 
   const result = await db.createEphemeralWorkspace({
     idempotencyKey: `ephemeral-provision:${challenge.nonce}`,
+    ...(claimCode ? { claimCode } : {}),
   });
   writeFunnelEvent(env.FUNNEL_EVENTS, {
     kind: "ephemeral_workspace_created",
@@ -115,7 +116,7 @@ export async function ephemeralClaimRoute(
         writeFunnelEvent(context.env.FUNNEL_EVENTS, {
           kind: "link_claimed",
           surface: "api",
-          claimCode: validClaimCode(guard.body.claim_code),
+          claimCode: parseClaimToken(guard.body.claim_token)?.claimCode,
           workspaceId: result.source_workspace_id,
           claimTokenId: result.claim_token_id,
           artifactCount: result.artifact_ids.length,

@@ -150,6 +150,7 @@ export type Repository = {
     idempotencyKey: string;
     now?: Date;
     claimTokenExpiresInSeconds?: number;
+    claimCode?: string;
   }): Promise<CreateEphemeralWorkspaceResult>;
   claimEphemeralWorkspace(input: {
     actor: ApiActor;

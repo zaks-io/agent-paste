@@ -57,6 +57,10 @@ export async function publishViaSharedModule(deps: McpToolDeps, input: PublishIn
 export function shapePublishOutput(
   outcome: Pick<PublishOutcome, "title" | "privateUrl" | "expiresAt" | "uploadStats">,
 ): McpToolResult {
+  if (!outcome.privateUrl) {
+    console.error("mcp: publish output missing private_url");
+    return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
+  }
   const parsed = McpPublishArtifactOutput.safeParse({
     title: outcome.title,
     private_url: outcome.privateUrl,

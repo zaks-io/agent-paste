@@ -182,6 +182,21 @@ describe("publish coordinator write-allowance reservation", () => {
     expect(mintMemberAccessLink).toHaveBeenCalledWith(expect.objectContaining({ accessLinkId: "al_ephemeral" }));
   });
 
+  it("fails ephemeral publish output when the public Share Link cannot be minted", async () => {
+    const { coordinator } = coordinatorFixture({
+      async peekPublishWriteGate() {
+        return { is_already_published: true, is_new_artifact: false };
+      },
+      async publishRevision() {
+        return publishedResult({ ephemeral_tier: true });
+      },
+    });
+
+    await expect(coordinator.publishRevision(publishInput)).rejects.toThrow(
+      "ephemeral_access_link_signing_unavailable",
+    );
+  });
+
   it("does not create a Share Link or return unlisted_url for a standard authenticated publish", async () => {
     const createMemberAccessLink = vi.fn();
     const { coordinator } = coordinatorFixture(

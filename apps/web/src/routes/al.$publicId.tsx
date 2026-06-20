@@ -71,7 +71,6 @@ function AccessLinkViewer() {
       setState({ kind: "not_found" });
       return () => controller.abort();
     }
-    const claimCode = claimCodeFromSearch(window.location.search);
     setState({ kind: "loading" });
     fetch("/api/access-links/resolve", {
       method: "POST",
@@ -79,7 +78,6 @@ function AccessLinkViewer() {
       body: JSON.stringify({
         public_id: publicId,
         blob,
-        ...(claimCode ? { claim_code: claimCode } : {}),
       }),
       signal: controller.signal,
     })
@@ -171,9 +169,4 @@ function AccessLinkViewer() {
       <AccessLinkBrandBar publicId={publicId} renderMode={state.render_mode} title={state.title} />
     </main>
   );
-}
-
-function claimCodeFromSearch(search: string): string | undefined {
-  const raw = new URLSearchParams(search).get("claim_code")?.trim();
-  return raw && /^clm_[0-9A-HJKMNP-TV-Z]{26}$/.test(raw) ? raw : undefined;
 }

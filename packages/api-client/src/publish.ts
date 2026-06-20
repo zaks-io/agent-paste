@@ -71,7 +71,7 @@ export type UploadStats = {
 
 export type PublishOutcome = {
   /** The private viewer link to hand back: a login-walled clean viewer (`/v/<id>`). */
-  privateUrl: string;
+  privateUrl?: string | undefined;
   title: string;
   expiresAt: string;
   uploadStats: UploadStats;
@@ -105,9 +105,8 @@ export type PublishTransport = {
 /**
  * The one publish path shared by the CLI and the MCP server: create an upload
  * session, upload the files the server does not already have, finalize, and
- * publish the revision. Publish is content-only and private — it returns one
- * link, the private viewer URL (`/v/<id>`). Unlisted sharing is a separate
- * visibility step.
+ * publish the revision. Authenticated publish returns `private_url`; ephemeral
+ * publish returns `unlisted_url`.
  */
 export async function runPublish(transport: PublishTransport, input: PublishInput): Promise<PublishOutcome> {
   const session = await transport.createUploadSession(buildCreateSessionRequest(input), input.idempotencyKey);
@@ -146,7 +145,7 @@ export async function runPublish(transport: PublishTransport, input: PublishInpu
   const result = await transport.publishRevision(finalized.artifact_id, finalized.revision_id, input.idempotencyKey);
 
   return {
-    privateUrl: result.private_url,
+    ...("private_url" in result ? { privateUrl: result.private_url } : {}),
     title: result.title,
     expiresAt: result.expires_at,
     uploadStats: stats,
