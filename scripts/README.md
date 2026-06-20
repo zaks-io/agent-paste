@@ -232,6 +232,20 @@ pnpm smoke:web
 
 The script starts the local MVP server on alternate ports, stubs WorkOS locally, provisions a member through the web callback route, and verifies dashboard read APIs, key minting, settings, audit, API-key rejection on member routes, and cross-workspace not-found behavior.
 
+### `lighthouse-apex-a11y.mjs`
+
+Local Lighthouse accessibility gate for every prerendered apex route:
+
+```sh
+pnpm --filter @agent-paste/apex build
+pnpm lighthouse:apex-a11y
+```
+
+The script serves `apps/apex/dist/client` from a local static server, imports the
+built apex route table, and runs Lighthouse with `onlyCategories:
+['accessibility']` on each route. The process exits non-zero when any route is
+below `100` (override with `AGENT_PASTE_LIGHTHOUSE_APEX_A11Y_MIN_SCORE`).
+
 ### `lighthouse-dashboard-a11y.mjs`
 
 Local Lighthouse accessibility gate for the authenticated `/dashboard` empty surface:
