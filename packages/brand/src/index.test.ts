@@ -35,6 +35,8 @@ describe("cssVarsBlock", () => {
   it("binds --primary to the foreground for the high-contrast neutral button", () => {
     expect(themeVarLines("dark")["--primary"]).toBe(DARK.foreground);
     expect(themeVarLines("light")["--primary"]).toBe(LIGHT.foreground);
+    expect(themeVarLines("dark")["--primary-dim"]).toBe(DARK.muted);
+    expect(themeVarLines("light")["--primary-dim"]).toBe(LIGHT.muted);
   });
 });
 

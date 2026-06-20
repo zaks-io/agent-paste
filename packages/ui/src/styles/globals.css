@@ -116,6 +116,7 @@
   --accent-tint: 10 100% 54% / 0.14;
   --selection: 10 100% 54% / 0.3;
   --primary: var(--foreground);
+  --primary-dim: var(--muted);
   --primary-fg: var(--background);
 
   --success: var(--live);
@@ -149,6 +150,7 @@
   --accent-tint: 10 100% 54% / 0.1;
   --selection: 10 100% 54% / 0.16;
   --primary: var(--foreground);
+  --primary-dim: var(--muted);
   --primary-fg: var(--background);
 
   --success: 152 52% 36%;
@@ -183,6 +185,7 @@
   --color-accent-dim: hsl(var(--accent-dim));
   --color-accent-foreground: hsl(var(--accent-fg));
   --color-primary: hsl(var(--primary));
+  --color-primary-dim: hsl(var(--primary-dim));
   --color-primary-foreground: hsl(var(--primary-fg));
   /* Pre-composed translucent accent. Alpha is baked into the channel string, so
    * use bg-accent-tint BARE — never with an /opacity modifier (would double-apply). */

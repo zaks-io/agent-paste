@@ -54,6 +54,7 @@ function themeVars(t: ThemeTokens): Record<string, string> {
     "--destructive": t.destructive,
     // High-contrast neutral button pair: foreground-on-background, flipped.
     "--primary": t.foreground,
+    "--primary-dim": t.muted,
     "--primary-fg": t.background,
   };
 }
@@ -248,6 +249,7 @@ ${fontFaceCss()}
   --accent-tint: ${D.accentTint};
   --selection: ${D.selection};
   --primary: var(--foreground);
+  --primary-dim: var(--muted);
   --primary-fg: var(--background);
 
   --success: var(--live);
@@ -281,6 +283,7 @@ ${fontFaceCss()}
   --accent-tint: ${L.accentTint};
   --selection: ${L.selection};
   --primary: var(--foreground);
+  --primary-dim: var(--muted);
   --primary-fg: var(--background);
 
   --success: ${L.success};
@@ -315,6 +318,7 @@ ${fontFaceCss()}
   --color-accent-dim: hsl(var(--accent-dim));
   --color-accent-foreground: hsl(var(--accent-fg));
   --color-primary: hsl(var(--primary));
+  --color-primary-dim: hsl(var(--primary-dim));
   --color-primary-foreground: hsl(var(--primary-fg));
   /* Pre-composed translucent accent. Alpha is baked into the channel string, so
    * use bg-accent-tint BARE — never with an /opacity modifier (would double-apply). */
