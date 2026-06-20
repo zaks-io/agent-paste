@@ -165,8 +165,9 @@ their Personal Workspace.
 
 If a copied Agent Paste prompt includes `--claim-code <clm_...>`, preserve that
 flag on the `--ephemeral` publish. It is optional analytics correlation only:
-not auth, ownership, idempotency, billing, or a secret. When present, the CLI
-passes it through provision, publish, and claim URL construction.
+not auth, ownership, idempotency, billing, a Claim Token, or a secret. When
+present, the CLI passes it through provision and publish, then carries it into
+`unlisted_url` and `claim_url` as the public `claim_code` query parameter.
 
 The Claim Token rides the URL **hash** only (`/claim#<token>` or
 `/claim?claim_code=<clm_...>#<token>`): never the query string, and never the
@@ -204,7 +205,7 @@ from a signed-in Workspace instead of passing `--ephemeral`.
 | `--entrypoint <path>`    | Override the inferred entrypoint. Must be a file inside the upload.                                                                                                           |
 | `--render-mode <mode>`   | Override the inferred render mode: `html`, `markdown`, `text`, `image`, `audio`, `video`.                                                                                     |
 | `--ephemeral`            | Restricted accountless fallback for non-interactive text/images/static output. Ignores stored login and environment credentials, then prints `unlisted_url` plus `claim_url`. |
-| `--claim-code <clm_...>` | Optional analytics correlation ID for `--ephemeral`. Preserve it when copied instructions include one.                                                                        |
+| `--claim-code <clm_...>` | Optional public attribution for `--ephemeral`. Preserve it when copied instructions include one; the CLI carries it into `unlisted_url` and `claim_url` as `claim_code`.      |
 | `--revision-id <id>`     | With `pull`, read a specific Revision instead of the latest published Revision.                                                                                               |
 | `--edits <file>`         | With `edit`, read the JSON edit array from a file instead of stdin.                                                                                                           |
 | `--json`                 | Emit the result as JSON on stdout. Stdout becomes pure JSON and carries a stable `schema_version`.                                                                            |

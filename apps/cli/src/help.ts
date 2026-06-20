@@ -20,7 +20,8 @@ Agent publish quick path:
      agent-paste set-visibility <artifact_id> unlisted --json and return unlisted_url.
   4. If not authenticated and login is not possible, run
      agent-paste publish <path> --ephemeral --json and return unlisted_url.
-     If a copied prompt included --claim-code, preserve that flag.
+     If a copied prompt included --claim-code, preserve that flag. It carries
+     claim-funnel attribution into unlisted_url and claim_url, not authorization.
 
 Publish modes:
   Private   Default. agent-paste publish <path>. Returns private_url, a
@@ -68,6 +69,9 @@ Choose the mode:
     Use:  return unlisted_url, not private_url. Also provide claim_url when the
           human wants to keep, own, or unlock interactivity. Unclaimed ephemeral
           HTML has scripts disabled, so do not use it for interactive JS apps.
+    Note: --claim-code is optional public attribution. It is copied into
+          unlisted_url and claim_url as claim_code; it is not a Claim Token,
+          auth, ownership, billing, idempotency, or a secret.
 
 Fast recipes:
   Authenticated private publish:
@@ -89,7 +93,8 @@ Fast recipes:
 
   Accountless handoff:
     agent-paste publish <path> --ephemeral --json
-    Preserve --claim-code <clm_...> when the copied instructions include it.
+    Preserve --claim-code <clm_...> when copied instructions include it; the
+    CLI carries it into unlisted_url and claim_url as claim_code.
 
 What to hand back:
   private_url           Private viewer for signed-in Workspace Members.
@@ -136,8 +141,10 @@ Path behavior:
                 and a one-time claim_url.
   --claim-code <clm_...>
                 Optional analytics correlation ID for --ephemeral. Preserve it
-                when a copied Agent Paste prompt includes one. It is not auth,
-                ownership, idempotency, or a secret.
+                when a copied Agent Paste prompt includes one. The CLI carries
+                it through to unlisted_url and claim_url as the public
+                claim_code query parameter. It is not auth, ownership, billing,
+                idempotency, a Claim Token, or a secret.
 
 Pull:
   Read one file's stored content back (so you can edit it and revise). Prints the

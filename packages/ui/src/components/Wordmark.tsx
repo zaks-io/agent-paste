@@ -18,10 +18,9 @@ export function Wordmark({ withMark = false, small = false }: Props) {
       <span
         className={
           small
-            ? "font-mono text-base font-medium whitespace-nowrap text-foreground"
-            : "font-mono text-h3 font-medium whitespace-nowrap text-foreground"
+            ? "font-mono text-base font-medium tracking-tight whitespace-nowrap text-foreground"
+            : "font-mono text-h3 font-medium tracking-tight whitespace-nowrap text-foreground"
         }
-        style={{ letterSpacing: "-0.01em" }}
       >
         agent
         <span className="text-accent">-</span>

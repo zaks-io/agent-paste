@@ -177,6 +177,16 @@ describe("home page", () => {
     expect(body).toContain('href="https://app.agent-paste.sh/api/auth/sign-in"');
   });
 
+  it("keeps the homepage support email out of static crawler HTML", () => {
+    expect(body).toContain("data-email-codes=");
+    expect(body).not.toContain("support@agent-paste.sh");
+    expect(body).not.toContain("mailto:support");
+  });
+
+  it("does not render style attributes under the locked style-src CSP", () => {
+    expect(body).not.toMatch(/\sstyle=/);
+  });
+
   it("links the one-line installer to its served scripts", () => {
     expect(body).toContain('href="/install.sh"');
     expect(body).toContain('href="/install.ps1"');

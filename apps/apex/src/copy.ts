@@ -45,7 +45,7 @@ export const HERO = {
   // Honest, verifiable, and answers the two first-glance objections (is this real?
   // what is the catch on free?). Every figure is true to packages/config + pricing.
   status:
-    "Early alpha. No card. Unclaimed links last 24 hours with scripts disabled; free accounts keep work longer and unlock interactive pages.",
+    "Very early testing. No card. Unclaimed links last 24 hours with scripts disabled; free accounts keep work longer and unlock interactive pages.",
   // The dashboard is the secondary door, not the headline ask.
   secondary: { label: "Open the dashboard", href: SIGN_IN_URL },
 };
@@ -102,8 +102,8 @@ export const EXAMPLE_REPORT_ROWS = [
 // report and hand back the link. The prompt stays short because it is marketing
 // copy; the demo narration and docs carry the detailed safety rules.
 export const EXAMPLE_PROMPT =
-  "Read https://agent-paste.sh/llms-full.txt. Make me a practical HTML page on where agent-paste would actually save me time. Use my work as broad context, keep it safe to share publicly, publish it with agent-paste, and give me the link.";
-export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v5_public_safe_fetch";
+  "Read https://agent-paste.sh/llms.txt. Make me a practical HTML page on where agent-paste would actually save me time. Use my work as broad context, keep it safe to share publicly, publish it with agent-paste, and give me the link.";
+export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v6_public_safe_llms_summary";
 
 // Inline run affordance shown right after the prompt line, and the replay control
 // in the head once the run has played. Copy floats freely; not a test contract.
@@ -212,7 +212,7 @@ export const TRANSCRIPT: TranscriptLine[] = [
   {
     kind: "tool",
     wait: 1300,
-    text: "Fetch(https://agent-paste.sh/llms-full.txt)",
+    text: "Fetch(https://agent-paste.sh/llms.txt)",
     result: "CLI + MCP publish · public-safe sharing · accountless --ephemeral links",
     hint: "+18 lines (ctrl+o to expand)",
   },
