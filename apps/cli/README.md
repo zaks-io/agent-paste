@@ -164,10 +164,11 @@ keep it, a signed-in human opens the claim link to reparent the Artifact into
 their Personal Workspace.
 
 If a copied Agent Paste prompt includes `--claim-code <clm_...>`, preserve that
-flag on the `--ephemeral` publish. It is optional analytics correlation only:
-not auth, ownership, idempotency, billing, a Claim Token, or a secret. When
-present, the CLI passes it through provision and publish, then carries it into
-`unlisted_url` and `claim_url` as the public `claim_code` query parameter.
+flag on the `--ephemeral` publish. It is optional public attribution for the
+claim-link flow: not auth, ownership, idempotency, billing, a Claim Token, or a
+secret. When present, the CLI passes it through provision and publish, then
+carries it into `unlisted_url` and `claim_url` as the public `claim_code` query
+parameter.
 
 The Claim Token rides the URL **hash** only (`/claim#<token>` or
 `/claim?claim_code=<clm_...>#<token>`): never the query string, and never the
