@@ -13,9 +13,10 @@ describe("claim tokens", () => {
     await expect(verifyClaimTokenSecret(`${generated.secret}x`, generated.tokenHash, pepper)).resolves.toBe(false);
   });
 
-  it("embeds claim code attribution in the bearer without changing verification", async () => {
+  it("embeds claim code attribution in the bearer and binds it to verification", async () => {
     const pepper = "test-pepper";
     const generated = await generateClaimToken("preview", pepper, claimCode);
+    const forged = generated.secret.replace(claimCode, "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCE");
     expect(generated.secret).toMatch(
       /^ap_ct_preview_[0-9A-HJKMNP-TV-Z]{16}\.clm_[0-9A-HJKMNP-TV-Z]{26}_[A-Za-z0-9_-]{32,}$/,
     );
@@ -24,6 +25,10 @@ describe("claim tokens", () => {
       claimCode,
     });
     await expect(verifyClaimTokenSecret(generated.secret, generated.tokenHash, pepper)).resolves.toBe(true);
+    await expect(verifyClaimTokenSecret(forged, generated.tokenHash, pepper)).resolves.toBe(false);
+    await expect(
+      verifyClaimTokenSecret(generated.secret.replace(`.${claimCode}`, ""), generated.tokenHash, pepper),
+    ).resolves.toBe(false);
   });
 
   it("rejects malformed bearers and wrong peppers", async () => {

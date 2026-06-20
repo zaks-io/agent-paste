@@ -84,7 +84,14 @@ describe("text and data assets", () => {
   });
 
   it("keeps claim-code query strings out of public agent docs", async () => {
-    for (const path of ["/llms.txt", "/agents.md", "/llms-full.txt", "/docs/cli.md", "/docs/ephemeral.md"]) {
+    for (const path of [
+      "/llms.txt",
+      "/agents.md",
+      "/llms-full.txt",
+      "/docs/cli.md",
+      "/docs/ephemeral.md",
+      "/docs/getting-started.md",
+    ]) {
       const body = await (await get(path)).text();
       expect(body).not.toContain("?claim_code");
     }

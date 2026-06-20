@@ -91,7 +91,7 @@ describe("parseRequestBody request-body cap", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         claim_code: "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD",
-        claim_token: "ap_ct_preview_testsecret000000_abc",
+        claim_token: "ap_ct_preview_0123456789ABCDEF_abcdefghijklmnopqrstuvwxyz012345",
       }),
     });
 
