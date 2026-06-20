@@ -16,12 +16,12 @@ const BASE =
   "disabled:opacity-45 disabled:cursor-not-allowed";
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary: "bg-primary !text-primary-foreground hover:bg-muted",
-  accent: "bg-accent !text-accent-foreground hover:bg-accent-dim",
-  secondary: "bg-transparent !text-foreground border border-rule-strong hover:bg-surface-2 hover:border-rule-strong",
-  ghost: "bg-transparent !text-muted hover:!text-foreground hover:bg-surface-2",
-  destructive: "bg-destructive !text-accent-foreground hover:opacity-90",
-  link: "bg-transparent !text-accent underline-offset-4 hover:underline px-0 py-0 h-auto rounded-none",
+  primary: "bg-primary text-primary-foreground! hover:bg-muted",
+  accent: "bg-accent text-accent-foreground! hover:bg-accent-dim",
+  secondary: "bg-transparent text-foreground! border border-rule-strong hover:bg-surface-2 hover:border-rule-strong",
+  ghost: "bg-transparent text-muted! hover:text-foreground! hover:bg-surface-2",
+  destructive: "bg-destructive text-accent-foreground! hover:opacity-90",
+  link: "bg-transparent text-accent! underline-offset-4 hover:underline px-0 py-0 h-auto rounded-none",
 };
 
 const SIZES: Record<ButtonSize, string> = {

@@ -2,6 +2,7 @@ import { createReadStream } from "node:fs";
 import { access, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
+import { pipeline } from "node:stream/promises";
 import { pathToFileURL } from "node:url";
 import { launch } from "chrome-launcher";
 import lighthouse from "lighthouse";
@@ -10,6 +11,10 @@ const root = resolve(import.meta.dirname, "..");
 const clientDir = resolve(root, "apps/apex/dist/client");
 const serverEntry = resolve(root, "apps/apex/dist/server/entry-server.js");
 const minScore = Number(process.env.AGENT_PASTE_LIGHTHOUSE_APEX_A11Y_MIN_SCORE ?? "100");
+
+if (!Number.isFinite(minScore) || minScore < 0 || minScore > 100) {
+  throw new Error("AGENT_PASTE_LIGHTHOUSE_APEX_A11Y_MIN_SCORE must be a number between 0 and 100");
+}
 
 const TYPES = new Map([
   [".css", "text/css; charset=utf-8"],
@@ -77,10 +82,14 @@ function createStaticServer() {
         return;
       }
       response.writeHead(200, { "content-type": TYPES.get(extname(file)) ?? "application/octet-stream" });
-      createReadStream(file).pipe(response);
+      await pipeline(createReadStream(file), response);
     } catch (error) {
+      if (response.headersSent) {
+        response.destroy(error instanceof Error ? error : new Error(String(error)));
+        return;
+      }
       response.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
-      response.end(error instanceof Error ? error.message : String(error));
+      response.end("Internal Server Error");
     }
   });
 }
@@ -130,10 +139,11 @@ try {
       disableStorageReset: true,
     });
     const lhr = result?.lhr;
-    const score = Math.round((lhr?.categories?.accessibility?.score ?? 0) * 100);
+    const rawScore = (lhr?.categories?.accessibility?.score ?? 0) * 100;
+    const score = Math.round(rawScore);
     const audits = lhr ? failedAudits(lhr) : ["missing-lighthouse-result"];
     process.stdout.write(`${path}: ${score}${audits.length ? ` (${audits.join(", ")})` : ""}\n`);
-    if (score < minScore || audits.length > 0) {
+    if (!lhr || rawScore < minScore) {
       failures.push({ path, score, audits });
     }
   }

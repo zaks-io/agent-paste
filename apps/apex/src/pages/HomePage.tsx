@@ -24,7 +24,7 @@ import {
 // component used at both hero call sites rather than two copies.
 const HERO_CTA =
   "group inline-flex items-center gap-2 font-ui font-semibold text-base " +
-  "!text-primary-foreground bg-primary border border-primary " +
+  "text-primary-foreground! bg-primary border border-primary " +
   "rounded-xs px-6 py-3 cursor-pointer " +
   "transition-[background-color,border-color,transform] duration-200 ease-out " +
   "hover:bg-muted hover:border-muted active:translate-y-px";
