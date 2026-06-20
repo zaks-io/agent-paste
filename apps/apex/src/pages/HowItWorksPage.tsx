@@ -18,7 +18,7 @@ function HowItWorksBlock({ section }: { section: HowItWorksSection }) {
 
 export function HowItWorksPage() {
   return (
-    <main>
+    <main id="main-content" tabIndex={-1}>
       <div className="flex flex-col gap-[clamp(40px,6vh,64px)]">
         <PageHeader
           eyebrow={<Eyebrow dot={false}>{HOW_IT_WORKS.eyebrow}</Eyebrow>}

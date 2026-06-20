@@ -85,6 +85,12 @@ export function Shell({ meta, assets, analyticsToken, billingEnabled, bleed, chi
         ) : null}
       </head>
       <body className="home relative flex min-h-[100svh] flex-col [--head-h:60px] min-[880px]:[--head-h:64px]">
+        <a
+          className="sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[60] focus:m-0 focus:h-auto focus:w-auto focus:overflow-visible focus:[clip:auto] focus:[clip-path:none] focus:whitespace-normal focus:rounded-xs focus:border focus:border-rule-strong focus:bg-surface focus:px-3 focus:py-2 focus:font-mono focus:text-mono-sm focus:text-foreground"
+          href="#main-content"
+        >
+          Skip to content
+        </a>
         <Header billingEnabled={billingEnabled} />
         {bleed ? (
           children

@@ -72,6 +72,7 @@
     "smoke:mcp:production": "pnpm build && node scripts/smoke-mcp.mjs production",
     "smoke:preview:readonly": "pnpm build && node scripts/smoke-prod-readonly.mjs preview",
     "smoke:prod:readonly": "pnpm build && node scripts/smoke-prod-readonly.mjs production",
+    "lighthouse:apex-a11y": "node scripts/lighthouse-apex-a11y.mjs",
     "lighthouse:dashboard-a11y": "node scripts/lighthouse-dashboard-a11y.mjs",
     "setup:worktree": "node scripts/setup-worktree.mjs",
     "setup:codex": "node scripts/setup-worktree.mjs",

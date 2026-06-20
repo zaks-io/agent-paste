@@ -24,10 +24,10 @@ import {
 // component used at both hero call sites rather than two copies.
 const HERO_CTA =
   "group inline-flex items-center gap-2 font-ui font-semibold text-base " +
-  "text-accent-foreground bg-accent border border-accent " +
+  "text-primary-foreground! bg-primary border border-primary " +
   "rounded-xs px-6 py-3 cursor-pointer " +
-  "transition-[filter,transform] duration-200 ease-out " +
-  "hover:brightness-[1.08] active:translate-y-px";
+  "transition-[background-color,border-color,transform] duration-200 ease-out " +
+  "hover:bg-muted hover:border-muted active:translate-y-px";
 
 function HeroCta({ href, children }: { href: string; children: ReactNode }) {
   return (
@@ -47,11 +47,7 @@ function HeroCta({ href, children }: { href: string; children: ReactNode }) {
 function CommandBox({ cmd, label, prompt = "$" }: { cmd: string; label?: string; prompt?: string }) {
   return (
     <div className="border border-rule-strong rounded-sm bg-surface px-4 py-4 font-mono text-base [font-feature-settings:'zero']">
-      {label ? (
-        <div className="font-mono text-mono-sm tracking-eyebrow uppercase text-subtle mb-2" aria-hidden="true">
-          {label}
-        </div>
-      ) : null}
+      {label ? <div className="font-mono text-mono-sm tracking-eyebrow uppercase text-subtle mb-2">{label}</div> : null}
       <div className="flex items-start justify-between gap-4">
         <code className="font-mono text-foreground break-all flex-1 min-w-0">
           <span className="text-accent select-none" aria-hidden="true">
@@ -341,6 +337,8 @@ function ClosingBlock() {
 export function HomePage() {
   return (
     <main
+      id="main-content"
+      tabIndex={-1}
       data-agent-guide="/agents.md"
       data-agent-docs="/docs.md"
       data-agent-summary="/llms.txt"

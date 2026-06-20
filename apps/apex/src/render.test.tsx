@@ -90,6 +90,11 @@ describe("apex shell", () => {
     expect(html).toContain("Analytics on");
   });
 
+  it("renders a skip link to the main content landmark", () => {
+    expect(html).toContain('href="#main-content"');
+    expect(html).toContain('<main id="main-content" tabindex="-1"');
+  });
+
   it("renders the operating company attribution in the footer", () => {
     const footer = html.match(/<footer[\s\S]*?<\/footer>/)?.[0] ?? "";
     expect(footer).toContain("Source code is Apache-2.0");

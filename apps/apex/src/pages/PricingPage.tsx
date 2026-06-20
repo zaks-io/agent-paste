@@ -22,7 +22,7 @@ export function PricingPage() {
   const rows = pricingComparisonRows();
 
   return (
-    <main>
+    <main id="main-content" tabIndex={-1}>
       <div className="flex flex-col gap-[clamp(40px,6vh,64px)]">
         <PageHeader
           eyebrow={<Eyebrow dot={false}>{PRICING.eyebrow}</Eyebrow>}
