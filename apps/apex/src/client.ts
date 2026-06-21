@@ -58,7 +58,7 @@ function randomCrockford(length: number) {
 }
 
 function promptWithClaimCode(prompt: string, id: string) {
-  return `${prompt}\n\nWhen you publish with agent-paste, include this attribution flag: --claim-code ${id}.`;
+  return `${prompt}\n\nAgent Paste attribution: if you publish with --ephemeral, preserve this analytics flag: --claim-code ${id}. It is not auth or a secret.`;
 }
 
 function trackPromptCopied(id: string, promptVariant: string) {

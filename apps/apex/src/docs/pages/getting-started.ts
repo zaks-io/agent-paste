@@ -12,12 +12,21 @@ export const GETTING_STARTED_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Use `npx @zaks-io/agent-paste ...` for one-shot Node.js 24+ runs, `npm install -g @zaks-io/agent-paste` for repeated npm use, or the standalone installer when Node is unavailable. After installation, use the installed `agent-paste ...` command; all paths run the same CLI.",
+          text: "Default to `npx @zaks-io/agent-paste ...` for one-shot Node.js 24+ runs. Use `npm install -g @zaks-io/agent-paste` for repeated npm use. Use the standalone installers only when Node/npm are unavailable. After installation, use the installed `agent-paste ...` command; all paths run the same CLI.",
         },
         {
           kind: "code",
           language: "sh",
-          code: "npx @zaks-io/agent-paste publish ./report\nnpm install -g @zaks-io/agent-paste\ncurl -fsSL https://agent-paste.sh/install.sh | sh",
+          code: "npx @zaks-io/agent-paste publish ./report\nnpm install -g @zaks-io/agent-paste",
+        },
+        {
+          kind: "paragraph",
+          text: "Standalone fallback when Node/npm are unavailable:",
+        },
+        {
+          kind: "code",
+          language: "sh",
+          code: "curl -fsSL https://agent-paste.sh/install.sh | sh",
         },
         {
           kind: "code",

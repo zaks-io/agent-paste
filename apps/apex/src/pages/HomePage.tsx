@@ -168,9 +168,10 @@ function DemoBlock() {
         Tell the agent. Get the <span className="text-accent">link</span>.
       </h2>
       <p className="text-base leading-relaxed text-muted mb-8 max-w-[46ch]">
-        Press play to watch a stand-in agent run the prompt, or copy it and paste it into your own. It reads the docs,
-        uses your work as broad context, and hands back a public-safe link spelling out how you should be using
-        agent-paste. When you want to keep it, revise it, or run JavaScript, ask the agent to claim it and sign in free.
+        Press play to watch a stand-in agent run the prompt, or copy it and paste it into your own. It uses the docs as
+        command reference, keeps the page high-level, and hands back a no-login link spelling out how you should be
+        using agent-paste. When you want to keep it, revise it, or run JavaScript, ask the agent to claim it and sign in
+        free.
       </p>
       <TranscriptDemo />
     </div>

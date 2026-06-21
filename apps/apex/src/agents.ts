@@ -17,26 +17,25 @@ cannot run shell commands.
 
 ## Install
 
-No install, Node.js 24+:
+Default: use \`npx\` with Node.js 24+. No install is required.
 
 \`\`\`sh
 npx @zaks-io/agent-paste publish ./path --json
 \`\`\`
 
-Repeated npm use:
+For repeated npm use, install the package globally:
 
 \`\`\`sh
 npm install -g @zaks-io/agent-paste
 agent-paste publish ./path --json
 \`\`\`
 
-Standalone binary, no Node required:
+Fallback only when Node/npm are unavailable: use a standalone installer. The
+installers verify release checksums before placing \`agent-paste\` on PATH.
 
 \`\`\`sh
 curl -fsSL https://agent-paste.sh/install.sh | sh
 \`\`\`
-
-Windows PowerShell:
 
 \`\`\`powershell
 irm https://agent-paste.sh/install.ps1 | iex
@@ -167,5 +166,6 @@ dashboard for settings, billing, and lockdown controls.
 
 - Human docs: [https://agent-paste.sh/docs](https://agent-paste.sh/docs)
 - Markdown docs: [https://agent-paste.sh/docs.md](https://agent-paste.sh/docs.md)
+- Safety docs: [https://agent-paste.sh/docs/safety.md](https://agent-paste.sh/docs/safety.md)
 - Full corpus: [https://agent-paste.sh/llms-full.txt](https://agent-paste.sh/llms-full.txt)
 `;
