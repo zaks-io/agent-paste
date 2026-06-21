@@ -45,10 +45,12 @@ app.use("*", boundRespondersMiddleware(boundResponderConfig));
 app.use("*", async (context, next) => {
   await next();
   if (context.res.status === 401 && !context.res.headers.has("WWW-Authenticate")) {
-    const apiBase = (context.env.API_BASE_URL ?? "https://api.agent-paste.sh").replace(/\/+$/, "");
+    const issuer = trimTrailingSlash(
+      context.env.AGENT_AUTH_ISSUER ?? context.env.API_BASE_URL ?? "https://api.agent-paste.sh",
+    );
     context.res.headers.set(
       "WWW-Authenticate",
-      `Bearer resource_metadata="${apiBase}/.well-known/oauth-protected-resource"`,
+      `Bearer resource_metadata="${issuer}/.well-known/oauth-protected-resource"`,
     );
   }
 });
@@ -137,4 +139,12 @@ export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   return await app.fetch(request, env);
+}
+
+function trimTrailingSlash(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) {
+    end -= 1;
+  }
+  return value.slice(0, end);
 }

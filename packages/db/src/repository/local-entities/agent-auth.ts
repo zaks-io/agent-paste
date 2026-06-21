@@ -67,7 +67,7 @@ export function localAgentAuth(state: LocalState): Entities["agentAuth"] {
     },
     async markRegistrationVerified(id, input) {
       const registration = state.agentAuthRegistrations.get(id);
-      if (!registration) {
+      if (!registration || registration.status !== "pending_step_up") {
         return null;
       }
       registration.delegation_id = input.delegationId;
@@ -78,7 +78,10 @@ export function localAgentAuth(state: LocalState): Entities["agentAuth"] {
     },
     async markAnonymousClaimPending(id, input) {
       const registration = state.agentAuthRegistrations.get(id);
-      if (!registration) {
+      if (
+        !registration ||
+        (registration.status !== "anonymous_unclaimed" && registration.status !== "anonymous_claim_pending")
+      ) {
         return null;
       }
       registration.status = "anonymous_claim_pending";
@@ -90,7 +93,7 @@ export function localAgentAuth(state: LocalState): Entities["agentAuth"] {
     },
     async markAnonymousRegistrationVerified(id, input) {
       const registration = state.agentAuthRegistrations.get(id);
-      if (!registration) {
+      if (!registration || registration.status !== "anonymous_claim_pending") {
         return null;
       }
       registration.workspace_id = input.workspaceId;

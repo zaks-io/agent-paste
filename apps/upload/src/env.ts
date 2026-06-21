@@ -51,6 +51,7 @@ export type Env = {
   API_KEY_PEPPER_CURRENT_KID?: string;
   API_KEY_ENV?: "preview" | "production";
   API_BASE_URL?: string;
+  AGENT_AUTH_ISSUER?: string;
   CONTENT_BASE_URL?: string;
   CONTENT_SIGNING_SECRET?: string;
   AGENT_VIEW_SIGNING_SECRET?: string;

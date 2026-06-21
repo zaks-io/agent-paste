@@ -159,7 +159,7 @@ the MCP host connection.
   restricted accountless non-interactive handoffs such as text, images,
   markdown, or static HTML/CSS. That path returns `unlisted_url` for immediate
   no-login viewing and `claim_url` only for optional keep/upgrade. Interactive
-  HTML/JS needs authenticated publish.
+  HTML/JS requires authenticated publish.
 - Artifact lifetime follows Workspace Auto Deletion policy. MCP callers do not
   choose TTL.
 

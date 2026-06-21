@@ -1,4 +1,4 @@
-// biome-ignore lint/nursery/noExcessiveLinesPerFile: central Drizzle schema intentionally keeps all tables together.
+// biome-ignore lint: central Drizzle schema intentionally keeps all tables together.
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -132,6 +132,7 @@ export const workspaceMembers = pgTable(
   },
   (table) => [
     index("workspace_members_workspace_idx").on(table.workspaceId),
+    unique("workspace_members_workspace_id_id_unique").on(table.workspaceId, table.id),
     uniqueIndex("workspace_members_workos_user_unique").on(table.workosUserId),
   ],
 );
@@ -197,6 +198,11 @@ export const agentAuthDelegations = pgTable(
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
   },
   (table) => [
+    foreignKey({
+      name: "agent_auth_delegations_workspace_member_fk",
+      columns: [table.workspaceId, table.workspaceMemberId],
+      foreignColumns: [workspaceMembers.workspaceId, workspaceMembers.id],
+    }).onDelete("restrict"),
     index("agent_auth_delegations_workspace_idx").on(table.workspaceId),
     index("agent_auth_delegations_member_idx").on(table.workspaceMemberId),
     uniqueIndex("agent_auth_delegations_active_identity_unique")
@@ -234,6 +240,11 @@ export const agentAuthRegistrations = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
   },
   (table) => [
+    foreignKey({
+      name: "agent_auth_registrations_workspace_member_fk",
+      columns: [table.workspaceId, table.workspaceMemberId],
+      foreignColumns: [workspaceMembers.workspaceId, workspaceMembers.id],
+    }).onDelete("restrict"),
     index("agent_auth_registrations_delegation_idx").on(table.delegationId),
     index("agent_auth_registrations_claim_idx").on(table.claimTokenHash),
     index("agent_auth_registrations_claim_attempt_idx").on(table.claimAttemptTokenHash),

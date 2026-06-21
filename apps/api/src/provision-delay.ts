@@ -5,8 +5,8 @@ export async function waitForProvisionDelay(rawDelayMs: string | undefined, fall
   if (delayMs <= 0) {
     return;
   }
-  const runtimeScheduler = (globalThis as { scheduler?: { wait(milliseconds: number): Promise<void> } }).scheduler;
-  if (runtimeScheduler) {
+  const runtimeScheduler = (globalThis as { scheduler?: { wait?: (milliseconds: number) => Promise<void> } }).scheduler;
+  if (typeof runtimeScheduler?.wait === "function") {
     await runtimeScheduler.wait(delayMs);
     return;
   }

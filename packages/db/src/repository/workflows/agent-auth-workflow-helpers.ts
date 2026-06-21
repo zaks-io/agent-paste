@@ -162,8 +162,17 @@ export async function buildClaimAttempt(expiresInSeconds: number, now: string) {
 }
 
 export function randomUserCode(): string {
-  const bytes = crypto.getRandomValues(new Uint32Array(1));
-  return String((bytes[0] ?? 0) % 1_000_000).padStart(6, "0");
+  const range = 1_000_000;
+  const limit = Math.floor(0x1_0000_0000 / range) * range;
+  const bytes = new Uint32Array(1);
+  while (true) {
+    crypto.getRandomValues(bytes);
+    const value = bytes[0] ?? 0;
+    if (value < limit) {
+      const code = value - Math.floor(value / range) * range;
+      return String(code).padStart(6, "0");
+    }
+  }
 }
 
 export function secondsFrom(now: string, seconds: number): string {

@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { defineSqlQuerySourceMap } from "../postgres/query-source.js";
 import { agentAuthAccessTokens, agentAuthDelegations, agentAuthJtis, agentAuthRegistrations } from "../schema.js";
@@ -151,7 +151,7 @@ export const agentAuthQueries = defineSqlQuerySourceMap("packages/db/src/queries
         completedAt: new Date(input.completedAt),
         updatedAt: new Date(input.updatedAt),
       })
-      .where(eq(agentAuthRegistrations.id, id))
+      .where(and(eq(agentAuthRegistrations.id, id), eq(agentAuthRegistrations.status, "pending_step_up")))
       .returning();
     const row = rows[0];
     return row ? mapRegistration(row) : null;
@@ -176,7 +176,12 @@ export const agentAuthQueries = defineSqlQuerySourceMap("packages/db/src/queries
         claimAttemptExpiresAt: new Date(input.claimAttemptExpiresAt),
         updatedAt: new Date(input.updatedAt),
       })
-      .where(eq(agentAuthRegistrations.id, id))
+      .where(
+        and(
+          eq(agentAuthRegistrations.id, id),
+          inArray(agentAuthRegistrations.status, ["anonymous_unclaimed", "anonymous_claim_pending"]),
+        ),
+      )
       .returning();
     const row = rows[0];
     return row ? mapRegistration(row) : null;
@@ -197,7 +202,7 @@ export const agentAuthQueries = defineSqlQuerySourceMap("packages/db/src/queries
         completedAt: new Date(input.completedAt),
         updatedAt: new Date(input.updatedAt),
       })
-      .where(eq(agentAuthRegistrations.id, id))
+      .where(and(eq(agentAuthRegistrations.id, id), eq(agentAuthRegistrations.status, "anonymous_claim_pending")))
       .returning();
     const row = rows[0];
     return row ? mapRegistration(row) : null;

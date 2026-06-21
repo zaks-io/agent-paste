@@ -391,6 +391,8 @@ function isErrorEnvelopeLike(
 }
 
 export type EphemeralProvisionOptions = {
+  /** @deprecated Ignored after PoW removal; kept temporarily for source compatibility. */
+  maxPowAttempts?: number;
   /** Optional public claim code from a copied marketing prompt. */
   claimCode?: ClaimCode;
 };

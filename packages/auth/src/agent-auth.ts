@@ -316,7 +316,11 @@ function findTrustedProvider(providers: AgentAuthTrustedProvider[], issuer: stri
 }
 
 function normalizeIssuer(issuer: string): string {
-  return issuer.replace(/\/+$/, "");
+  let end = issuer.length;
+  while (end > 0 && issuer.charCodeAt(end - 1) === 47) {
+    end -= 1;
+  }
+  return issuer.slice(0, end);
 }
 
 function assertHttpsUrl(value: string, errorCode: string) {

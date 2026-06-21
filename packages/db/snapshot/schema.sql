@@ -309,7 +309,8 @@ CREATE TABLE "workspace_members" (
 	"email" text NOT NULL,
 	"scopes" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
-	"last_seen_at" timestamp with time zone NOT NULL
+	"last_seen_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "workspace_members_workspace_id_id_unique" UNIQUE("workspace_id","id")
 );
 
 CREATE TABLE "workspaces" (
@@ -336,10 +337,12 @@ ALTER TABLE "agent_auth_access_tokens" ADD CONSTRAINT "agent_auth_access_tokens_
 ALTER TABLE "agent_auth_access_tokens" ADD CONSTRAINT "agent_auth_access_tokens_delegation_id_agent_auth_delegations_id_fk" FOREIGN KEY ("delegation_id") REFERENCES "public"."agent_auth_delegations"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "agent_auth_delegations" ADD CONSTRAINT "agent_auth_delegations_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "agent_auth_delegations" ADD CONSTRAINT "agent_auth_delegations_workspace_member_id_workspace_members_id_fk" FOREIGN KEY ("workspace_member_id") REFERENCES "public"."workspace_members"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "agent_auth_delegations" ADD CONSTRAINT "agent_auth_delegations_workspace_member_fk" FOREIGN KEY ("workspace_id","workspace_member_id") REFERENCES "public"."workspace_members"("workspace_id","id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "agent_auth_registrations" ADD CONSTRAINT "agent_auth_registrations_delegation_id_agent_auth_delegations_id_fk" FOREIGN KEY ("delegation_id") REFERENCES "public"."agent_auth_delegations"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "agent_auth_registrations" ADD CONSTRAINT "agent_auth_registrations_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "agent_auth_registrations" ADD CONSTRAINT "agent_auth_registrations_workspace_member_id_workspace_members_id_fk" FOREIGN KEY ("workspace_member_id") REFERENCES "public"."workspace_members"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "agent_auth_registrations" ADD CONSTRAINT "agent_auth_registrations_claim_token_id_claim_tokens_id_fk" FOREIGN KEY ("claim_token_id") REFERENCES "public"."claim_tokens"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "agent_auth_registrations" ADD CONSTRAINT "agent_auth_registrations_workspace_member_fk" FOREIGN KEY ("workspace_id","workspace_member_id") REFERENCES "public"."workspace_members"("workspace_id","id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_artifact_id_artifacts_id_fk" FOREIGN KEY ("artifact_id") REFERENCES "public"."artifacts"("id") ON DELETE cascade ON UPDATE no action;

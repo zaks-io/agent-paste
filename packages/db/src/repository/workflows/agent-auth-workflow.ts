@@ -225,7 +225,7 @@ export async function completeAgentAuthClaim(
       }
       if (
         registration.workspace_member_id !== input.actor.id ||
-        registration.email !== input.actor.email.toLowerCase()
+        registration.email.toLowerCase() !== input.actor.email.toLowerCase()
       ) {
         return null;
       }

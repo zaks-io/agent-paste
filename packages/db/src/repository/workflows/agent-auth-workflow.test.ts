@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { createLocalServices, type LocalRepository } from "../../local-repository.js";
 
-function identity(jti: string) {
+function identity(jti: string, overrides: Partial<ReturnType<typeof identityBase>> = {}) {
+  return { ...identityBase(jti), ...overrides };
+}
+
+function identityBase(jti: string) {
   return {
     providerIssuer: "https://provider.example",
     providerSubject: "user_123",
@@ -240,6 +244,35 @@ describe("agent auth workflow", () => {
     await expect(repo.revokeAgentAuthAccessToken({ token: "not an api key" })).resolves.toBe(false);
     await expect(repo.revokeAgentAuthAccessToken({ token: token.access_token })).resolves.toBe(true);
     await expect(repo.verifyApiKey(token.access_token)).resolves.toBeNull();
+  });
+
+  it("allows browser step-up when provider email casing differs", async () => {
+    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper", apiKeyEnv: "preview" });
+    const member = await repo.resolveWebMember({
+      workosUserId: "user_existing_mixed",
+      email: "person@example.com",
+      idempotencyKey: "existing-member-mixed",
+      now: "2099-06-20T11:59:00.000Z",
+    });
+
+    const pending = await repo.registerAgentVerifiedIdentity(
+      identity("jti_step_up_mixed", { email: "Person@Example.com" }),
+    );
+    expect(pending.kind).toBe("interaction_required");
+    if (pending.kind !== "interaction_required") throw new Error("expected_step_up");
+
+    await expect(
+      repo.completeAgentAuthClaim({
+        actor: {
+          id: member.workspace_member.id,
+          workspace_id: member.workspace.id,
+          email: member.workspace_member.email,
+        },
+        claimToken: pending.claim_token,
+        userCode: pending.user_code,
+        now: new Date("2099-06-20T12:02:00.000Z"),
+      }),
+    ).resolves.toMatchObject({ id: pending.registration.id, registration_type: "identity_assertion" });
   });
 
   it("revokes provider delegations and their issued access tokens", async () => {

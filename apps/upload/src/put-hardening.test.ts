@@ -95,6 +95,27 @@ async function expectError(response: Response, status: number, code: string) {
   await expect(response.json()).resolves.toMatchObject({ error: { code } });
 }
 
+describe("upload auth challenge", () => {
+  it("uses the agent auth issuer for protected-resource metadata challenges", async () => {
+    const response = await handleRequest(
+      new Request("https://upload.test/v1/upload-sessions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      }),
+      {
+        AGENT_AUTH_ISSUER: "https://auth.example/",
+        API_BASE_URL: "https://api.example",
+      },
+    );
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("WWW-Authenticate")).toBe(
+      'Bearer resource_metadata="https://auth.example/.well-known/oauth-protected-resource"',
+    );
+  });
+});
+
 describe("upload put body-size hardening", () => {
   it("rejects a body larger than the signed size even when content-length lies", async () => {
     let putCalled = false;

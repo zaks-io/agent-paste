@@ -1,4 +1,4 @@
-import { eq, ilike } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { defineSqlQuerySourceMap } from "../postgres/query-source.js";
 import { workspaceMembers } from "../schema.js";
@@ -31,7 +31,10 @@ export const workspaceMemberQueries = defineSqlQuerySourceMap(
     },
 
     async findByEmail(db: DrizzleDb, email: string): Promise<WorkspaceMember[]> {
-      const rows = await db.select().from(workspaceMembers).where(ilike(workspaceMembers.email, email));
+      const rows = await db
+        .select()
+        .from(workspaceMembers)
+        .where(sql`lower(${workspaceMembers.email}) = lower(${email})`);
       return rows.map(mapWorkspaceMember);
     },
 
