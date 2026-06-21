@@ -220,6 +220,7 @@ describe("viewer live-update revocation", () => {
     await waitFor(() => expect(screen.getByTitle("Artifact content")).toHaveAttribute("src", nextIframeSrc));
     expect(screen.getByText("html")).toBeInTheDocument();
     expect(screen.queryByText("markdown")).not.toBeInTheDocument();
+    expect(screen.getByText("Shared artifact")).toBeInTheDocument();
   });
 
   it("shows Access Link metadata from the floating agent-paste.sh bar and resets hidden state on reload", async () => {
