@@ -185,9 +185,7 @@ export const agentAuthDelegations = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "restrict" }),
-    workspaceMemberId: text("workspace_member_id")
-      .notNull()
-      .references(() => workspaceMembers.id, { onDelete: "restrict" }),
+    workspaceMemberId: text("workspace_member_id").notNull(),
     providerIssuer: text("provider_issuer").notNull(),
     providerSubject: text("provider_subject").notNull(),
     audience: text("audience").notNull(),
@@ -221,7 +219,7 @@ export const agentAuthRegistrations = pgTable(
       .default("identity_assertion"),
     delegationId: text("delegation_id").references(() => agentAuthDelegations.id, { onDelete: "restrict" }),
     workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
-    workspaceMemberId: text("workspace_member_id").references(() => workspaceMembers.id, { onDelete: "restrict" }),
+    workspaceMemberId: text("workspace_member_id"),
     providerIssuer: text("provider_issuer").notNull(),
     providerSubject: text("provider_subject").notNull(),
     audience: text("audience").notNull(),
@@ -250,6 +248,10 @@ export const agentAuthRegistrations = pgTable(
     index("agent_auth_registrations_claim_attempt_idx").on(table.claimAttemptTokenHash),
     index("agent_auth_registrations_claim_token_id_idx").on(table.claimTokenId),
     check("agent_auth_registrations_type_check", sql`${table.registrationType} in ('identity_assertion', 'anonymous')`),
+    check(
+      "agent_auth_registrations_member_workspace_check",
+      sql`${table.workspaceMemberId} is null or ${table.workspaceId} is not null`,
+    ),
     check(
       "agent_auth_registrations_status_check",
       sql`${table.status} in (

@@ -23,7 +23,7 @@ end $$;
 create table if not exists agent_auth_delegations (
   id text primary key,
   workspace_id uuid not null references workspaces(id) on delete restrict,
-  workspace_member_id text not null references workspace_members(id) on delete restrict,
+  workspace_member_id text not null,
   provider_issuer text not null,
   provider_subject text not null,
   audience text not null,
@@ -37,6 +37,10 @@ create table if not exists agent_auth_delegations (
     references workspace_members(workspace_id, id)
     on delete restrict
 );
+
+alter table agent_auth_delegations
+  drop constraint if exists agent_auth_delegations_workspace_member_id_fkey,
+  drop constraint if exists agent_auth_delegations_workspace_member_id_workspace_members_id_fk;
 
 do $$
 begin
@@ -67,7 +71,7 @@ create table if not exists agent_auth_registrations (
   id text primary key,
   delegation_id text references agent_auth_delegations(id) on delete restrict,
   workspace_id uuid references workspaces(id) on delete restrict,
-  workspace_member_id text references workspace_members(id) on delete restrict,
+  workspace_member_id text,
   provider_issuer text not null,
   provider_subject text not null,
   audience text not null,
@@ -87,6 +91,10 @@ create table if not exists agent_auth_registrations (
     on delete restrict
 );
 
+alter table agent_auth_registrations
+  drop constraint if exists agent_auth_registrations_workspace_member_id_fkey,
+  drop constraint if exists agent_auth_registrations_workspace_member_id_workspace_members_id_fk;
+
 do $$
 begin
   if not exists (
@@ -101,6 +109,11 @@ begin
       on delete restrict;
   end if;
 end $$;
+
+alter table agent_auth_registrations
+  drop constraint if exists agent_auth_registrations_member_workspace_check,
+  add constraint agent_auth_registrations_member_workspace_check
+    check (workspace_member_id is null or workspace_id is not null);
 
 create index if not exists agent_auth_registrations_delegation_idx
   on agent_auth_registrations (delegation_id);

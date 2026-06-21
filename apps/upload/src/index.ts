@@ -46,7 +46,7 @@ app.use("*", async (context, next) => {
   await next();
   if (context.res.status === 401 && !context.res.headers.has("WWW-Authenticate")) {
     const issuer = trimTrailingSlash(
-      context.env.AGENT_AUTH_ISSUER ?? context.env.API_BASE_URL ?? "https://api.agent-paste.sh",
+      firstNonBlank(context.env.AGENT_AUTH_ISSUER, context.env.API_BASE_URL) ?? "https://api.agent-paste.sh",
     );
     context.res.headers.set(
       "WWW-Authenticate",
@@ -139,6 +139,10 @@ export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   return await app.fetch(request, env);
+}
+
+function firstNonBlank(...values: Array<string | undefined>): string | undefined {
+  return values.map((value) => value?.trim()).find((value): value is string => !!value);
 }
 
 function trimTrailingSlash(value: string): string {

@@ -114,6 +114,25 @@ describe("upload auth challenge", () => {
       'Bearer resource_metadata="https://auth.example/.well-known/oauth-protected-resource"',
     );
   });
+
+  it("falls back when the agent auth issuer is blank", async () => {
+    const response = await handleRequest(
+      new Request("https://upload.test/v1/upload-sessions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      }),
+      {
+        AGENT_AUTH_ISSUER: " ",
+        API_BASE_URL: "https://api.example/",
+      },
+    );
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("WWW-Authenticate")).toBe(
+      'Bearer resource_metadata="https://api.example/.well-known/oauth-protected-resource"',
+    );
+  });
 });
 
 describe("upload put body-size hardening", () => {

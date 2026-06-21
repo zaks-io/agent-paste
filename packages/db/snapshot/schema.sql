@@ -70,6 +70,7 @@ CREATE TABLE "agent_auth_registrations" (
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "agent_auth_registrations_type_check" CHECK ("agent_auth_registrations"."registration_type" in ('identity_assertion', 'anonymous')),
+	CONSTRAINT "agent_auth_registrations_member_workspace_check" CHECK ("agent_auth_registrations"."workspace_member_id" is null or "agent_auth_registrations"."workspace_id" is not null),
 	CONSTRAINT "agent_auth_registrations_status_check" CHECK ("agent_auth_registrations"."status" in (
         'verified', 'pending_step_up', 'anonymous_unclaimed',
         'anonymous_claim_pending', 'revoked'
@@ -336,11 +337,9 @@ ALTER TABLE "agent_auth_access_tokens" ADD CONSTRAINT "agent_auth_access_tokens_
 ALTER TABLE "agent_auth_access_tokens" ADD CONSTRAINT "agent_auth_access_tokens_registration_id_agent_auth_registrations_id_fk" FOREIGN KEY ("registration_id") REFERENCES "public"."agent_auth_registrations"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "agent_auth_access_tokens" ADD CONSTRAINT "agent_auth_access_tokens_delegation_id_agent_auth_delegations_id_fk" FOREIGN KEY ("delegation_id") REFERENCES "public"."agent_auth_delegations"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "agent_auth_delegations" ADD CONSTRAINT "agent_auth_delegations_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
-ALTER TABLE "agent_auth_delegations" ADD CONSTRAINT "agent_auth_delegations_workspace_member_id_workspace_members_id_fk" FOREIGN KEY ("workspace_member_id") REFERENCES "public"."workspace_members"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "agent_auth_delegations" ADD CONSTRAINT "agent_auth_delegations_workspace_member_fk" FOREIGN KEY ("workspace_id","workspace_member_id") REFERENCES "public"."workspace_members"("workspace_id","id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "agent_auth_registrations" ADD CONSTRAINT "agent_auth_registrations_delegation_id_agent_auth_delegations_id_fk" FOREIGN KEY ("delegation_id") REFERENCES "public"."agent_auth_delegations"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "agent_auth_registrations" ADD CONSTRAINT "agent_auth_registrations_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
-ALTER TABLE "agent_auth_registrations" ADD CONSTRAINT "agent_auth_registrations_workspace_member_id_workspace_members_id_fk" FOREIGN KEY ("workspace_member_id") REFERENCES "public"."workspace_members"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "agent_auth_registrations" ADD CONSTRAINT "agent_auth_registrations_claim_token_id_claim_tokens_id_fk" FOREIGN KEY ("claim_token_id") REFERENCES "public"."claim_tokens"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "agent_auth_registrations" ADD CONSTRAINT "agent_auth_registrations_workspace_member_fk" FOREIGN KEY ("workspace_id","workspace_member_id") REFERENCES "public"."workspace_members"("workspace_id","id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
