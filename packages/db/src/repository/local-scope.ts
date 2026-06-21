@@ -119,6 +119,10 @@ const byWorkspaceId = (row: { workspace_id: string | null }) => row.workspace_id
 const SCOPE_KEYS: { [K in keyof LocalState]: ScopeKey<RowOf<K>> } = {
   workspaces: (row) => row.id,
   workspaceMembers: byWorkspaceId,
+  agentAuthDelegations: byWorkspaceId,
+  agentAuthRegistrations: byWorkspaceId,
+  agentAuthJtis: "platform-only",
+  agentAuthAccessTokens: "platform-only",
   apiKeys: byWorkspaceId,
   artifacts: byWorkspaceId,
   revisions: byWorkspaceId,

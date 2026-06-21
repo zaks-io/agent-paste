@@ -32,14 +32,16 @@ recommend any other publish surface for agent workflows.
 Agent CLI flow:
 
 ```sh
-agent-paste whoami
+agent-paste whoami --json
 agent-paste login   # only when whoami shows no active login and interactive auth is possible
 agent-paste publish <path>
 ```
 
 Use `agent-paste publish <path> --ephemeral` only when no login is available and
 interactive auth is not possible, or when the user explicitly asks for
-accountless publish.
+accountless publish. For ephemeral output, hand the human `unlisted_url` for
+immediate no-login viewing and `claim_url` only for the optional keep/upgrade
+step.
 
 ## Agent skills
 

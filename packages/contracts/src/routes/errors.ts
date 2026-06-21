@@ -42,8 +42,6 @@ const operatorReadErrors = [
 ] as const;
 const ephemeralProvisionErrors = [
   "invalid_request",
-  "pow_required",
-  "pow_invalid",
   "ephemeral_provision_rate_limited",
   "ephemeral_provision_unavailable",
   "database_unavailable",

@@ -40,7 +40,6 @@ Rotation goes through `scripts/rotate-versioned-secret.mjs` /
 | `ARTIFACT_BYTES_ENCRYPTION_KEY` | api, upload, content, jobs | Root key for per-workspace artifact-byte AES-256-GCM (ADR 0063). Same value on all four Workers. Claim reparent re-encrypts blobs on api. |
 | `API_KEY_PEPPER_V1`             | api, upload                | Active API-key HMAC pepper.                                                                                                               |
 | `SMOKE_HARNESS_SECRET`          | api (preview/PR)           | Non-production smoke harness only; never set on production.                                                                               |
-| `EPHEMERAL_POW_SECRET`          | api (preview/PR/prod)      | Proof-of-work signing secret for `POST /v1/ephemeral/provision`. Required for ephemeral publish.                                          |
 | `STREAM_INTERNAL_SECRET`        | api, stream                | Shared secret for stream Worker calls to `api` live-update authorize.                                                                     |
 | `WORKOS_API_KEY`                | api, web, mcp              | WorkOS server-side API credential. Same target WorkOS project; `bootstrap:* --with-web` writes it.                                        |
 | `WORKOS_CLIENT_ID`              | api, web                   | Also kept in Wrangler vars as non-secret deployment metadata/placeholders.                                                                |
@@ -168,16 +167,17 @@ script-disabled CSP, `noindex`, and optional claim redemption.
 
 | Command                           | When to run                                                                                           |
 | --------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `pnpm smoke:preview:ephemeral`    | After shared preview deploy when `EPHEMERAL_POW_SECRET` is set on the preview API Worker.             |
+| `pnpm smoke:preview:ephemeral`    | After shared preview deploy.                                                                          |
 | `pnpm smoke:pr:ephemeral`         | Automatically in `.github/workflows/pr-preview.yml` after PR Workers are ready.                       |
 | `pnpm smoke:production:ephemeral` | Operator-only after production deploy; uses the tiny `examples/local-harness/ephemeral-site` fixture. |
 
 Secrets and skip behavior:
 
-- **Required on API Worker:** `EPHEMERAL_POW_SECRET` (bootstrap via `scripts/bootstrap-secrets.mjs`, or PR preview seed via `PR_PREVIEW_SECRET_SEED`). When missing, the smoke exits **0** with a clear skip message (not a false pass).
+- **Provision delay:** `EPHEMERAL_PROVISION_DELAY_MS` is a non-secret API Worker
+  variable. Preview, PR, and production default to `200`; tests/local harnesses
+  may set `0`.
 - **Probe failures:** network errors, 5xx responses, and unexpected provision
-  error codes fail the smoke. Only the explicit skip flag or
-  `database_unavailable` from a missing `EPHEMERAL_POW_SECRET` skip cleanly.
+  error codes fail the smoke. Only the explicit skip flag skips cleanly.
 - **Required Wrangler binding:** `EPHEMERAL_PROVISION_GATE` Durable Object. When
   missing or unhealthy, provision fails closed with
   `ephemeral_provision_unavailable`.

@@ -327,11 +327,7 @@ const apiEnv = {
   ACTOR_RATE_LIMIT: alwaysAllowRateLimit,
   WORKSPACE_BURST_CAP: alwaysAllowRateLimit,
   ARTIFACT_RATE_LIMIT: alwaysAllowRateLimit,
-  EPHEMERAL_POW_SECRET: process.env.EPHEMERAL_POW_SECRET ?? "local-ephemeral-pow-secret",
-  // Hosted default is 20 bits (~1M hashes). Locally and in CI smokes the challenge is
-  // friction, not a security boundary, and an unlucky 20-bit solve on a slow runner can
-  // outlive the 5-minute challenge TTL (pow_invalid). 8 bits solves in milliseconds.
-  EPHEMERAL_POW_DIFFICULTY_BITS: process.env.EPHEMERAL_POW_DIFFICULTY_BITS ?? "8",
+  EPHEMERAL_PROVISION_DELAY_MS: process.env.EPHEMERAL_PROVISION_DELAY_MS ?? "0",
   EPHEMERAL_PROVISION_IP_RATE_LIMIT: alwaysAllowRateLimit,
   EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT: alwaysAllowRateLimit,
   SMOKE_HARNESS_SECRET: smokeHarnessSecret,

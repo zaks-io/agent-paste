@@ -42,6 +42,16 @@ export const nonContractRoutePaths = ["/healthz", "/openapi.json"] as const;
 app.use("*", securityHeadersMiddleware());
 app.use("*", requestIdMiddleware());
 app.use("*", boundRespondersMiddleware(boundResponderConfig));
+app.use("*", async (context, next) => {
+  await next();
+  if (context.res.status === 401 && !context.res.headers.has("WWW-Authenticate")) {
+    const apiBase = (context.env.API_BASE_URL ?? "https://api.agent-paste.sh").replace(/\/+$/, "");
+    context.res.headers.set(
+      "WWW-Authenticate",
+      `Bearer resource_metadata="${apiBase}/.well-known/oauth-protected-resource"`,
+    );
+  }
+});
 app.get("/healthz", (c) => c.text("ok"));
 app.get("/openapi.json", (context) =>
   context.json(buildUploadOpenApiDocument({ serverUrl: context.env.UPLOAD_BASE_URL })),

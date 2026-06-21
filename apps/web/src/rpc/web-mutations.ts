@@ -81,3 +81,10 @@ export const claimEphemeralFn = createServerFn({ method: "POST" })
     const { claimEphemeral } = await import("../server/web-mutations");
     return claimEphemeral(data);
   });
+
+export const completeAgentAuthClaimFn = createServerFn({ method: "POST" })
+  .inputValidator((input: { claim_token?: string; claim_attempt_token?: string; user_code: string }) => input)
+  .handler(async ({ data }) => {
+    const { completeAgentAuthClaim } = await import("../server/web-mutations");
+    return completeAgentAuthClaim(data);
+  });

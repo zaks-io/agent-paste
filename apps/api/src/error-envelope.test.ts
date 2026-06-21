@@ -76,6 +76,9 @@ describe("api error envelope", () => {
   it("401 envelope is returned without docs when DOCS_BASE_URL is unset", async () => {
     const response = await handleRequest(new Request("https://api.test/v1/whoami"), { DB: workspaceDb() });
     expect(response.status).toBe(401);
+    expect(response.headers.get("www-authenticate")).toBe(
+      'Bearer resource_metadata="https://api.agent-paste.sh/.well-known/oauth-protected-resource"',
+    );
     const body = await expectEnvelope(response, "not_authenticated");
     expect(body.error.docs).toBeUndefined();
   });

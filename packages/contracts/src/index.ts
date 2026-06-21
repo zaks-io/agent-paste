@@ -1,5 +1,6 @@
 export * from "./accessLinks.js";
 export * from "./admin.js";
+export * from "./agentAuth.js";
 export * from "./agentView.js";
 export * from "./apiKeys.js";
 export * from "./artifacts.js";

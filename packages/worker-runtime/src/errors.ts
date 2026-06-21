@@ -37,8 +37,6 @@ export const ERROR_STATUS: Record<ErrorCodeValue, number> = {
   revision_ceiling_exceeded: 429,
   ephemeral_provision_rate_limited: 429,
   ephemeral_provision_unavailable: 503,
-  pow_required: 401,
-  pow_invalid: 400,
   database_unavailable: 503,
   storage_unavailable: 503,
 };

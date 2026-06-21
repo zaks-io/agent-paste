@@ -55,7 +55,6 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
       { McpOAuthBearer: [] },
       { SignedAgentViewToken: [] },
       { SignedAccessLinkRequest: [] },
-      { EphemeralProofOfWork: [] },
       { StripeSignature: [] },
       ...(includeOperatorPaths ? [{ CfAccessServiceToken: [] }] : []),
     ],

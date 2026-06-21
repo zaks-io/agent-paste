@@ -1,5 +1,9 @@
 import type {
   AccessLink,
+  AgentAuthAccessToken,
+  AgentAuthDelegation,
+  AgentAuthJti,
+  AgentAuthRegistration,
   ApiKey,
   Artifact,
   ClaimToken,
@@ -54,6 +58,47 @@ export type Entities = {
     updateRevokedAt(id: string, revokedAt: string): Promise<void>;
     revokeAllForWorkspace(workspaceId: string, revokedAt: string): Promise<void>;
   };
+  agentAuth: {
+    insertDelegation(delegation: AgentAuthDelegation): Promise<void>;
+    findActiveDelegation(input: {
+      providerIssuer: string;
+      providerSubject: string;
+      audience: string;
+    }): Promise<AgentAuthDelegation | null>;
+    findDelegationById(id: string): Promise<AgentAuthDelegation | null>;
+    updateDelegationSeen(id: string, input: { email: string; lastSeenAt: string }): Promise<void>;
+    revokeActiveDelegation(input: {
+      providerIssuer: string;
+      providerSubject: string;
+      audience: string;
+      revokedAt: string;
+    }): Promise<AgentAuthDelegation | null>;
+    insertRegistration(registration: AgentAuthRegistration): Promise<void>;
+    findRegistrationById(id: string): Promise<AgentAuthRegistration | null>;
+    findRegistrationByClaimTokenHash(claimTokenHash: Uint8Array): Promise<AgentAuthRegistration | null>;
+    findRegistrationByClaimAttemptTokenHash(claimAttemptTokenHash: Uint8Array): Promise<AgentAuthRegistration | null>;
+    markRegistrationVerified(
+      id: string,
+      input: { delegationId: string; completedAt: string; updatedAt: string },
+    ): Promise<AgentAuthRegistration | null>;
+    markAnonymousClaimPending(
+      id: string,
+      input: {
+        claimAttemptTokenHash: Uint8Array;
+        userCodeHash: Uint8Array;
+        claimAttemptExpiresAt: string;
+        updatedAt: string;
+      },
+    ): Promise<AgentAuthRegistration | null>;
+    markAnonymousRegistrationVerified(
+      id: string,
+      input: { workspaceId: string; workspaceMemberId: string; email: string; completedAt: string; updatedAt: string },
+    ): Promise<AgentAuthRegistration | null>;
+    insertJti(jti: AgentAuthJti): Promise<boolean>;
+    insertAccessToken(accessToken: AgentAuthAccessToken): Promise<void>;
+    findAccessTokenByApiKeyId(apiKeyId: string): Promise<AgentAuthAccessToken | null>;
+    listAccessTokensForDelegation(delegationId: string): Promise<AgentAuthAccessToken[]>;
+  };
   claimTokens: {
     insert(claimToken: ClaimToken): Promise<void>;
     findById(id: string, workspaceId?: string): Promise<ClaimToken | null>;
@@ -73,7 +118,12 @@ export type Entities = {
     insert(member: WorkspaceMember): Promise<void>;
     findById(id: string): Promise<WorkspaceMember | null>;
     findByWorkOsUserId(workosUserId: string): Promise<WorkspaceMember | null>;
+    findByEmail(email: string): Promise<WorkspaceMember[]>;
     updateSeen(id: string, input: { email: string; lastSeenAt: string }): Promise<WorkspaceMember | null>;
+    updateWorkOsUserId(
+      id: string,
+      input: { workosUserId: string; email: string; lastSeenAt: string },
+    ): Promise<WorkspaceMember | null>;
   };
   artifacts: {
     insert(artifact: Artifact): Promise<void>;

@@ -18,6 +18,64 @@ CREATE TABLE "access_links" (
 	CONSTRAINT "access_links_public_id_format" CHECK ("access_links"."public_id" ~ '^[0-9A-HJKMNP-TV-Z]{16}$')
 );
 
+CREATE TABLE "agent_auth_access_tokens" (
+	"api_key_id" text PRIMARY KEY NOT NULL,
+	"registration_id" text NOT NULL,
+	"delegation_id" text,
+	"issued_at" timestamp with time zone NOT NULL
+);
+
+CREATE TABLE "agent_auth_delegations" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" uuid NOT NULL,
+	"workspace_member_id" text NOT NULL,
+	"provider_issuer" text NOT NULL,
+	"provider_subject" text NOT NULL,
+	"audience" text NOT NULL,
+	"provider_client_id" text NOT NULL,
+	"email" text NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"last_seen_at" timestamp with time zone NOT NULL,
+	"revoked_at" timestamp with time zone
+);
+
+CREATE TABLE "agent_auth_jtis" (
+	"provider_issuer" text NOT NULL,
+	"jti" text NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "agent_auth_jtis_provider_issuer_jti_pk" PRIMARY KEY("provider_issuer","jti")
+);
+
+CREATE TABLE "agent_auth_registrations" (
+	"id" text PRIMARY KEY NOT NULL,
+	"registration_type" text DEFAULT 'identity_assertion' NOT NULL,
+	"delegation_id" text,
+	"workspace_id" uuid,
+	"workspace_member_id" text,
+	"provider_issuer" text NOT NULL,
+	"provider_subject" text NOT NULL,
+	"audience" text NOT NULL,
+	"provider_client_id" text NOT NULL,
+	"email" text NOT NULL,
+	"status" text NOT NULL,
+	"claim_token_id" text,
+	"claim_token_hash" "bytea",
+	"claim_attempt_token_hash" "bytea",
+	"user_code_hash" "bytea",
+	"claim_expires_at" timestamp with time zone,
+	"claim_attempt_expires_at" timestamp with time zone,
+	"completed_at" timestamp with time zone,
+	"expires_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "agent_auth_registrations_type_check" CHECK ("agent_auth_registrations"."registration_type" in ('identity_assertion', 'anonymous')),
+	CONSTRAINT "agent_auth_registrations_status_check" CHECK ("agent_auth_registrations"."status" in (
+        'verified', 'pending_step_up', 'anonymous_unclaimed',
+        'anonymous_claim_pending', 'revoked'
+      ))
+);
+
 CREATE TABLE "api_keys" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" uuid NOT NULL,
@@ -273,6 +331,15 @@ CREATE TABLE "workspaces" (
 ALTER TABLE "access_links" ADD CONSTRAINT "access_links_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "access_links" ADD CONSTRAINT "access_links_artifact_fk" FOREIGN KEY ("workspace_id","artifact_id") REFERENCES "public"."artifacts"("workspace_id","id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "access_links" ADD CONSTRAINT "access_links_revision_fk" FOREIGN KEY ("workspace_id","artifact_id","revision_id") REFERENCES "public"."revisions"("workspace_id","artifact_id","id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "agent_auth_access_tokens" ADD CONSTRAINT "agent_auth_access_tokens_api_key_id_api_keys_id_fk" FOREIGN KEY ("api_key_id") REFERENCES "public"."api_keys"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "agent_auth_access_tokens" ADD CONSTRAINT "agent_auth_access_tokens_registration_id_agent_auth_registrations_id_fk" FOREIGN KEY ("registration_id") REFERENCES "public"."agent_auth_registrations"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "agent_auth_access_tokens" ADD CONSTRAINT "agent_auth_access_tokens_delegation_id_agent_auth_delegations_id_fk" FOREIGN KEY ("delegation_id") REFERENCES "public"."agent_auth_delegations"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "agent_auth_delegations" ADD CONSTRAINT "agent_auth_delegations_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "agent_auth_delegations" ADD CONSTRAINT "agent_auth_delegations_workspace_member_id_workspace_members_id_fk" FOREIGN KEY ("workspace_member_id") REFERENCES "public"."workspace_members"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "agent_auth_registrations" ADD CONSTRAINT "agent_auth_registrations_delegation_id_agent_auth_delegations_id_fk" FOREIGN KEY ("delegation_id") REFERENCES "public"."agent_auth_delegations"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "agent_auth_registrations" ADD CONSTRAINT "agent_auth_registrations_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "agent_auth_registrations" ADD CONSTRAINT "agent_auth_registrations_workspace_member_id_workspace_members_id_fk" FOREIGN KEY ("workspace_member_id") REFERENCES "public"."workspace_members"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "agent_auth_registrations" ADD CONSTRAINT "agent_auth_registrations_claim_token_id_claim_tokens_id_fk" FOREIGN KEY ("claim_token_id") REFERENCES "public"."claim_tokens"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_artifact_id_artifacts_id_fk" FOREIGN KEY ("artifact_id") REFERENCES "public"."artifacts"("id") ON DELETE cascade ON UPDATE no action;
@@ -294,6 +361,15 @@ ALTER TABLE "workspace_members" ADD CONSTRAINT "workspace_members_workspace_id_w
 CREATE UNIQUE INDEX "access_links_public_id_unique" ON "access_links" USING btree ("public_id");
 CREATE INDEX "access_links_artifact_created_idx" ON "access_links" USING btree ("artifact_id","created_at");
 CREATE INDEX "access_links_workspace_idx" ON "access_links" USING btree ("workspace_id");
+CREATE INDEX "agent_auth_access_tokens_delegation_idx" ON "agent_auth_access_tokens" USING btree ("delegation_id");
+CREATE INDEX "agent_auth_delegations_workspace_idx" ON "agent_auth_delegations" USING btree ("workspace_id");
+CREATE INDEX "agent_auth_delegations_member_idx" ON "agent_auth_delegations" USING btree ("workspace_member_id");
+CREATE UNIQUE INDEX "agent_auth_delegations_active_identity_unique" ON "agent_auth_delegations" USING btree ("provider_issuer","provider_subject","audience") WHERE "agent_auth_delegations"."revoked_at" is null;
+CREATE INDEX "agent_auth_jtis_expires_idx" ON "agent_auth_jtis" USING btree ("expires_at");
+CREATE INDEX "agent_auth_registrations_delegation_idx" ON "agent_auth_registrations" USING btree ("delegation_id");
+CREATE INDEX "agent_auth_registrations_claim_idx" ON "agent_auth_registrations" USING btree ("claim_token_hash");
+CREATE INDEX "agent_auth_registrations_claim_attempt_idx" ON "agent_auth_registrations" USING btree ("claim_attempt_token_hash");
+CREATE INDEX "agent_auth_registrations_claim_token_id_idx" ON "agent_auth_registrations" USING btree ("claim_token_id");
 CREATE INDEX "api_keys_active_workspace_idx" ON "api_keys" USING btree ("workspace_id");
 CREATE INDEX "artifact_files_blob_idx" ON "artifact_files" USING btree ("workspace_id","sha256","size_bytes");
 CREATE INDEX "artifacts_workspace_created_idx" ON "artifacts" USING btree ("workspace_id","created_at");

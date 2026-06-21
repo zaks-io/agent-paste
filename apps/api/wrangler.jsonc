@@ -149,7 +149,6 @@
           "API_KEY_PEPPER_V1",
           "ARTIFACT_BYTES_ENCRYPTION_KEY",
           "CONTENT_SIGNING_SECRET",
-          "EPHEMERAL_POW_SECRET",
           "STREAM_INTERNAL_SECRET",
           "WORKOS_API_KEY"
         ]
@@ -168,6 +167,7 @@
         // at the preview web app; without this the default falls back to production.
         "WEB_BASE_URL": "https://app.preview.agent-paste.sh",
         "CLEANUP_BATCH_SIZE": "100",
+        "EPHEMERAL_PROVISION_DELAY_MS": "200",
         "AGENT_PASTE_ENV": "preview",
         // Billing (Free + Pro) routes mount only when this flag is "true"
         // (apps/api/src/env.ts:billingEnabled). On in preview so the Stripe
@@ -311,7 +311,6 @@
           "API_KEY_PEPPER_V1",
           "ARTIFACT_BYTES_ENCRYPTION_KEY",
           "CONTENT_SIGNING_SECRET",
-          "EPHEMERAL_POW_SECRET",
           "STREAM_INTERNAL_SECRET",
           "WORKOS_API_KEY"
         ]
@@ -330,6 +329,7 @@
         // rather than relying on the production default in runtime.ts.
         "WEB_BASE_URL": "https://app.agent-paste.sh",
         "CLEANUP_BATCH_SIZE": "100",
+        "EPHEMERAL_PROVISION_DELAY_MS": "200",
         "AGENT_PASTE_ENV": "production",
         // Off until paid plans launch. Flip to "true" in the same commit that turns
         // billing on for real users; the PRODUCTION_STRIPE_* secrets are already

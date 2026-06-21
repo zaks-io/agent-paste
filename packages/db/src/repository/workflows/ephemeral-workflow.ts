@@ -16,10 +16,11 @@ import {
   PLATFORM_SCOPE,
   workspaceScope,
 } from "../core-helpers.js";
+import type { Entities } from "../ports.js";
 import { buildApiKey } from "../shared.js";
 
 /** Default claim-token lifetime for a freshly provisioned ephemeral workspace. */
-const DEFAULT_CLAIM_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
+export const DEFAULT_CLAIM_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 const EPHEMERAL_CLAIM_OPERATION = "ephemeral.workspace.claim";
 
 export type CreateEphemeralWorkspaceResult = {
@@ -65,54 +66,67 @@ export async function createEphemeralWorkspace(
       now,
     },
     async (entities) => {
-      await entities.workspaces.insert(workspace);
-
-      const { apiKey, secret: apiKeySecret } = await buildApiKey(ctx.options, {
-        workspaceId,
-        name: "Ephemeral publish key",
-        now,
-        expiresAt: claimExpiresAt,
-      });
-      await entities.apiKeys.insert(apiKey);
-
-      const pepperRing = ctx.options.pepperRing ?? PepperRing.single(ctx.options.apiKeyPepper, 1);
-      const generated = await generateClaimToken(
-        ctx.options.apiKeyEnv ?? "preview",
-        pepperRing.currentPepper(),
-        input.claimCode,
-      );
-      const claimToken: ClaimToken = {
-        id: createId("ct"),
-        workspace_id: workspaceId,
-        public_id: generated.publicId,
-        token_hash: generated.tokenHash,
-        pepper_kid: pepperRing.currentKid,
-        expires_at: claimExpiresAt,
-        redeemed_at: null,
-        created_at: now,
-      };
-      await entities.claimTokens.insert(claimToken);
-
-      await entities.operationEvents.insert({
-        actorType: EPHEMERAL_PROVISION_SYSTEM_ACTOR.type,
-        actorId: EPHEMERAL_PROVISION_SYSTEM_ACTOR.id,
-        action: "ephemeral.workspace.provisioned",
-        targetType: "workspace",
-        targetId: workspaceId,
-        workspaceId,
-        details: { claim_token_id: claimToken.id, api_key_id: apiKey.id },
-        occurredAt: now,
-      });
-
-      return {
+      return insertEphemeralWorkspaceProvision(ctx, entities, {
         workspace,
-        api_key: apiKey,
-        api_key_secret: apiKeySecret,
-        claim_token: claimToken,
-        claim_token_secret: generated.secret,
-      };
+        claimExpiresAt,
+        now,
+        ...(input.claimCode ? { claimCode: input.claimCode } : {}),
+      });
     },
   );
+}
+
+export async function insertEphemeralWorkspaceProvision(
+  ctx: RepositoryCoreContext,
+  entities: Entities,
+  input: { workspace: Workspace; claimExpiresAt: string; now: string; claimCode?: string },
+): Promise<CreateEphemeralWorkspaceResult> {
+  await entities.workspaces.insert(input.workspace);
+
+  const { apiKey, secret: apiKeySecret } = await buildApiKey(ctx.options, {
+    workspaceId: input.workspace.id,
+    name: "Ephemeral publish key",
+    now: input.now,
+    expiresAt: input.claimExpiresAt,
+  });
+  await entities.apiKeys.insert(apiKey);
+
+  const pepperRing = ctx.options.pepperRing ?? PepperRing.single(ctx.options.apiKeyPepper, 1);
+  const generated = await generateClaimToken(
+    ctx.options.apiKeyEnv ?? "preview",
+    pepperRing.currentPepper(),
+    input.claimCode,
+  );
+  const claimToken: ClaimToken = {
+    id: createId("ct"),
+    workspace_id: input.workspace.id,
+    public_id: generated.publicId,
+    token_hash: generated.tokenHash,
+    pepper_kid: pepperRing.currentKid,
+    expires_at: input.claimExpiresAt,
+    redeemed_at: null,
+    created_at: input.now,
+  };
+  await entities.claimTokens.insert(claimToken);
+
+  await entities.operationEvents.insert({
+    actorType: EPHEMERAL_PROVISION_SYSTEM_ACTOR.type,
+    actorId: EPHEMERAL_PROVISION_SYSTEM_ACTOR.id,
+    action: "ephemeral.workspace.provisioned",
+    targetType: "workspace",
+    targetId: input.workspace.id,
+    workspaceId: input.workspace.id,
+    details: { claim_token_id: claimToken.id, api_key_id: apiKey.id },
+    occurredAt: input.now,
+  });
+
+  return {
+    workspace: input.workspace,
+    api_key: apiKey,
+    api_key_secret: apiKeySecret,
+    claim_token: claimToken,
+    claim_token_secret: generated.secret,
+  };
 }
 
 export type ClaimEphemeralWorkspaceResult = {
@@ -175,6 +189,19 @@ export async function claimEphemeralWorkspaceWithReplayState(
     now?: Date;
   },
 ): Promise<{ result: ClaimEphemeralWorkspaceResult; isReplay: boolean }> {
+  const claimToken = await resolveClaimTokenRecord(ctx, input.claimTokenSecret);
+  return claimResolvedEphemeralWorkspaceWithReplayState(ctx, { ...input, claimToken });
+}
+
+export async function claimResolvedEphemeralWorkspaceWithReplayState(
+  ctx: RepositoryCoreContext,
+  input: {
+    actor: ApiActor;
+    claimToken: ClaimToken;
+    idempotencyKey: string;
+    now?: Date;
+  },
+): Promise<{ result: ClaimEphemeralWorkspaceResult; isReplay: boolean }> {
   if (input.actor.type !== "member") {
     repositoryError("forbidden");
   }
@@ -193,13 +220,12 @@ export async function claimEphemeralWorkspaceWithReplayState(
     return { result: replay.result, isReplay: true };
   }
 
-  const claimToken = await resolveClaimTokenRecord(ctx, input.claimTokenSecret);
   const destinationWorkspaceId = input.actor.workspace_id;
-  const sourceWorkspaceId = claimToken.workspace_id;
+  const sourceWorkspaceId = input.claimToken.workspace_id;
 
   await ctx.uow.read(PLATFORM_SCOPE, async (entities) => {
     const sourceWorkspace = await ctx.mustWorkspace(entities, sourceWorkspaceId);
-    assertClaimTokenRedeemable(claimToken, sourceWorkspace, now);
+    assertClaimTokenRedeemable(input.claimToken, sourceWorkspace, now);
     if (sourceWorkspaceId === destinationWorkspaceId) {
       repositoryError("not_found");
     }
@@ -228,7 +254,7 @@ export async function claimEphemeralWorkspaceWithReplayState(
       now,
     },
     async (entities) => {
-      const resolvedToken = await entities.claimTokens.findByPublicId(claimToken.public_id);
+      const resolvedToken = await entities.claimTokens.findByPublicId(input.claimToken.public_id);
       if (!resolvedToken) {
         repositoryError("not_found");
       }

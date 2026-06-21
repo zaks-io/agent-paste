@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, ilike } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { defineSqlQuerySourceMap } from "../postgres/query-source.js";
 import { workspaceMembers } from "../schema.js";
@@ -30,6 +30,11 @@ export const workspaceMemberQueries = defineSqlQuerySourceMap(
       return row ? mapWorkspaceMember(row) : null;
     },
 
+    async findByEmail(db: DrizzleDb, email: string): Promise<WorkspaceMember[]> {
+      const rows = await db.select().from(workspaceMembers).where(ilike(workspaceMembers.email, email));
+      return rows.map(mapWorkspaceMember);
+    },
+
     async findById(db: DrizzleDb, id: string): Promise<WorkspaceMember | null> {
       const rows = await db.select().from(workspaceMembers).where(eq(workspaceMembers.id, id)).limit(1);
       const row = rows[0];
@@ -40,6 +45,20 @@ export const workspaceMemberQueries = defineSqlQuerySourceMap(
       const rows = await db
         .update(workspaceMembers)
         .set({ email: input.email, lastSeenAt: new Date(input.lastSeenAt) })
+        .where(eq(workspaceMembers.id, id))
+        .returning();
+      const row = rows[0];
+      return row ? mapWorkspaceMember(row) : null;
+    },
+
+    async updateWorkOsUserId(
+      db: DrizzleDb,
+      id: string,
+      input: { workosUserId: string; email: string; lastSeenAt: string },
+    ) {
+      const rows = await db
+        .update(workspaceMembers)
+        .set({ workosUserId: input.workosUserId, email: input.email, lastSeenAt: new Date(input.lastSeenAt) })
         .where(eq(workspaceMembers.id, id))
         .returning();
       const row = rows[0];

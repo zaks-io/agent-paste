@@ -1,5 +1,9 @@
 import type {
   AccessLink,
+  AgentAuthAccessToken,
+  AgentAuthDelegation,
+  AgentAuthJti,
+  AgentAuthRegistration,
   ApiKey,
   Artifact,
   ClaimToken,
@@ -19,6 +23,10 @@ import type {
 export type LocalState = {
   workspaces: Map<string, Workspace>;
   workspaceMembers: Map<string, WorkspaceMember>;
+  agentAuthDelegations: Map<string, AgentAuthDelegation>;
+  agentAuthRegistrations: Map<string, AgentAuthRegistration>;
+  agentAuthJtis: Map<string, AgentAuthJti>;
+  agentAuthAccessTokens: Map<string, AgentAuthAccessToken>;
   apiKeys: Map<string, ApiKey>;
   artifacts: Map<string, Artifact>;
   revisions: Map<string, Revision>;
@@ -37,6 +45,10 @@ export function createLocalState(): LocalState {
   return {
     workspaces: new Map(),
     workspaceMembers: new Map(),
+    agentAuthDelegations: new Map(),
+    agentAuthRegistrations: new Map(),
+    agentAuthJtis: new Map(),
+    agentAuthAccessTokens: new Map(),
     apiKeys: new Map(),
     artifacts: new Map(),
     revisions: new Map(),

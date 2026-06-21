@@ -7,12 +7,13 @@ import { PLATFORM_SCOPE } from "../core-helpers.js";
 import type { CommandActor, Entities } from "../ports.js";
 import { buildApiKey, DEFAULT_MEMBER_SCOPES, webAuthResponse } from "../shared.js";
 
-async function provisionWebMember(
+export async function provisionWebMember(
   ctx: RepositoryCoreContext,
   entities: Entities,
-  input: { workosUserId: string; email: string },
+  input: { workosUserId: string; email: string; actorId?: string },
   now: string,
 ) {
+  const actorId = input.actorId ?? "web-auth";
   const workspace: Workspace = {
     id: crypto.randomUUID(),
     name: `${input.email.split("@")[0] ?? "user"}'s Workspace`,
@@ -45,7 +46,7 @@ async function provisionWebMember(
   await entities.apiKeys.insert(apiKey);
   await entities.operationEvents.insert({
     actorType: "system",
-    actorId: "web-auth",
+    actorId,
     action: "workspace.created",
     targetType: "workspace",
     targetId: workspace.id,
@@ -55,7 +56,7 @@ async function provisionWebMember(
   });
   await entities.operationEvents.insert({
     actorType: "system",
-    actorId: "web-auth",
+    actorId,
     action: "api_key.created",
     targetType: "api_key",
     targetId: apiKey.id,
@@ -91,6 +92,18 @@ export async function resolveWebMember(
         const resolved = member ?? existing;
         const workspace = await ensureClaimed(entities, await ctx.mustWorkspace(entities, resolved.workspace_id), now);
         return webAuthResponse(workspace, resolved, null);
+      }
+      const emailMatches = await entities.members.findByEmail(input.email);
+      const synthetic = emailMatches.find((member) => member.workos_user_id.startsWith("agent-auth:"));
+      if (synthetic && emailMatches.length === 1) {
+        const member =
+          (await entities.members.updateWorkOsUserId(synthetic.id, {
+            workosUserId: input.workosUserId,
+            email: input.email,
+            lastSeenAt: now,
+          })) ?? synthetic;
+        const workspace = await ensureClaimed(entities, await ctx.mustWorkspace(entities, member.workspace_id), now);
+        return webAuthResponse(workspace, member, null);
       }
       return uowCtx.command(
         { actor, operation: "web.member.provision", idempotencyKey: `workos-user:${input.workosUserId}`, now },

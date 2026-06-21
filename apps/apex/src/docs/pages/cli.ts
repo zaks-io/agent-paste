@@ -120,7 +120,7 @@ export const CLI_DOC: DocsPage = {
           kind: "note",
           title: "Check auth before ephemeral",
           body: [
-            "Agents should run `agent-paste whoami --json` before using `--ephemeral`; it exits `0` either way, so check the JSON, not the exit code. If it reports you are signed in, publish normally. Ephemeral is fine for non-interactive text, markdown, images, and static HTML/CSS. It is wrong for interactive HTML/JS because scripts stay disabled while unclaimed; after claim, interactivity runs through the controlled Artifact Viewer.",
+            "Agents should run `agent-paste whoami --json` before using `--ephemeral`; it exits `0` either way, so check the JSON, not the exit code. If it reports you are signed in, publish normally. If browser auth is possible, run `agent-paste login` before publishing. Use `--ephemeral` only when login is unavailable or explicitly skipped. Ephemeral is fine for non-interactive text, markdown, images, and static HTML/CSS. It is wrong for interactive HTML/JS because scripts stay disabled while unclaimed; after claim, interactivity runs through the controlled Artifact Viewer.",
           ],
         },
       ],

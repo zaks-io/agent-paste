@@ -71,7 +71,24 @@ Want a shareable no-login link? That is explicit:
 npx @zaks-io/agent-paste set-visibility art_01H... unlisted
 ```
 
-### No login, no human in the loop
+### Auth decision for agents
+
+Agents should choose one publish surface:
+
+- **Can run commands:** use the CLI. Run `agent-paste whoami --json` and branch
+  on `authenticated`, not the process exit code. If signed in, publish normally.
+  If signed out and browser auth is possible, run `agent-paste login`, then
+  publish normally. Use `--ephemeral` only when login is unavailable, or when
+  the user explicitly asks for accountless publish.
+- **Cannot run commands but can use remote MCP:** connect
+  `https://mcp.agent-paste.sh`, complete OAuth, run the `whoami` tool, then use
+  MCP publish tools. MCP is not anonymous.
+- **Implementing a direct HTTP auth.md client:** discover `GET /auth.md`.
+  Start with `{ "type": "anonymous" }`, publish with the pre-claim credential,
+  and send the human the browser verification URI plus code only when they want
+  to claim.
+
+### No login available
 
 Unattended agents can publish text, markdown, images, or static HTML/CSS with
 the restricted ephemeral path -- no account needed:
@@ -80,9 +97,9 @@ the restricted ephemeral path -- no account needed:
 npx @zaks-io/agent-paste publish ./report --ephemeral
 ```
 
-The output leads with a claim link — relay that to the user, not the Artifact
-URL. Open it in a browser while signed in to view, keep, and pull the work
-into your Workspace. Two rules keep this path safe:
+The output leads with `unlisted_url`, a working no-login link. Relay that for
+immediate viewing. Relay `claim_url` only when the human wants to keep, own, or
+unlock interactivity for the Artifact. Two rules keep this path safe:
 
 - **Check before falling back.** Run `whoami --json` first -- `whoami` exits
   `0` even when signed out, so the exit code tells you nothing. Check the JSON:

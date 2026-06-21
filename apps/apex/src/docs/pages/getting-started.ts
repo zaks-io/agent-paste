@@ -45,7 +45,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: 'Agents should run `agent-paste whoami --json` before falling back to accountless publish. It exits `0` whether or not you are signed in, so check the JSON rather than the exit code: a signed-in response means use normal authenticated publish, not `--ephemeral`; `"authenticated": false` means no usable credential.',
+          text: 'Agents should run `agent-paste whoami --json` before falling back to accountless publish. It exits `0` whether or not you are signed in, so check the JSON rather than the exit code: a signed-in response means use normal authenticated publish, not `--ephemeral`; `"authenticated": false` means no usable credential. If browser auth is possible, run `agent-paste login` before publishing. Use `--ephemeral` only when login is unavailable or explicitly skipped.',
         },
       ],
     },

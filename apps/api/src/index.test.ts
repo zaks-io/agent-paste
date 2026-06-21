@@ -38,6 +38,15 @@ describe("api worker", () => {
     expect([...nonContractRoutePaths]).toEqual([
       "/healthz",
       "/openapi.json",
+      "/auth.md",
+      "/.well-known/oauth-protected-resource",
+      "/.well-known/oauth-authorization-server",
+      "/agent/identity",
+      "/agent/identity/claim",
+      "/oauth2/token",
+      "/oauth2/revoke",
+      "/agent/event/notify",
+      "/v1/web/agent-auth/claim/complete",
       "/__test__/provision-smoke",
       "/__test__/force-expire",
       "/__test__/delete-artifact",
@@ -52,6 +61,152 @@ describe("api worker", () => {
     expect(response.status).toBe(200);
     expect(await response.text()).toBe("ok");
     expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("publishes agent auth discovery metadata", async () => {
+    const env: Env = {
+      API_BASE_URL: "https://api.test",
+      AGENT_AUTH_ASSERTION_SIGNING_SECRET: "secret",
+      AGENT_AUTH_TRUSTED_PROVIDERS_JSON: JSON.stringify([
+        { issuer: "https://provider.test", display_name: "Provider", client_ids: ["client_1"] },
+      ]),
+    };
+    const prm = await handleRequest(new Request("https://api.test/.well-known/oauth-protected-resource"), env);
+    expect(prm.status).toBe(200);
+    await expect(prm.json()).resolves.toMatchObject({
+      resource: "https://api.test",
+      authorization_servers: ["https://api.test"],
+      scopes_supported: ["read", "publish"],
+    });
+
+    const as = await handleRequest(new Request("https://api.test/.well-known/oauth-authorization-server"), env);
+    expect(as.status).toBe(200);
+    await expect(as.json()).resolves.toMatchObject({
+      issuer: "https://api.test",
+      token_endpoint: "https://api.test/oauth2/token",
+      agent_auth: {
+        identity_endpoint: "https://api.test/agent/identity",
+        identity_types_supported: ["anonymous", "identity_assertion"],
+      },
+    });
+  });
+
+  it("advertises anonymous agent auth with only a signing secret", async () => {
+    const env: Env = {
+      API_BASE_URL: "https://api.test",
+      AGENT_AUTH_ASSERTION_SIGNING_SECRET: "secret",
+    };
+    const as = await handleRequest(new Request("https://api.test/.well-known/oauth-authorization-server"), env);
+    expect(as.status).toBe(200);
+    await expect(as.json()).resolves.toMatchObject({
+      agent_auth: {
+        identity_types_supported: ["anonymous"],
+      },
+    });
+  });
+
+  it("registers an anonymous agent identity behind ephemeral provision rate limits", async () => {
+    const calls: string[] = [];
+    const response = await handleRequest(
+      new Request("https://api.test/agent/identity", {
+        method: "POST",
+        headers: { "content-type": "application/json", "CF-Connecting-IP": "203.0.113.10" },
+        body: JSON.stringify({ type: "anonymous" }),
+      }),
+      {
+        API_BASE_URL: "https://api.test",
+        AGENT_AUTH_ASSERTION_SIGNING_SECRET: "secret",
+        AGENT_AUTH_ANONYMOUS_DELAY_MS: "0",
+        EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT: {
+          async limit({ key }) {
+            calls.push(`global:${key}`);
+            return { success: true };
+          },
+        },
+        EPHEMERAL_PROVISION_IP_RATE_LIMIT: {
+          async limit({ key }) {
+            calls.push(`ip:${key}`);
+            return { success: true };
+          },
+        },
+        DB: {
+          async getWhoami() {
+            return {};
+          },
+          async registerAgentAnonymousIdentity() {
+            return {
+              kind: "registered",
+              registration: {
+                id: "reg_anon",
+                registration_type: "anonymous",
+                expires_at: "2099-06-20T12:00:00.000Z",
+                scopes: ["read", "publish"],
+              },
+              claim_token: "ap_ct_preview_claim",
+              claim_expires_at: "2099-06-20T12:00:00.000Z",
+            };
+          },
+        } as Partial<ApiDatabase> as ApiDatabase,
+      },
+    );
+    expect(response.status, await response.clone().text()).toBe(200);
+    expect(calls).toEqual(["global:global", "ip:203.0.113.10"]);
+    await expect(response.json()).resolves.toMatchObject({
+      registration_id: "reg_anon",
+      registration_type: "anonymous",
+      claim_token: "ap_ct_preview_claim",
+      claim_url: "https://api.test/agent/identity/claim",
+      pre_claim_scopes: ["read", "publish"],
+      post_claim_scopes: ["read", "publish"],
+    });
+  });
+
+  it("starts an anonymous agent claim without collecting email", async () => {
+    const response = await handleRequest(
+      new Request("https://api.test/agent/identity/claim", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ claim_token: "ap_ct_preview_claim" }),
+      }),
+      {
+        WEB_BASE_URL: "https://app.test",
+        DB: {
+          async getWhoami() {
+            return {};
+          },
+          async startAgentAuthAnonymousClaim(input) {
+            expect(input).toEqual({
+              claimToken: "ap_ct_preview_claim",
+              claimAttemptExpiresInSeconds: 600,
+            });
+            return {
+              kind: "initiated",
+              registration: {
+                id: "reg_anon",
+                registration_type: "anonymous",
+                expires_at: "2099-06-20T12:00:00.000Z",
+                scopes: ["read", "publish"],
+              },
+              claim_token_expires_at: "2099-06-20T12:00:00.000Z",
+              claim_attempt_token: "attempt_123",
+              user_code: "123456",
+              claim_attempt_expires_at: "2099-06-20T12:10:00.000Z",
+            };
+          },
+        } as Partial<ApiDatabase> as ApiDatabase,
+      },
+    );
+    expect(response.status, await response.clone().text()).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      claim_token: "ap_ct_preview_claim",
+      claim_attempt_token: "attempt_123",
+      registration_id: "reg_anon",
+      registration_type: "anonymous",
+      claim: {
+        user_code: "123456",
+        verification_uri: "https://app.test/agent-auth/claim?claim_attempt_token=attempt_123",
+      },
+    });
   });
 
   it("serves a generated OpenAPI document", async () => {

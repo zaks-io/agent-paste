@@ -1,4 +1,19 @@
 export {
+  type AgentAuthServiceAssertionPayload,
+  type AgentAuthTrustedProvider,
+  type AgentAuthVerificationCode,
+  AgentAuthVerificationError,
+  type AgentAuthVerificationOptions,
+  mintAgentAuthServiceAssertion,
+  parseAgentAuthTrustedProviders,
+  type VerifiedAgentProviderIdentity,
+  type VerifiedAgentSecurityEvent,
+  verifyAgentAuthServiceAssertion,
+  verifyAgentProviderIdentityAssertion,
+  verifyAgentProviderSecurityEvent,
+} from "./agent-auth.js";
+
+export {
   audienceMatchesMcpResource,
   authenticateMcpBearer,
   type McpAuthEnv,

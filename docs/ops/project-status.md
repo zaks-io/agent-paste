@@ -23,8 +23,9 @@ published. Pick up the next item from
 [phase-backlog.md](./status/phase-backlog.md).
 
 Standing security-posture decisions (still in force, not handoff-specific):
-file-bytes malware scanning is an accepted near-term risk, proof-of-work is not
-the primary long-term abuse lever, and hard production deploy wait limits are
+file-bytes malware scanning is an accepted near-term risk, ephemeral provision
+relies on rate limits, a Durable Object global gate, and a short server-side
+wait rather than proof-of-work, and hard production deploy wait limits are
 deferred until enough production usage justifies them. The hosted-content
 provenance badge is a separate product/security follow-up in
 [AP-235](https://linear.app/zaks-io/issue/AP-235/add-hosted-content-provenance-badge-to-reduce-phishing-risk).

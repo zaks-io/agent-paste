@@ -151,14 +151,14 @@ describe("applyRateLimit", () => {
       ),
     ).resolves.toEqual({
       ok: false,
-      code: "ephemeral_provision_unavailable",
+      code: "ephemeral_provision_rate_limited",
       retryAfter: "3600",
     });
   });
 });
 
 describe("applyEphemeralProvisionRateLimit", () => {
-  it("returns unavailable when the global circuit breaker trips", async () => {
+  it("returns rate limited when the global circuit breaker trips", async () => {
     const result = await applyEphemeralProvisionRateLimit(
       {
         ephemeralProvisionGlobal: {
@@ -172,7 +172,7 @@ describe("applyEphemeralProvisionRateLimit", () => {
     );
     expect(result).toEqual({
       ok: false,
-      code: "ephemeral_provision_unavailable",
+      code: "ephemeral_provision_rate_limited",
       retryAfter: "3600",
     });
   });
@@ -209,6 +209,31 @@ describe("applyEphemeralProvisionRateLimit", () => {
       code: "ephemeral_provision_unavailable",
       retryAfter: "3600",
     });
+  });
+
+  it("fails closed when the global circuit-breaker binding throws", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      await expect(
+        applyEphemeralProvisionRateLimit(
+          {
+            ephemeralProvisionGlobal: {
+              limit: async () => {
+                throw new Error("binding offline");
+              },
+            },
+            ephemeralProvisionIp: { limit: async () => ({ success: true }) },
+          },
+          "203.0.113.10",
+        ),
+      ).resolves.toEqual({
+        ok: false,
+        code: "ephemeral_provision_unavailable",
+        retryAfter: "3600",
+      });
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("fails closed when the per-ip binding is missing", async () => {

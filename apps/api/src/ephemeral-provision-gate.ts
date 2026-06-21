@@ -1,4 +1,3 @@
-import { DEFAULT_POW_CHALLENGE_TTL_SECONDS } from "@agent-paste/tokens/pow";
 import {
   type AppliedProvisionConfig,
   type EphemeralProvisionConfigKv,
@@ -18,7 +17,7 @@ export { DEFAULT_EPHEMERAL_PROVISION_LIMIT_PER_MINUTE as EPHEMERAL_PROVISION_LIM
 export type { EphemeralProvisionGateDecision } from "./ephemeral-provision-gate-state.js";
 
 export const EPHEMERAL_PROVISION_GATE_NAME = "global";
-export const EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS = DEFAULT_POW_CHALLENGE_TTL_SECONDS;
+export const EPHEMERAL_PROVISION_GATE_KEY_TTL_SECONDS = 5 * 60;
 const GATE_STORAGE_KEY = "ephemeral_provision_gate";
 const CONFIG_STORAGE_KEY = "ephemeral_provision_config";
 const INTERNAL_URL = "https://ephemeral-provision-gate.internal/consume";
@@ -40,8 +39,8 @@ export type EphemeralProvisionGateNamespace<Id = DurableObjectId> = {
 
 export async function consumeEphemeralProvisionGate<Id>(
   namespace: EphemeralProvisionGateNamespace<Id> | undefined,
-  nonce: string,
-  nonceTtlSeconds: number,
+  key: string,
+  keyTtlSeconds: number,
 ): Promise<EphemeralProvisionGateDecision | null> {
   if (!namespace) {
     return null;
@@ -52,7 +51,7 @@ export async function consumeEphemeralProvisionGate<Id>(
       new Request(INTERNAL_URL, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ nonce, nonce_ttl_seconds: nonceTtlSeconds }),
+        body: JSON.stringify({ key, key_ttl_seconds: keyTtlSeconds }),
       }),
     );
     if (!response.ok) {
@@ -74,16 +73,16 @@ export async function handleEphemeralProvisionGateRequest(
     if (request.method !== "POST" || !new URL(request.url).pathname.endsWith("/consume")) {
       return new Response("not_found", { status: 404 });
     }
-    const body = (await request.json().catch(() => null)) as { nonce?: unknown; nonce_ttl_seconds?: unknown } | null;
-    if (!body || typeof body.nonce !== "string" || body.nonce.length === 0) {
+    const body = (await request.json().catch(() => null)) as { key?: unknown; key_ttl_seconds?: unknown } | null;
+    if (!body || typeof body.key !== "string" || body.key.length === 0) {
       return new Response("invalid_request", { status: 400 });
     }
-    const nonceTtlSeconds = body.nonce_ttl_seconds;
+    const keyTtlSeconds = body.key_ttl_seconds;
     if (
-      typeof nonceTtlSeconds !== "number" ||
-      !Number.isInteger(nonceTtlSeconds) ||
-      nonceTtlSeconds <= 0 ||
-      nonceTtlSeconds > EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS
+      typeof keyTtlSeconds !== "number" ||
+      !Number.isInteger(keyTtlSeconds) ||
+      keyTtlSeconds <= 0 ||
+      keyTtlSeconds > EPHEMERAL_PROVISION_GATE_KEY_TTL_SECONDS
     ) {
       return new Response("invalid_request", { status: 400 });
     }
@@ -100,8 +99,8 @@ export async function handleEphemeralProvisionGateRequest(
     const nowMs = Date.now();
     const stored = normalizeStoredGateState(await storage.getGate());
     const outcome = consumeGateSlot(stored, {
-      nonce: body.nonce,
-      nonceExpiresAtMs: nowMs + nonceTtlSeconds * 1000,
+      nonce: body.key,
+      nonceExpiresAtMs: nowMs + keyTtlSeconds * 1000,
       nowMs,
       limitPerMinute: configResolution.config.limit_per_minute,
     });
