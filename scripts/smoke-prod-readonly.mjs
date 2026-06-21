@@ -20,6 +20,7 @@
 
 import {
   assertApexServes,
+  assertApiAuthDiscoveryServes,
   assertMcpServes,
   assertWebServes,
   assertWorkersHealthy,
@@ -35,6 +36,7 @@ const config = readonlyConfig(target);
 try {
   process.stdout.write(`Read-only ${config.label} smoke (no credentials)...\n`);
   await assertWorkersHealthy(config);
+  await assertApiAuthDiscoveryServes(config);
   await assertApexServes(config);
   await assertMcpServes(config);
   await assertWebServes(config);

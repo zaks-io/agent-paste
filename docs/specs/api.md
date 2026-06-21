@@ -63,7 +63,7 @@ The API Worker publishes the WorkOS auth.md discovery surface for agent sign-up:
 | ------ | ----------------------------------------- | --------------- | ----------------------------------------------------------------------------------- |
 | `GET`  | `/auth.md`                                | none            | Human/agent-readable summary of supported agent auth.                               |
 | `GET`  | `/.well-known/oauth-protected-resource`   | none            | Protected Resource Metadata with the API resource and authorization server.         |
-| `GET`  | `/.well-known/oauth-authorization-server` | none            | OAuth metadata with `agent_auth` endpoints and supported event schemas.             |
+| `GET`  | `/.well-known/oauth-authorization-server` | none            | OAuth metadata with configured `agent_auth` endpoints and capabilities.             |
 | `POST` | `/agent/identity`                         | none            | WorkOS auth.md registration for anonymous user-claimed starts and provider ID-JAGs. |
 | `POST` | `/agent/identity/claim`                   | none            | Starts an anonymous claim attempt or looks up a first-link step-up claim token.     |
 | `POST` | `/oauth2/token`                           | none            | JWT-bearer exchange for a service-signed `identity_assertion`, plus claim polling.  |
@@ -97,6 +97,9 @@ when `AGENT_AUTH_TRUSTED_PROVIDERS_JSON` parses to at least one trusted
 provider. The trust list is JSON configured by operators and must include
 issuer, display name, and accepted provider `client_ids`. `service_auth`
 registrations are intentionally not advertised or accepted.
+Provider event metadata (`events_endpoint`, `events_supported`, and
+`identity_assertion`) is advertised only with the verified flow; anonymous-only
+deployments must not publish those fields.
 
 Agent-auth access tokens are short-lived `ap_pk_*` credentials with `read` and
 `publish` scopes. They are issued only by `/oauth2/token`; `/agent/identity`

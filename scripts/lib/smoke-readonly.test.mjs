@@ -1,12 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { assertApexServes, assertWebServes, assertWorkersHealthy, readonlyConfig } from "./smoke-readonly.mjs";
+import {
+  assertApexServes,
+  assertApiAuthDiscoveryServes,
+  assertWebServes,
+  assertWorkersHealthy,
+  readonlyConfig,
+} from "./smoke-readonly.mjs";
 
 function htmlResponse(body = "agent-paste home", headers = {}) {
   return new Response(body, { status: 200, headers: { "content-type": "text/html", ...headers } });
 }
 
-function jsonResponse(body = {}) {
-  return Response.json(body);
+function jsonResponse(body = {}, init) {
+  return Response.json(body, init);
 }
 
 describe("smoke-readonly readonlyConfig", () => {
@@ -69,6 +75,107 @@ describe("smoke-readonly assertions", () => {
   it("assertApexServes throws when the home route is not 200", async () => {
     fetchMock.mockResolvedValue(new Response("nope", { status: 503, headers: { "content-type": "text/html" } }));
     await expect(assertApexServes({ apexBaseUrl: "https://apex" })).rejects.toThrow(/apex \/ returned 503/);
+  });
+
+  it("assertApiAuthDiscoveryServes accepts anonymous-only metadata", async () => {
+    fetchMock.mockImplementation((url, init) => {
+      const u = String(url);
+      if (u.endsWith("/auth.md")) {
+        return Promise.resolve(
+          new Response("Supported registration types: anonymous", {
+            status: 200,
+            headers: { "content-type": "text/markdown" },
+          }),
+        );
+      }
+      if (u.endsWith("/.well-known/oauth-authorization-server")) {
+        return Promise.resolve(
+          jsonResponse({
+            agent_auth: {
+              identity_endpoint: "https://api/agent/identity",
+              claim_endpoint: "https://api/agent/identity/claim",
+              identity_types_supported: ["anonymous"],
+            },
+          }),
+        );
+      }
+      if (u.endsWith("/agent/identity") && init?.method === "POST") {
+        return Promise.resolve(jsonResponse({ error: "invalid_request" }, { status: 400 }));
+      }
+      return Promise.resolve(new Response("?", { status: 404 }));
+    });
+
+    await expect(assertApiAuthDiscoveryServes({ apiBaseUrl: "https://api" })).resolves.toBeUndefined();
+  });
+
+  it("assertApiAuthDiscoveryServes rejects provider metadata without provider config", async () => {
+    fetchMock.mockImplementation((url, init) => {
+      const u = String(url);
+      if (u.endsWith("/auth.md")) {
+        return Promise.resolve(
+          new Response("Supported registration types: anonymous", {
+            status: 200,
+            headers: { "content-type": "text/markdown" },
+          }),
+        );
+      }
+      if (u.endsWith("/.well-known/oauth-authorization-server")) {
+        return Promise.resolve(
+          jsonResponse({
+            agent_auth: {
+              identity_endpoint: "https://api/agent/identity",
+              claim_endpoint: "https://api/agent/identity/claim",
+              identity_types_supported: ["anonymous"],
+              events_endpoint: "https://api/agent/event/notify",
+            },
+          }),
+        );
+      }
+      if (u.endsWith("/agent/identity") && init?.method === "POST") {
+        return Promise.resolve(jsonResponse({ error: "invalid_request" }, { status: 400 }));
+      }
+      return Promise.resolve(new Response("?", { status: 404 }));
+    });
+
+    await expect(assertApiAuthDiscoveryServes({ apiBaseUrl: "https://api" })).rejects.toThrow(
+      /disabled event endpoint/,
+    );
+  });
+
+  it("assertApiAuthDiscoveryServes accepts verified-provider metadata when advertised", async () => {
+    fetchMock.mockImplementation((url, init) => {
+      const u = String(url);
+      if (u.endsWith("/auth.md")) {
+        return Promise.resolve(
+          new Response("Supported registration types: anonymous, identity_assertion", {
+            status: 200,
+            headers: { "content-type": "text/markdown" },
+          }),
+        );
+      }
+      if (u.endsWith("/.well-known/oauth-authorization-server")) {
+        return Promise.resolve(
+          jsonResponse({
+            agent_auth: {
+              identity_endpoint: "https://api/agent/identity",
+              claim_endpoint: "https://api/agent/identity/claim",
+              identity_types_supported: ["anonymous", "identity_assertion"],
+              events_endpoint: "https://api/agent/event/notify",
+              events_supported: ["https://schemas.workos.com/events/agent/auth/identity/assertion/revoked"],
+              identity_assertion: {
+                assertion_types_supported: ["urn:ietf:params:oauth:token-type:id-jag"],
+              },
+            },
+          }),
+        );
+      }
+      if (u.endsWith("/agent/identity") && init?.method === "POST") {
+        return Promise.resolve(jsonResponse({ error: "invalid_request" }, { status: 400 }));
+      }
+      return Promise.resolve(new Response("?", { status: 404 }));
+    });
+
+    await expect(assertApiAuthDiscoveryServes({ apiBaseUrl: "https://api" })).resolves.toBeUndefined();
   });
 
   it("assertApexServes passes when all routes serve expected content-types", async () => {
