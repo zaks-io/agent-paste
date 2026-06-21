@@ -118,6 +118,8 @@ function AccessLinkViewer() {
             ? {
                 ...current,
                 iframe_src: pointer.iframe_src,
+                render_mode: pointer.render_mode,
+                title: pointer.title,
               }
             : current,
         );
