@@ -15,7 +15,7 @@ import {
   EphemeralSmokeError,
   ephemeralHostedConfig,
   normalizeEphemeralHostedTarget,
-  probeEphemeralPowReady,
+  probeEphemeralProvisionReady,
   shouldFailHostedEphemeralReadiness,
   toBoundaryError,
 } from "./smoke-ephemeral-harness.mjs";
@@ -41,7 +41,7 @@ async function runHostedEphemeralSmoke() {
   }
 
   await waitForHealthz(config.apiBaseUrl);
-  const readiness = await probeEphemeralPowReady(config.apiBaseUrl);
+  const readiness = await probeEphemeralProvisionReady(config.apiBaseUrl);
   if (!readiness.ready) {
     if (shouldFailHostedEphemeralReadiness(readiness)) {
       throw new EphemeralSmokeError("provision", readiness.reason ?? "ephemeral provision probe was not ready");
@@ -141,7 +141,7 @@ Share URL:    ${published.unlisted_url}
 Revision URL: ${published.revision_content_url}
 Agent View:   ${published.agent_view_url}
 Claim URL:    ${published.claim_url.replace(/#.*$/, "#<redacted>")}
-PoW probe:    pow_required challenge issued
+Provision:    rate limits and provision wait accepted the request
 Policy:       script-disabled CSP, noindex, ephemeral write allowance
 ${claimSummary}
 ${cleanupSummary}

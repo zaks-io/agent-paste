@@ -13,7 +13,7 @@ An agent with no credential and no human in the loop can publish in one call and
 agent-paste publish ./sim --ephemeral
 ```
 
-The command provisions an **Ephemeral Workspace** behind the scenes, publishes the **Artifact**, and returns both a working **unlisted Share Link** (`unlisted_url`; a no-login, script-disabled URL the agent hands back at once) and a one-time **claim link** (`claim_url`; the **Claim Token** rides the URL hash only). Auto-creating the unlisted Share Link is the one exception to "publish is content-only and private": an accountless publish has no human in the loop to run a follow-up `set-visibility` call, so the server mints it at finalize. The trial is deliberately short-lived and tightly capped. When the agent's operator wants persistence, interactivity (executable HTML/JS), or higher write volume, they log in (free) and open the claim link to reparent the **Artifacts** into their **Personal Workspace** while marking the source **Ephemeral Workspace** consumed; heavy publishers pay for the `pro` **Plan**. Reads are never gated beyond the existing **Artifact Rate Limit** - the audience is never the thing that is throttled.
+The command provisions an **Ephemeral Workspace** behind the scenes, publishes the **Artifact**, and returns both a working **unlisted Share Link** (`unlisted_url`; a no-login, script-disabled URL the agent hands back at once) and a one-time **claim link** (`claim_url`; the **Claim Token** rides the URL hash only). Auto-creating the unlisted Share Link is the one exception to "publish is content-only and private": an accountless publish has no human in the loop to run a follow-up `set-visibility` call, so the server mints it at finalize. The trial is deliberately short-lived and tightly capped. When the agent's operator wants persistence, interactivity (executable HTML/JS), or higher write volume, they log in (free) and open the claim link to reparent the **Artifacts** into their **Personal Workspace** while marking the source **Ephemeral Workspace** consumed. There is no user-backed session before claim; the signed-in browser session that opens the claim link chooses the destination **Workspace**. Heavy publishers pay for the `pro` **Plan**. Reads are never gated beyond the existing **Artifact Rate Limit** - the audience is never the thing that is throttled.
 
 Selection rule for agents: check for authenticated publish before choosing
 Ephemeral Publish. Run `agent-paste whoami --json`; it exits `0` whether or not
@@ -75,7 +75,12 @@ Hosts the claim/upgrade UI. Turnstile guards these human surfaces only.
 
 ## Provision Flow
 
-1. The client calls `POST /v1/ephemeral/provision`. The endpoint may require a lightweight provisioning challenge before it will mint credentials. That challenge is friction, not a meaningful security boundary.
+1. The client calls `POST /v1/ephemeral/provision` with an optional `claim_code`.
+   The endpoint first applies native per-IP/global provision rate limits, then
+   consumes the provision Durable Object gate. After the gate allows the request,
+   the Worker waits for `EPHEMERAL_PROVISION_DELAY_MS` (default 200ms) before DB
+   provisioning. The wait is friction, not a meaningful security boundary, and
+   replaces the old proof-of-work challenge.
    A single-shard Durable Object gate is the authoritative hard global ceiling
    for provisioning. Its `limit_per_minute` defaults to 17 and is operator-tunable
    at runtime via the `EPHEMERAL_PROVISION_CONFIG` KV namespace (valid range 1–100,
@@ -143,11 +148,11 @@ Ordered by priority; each is invisible to honest agents or felt only at volume.
 
 1. **Isolated Content Origin + Execution Policy** - already in place ([ADR 0030](../adr/0030-mvp-execution-policy-cdn-allowlisted-csp.md), [ADR 0001](../adr/0001-private-artifact-storage-behind-controlled-origin.md)). Architectural prerequisite.
 2. **Shortest ephemeral Auto Deletion** - caps content dwell time; primary lever against phishing/malware/SEO value.
-3. **Provision write dampening plus hard global gate.** Native `[[ratelimits]]` bindings remain as an outer layer for per-source dampening and obvious regional bursts ([ADR 0064](../adr/0064-native-ratelimit-bindings-for-authenticated-counters.md)). They are not the load-bearing global cost-control guarantee. The authoritative aggregate ceiling is the API Worker's single named Durable Object gate; it fails closed before any **Ephemeral Workspace**, credential, or **Claim Token** is created.
+3. **Provision write dampening plus hard global gate.** Native `[[ratelimits]]` bindings remain as an outer layer for per-source dampening and obvious regional bursts ([ADR 0064](../adr/0064-native-ratelimit-bindings-for-authenticated-counters.md)). They are not the load-bearing global cost-control guarantee. The authoritative aggregate ceiling is the API Worker's single named Durable Object gate; it fails closed before any **Ephemeral Workspace**, credential, or **Claim Token** is created. Allowed provision attempts then pay a short server-side wait (`EPHEMERAL_PROVISION_DELAY_MS`, default 200ms) before DB provisioning so abuse spends wall time instead of Agent Paste CPU.
 4. **`noindex`/`nofollow`** on ephemeral content.
 5. **Advisory warning and URL Scanner signals** - built-in warning rules, dormant-script warnings, Llama Guard, and Cloudflare URL Scanner can support reader warnings or abuse response. Containment does not depend on them.
 
-Not adopted: Turnstile on the agent path (browser-only, blocks the hero use case), Cloudflare Bot Management score / JA3 / JA4 (Enterprise-only), WAF Content Scanning (Enterprise + files-only), and file-bytes hash-reputation malware scanning such as VirusTotal or MalwareBazaar provider checks. Turnstile is used only on the human claim/upgrade surfaces. The lightweight provisioning challenge is intentionally not counted as a security control.
+Not adopted: Turnstile on the agent path (browser-only, blocks the hero use case), proof-of-work on the provision path (wastes honest-agent CPU and is not the real ceiling), Cloudflare Bot Management score / JA3 / JA4 (Enterprise-only), WAF Content Scanning (Enterprise + files-only), and file-bytes hash-reputation malware scanning such as VirusTotal or MalwareBazaar provider checks. Turnstile is used only on the human claim/upgrade surfaces.
 
 ## Script Execution by Tier
 

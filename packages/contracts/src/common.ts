@@ -26,8 +26,6 @@ export const ErrorCode = z.enum([
   "rate_limited_workspace",
   "ephemeral_provision_rate_limited",
   "ephemeral_provision_unavailable",
-  "pow_required",
-  "pow_invalid",
   "revision_retained",
   "revision_size_cap_exceeded",
   "revision_unpublished",

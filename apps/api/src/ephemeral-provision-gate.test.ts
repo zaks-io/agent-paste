@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { EphemeralProvisionConfigKv } from "./ephemeral-provision-config.js";
 import {
   consumeEphemeralProvisionGate,
-  EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS,
+  EPHEMERAL_PROVISION_GATE_KEY_TTL_SECONDS,
   EPHEMERAL_PROVISION_LIMIT_PER_MINUTE,
   type EphemeralProvisionGateStorage,
   handleEphemeralProvisionGateRequest,
@@ -14,19 +14,19 @@ afterEach(() => {
 });
 
 describe("ephemeral provision gate Durable Object handler", () => {
-  it("consumes one global slot and rejects a duplicate nonce without incrementing", async () => {
+  it("consumes one global slot and rejects a duplicate key without incrementing", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-06T00:00:10.000Z"));
     const storage = memoryStorage();
 
-    const first = await gateConsume(storage, "nonce-a");
+    const first = await gateConsume(storage, "key-a");
     await expect(first.json()).resolves.toMatchObject({
       allowed: true,
       consumed: 1,
       remaining: EPHEMERAL_PROVISION_LIMIT_PER_MINUTE - 1,
     });
 
-    const duplicate = await gateConsume(storage, "nonce-a");
+    const duplicate = await gateConsume(storage, "key-a");
     await expect(duplicate.json()).resolves.toMatchObject({
       allowed: false,
       reason: "duplicate_nonce",
@@ -41,11 +41,11 @@ describe("ephemeral provision gate Durable Object handler", () => {
     const storage = memoryStorage();
 
     for (let index = 0; index < EPHEMERAL_PROVISION_LIMIT_PER_MINUTE; index += 1) {
-      const response = await gateConsume(storage, `nonce-${index}`);
+      const response = await gateConsume(storage, `key-${index}`);
       expect(response.status).toBe(200);
     }
 
-    const limited = await gateConsume(storage, "nonce-limited");
+    const limited = await gateConsume(storage, "key-limited");
     expect(limited.status).toBe(200);
     await expect(limited.json()).resolves.toMatchObject({
       allowed: false,
@@ -73,8 +73,8 @@ describe("ephemeral provision gate Durable Object handler", () => {
     expect(response.status).toBe(503);
   });
 
-  it("rejects nonce TTL values above the PoW challenge cap", async () => {
-    const response = await gateConsume(memoryStorage(), "nonce-a", EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS + 1);
+  it("rejects key TTL values above the replay cap", async () => {
+    const response = await gateConsume(memoryStorage(), "key-a", EPHEMERAL_PROVISION_GATE_KEY_TTL_SECONDS + 1);
 
     expect(response.status).toBe(400);
   });
@@ -87,21 +87,11 @@ describe("ephemeral provision gate Durable Object handler", () => {
     const configKv = versionedConfigKv(loweredLimit, 1);
 
     for (let index = 0; index < loweredLimit; index += 1) {
-      const response = await gateConsume(
-        storage,
-        `nonce-${index}`,
-        EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS,
-        configKv,
-      );
+      const response = await gateConsume(storage, `key-${index}`, EPHEMERAL_PROVISION_GATE_KEY_TTL_SECONDS, configKv);
       expect(response.status).toBe(200);
     }
 
-    const limited = await gateConsume(
-      storage,
-      "nonce-limited",
-      EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS,
-      configKv,
-    );
+    const limited = await gateConsume(storage, "key-limited", EPHEMERAL_PROVISION_GATE_KEY_TTL_SECONDS, configKv);
     expect(limited.status).toBe(200);
     await expect(limited.json()).resolves.toMatchObject({
       allowed: false,
@@ -112,7 +102,7 @@ describe("ephemeral provision gate Durable Object handler", () => {
   });
 
   it("fails closed when KV config is invalid", async () => {
-    const response = await gateConsume(memoryStorage(), "nonce-a", EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS, {
+    const response = await gateConsume(memoryStorage(), "key-a", EPHEMERAL_PROVISION_GATE_KEY_TTL_SECONDS, {
       get: async () => '{"limit_per_minute":999,"config_version":1}',
     });
 
@@ -123,7 +113,7 @@ describe("ephemeral provision gate Durable Object handler", () => {
     const storage = memoryStorage();
     await storage.putConfig({ config_version: 2, limit_per_minute: 5 });
 
-    const response = await gateConsume(storage, "nonce-a", EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS, {
+    const response = await gateConsume(storage, "key-a", EPHEMERAL_PROVISION_GATE_KEY_TTL_SECONDS, {
       get: async () => '{"limit_per_minute":17,"config_version":1}',
     });
 
@@ -134,7 +124,7 @@ describe("ephemeral provision gate Durable Object handler", () => {
     const storage = memoryStorage();
     await storage.putConfig({ config_version: 2, limit_per_minute: 5 });
 
-    const response = await gateConsume(storage, "nonce-a", EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS, {
+    const response = await gateConsume(storage, "key-a", EPHEMERAL_PROVISION_GATE_KEY_TTL_SECONDS, {
       get: async () => '{"limit_per_minute":99,"config_version":2}',
     });
 
@@ -145,7 +135,7 @@ describe("ephemeral provision gate Durable Object handler", () => {
     const storage = memoryStorage();
     await storage.putConfig({ config_version: 2, limit_per_minute: 5 });
 
-    const response = await gateConsume(storage, "nonce-a");
+    const response = await gateConsume(storage, "key-a");
 
     expect(response.status).toBe(503);
   });
@@ -164,7 +154,7 @@ describe("ephemeral provision gate Durable Object handler", () => {
 
 describe("ephemeral provision gate client", () => {
   it("returns null for absent, failing, non-ok, and malformed namespaces", async () => {
-    await expect(consumeEphemeralProvisionGate(undefined, "nonce-a", 300)).resolves.toBeNull();
+    await expect(consumeEphemeralProvisionGate(undefined, "key-a", 300)).resolves.toBeNull();
     await expect(
       consumeEphemeralProvisionGate(namespaceReturning(new Response("nope", { status: 500 })), "n", 300),
     ).resolves.toBeNull();
@@ -191,15 +181,15 @@ describe("ephemeral provision gate client", () => {
 
 function gateConsume(
   storage: EphemeralProvisionGateStorage,
-  nonce = "nonce-a",
-  nonceTtlSeconds = EPHEMERAL_PROVISION_GATE_MAX_NONCE_TTL_SECONDS,
+  key = "key-a",
+  keyTtlSeconds = EPHEMERAL_PROVISION_GATE_KEY_TTL_SECONDS,
   configKv?: EphemeralProvisionConfigKv,
 ): Promise<Response> {
   return handleEphemeralProvisionGateRequest(
     new Request("https://ephemeral-provision-gate.internal/consume", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ nonce, nonce_ttl_seconds: nonceTtlSeconds }),
+      body: JSON.stringify({ key, key_ttl_seconds: keyTtlSeconds }),
     }),
     storage,
     configKv,

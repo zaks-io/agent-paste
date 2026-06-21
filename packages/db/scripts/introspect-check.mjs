@@ -37,13 +37,13 @@ try {
 } catch (error) {
   process.stderr.write(`missing snapshot at ${snapshotPath}\n`);
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-  process.stderr.write("run: pnpm --filter @agent-paste/db db:check -- --write\n");
+  process.stderr.write("run: pnpm --filter @agent-paste/db exec node scripts/introspect-check.mjs --write\n");
   process.exit(1);
 }
 
 if (canonical !== current) {
   process.stderr.write("schema drift detected vs packages/db/snapshot/schema.sql\n");
-  process.stderr.write("re-run: pnpm --filter @agent-paste/db db:check -- --write\n");
+  process.stderr.write("re-run: pnpm --filter @agent-paste/db exec node scripts/introspect-check.mjs --write\n");
   process.stderr.write("--- canonical (first 20 lines)\n");
   process.stderr.write(`${canonical.split("\n").slice(0, 20).join("\n")}\n`);
   process.stderr.write("--- current (first 20 lines)\n");

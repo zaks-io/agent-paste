@@ -23,8 +23,7 @@
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@agent-paste/contracts": "workspace:*",
-    "@agent-paste/tokens": "workspace:*"
+    "@agent-paste/contracts": "workspace:*"
   },
   "devDependencies": {
     "typescript": "catalog:",

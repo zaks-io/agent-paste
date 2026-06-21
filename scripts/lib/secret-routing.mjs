@@ -35,8 +35,8 @@ export const SECRET_ROUTING = {
     API_KEY_PEPPER_V2: { required: false }, // rotation overlap window (ADR 0045)
     ACCESS_LINK_SIGNING_KEY_V1: { required: true }, // signs Share/Revision Link URLs (ADR 0047); mint 503s without it
     ACCESS_LINK_SIGNING_KEY_V2: { required: false }, // rotation overlap window
+    AGENT_AUTH_ASSERTION_SIGNING_SECRET: { required: false }, // service-signed WorkOS auth.md identity_assertion JWTs
     SMOKE_HARNESS_SECRET: { required: false, envs: "preview" }, // non-production only
-    EPHEMERAL_POW_SECRET: { required: true },
     STREAM_INTERNAL_SECRET: { required: true },
     WORKOS_API_KEY: { required: true, source: "workos" }, // MCP bearer verification (mcpVerifyOptions) returns null without it
     CF_ACCESS_AUD: { required: false, envs: "production", source: "workos" },

@@ -55,6 +55,7 @@ import { ApiError } from "../src/server/api-client";
 import { verifyTurnstileToken } from "../src/server/turnstile";
 import {
   claimEphemeral,
+  completeAgentAuthClaim,
   createAccessLink,
   createKey,
   liftLockdown,
@@ -286,6 +287,62 @@ describe("web server mutations", () => {
       error: { code: "validation_error", status: 400 },
     });
     expect(verifyTurnstileToken).not.toHaveBeenCalled();
+    expect(state.apiFetch).not.toHaveBeenCalled();
+  });
+
+  it("completes agent auth claims with either claim token form", async () => {
+    state.apiFetch
+      .mockResolvedValueOnce({ ok: true, registration_id: "reg_claim_token" })
+      .mockResolvedValueOnce({ ok: true, registration_id: "reg_claim_attempt" });
+
+    await expect(
+      completeAgentAuthClaim({
+        claim_token: "  ap_agent_claim_token  ",
+        user_code: " 123456 ",
+      }),
+    ).resolves.toMatchObject({
+      data: { ok: true, registration_id: "reg_claim_token" },
+      error: null,
+    });
+    await expect(
+      completeAgentAuthClaim({
+        claim_attempt_token: "  ap_agent_claim_attempt  ",
+        user_code: "654321",
+      }),
+    ).resolves.toMatchObject({
+      data: { ok: true, registration_id: "reg_claim_attempt" },
+      error: null,
+    });
+
+    expect(state.apiFetch).toHaveBeenNthCalledWith(
+      1,
+      "/v1/web/agent-auth/claim/complete",
+      expect.objectContaining({
+        method: "POST",
+        accessToken: "access-token",
+        body: JSON.stringify({ claim_token: "ap_agent_claim_token", user_code: "123456" }),
+      }),
+    );
+    expect(state.apiFetch).toHaveBeenNthCalledWith(
+      2,
+      "/v1/web/agent-auth/claim/complete",
+      expect.objectContaining({
+        body: JSON.stringify({ claim_attempt_token: "ap_agent_claim_attempt", user_code: "654321" }),
+      }),
+    );
+  });
+
+  it("validates agent auth claim completion before calling the API", async () => {
+    await expect(completeAgentAuthClaim({ user_code: "123456" })).resolves.toMatchObject({
+      data: null,
+      error: { status: 400, code: "validation_error" },
+    });
+    await expect(
+      completeAgentAuthClaim({ claim_attempt_token: "ap_agent_claim_attempt", user_code: "12345" }),
+    ).resolves.toMatchObject({
+      data: null,
+      error: { status: 400, code: "validation_error" },
+    });
     expect(state.apiFetch).not.toHaveBeenCalled();
   });
 

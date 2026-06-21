@@ -147,15 +147,10 @@ try {
     "cross-workspace artifact detail fails closed",
   );
 
-  const powEntry = fileURLToPath(new URL("../packages/tokens/dist/pow.js", import.meta.url));
-  const { issuePowChallenge, solvePowChallenge } = await import(powEntry);
-  const powSecret = process.env.EPHEMERAL_POW_SECRET ?? "local-ephemeral-pow-secret";
-  const challenge = await issuePowChallenge({ secret: powSecret, difficulty: 8 });
-  const counter = await solvePowChallenge(challenge);
   const ephemeral = await fetchJson("/v1/ephemeral/provision", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ challenge, solution: { nonce: challenge.nonce, counter } }),
+    body: JSON.stringify({}),
   });
   assert(ephemeral.claim_token?.startsWith("ap_ct_preview_"), "ephemeral provision returned claim token");
   const ephemeralPublished = await publishArtifact(ephemeral.api_key_secret, "Ephemeral smoke");

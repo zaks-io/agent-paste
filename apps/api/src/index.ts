@@ -26,6 +26,7 @@ import {
   revokeAccessLinkRoute,
 } from "./routes/access-links.js";
 import { getUsagePolicy, mcpWhoami, revokeCurrentApiKey, whoami } from "./routes/account.js";
+import { agentAuthWwwAuthenticateMiddleware, mountAgentAuthRoutes } from "./routes/agent-auth.js";
 import { readArtifactFileContent } from "./routes/artifact-file-content.js";
 import {
   billingCheckout,
@@ -85,6 +86,15 @@ export const mountedRouteIds = new Set<string>();
 export const nonContractRoutePaths = [
   "/healthz",
   "/openapi.json",
+  "/auth.md",
+  "/.well-known/oauth-protected-resource",
+  "/.well-known/oauth-authorization-server",
+  "/agent/identity",
+  "/agent/identity/claim",
+  "/oauth2/token",
+  "/oauth2/revoke",
+  "/agent/event/notify",
+  "/v1/web/agent-auth/claim/complete",
   "/__test__/provision-smoke",
   "/__test__/force-expire",
   "/__test__/delete-artifact",
@@ -100,12 +110,14 @@ const boundResponderConfig = {
 app.use("*", securityHeadersMiddleware());
 app.use("*", requestIdMiddleware());
 app.use("*", boundRespondersMiddleware(boundResponderConfig));
+app.use("*", agentAuthWwwAuthenticateMiddleware());
 app.get("/healthz", (context) => context.text("ok"));
 app.get("/openapi.json", (context) =>
   context.json(
     buildApiOpenApiDocument({ serverUrl: context.env.API_BASE_URL, docsBaseUrl: context.env.DOCS_BASE_URL }),
   ),
 );
+mountAgentAuthRoutes(app, (env) => apiDatabase(env));
 
 const apiDbRegistrar = createRegistrar<Repository>({
   app,

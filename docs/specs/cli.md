@@ -187,18 +187,19 @@ keep the install small and the supply chain clean.
 selection. `agent-paste publish --help` prints the same guide. The guide must
 lead with mode choice and exact commands before longer flag descriptions:
 
-| Mode      | Current shipped meaning                                                                                     | Command sequence                                                                                                          | Agent returns                                                               |
-| --------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Private   | Default authenticated publish. Login-walled `private_url`; no unauthenticated access.                       | `agent-paste publish <path> --json`                                                                                       | `private_url` only when the recipient can log in                            |
-| Unlisted  | No-login Share Link that follows later publishes and can be revoked.                                        | `agent-paste publish <path> --json` then `agent-paste set-visibility <artifact_id> unlisted --json`                       | `unlisted_url`                                                              |
-| Ephemeral | Accountless publish for no-login environments. Short-lived, claimable, and script-disabled while unclaimed. | `agent-paste publish <path> --ephemeral --json` or `agent-paste publish <path> --ephemeral --claim-code <clm_...> --json` | `unlisted_url` (working no-login link) and `claim_url`; never `private_url` |
+| Mode               | Current shipped meaning                                                                 | Command sequence                                                                                                          | Agent returns                                               |
+| ------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Signed-in private  | Default publish into the user's Workspace; no unauthenticated access.                   | `agent-paste publish <path> --json`                                                                                       | `private_url`                                               |
+| Signed-in no-login | Revocable Share Link that follows later publishes.                                      | `agent-paste publish <path> --json` then `agent-paste set-visibility <artifact_id> unlisted --json`                       | `unlisted_url`                                              |
+| Accountless 24h    | Fallback when login is unavailable, or the user explicitly asks for accountless upload. | `agent-paste publish <path> --ephemeral --json` or `agent-paste publish <path> --ephemeral --claim-code <clm_...> --json` | `unlisted_url`; `claim_url` when the human wants to keep it |
 
-The guide should tell agents to run `whoami --json` before choosing
-`--ephemeral`, to use `--artifact-id` when revising an existing Artifact, and to
-avoid handing `revision_content_url` back as the final live page. If copied
-instructions include `--claim-code <clm_...>`, the guide must tell agents to
-preserve it on `publish --ephemeral`: it is public claim-funnel attribution, not
-authorization, ownership, billing, idempotency, a Claim Token, or a secret.
+The guide should tell agents to run `whoami --json` first, run `agent-paste
+login` when browser auth is possible, use `--artifact-id` when revising an
+existing Artifact, use the publish JSON's `artifact_id` when calling
+`set-visibility`, and avoid handing `revision_content_url` back as the final
+live page. If copied instructions include `--claim-code <clm_...>`, the guide
+must tell agents to preserve it on `publish --ephemeral`; it is for attribution
+and claim links.
 
 ## Publish human output
 

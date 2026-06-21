@@ -161,7 +161,10 @@ credential. It is a restricted tier for unclaimed work, not the Free Plan. The
 Artifact lives for at most **24 hours** (the ephemeral TTL ceiling) and then
 auto-deletes. Hand the `unlisted_url` to recipients for immediate viewing. To
 keep it, a signed-in human opens the claim link to reparent the Artifact into
-their Personal Workspace.
+their Personal Workspace. There is no user-backed session before claim; the
+signed-in browser session that opens `claim_url` chooses the destination
+Workspace. After claim, the Artifact belongs to that Workspace and pre-claim
+ephemeral credentials stop working.
 
 If a copied Agent Paste prompt includes `--claim-code <clm_...>`, preserve that
 flag on the `--ephemeral` publish. It is optional attribution for claim

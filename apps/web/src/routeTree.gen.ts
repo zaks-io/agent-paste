@@ -28,6 +28,7 @@ import { Route as ApiAuthSignInRouteImport } from './routes/api/auth/sign-in'
 import { Route as ApiAuthCallbackRouteImport } from './routes/api/auth/callback'
 import { Route as ApiAccessLinksResolveRouteImport } from './routes/api/access-links/resolve'
 import { Route as AuthedArtifactsArtifactIdRouteImport } from './routes/_authed.artifacts.$artifactId'
+import { Route as AuthedAgentAuthClaimRouteImport } from './routes/_authed.agent-auth.claim'
 import { Route as ApiLiveArtifactsArtifactIdRouteImport } from './routes/api/live/artifacts/$artifactId'
 import { Route as ApiLiveAccessLinksPublicIdRouteImport } from './routes/api/live/access-links/$publicId'
 
@@ -126,6 +127,11 @@ const AuthedArtifactsArtifactIdRoute =
     path: '/artifacts/$artifactId',
     getParentRoute: () => AuthedRoute,
   } as any)
+const AuthedAgentAuthClaimRoute = AuthedAgentAuthClaimRouteImport.update({
+  id: '/agent-auth/claim',
+  path: '/agent-auth/claim',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const ApiLiveArtifactsArtifactIdRoute =
   ApiLiveArtifactsArtifactIdRouteImport.update({
     id: '/api/live/artifacts/$artifactId',
@@ -152,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthedSettingsRoute
   '/al/$publicId': typeof AlPublicIdRoute
   '/v/$artifactId': typeof VArtifactIdRoute
+  '/agent-auth/claim': typeof AuthedAgentAuthClaimRoute
   '/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
   '/api/access-links/resolve': typeof ApiAccessLinksResolveRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
@@ -174,6 +181,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthedSettingsRoute
   '/al/$publicId': typeof AlPublicIdRoute
   '/v/$artifactId': typeof VArtifactIdRoute
+  '/agent-auth/claim': typeof AuthedAgentAuthClaimRoute
   '/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
   '/api/access-links/resolve': typeof ApiAccessLinksResolveRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
@@ -198,6 +206,7 @@ export interface FileRoutesById {
   '/_authed/settings': typeof AuthedSettingsRoute
   '/al/$publicId': typeof AlPublicIdRoute
   '/v/$artifactId': typeof VArtifactIdRoute
+  '/_authed/agent-auth/claim': typeof AuthedAgentAuthClaimRoute
   '/_authed/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
   '/api/access-links/resolve': typeof ApiAccessLinksResolveRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
@@ -222,6 +231,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/al/$publicId'
     | '/v/$artifactId'
+    | '/agent-auth/claim'
     | '/artifacts/$artifactId'
     | '/api/access-links/resolve'
     | '/api/auth/callback'
@@ -244,6 +254,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/al/$publicId'
     | '/v/$artifactId'
+    | '/agent-auth/claim'
     | '/artifacts/$artifactId'
     | '/api/access-links/resolve'
     | '/api/auth/callback'
@@ -267,6 +278,7 @@ export interface FileRouteTypes {
     | '/_authed/settings'
     | '/al/$publicId'
     | '/v/$artifactId'
+    | '/_authed/agent-auth/claim'
     | '/_authed/artifacts/$artifactId'
     | '/api/access-links/resolve'
     | '/api/auth/callback'
@@ -426,6 +438,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedArtifactsArtifactIdRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/agent-auth/claim': {
+      id: '/_authed/agent-auth/claim'
+      path: '/agent-auth/claim'
+      fullPath: '/agent-auth/claim'
+      preLoaderRoute: typeof AuthedAgentAuthClaimRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/api/live/artifacts/$artifactId': {
       id: '/api/live/artifacts/$artifactId'
       path: '/api/live/artifacts/$artifactId'
@@ -452,6 +471,7 @@ interface AuthedRouteChildren {
   AuthedDashboardRoute: typeof AuthedDashboardRoute
   AuthedKeysRoute: typeof AuthedKeysRoute
   AuthedSettingsRoute: typeof AuthedSettingsRoute
+  AuthedAgentAuthClaimRoute: typeof AuthedAgentAuthClaimRoute
   AuthedArtifactsArtifactIdRoute: typeof AuthedArtifactsArtifactIdRoute
   AuthedArtifactsIndexRoute: typeof AuthedArtifactsIndexRoute
 }
@@ -465,6 +485,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedDashboardRoute: AuthedDashboardRoute,
   AuthedKeysRoute: AuthedKeysRoute,
   AuthedSettingsRoute: AuthedSettingsRoute,
+  AuthedAgentAuthClaimRoute: AuthedAgentAuthClaimRoute,
   AuthedArtifactsArtifactIdRoute: AuthedArtifactsArtifactIdRoute,
   AuthedArtifactsIndexRoute: AuthedArtifactsIndexRoute,
 }

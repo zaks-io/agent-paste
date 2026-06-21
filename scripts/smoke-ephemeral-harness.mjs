@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { fileURLToPath } from "node:url";
-import { solvePowChallenge } from "../packages/tokens/dist/pow.js";
 
 export const EPHEMERAL_SITE_DIR = fileURLToPath(new URL("../examples/local-harness/ephemeral-site", import.meta.url));
 export const EPHEMERAL_MAX_TTL_SECONDS = 86_400;
@@ -87,7 +86,7 @@ export function ephemeralHostedConfig(target) {
  *
  * @param {string} apiBaseUrl
  */
-export async function probeEphemeralPowReady(apiBaseUrl) {
+export async function probeEphemeralProvisionReady(apiBaseUrl) {
   const url = `${apiBaseUrl.replace(/\/$/, "")}/v1/ephemeral/provision`;
   let response;
   try {
@@ -112,15 +111,8 @@ export async function probeEphemeralPowReady(apiBaseUrl) {
     };
   }
 
-  if (response.status === 401 && payload?.error?.code === "pow_required" && payload?.challenge) {
+  if (response.status === 201 && payload?.api_key_secret && payload?.claim_token) {
     return { ready: true, skip: false, reason: null };
-  }
-  if (payload?.error?.code === "database_unavailable") {
-    return {
-      ready: false,
-      skip: true,
-      reason: "EPHEMERAL_POW_SECRET is not configured on the API Worker (database_unavailable)",
-    };
   }
   return {
     ready: false,
@@ -131,7 +123,7 @@ export async function probeEphemeralPowReady(apiBaseUrl) {
 
 /**
  * Hosted smoke can skip only when operators have intentionally left the
- * ephemeral provision secret unconfigured.
+ * ephemeral provision dependencies intentionally unconfigured.
  *
  * @param {{ ready: boolean, skip?: boolean }} readiness
  */
@@ -313,42 +305,12 @@ export async function assertEphemeralWriteAllowance(apiBaseUrl) {
 }
 
 export async function ephemeralProvision(apiBaseUrl) {
-  const challenge = await fetchPowChallengeFromApi(apiBaseUrl);
-  const counter = await solvePowChallenge(challenge);
   return fetchJson(`${apiBaseUrl}/v1/ephemeral/provision`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ challenge, solution: { nonce: challenge.nonce, counter } }),
+    body: JSON.stringify({}),
     boundary: "provision",
   });
-}
-
-export async function fetchPowChallengeFromApi(apiBaseUrl) {
-  const url = `${apiBaseUrl.replace(/\/$/, "")}/v1/ephemeral/provision`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { accept: "application/json", "content-type": "application/json" },
-    body: "{}",
-  });
-  let payload = {};
-  try {
-    payload = await response.json();
-  } catch {
-    throw new EphemeralSmokeError("provision", `provision challenge probe returned non-JSON HTTP ${response.status}`);
-  }
-  if (response.status === 401 && payload?.error?.code === "pow_required" && payload?.challenge) {
-    return payload.challenge;
-  }
-  if (payload?.error?.code === "database_unavailable") {
-    throw new EphemeralSmokeError(
-      "provision",
-      "EPHEMERAL_POW_SECRET is not configured on the API Worker (database_unavailable)",
-    );
-  }
-  throw new EphemeralSmokeError(
-    "provision",
-    `expected pow_required challenge, got HTTP ${response.status} (${payload?.error?.code ?? "no error code"})`,
-  );
 }
 
 export async function assertClaimRedemption({ apiBaseUrl, memberAuth, memberWorkspaceId, published }) {
@@ -408,7 +370,7 @@ export function classifyCliFailure(error) {
   if (/finalize|publish exited|artifact_id/i.test(message)) {
     return "publish";
   }
-  if (/ephemeral\/provision|proof-of-work|pow/i.test(message)) {
+  if (/ephemeral\/provision|provision/i.test(message)) {
     return "provision";
   }
   return "publish";

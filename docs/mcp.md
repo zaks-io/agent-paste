@@ -154,10 +154,12 @@ the MCP host connection.
 - Folder upload, binary upload, and Bundle download stay in the CLI. Dashboard
   settings, billing, and lockdown controls stay in the dashboard.
 - MCP is not an anonymous publish path. Agents with no account and no OAuth host
-  should first check CLI auth with `agent-paste whoami`; if no login is
+  should first check CLI auth with `agent-paste whoami --json`; if no login is
   available, they can use `agent-paste publish --ephemeral` through the CLI for
   restricted accountless non-interactive handoffs such as text, images,
-  markdown, or static HTML/CSS. Interactive HTML/JS needs authenticated publish.
+  markdown, or static HTML/CSS. That path returns `unlisted_url` for immediate
+  no-login viewing and `claim_url` only for optional keep/upgrade. Interactive
+  HTML/JS requires authenticated publish.
 - Artifact lifetime follows Workspace Auto Deletion policy. MCP callers do not
   choose TTL.
 

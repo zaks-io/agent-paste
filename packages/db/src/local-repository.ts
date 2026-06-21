@@ -3,6 +3,10 @@ import { createLocalState, type LocalState } from "./repository/local-state.js";
 import { LocalUnitOfWork } from "./repository/local-unit-of-work.js";
 import type {
   AccessLink,
+  AgentAuthAccessToken,
+  AgentAuthDelegation,
+  AgentAuthJti,
+  AgentAuthRegistration,
   ApiKey,
   Artifact,
   ClaimToken,
@@ -24,6 +28,10 @@ import type {
 export class LocalRepository extends RepositoryCore {
   readonly workspaces: Map<string, Workspace>;
   readonly workspaceMembers: Map<string, WorkspaceMember>;
+  readonly agentAuthDelegations: Map<string, AgentAuthDelegation>;
+  readonly agentAuthRegistrations: Map<string, AgentAuthRegistration>;
+  readonly agentAuthJtis: Map<string, AgentAuthJti>;
+  readonly agentAuthAccessTokens: Map<string, AgentAuthAccessToken>;
   readonly apiKeys: Map<string, ApiKey>;
   readonly artifacts: Map<string, Artifact>;
   readonly revisions: Map<string, Revision>;
@@ -42,6 +50,10 @@ export class LocalRepository extends RepositoryCore {
     super(new LocalUnitOfWork(state), options);
     this.workspaces = state.workspaces;
     this.workspaceMembers = state.workspaceMembers;
+    this.agentAuthDelegations = state.agentAuthDelegations;
+    this.agentAuthRegistrations = state.agentAuthRegistrations;
+    this.agentAuthJtis = state.agentAuthJtis;
+    this.agentAuthAccessTokens = state.agentAuthAccessTokens;
     this.apiKeys = state.apiKeys;
     this.artifacts = state.artifacts;
     this.revisions = state.revisions;

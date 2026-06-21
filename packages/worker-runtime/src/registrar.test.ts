@@ -480,8 +480,6 @@ describe("contract-driven registrar", () => {
       responseSchema: "EphemeralProvisionResponse",
       errors: [
         "invalid_request",
-        "pow_required",
-        "pow_invalid",
         "ephemeral_provision_rate_limited",
         "ephemeral_provision_unavailable",
         "database_unavailable",
@@ -537,8 +535,6 @@ describe("contract-driven registrar", () => {
       responseSchema: "EphemeralProvisionResponse",
       errors: [
         "invalid_request",
-        "pow_required",
-        "pow_invalid",
         "ephemeral_provision_rate_limited",
         "ephemeral_provision_unavailable",
         "database_unavailable",

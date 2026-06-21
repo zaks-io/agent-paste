@@ -36,11 +36,8 @@ import { EmptyObject, ErrorEnvelope } from "../common.js";
 import {
   EphemeralClaimRequest,
   EphemeralClaimResponse,
-  EphemeralPowRequiredResponse,
-  EphemeralProvisionChallengeResponse,
   EphemeralProvisionRequest,
   EphemeralProvisionResponse,
-  PowChallenge,
 } from "../ephemeral.js";
 import { LockdownDetail, LockdownListResponse, SetLockdownRequest } from "../lockdown.js";
 import { McpWhoamiResponse } from "../mcp.js";
@@ -100,10 +97,7 @@ export function registerApiSchemas(registry: OpenAPIRegistry, options: RegisterA
   registry.register("AgentView", AgentView);
   registry.register("ArtifactFileContent", ArtifactFileContent);
   registry.register("AccessLinkResolveRequest", AccessLinkResolveRequest);
-  registry.register("PowChallenge", PowChallenge);
   registry.register("EphemeralProvisionRequest", EphemeralProvisionRequest);
-  registry.register("EphemeralPowRequiredResponse", EphemeralPowRequiredResponse);
-  registry.register("EphemeralProvisionChallengeResponse", EphemeralProvisionChallengeResponse);
   registry.register("EphemeralProvisionResponse", EphemeralProvisionResponse);
   registry.register("EphemeralClaimRequest", EphemeralClaimRequest);
   registry.register("EphemeralClaimResponse", EphemeralClaimResponse);
@@ -206,13 +200,6 @@ export const securitySchemes = {
     bearerFormat: "Agent Paste Access Link Signed URL",
     description:
       "Access Link Signed URL supplied in the JSON request body. Modeled as bearer-equivalent because OpenAPI security schemes do not support body-carried credentials.",
-  },
-  EphemeralProofOfWork: {
-    type: "http",
-    scheme: "bearer",
-    bearerFormat: "Agent Paste proof-of-work challenge solution",
-    description:
-      "Signed proof-of-work challenge and solution supplied in the JSON request body. The initial challenge request returns 401 until a valid solution is submitted.",
   },
   SignedUploadToken: {
     type: "apiKey",

@@ -10,6 +10,8 @@ import type { OperatorEventFilters } from "./operator-event-filters.js";
 import type { UnitOfWork } from "./ports.js";
 import type { CreateUploadSessionRequest } from "./upload-session-lifecycle.js";
 import * as accessLinksWorkflow from "./workflows/access-links-workflow.js";
+import * as agentAuthAnonymousWorkflow from "./workflows/agent-auth-anonymous-workflow.js";
+import * as agentAuthWorkflow from "./workflows/agent-auth-workflow.js";
 import * as cleanupWorkflow from "./workflows/cleanup-workflow.js";
 import * as ephemeralWorkflow from "./workflows/ephemeral-workflow.js";
 import * as lockdownWorkflow from "./workflows/lockdown-workflow.js";
@@ -110,6 +112,74 @@ export class RepositoryCore implements Repository {
 
   async ensureWebMember(input: { workosUserId: string; email: string; now?: string }) {
     return webMemberWorkflow.ensureWebMember(this.ctx, input);
+  }
+
+  async registerAgentVerifiedIdentity(input: agentAuthWorkflow.RegisterAgentVerifiedIdentityInput) {
+    return agentAuthWorkflow.registerAgentVerifiedIdentity(this.ctx, input);
+  }
+
+  async registerAgentAnonymousIdentity(input: agentAuthAnonymousWorkflow.RegisterAgentAnonymousIdentityInput) {
+    return agentAuthAnonymousWorkflow.registerAgentAnonymousIdentity(this.ctx, input);
+  }
+
+  async getAgentAuthClaim(input: { claimToken: string; now?: Date }) {
+    return agentAuthWorkflow.getAgentAuthClaim(this.ctx, input);
+  }
+
+  async completeAgentAuthClaim(input: {
+    actor: { type: "member"; id: string; workspace_id: string; email: string };
+    claimToken: string;
+    userCode: string;
+    now?: Date;
+  }) {
+    return agentAuthWorkflow.completeAgentAuthClaim(this.ctx, input);
+  }
+
+  async startAgentAuthAnonymousClaim(input: { claimToken: string; claimAttemptExpiresInSeconds: number; now?: Date }) {
+    return agentAuthAnonymousWorkflow.startAgentAuthAnonymousClaim(this.ctx, input);
+  }
+
+  async completeAgentAuthAnonymousClaim(input: {
+    actor: {
+      type: "member";
+      id: string;
+      workspace_id: string;
+      email: string;
+      scopes: Array<"publish" | "read" | "admin">;
+    };
+    claimAttemptToken: string;
+    userCode: string;
+    now?: Date;
+  }) {
+    return agentAuthAnonymousWorkflow.completeAgentAuthAnonymousClaim(this.ctx, input);
+  }
+
+  async exchangeAgentAuthIdentityAssertion(input: {
+    registrationId: string;
+    anonymousClaimState?: "pre_claim" | "post_claim";
+    accessTokenExpiresInSeconds: number;
+    now?: Date;
+  }) {
+    return agentAuthWorkflow.exchangeAgentAuthIdentityAssertion(this.ctx, input);
+  }
+
+  async exchangeAgentAuthClaimToken(input: { claimToken: string; accessTokenExpiresInSeconds: number; now?: Date }) {
+    return agentAuthWorkflow.exchangeAgentAuthClaimToken(this.ctx, input);
+  }
+
+  async revokeAgentAuthAccessToken(input: { token: string; now?: Date }) {
+    return agentAuthWorkflow.revokeAgentAuthAccessToken(this.ctx, input);
+  }
+
+  async revokeAgentAuthProviderIdentity(input: {
+    providerIssuer: string;
+    providerSubject: string;
+    audience: string;
+    jti: string;
+    jtiExpiresAt: string;
+    now?: Date;
+  }) {
+    return agentAuthWorkflow.revokeAgentAuthProviderIdentity(this.ctx, input);
   }
 
   async getWebWorkspace(actor: ApiActor) {

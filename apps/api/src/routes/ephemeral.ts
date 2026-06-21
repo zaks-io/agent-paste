@@ -1,11 +1,13 @@
-import { buildErrorBody, getRequestId, REQUEST_ID_HEADER } from "@agent-paste/auth";
 import { ClaimCode } from "@agent-paste/contracts";
 import { parseClaimToken, type Repository } from "@agent-paste/db";
-import { DEFAULT_POW_CHALLENGE_TTL_SECONDS, issuePowChallenge, verifyPowSolution } from "@agent-paste/tokens/pow";
 import { getBoundResponders, writeFunnelEvent } from "@agent-paste/worker-runtime";
 import type { AppContext } from "../env.js";
-import { consumeEphemeralProvisionGate } from "../ephemeral-provision-gate.js";
+import {
+  consumeEphemeralProvisionGate,
+  EPHEMERAL_PROVISION_GATE_KEY_TTL_SECONDS,
+} from "../ephemeral-provision-gate.js";
 import { webMemberActor } from "../principals.js";
+import { waitForProvisionDelay } from "../provision-delay.js";
 import { runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
 
@@ -15,49 +17,27 @@ export async function ephemeralProvisionRoute(
   guard: GuardFor<"ephemeral.provision">,
 ): Promise<Response> {
   const env = context.env;
-  const powSecret = env.EPHEMERAL_POW_SECRET;
-  if (!powSecret) {
-    return getBoundResponders(context).respondError("database_unavailable");
-  }
-
   const body = guard.body;
   const claimCode = validClaimCode(body.claim_code);
-  if (!body.challenge || !body.solution) {
-    writeFunnelEvent(env.FUNNEL_EVENTS, {
-      kind: "ephemeral_provision_started",
-      surface: "api",
-      claimCode,
-    });
-    return powRequiredResponse(context, powSecret);
-  }
-
-  const challenge = body.challenge;
-  const solution = body.solution;
-  if (solution.nonce !== challenge.nonce) {
-    return getBoundResponders(context).respondError("pow_invalid");
-  }
-
-  const valid = await verifyPowSolution({
-    secret: powSecret,
-    challenge,
-    solution,
+  writeFunnelEvent(env.FUNNEL_EVENTS, {
+    kind: "ephemeral_provision_started",
+    surface: "api",
+    claimCode,
   });
-  if (!valid) {
-    return getBoundResponders(context).respondError("pow_invalid");
-  }
 
+  const provisionKey = crypto.randomUUID();
   const gateDecision = await consumeEphemeralProvisionGate(
     env.EPHEMERAL_PROVISION_GATE,
-    challenge.nonce,
-    DEFAULT_POW_CHALLENGE_TTL_SECONDS,
+    provisionKey,
+    EPHEMERAL_PROVISION_GATE_KEY_TTL_SECONDS,
   );
   if (!gateDecision) {
     return provisionUnavailableResponse(context, claimCode);
   }
-  if (!gateDecision.allowed && gateDecision.reason === "duplicate_nonce") {
-    return getBoundResponders(context).respondError("pow_invalid");
-  }
   if (!gateDecision.allowed) {
+    if (gateDecision.reason === "duplicate_nonce") {
+      return provisionUnavailableResponse(context, claimCode);
+    }
     writeFunnelEvent(env.FUNNEL_EVENTS, {
       kind: "ephemeral_provision_rate_limited",
       surface: "api",
@@ -69,8 +49,9 @@ export async function ephemeralProvisionRoute(
     });
   }
 
+  await waitForProvisionDelay(env.EPHEMERAL_PROVISION_DELAY_MS);
   const result = await db.createEphemeralWorkspace({
-    idempotencyKey: `ephemeral-provision:${challenge.nonce}`,
+    idempotencyKey: `ephemeral-provision:${provisionKey}`,
     ...(claimCode ? { claimCode } : {}),
   });
   writeFunnelEvent(env.FUNNEL_EVENTS, {
@@ -150,44 +131,4 @@ function validClaimCode(value: string | undefined): string | undefined {
   }
   const parsed = ClaimCode.safeParse(value);
   return parsed.success ? parsed.data : undefined;
-}
-
-// Verification trusts the difficulty signed into the challenge, so this knob only
-// affects issuance. Hosted envs leave it unset (default 20); the local harness and
-// CI smokes lower it so a 2-vCPU runner is not grinding ~1M hashes per provision.
-function resolvePowDifficultyBits(env: AppContext["env"]): number | undefined {
-  const raw = env.EPHEMERAL_POW_DIFFICULTY_BITS;
-  if (raw === undefined || raw === "") {
-    return undefined;
-  }
-  const value = /^\d+$/.test(raw) ? Number.parseInt(raw, 10) : Number.NaN;
-  if (!Number.isInteger(value) || value < 1 || value > 32) {
-    throw new Error(`EPHEMERAL_POW_DIFFICULTY_BITS must be an integer between 1 and 32, got ${JSON.stringify(raw)}`);
-  }
-  return value;
-}
-
-async function powRequiredResponse(context: AppContext, powSecret: string): Promise<Response> {
-  const difficulty = resolvePowDifficultyBits(context.env);
-  const challenge = await issuePowChallenge(
-    difficulty === undefined ? { secret: powSecret } : { secret: powSecret, difficulty },
-  );
-  const requestId = getRequestId(context);
-  const body = {
-    ...buildErrorBody({
-      code: "pow_required",
-      message: "pow_required",
-      requestId,
-      docsBaseUrl: context.env.DOCS_BASE_URL,
-    }),
-    challenge,
-  };
-  return new Response(JSON.stringify(body), {
-    status: 401,
-    headers: {
-      "cache-control": "no-store",
-      "content-type": "application/json; charset=utf-8",
-      [REQUEST_ID_HEADER]: requestId,
-    },
-  });
 }

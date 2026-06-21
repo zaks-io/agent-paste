@@ -54,18 +54,13 @@ export const GENERATABLE = new Set([
   "API_KEY_PEPPER_V1",
   "ACCESS_LINK_SIGNING_KEY_V1",
   "SMOKE_HARNESS_SECRET",
-  "EPHEMERAL_POW_SECRET",
   "STREAM_INTERNAL_SECRET",
 ]);
 
 // Match bootstrap-secrets.mjs exactly (it is no longer the authoritative generator,
 // but the two must agree per ADR 0078): the transient test/internal secrets are 32
 // bytes; every cryptographic signing/pepper/encryption secret is 48 bytes (384 bits).
-export const TRANSIENT_32_BYTE_SECRETS = new Set([
-  "SMOKE_HARNESS_SECRET",
-  "EPHEMERAL_POW_SECRET",
-  "STREAM_INTERNAL_SECRET",
-]);
+export const TRANSIENT_32_BYTE_SECRETS = new Set(["SMOKE_HARNESS_SECRET", "STREAM_INTERNAL_SECRET"]);
 
 export function generatedByteLength(name) {
   return TRANSIENT_32_BYTE_SECRETS.has(name) ? 32 : 48;

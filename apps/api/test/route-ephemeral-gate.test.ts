@@ -1,4 +1,3 @@
-import { issuePowChallenge, solvePowChallenge } from "@agent-paste/tokens/pow";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "../src/env.js";
 import { EPHEMERAL_PROVISION_CONFIG_KV_KEY } from "../src/ephemeral-provision-config.js";
@@ -10,7 +9,6 @@ import {
 import { ephemeralProvisionRoute } from "../src/routes/ephemeral.js";
 import { contextFor, guardFor, responseJson } from "./route-test-helpers.js";
 
-const powSecret = "test-ephemeral-pow-secret";
 const claimCode = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
 
 beforeEach(() => {
@@ -18,8 +16,8 @@ beforeEach(() => {
 });
 
 describe("ephemeral provision gate route", () => {
-  it("mints workspace credentials after a valid solution", async () => {
-    const { challenge, body } = await validPowBody();
+  it("mints workspace credentials after the gate allows the request", async () => {
+    const body = validProvisionBody();
     const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
 
     const response = await ephemeralProvisionRoute(
@@ -36,13 +34,13 @@ describe("ephemeral provision gate route", () => {
       api_key_id: "key_ephemeral",
       claim_token_id: "ct_ephemeral",
     });
-    expect(createEphemeralWorkspace).toHaveBeenCalledWith({
-      idempotencyKey: `ephemeral-provision:${challenge.nonce}`,
-    });
+    expect(createEphemeralWorkspace).toHaveBeenCalledOnce();
+    const input = createEphemeralWorkspace.mock.calls[0]?.[0];
+    expect(input?.idempotencyKey).toMatch(/^ephemeral-provision:/);
   });
 
   it("records claim-code-attributed provision events", async () => {
-    const { body } = await validPowBody();
+    const body = validProvisionBody();
     const writeDataPoint = vi.fn();
     const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
 
@@ -53,10 +51,10 @@ describe("ephemeral provision gate route", () => {
     );
 
     expect(response.status).toBe(201);
-    expect(createEphemeralWorkspace).toHaveBeenCalledWith({
-      idempotencyKey: `ephemeral-provision:${body.challenge.nonce}`,
-      claimCode,
-    });
+    expect(createEphemeralWorkspace).toHaveBeenCalledOnce();
+    const input = createEphemeralWorkspace.mock.calls[0]?.[0];
+    expect(input?.idempotencyKey).toMatch(/^ephemeral-provision:/);
+    expect(input?.claimCode).toBe(claimCode);
     expect(writeDataPoint).toHaveBeenCalledWith({
       indexes: [claimCode],
       blobs: [
@@ -74,7 +72,7 @@ describe("ephemeral provision gate route", () => {
   });
 
   it("ignores malformed claim codes for provision telemetry", async () => {
-    const { body } = await validPowBody();
+    const body = validProvisionBody();
     const writeDataPoint = vi.fn();
     const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
 
@@ -101,9 +99,9 @@ describe("ephemeral provision gate route", () => {
     });
   });
 
-  it("rejects replayed nonces", async () => {
+  it("treats identical provision bodies as independent attempts", async () => {
     const env = provisionEnv();
-    const { body } = await validPowBody();
+    const body = validProvisionBody();
     const db = {
       createEphemeralWorkspace: vi.fn(async () => ephemeralWorkspaceFixture()),
     };
@@ -111,17 +109,17 @@ describe("ephemeral provision gate route", () => {
     const first = await ephemeralProvisionRoute(contextFor({ env }), db as never, guardFor(body));
     expect(first.status).toBe(201);
 
-    const replay = await ephemeralProvisionRoute(contextFor({ env }), db as never, guardFor(body));
-    expect(replay.status).toBe(400);
-    expect(db.createEphemeralWorkspace).toHaveBeenCalledTimes(1);
+    const second = await ephemeralProvisionRoute(contextFor({ env }), db as never, guardFor(body));
+    expect(second.status).toBe(201);
+    expect(db.createEphemeralWorkspace).toHaveBeenCalledTimes(2);
   });
 
   it("fails closed when the Durable Object gate binding is missing", async () => {
-    const { body } = await validPowBody();
+    const body = validProvisionBody();
     const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
 
     const response = await ephemeralProvisionRoute(
-      contextFor({ env: { EPHEMERAL_POW_SECRET: powSecret } }),
+      contextFor({ env: { EPHEMERAL_PROVISION_DELAY_MS: "0" } }),
       { createEphemeralWorkspace } as never,
       guardFor(body),
     );
@@ -135,7 +133,7 @@ describe("ephemeral provision gate route", () => {
   });
 
   it("fails closed when the Durable Object gate fetch fails", async () => {
-    const { body } = await validPowBody();
+    const body = validProvisionBody();
     const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
     const response = await ephemeralProvisionRoute(
       contextFor({
@@ -158,7 +156,7 @@ describe("ephemeral provision gate route", () => {
   });
 
   it("fails closed when the Durable Object gate response is malformed", async () => {
-    const { body } = await validPowBody();
+    const body = validProvisionBody();
     const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
     const response = await ephemeralProvisionRoute(
       contextFor({
@@ -181,7 +179,7 @@ describe("ephemeral provision gate route", () => {
   });
 
   it("fails closed when the Durable Object gate response has malformed numeric values", async () => {
-    const { body } = await validPowBody();
+    const body = validProvisionBody();
     const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
     const response = await ephemeralProvisionRoute(
       contextFor({
@@ -212,7 +210,7 @@ describe("ephemeral provision gate route", () => {
   });
 
   it("fails closed when runtime cap config is invalid", async () => {
-    const { body } = await validPowBody();
+    const body = validProvisionBody();
     const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
     const response = await ephemeralProvisionRoute(
       contextFor({
@@ -249,7 +247,7 @@ describe("ephemeral provision gate route", () => {
     const first = await ephemeralProvisionRoute(
       contextFor({ env }),
       { createEphemeralWorkspace } as never,
-      guardFor((await validPowBody(1)).body),
+      guardFor(validProvisionBody()),
     );
     expect(first.status).toBe(201);
 
@@ -257,7 +255,7 @@ describe("ephemeral provision gate route", () => {
     const blocked = await ephemeralProvisionRoute(
       contextFor({ env }),
       { createEphemeralWorkspace } as never,
-      guardFor((await validPowBody(1)).body),
+      guardFor(validProvisionBody()),
     );
 
     expect(blocked.status).toBe(503);
@@ -281,7 +279,7 @@ describe("ephemeral provision gate route", () => {
     const first = await ephemeralProvisionRoute(
       contextFor({ env }),
       { createEphemeralWorkspace } as never,
-      guardFor((await validPowBody(1)).body),
+      guardFor(validProvisionBody()),
     );
     expect(first.status).toBe(201);
 
@@ -289,7 +287,7 @@ describe("ephemeral provision gate route", () => {
     const blocked = await ephemeralProvisionRoute(
       contextFor({ env }),
       { createEphemeralWorkspace } as never,
-      guardFor((await validPowBody(1)).body),
+      guardFor(validProvisionBody()),
     );
 
     expect(blocked.status).toBe(503);
@@ -321,7 +319,7 @@ describe("ephemeral provision gate route", () => {
     const first = await ephemeralProvisionRoute(
       contextFor({ env }),
       { createEphemeralWorkspace } as never,
-      guardFor((await validPowBody(1)).body),
+      guardFor(validProvisionBody()),
     );
     expect(first.status).toBe(201);
 
@@ -329,7 +327,7 @@ describe("ephemeral provision gate route", () => {
     const blocked = await ephemeralProvisionRoute(
       contextFor({ env }),
       { createEphemeralWorkspace } as never,
-      guardFor((await validPowBody(1)).body),
+      guardFor(validProvisionBody()),
     );
 
     expect(blocked.status).toBe(503);
@@ -351,13 +349,13 @@ describe("ephemeral provision gate route", () => {
     const first = await ephemeralProvisionRoute(
       contextFor({
         env: {
-          EPHEMERAL_POW_SECRET: powSecret,
+          EPHEMERAL_PROVISION_DELAY_MS: "0",
           EPHEMERAL_PROVISION_CONFIG: configKv,
           EPHEMERAL_PROVISION_GATE: gateWithKv as unknown as Env["EPHEMERAL_PROVISION_GATE"],
         },
       }),
       { createEphemeralWorkspace } as never,
-      guardFor((await validPowBody(1)).body),
+      guardFor(validProvisionBody()),
     );
     expect(first.status).toBe(201);
 
@@ -365,12 +363,12 @@ describe("ephemeral provision gate route", () => {
     const blocked = await ephemeralProvisionRoute(
       contextFor({
         env: {
-          EPHEMERAL_POW_SECRET: powSecret,
+          EPHEMERAL_PROVISION_DELAY_MS: "0",
           EPHEMERAL_PROVISION_GATE: gateWithoutKv as unknown as Env["EPHEMERAL_PROVISION_GATE"],
         },
       }),
       { createEphemeralWorkspace } as never,
-      guardFor((await validPowBody(1)).body),
+      guardFor(validProvisionBody()),
     );
 
     expect(blocked.status).toBe(503);
@@ -394,7 +392,7 @@ describe("ephemeral provision gate route", () => {
     const first = await ephemeralProvisionRoute(
       contextFor({ env }),
       { createEphemeralWorkspace } as never,
-      guardFor((await validPowBody(1)).body),
+      guardFor(validProvisionBody()),
     );
     expect(first.status).toBe(201);
 
@@ -402,7 +400,7 @@ describe("ephemeral provision gate route", () => {
     const blocked = await ephemeralProvisionRoute(
       contextFor({ env }),
       { createEphemeralWorkspace } as never,
-      guardFor((await validPowBody(1)).body),
+      guardFor(validProvisionBody()),
     );
 
     expect(blocked.status).toBe(503);
@@ -413,7 +411,7 @@ describe("ephemeral provision gate route", () => {
   });
 
   it("fails closed when runtime cap config cannot be read", async () => {
-    const { body } = await validPowBody();
+    const body = validProvisionBody();
     const createEphemeralWorkspace = vi.fn(async () => ephemeralWorkspaceFixture());
     const response = await ephemeralProvisionRoute(
       contextFor({
@@ -448,7 +446,7 @@ describe("ephemeral provision gate route", () => {
       const response = await ephemeralProvisionRoute(
         contextFor({ env }),
         { createEphemeralWorkspace } as never,
-        guardFor((await validPowBody(1)).body),
+        guardFor(validProvisionBody()),
       );
       expect(response.status).toBe(201);
     }
@@ -456,7 +454,7 @@ describe("ephemeral provision gate route", () => {
     const limited = await ephemeralProvisionRoute(
       contextFor({ env }),
       { createEphemeralWorkspace } as never,
-      guardFor((await validPowBody(1)).body),
+      guardFor(validProvisionBody()),
     );
     expect(limited.status).toBe(429);
     expect(createEphemeralWorkspace).toHaveBeenCalledTimes(loweredLimit);
@@ -470,7 +468,7 @@ describe("ephemeral provision gate route", () => {
       const response = await ephemeralProvisionRoute(
         contextFor({ env }),
         { createEphemeralWorkspace } as never,
-        guardFor((await validPowBody(1)).body),
+        guardFor(validProvisionBody()),
       );
       expect(response.status).toBe(201);
     }
@@ -478,7 +476,7 @@ describe("ephemeral provision gate route", () => {
     const limited = await ephemeralProvisionRoute(
       contextFor({ env }),
       { createEphemeralWorkspace } as never,
-      guardFor((await validPowBody(1)).body),
+      guardFor(validProvisionBody()),
     );
     expect(limited.status).toBe(429);
     expect(limited.headers.get("Retry-After")).toMatch(/^\d+$/);
@@ -491,7 +489,7 @@ describe("ephemeral provision gate route", () => {
 
 function provisionEnv(overrides: Partial<Env> = {}): Env {
   const env: Env = {
-    EPHEMERAL_POW_SECRET: powSecret,
+    EPHEMERAL_PROVISION_DELAY_MS: "0",
     ...overrides,
   };
   if (!overrides.EPHEMERAL_PROVISION_GATE) {
@@ -506,16 +504,8 @@ function versionedConfig(limitPerMinute: number, configVersion: number): string 
   return JSON.stringify({ limit_per_minute: limitPerMinute, config_version: configVersion });
 }
 
-async function validPowBody(difficulty = 8) {
-  const challenge = await issuePowChallenge({ secret: powSecret, difficulty });
-  const counter = await solvePowChallenge(challenge);
-  return {
-    challenge,
-    body: {
-      challenge,
-      solution: { nonce: challenge.nonce, counter },
-    },
-  };
+function validProvisionBody() {
+  return {};
 }
 
 function ephemeralWorkspaceFixture() {

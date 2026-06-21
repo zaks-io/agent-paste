@@ -66,7 +66,6 @@ writeJson(
     "ARTIFACT_BYTES_ENCRYPTION_KEY",
     "SMOKE_HARNESS_SECRET",
     "STREAM_INTERNAL_SECRET",
-    "EPHEMERAL_POW_SECRET",
   ]),
 );
 writeJson(
@@ -183,6 +182,7 @@ function apiConfig() {
       API_BASE_URL: urls.api,
       CONTENT_BASE_URL: urls.content,
       CLEANUP_BATCH_SIZE: "100",
+      EPHEMERAL_PROVISION_DELAY_MS: "200",
       AGENT_PASTE_ENV: "preview",
     },
     hyperdrive: [{ binding: "DB", id: hyperdriveId }],
@@ -396,8 +396,6 @@ function createPrSecrets() {
       process.env.PREVIEW_ARTIFACT_BYTES_ENCRYPTION_KEY ?? prPreviewSecret("artifact-bytes-encryption"),
     API_KEY_PEPPER_V1: apiKeyPepper,
     SMOKE_HARNESS_SECRET: smokeHarnessSecret,
-    EPHEMERAL_POW_SECRET:
-      process.env.PREVIEW_EPHEMERAL_POW_SECRET ?? process.env.EPHEMERAL_POW_SECRET ?? prPreviewSecret("ephemeral-pow"),
     STREAM_INTERNAL_SECRET: streamInternalSecret,
     // AuthKit seals its session cookie with this; 32+ chars required. Derived so
     // a PR's web worker can decrypt cookies it set on an earlier deploy.

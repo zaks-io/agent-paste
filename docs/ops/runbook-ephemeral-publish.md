@@ -23,7 +23,7 @@ Related docs:
 
 - [Ephemeral publish spec](../specs/ephemeral-publish.md) — buildable product shape
 - [ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md) — decision and trust ladder
-- [Hosted ops](./status/hosted-ops.md) — deploy order, `EPHEMERAL_POW_SECRET`, hosted smoke env vars
+- [Hosted ops](./status/hosted-ops.md) — deploy order, provision gate config, hosted smoke env vars
 - [WorkOS runbook](./runbook-workos.md) — member auth for claim redemption
 - [Project status](./project-status.md) — current slice state
 
@@ -43,8 +43,8 @@ Related docs:
 
 **User-facing end-to-end availability** requires hosted smokes to pass in the target
 environment (preview CI or an operator-approved production run). Implementation can be
-complete on `main` while a specific deploy is not yet live if `EPHEMERAL_POW_SECRET` is
-missing or smokes skip.
+complete on `main` while a specific deploy is not yet live if the deployed Worker is
+stale or smokes skip by explicit flag.
 
 ## Flow overview
 
@@ -70,8 +70,9 @@ sequenceDiagram
 
 1. **Provision** — `POST /v1/ephemeral/provision` creates an **Ephemeral Workspace**
    (`workspaces.claimed_at IS NULL`), a short-lived **API Key** (`write` + `read` only), and a
-   one-time **Claim Token** (stored hashed; plaintext returned once). The endpoint may require a
-   lightweight provisioning challenge, but that is friction, not a security boundary.
+   one-time **Claim Token** (stored hashed; plaintext returned once). Provision first passes
+   native rate limits and the Durable Object gate, then waits for the configured server-side
+   delay before DB provisioning. The wait is friction, not a security boundary.
 2. **Publish** — Standard **Upload Session** → finalize → publish using the minted **API Key**
    (CLI: `agent-paste publish <path> --ephemeral`).
 3. **Share** — Public **Agent View** and content URLs never embed the **Claim Token**. The CLI
@@ -106,7 +107,7 @@ rate limits, revocation, and deletion controls.
 Use these checks in order. None require pasting a **Claim Token** or API key into tickets,
 logs, or docs.
 
-### 1. Provision readiness probe (safe, read-only)
+### 1. Provision readiness probe
 
 ```sh
 curl -sS -X POST "${API_BASE}/v1/ephemeral/provision" \
@@ -115,14 +116,16 @@ curl -sS -X POST "${API_BASE}/v1/ephemeral/provision" \
   -d '{}'
 ```
 
-| Response                                                   | Meaning                                                               |
-| ---------------------------------------------------------- | --------------------------------------------------------------------- |
-| `401` + `error.code` = `pow_required` + `challenge` object | Provision route is configured and requires its lightweight challenge  |
-| `database_unavailable`                                     | `EPHEMERAL_POW_SECRET` not set on the API Worker for this environment |
-| Unexpected 5xx                                             | Investigate API health, DB/Hyperdrive, or recent deploy               |
+| Response                                           | Meaning                                                      |
+| -------------------------------------------------- | ------------------------------------------------------------ |
+| `201` + credential and Claim Token fields          | Provision route, rate limits, gate, wait, and DB are healthy |
+| `ephemeral_provision_rate_limited` + `Retry-After` | Provision rate limits or the DO gate are applying            |
+| `ephemeral_provision_unavailable` + `Retry-After`  | Gate binding/config/storage failed closed                    |
+| Unexpected 5xx                                     | Investigate API health, DB/Hyperdrive, or recent deploy      |
 
-Replace `API_BASE` with the environment API origin (preview, PR, or production). This probe
-does not mint a tenant.
+Replace `API_BASE` with the environment API origin (preview, PR, or production).
+This probe mints an Ephemeral Workspace. Prefer the hosted smoke harness when
+cleanup matters.
 
 ### 2. Automated smokes (preferred evidence)
 
@@ -143,8 +146,8 @@ Smokes assert, without logging secrets:
 - Claim redemption when WorkOS member auth is available (local smoke always; hosted optional)
 
 See [Hosted ops — ephemeral smoke](./status/hosted-ops.md#hosted-ephemeral-publish-smoke) for
-skip behavior when `EPHEMERAL_POW_SECRET` is absent or
-`AGENT_PASTE_SKIP_EPHEMERAL_SMOKE=1` is set (exit **0** with a skip message — not a false pass).
+skip behavior when `AGENT_PASTE_SKIP_EPHEMERAL_SMOKE=1` is set (exit **0** with a
+skip message — not a false pass).
 
 ### 3. Public content policy spot-check (no credentials)
 
@@ -248,7 +251,7 @@ agent-paste publish <path> --ephemeral [--title <text>] [--json]
 - Auto Deletion is one day for the unclaimed ephemeral Workspace. `--json` prints `artifact_id`, `private_url`,
   `revision_content_url`, `agent_view_url`, `claim_url`, and `claim_token` — support scripts must redact `claim_token`
   when logging.
-- Provision challenge failures and rate limits surface as stable CLI error codes
+- Provision failures and rate limits surface as stable CLI error codes
   (for example `ephemeral_provision_rate_limited`).
 
 Local harness: `pnpm dev:all` then `pnpm cli:dev publish <absolute-path> --ephemeral` with
@@ -256,18 +259,18 @@ Local harness: `pnpm dev:all` then `pnpm cli:dev publish <absolute-path> --ephem
 
 ## Configuration secrets
 
-| Secret / binding                                  | Worker     | Purpose                                                    |
-| ------------------------------------------------- | ---------- | ---------------------------------------------------------- |
-| `EPHEMERAL_POW_SECRET`                            | `api`      | Sign and verify lightweight provision challenges           |
-| `EPHEMERAL_PROVISION_IP_RATE_LIMIT`               | `api`      | Per-IP provision dampening                                 |
-| `EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT`           | `api`      | Native outer-layer burst dampening                         |
-| `EPHEMERAL_PROVISION_GATE`                        | `api`      | Hard global Durable Object provision ceiling               |
-| `EPHEMERAL_PROVISION_CONFIG`                      | `api`      | Runtime `limit_per_minute` for the DO gate (KV)            |
-| `AI`                                              | `jobs`     | Optional Llama Guard warning signal                        |
-| `URL_SCANNER_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`  | `jobs`     | Optional Cloudflare URL Scanner verdicts                   |
-| `API_BASE_URL`, Agent View signing secret         | `jobs`     | Mint public Agent View URL for URL Scanner                 |
-| `AGENT_PASTE_*_SMOKE_HARNESS_SECRET`              | smoke only | Preview/PR artifact cleanup via `__test__/delete-artifact` |
-| `AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN` | smoke only | Optional hosted claim redemption check                     |
+| Secret / binding                                  | Worker     | Purpose                                                                |
+| ------------------------------------------------- | ---------- | ---------------------------------------------------------------------- |
+| `EPHEMERAL_PROVISION_IP_RATE_LIMIT`               | `api`      | Per-IP provision dampening                                             |
+| `EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT`           | `api`      | Native outer-layer burst dampening                                     |
+| `EPHEMERAL_PROVISION_GATE`                        | `api`      | Hard global Durable Object provision ceiling                           |
+| `EPHEMERAL_PROVISION_CONFIG`                      | `api`      | Runtime `limit_per_minute` for the DO gate (KV)                        |
+| `EPHEMERAL_PROVISION_DELAY_MS`                    | `api`      | Non-secret server-side provision wait; unset/invalid defaults to 200ms |
+| `AI`                                              | `jobs`     | Optional Llama Guard warning signal                                    |
+| `URL_SCANNER_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`  | `jobs`     | Optional Cloudflare URL Scanner verdicts                               |
+| `API_BASE_URL`, Agent View signing secret         | `jobs`     | Mint public Agent View URL for URL Scanner                             |
+| `AGENT_PASTE_*_SMOKE_HARNESS_SECRET`              | smoke only | Preview/PR artifact cleanup via `__test__/delete-artifact`             |
+| `AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN` | smoke only | Optional hosted claim redemption check                                 |
 
 Bootstrap preview/production API secrets with `pnpm bootstrap:preview` /
 `pnpm bootstrap:production` when operator-approved. PR previews can seed via
@@ -333,7 +336,7 @@ If a malformed value was written and provision is returning
 1. Overwrite with a valid, higher `config_version` (see tighten/raise commands above).
    Do not rely on deleting the key after a versioned config was applied; the DO fails
    closed on stale unset reads once `config_version` > 0 was applied.
-2. Re-run the provision probe; expect `401` + `pow_required` when healthy.
+2. Re-run the provision probe; expect `201` with credential fields when healthy.
 
 Do not log or paste KV values into tickets. The cap is not a secret, but incident notes
 should refer to "lowered to N/min" without reproducing full JSON blobs in public channels.
@@ -357,9 +360,8 @@ the binding is absent; a present binding with a failed read fails closed.
 
 | Symptom                                                   | Likely cause                                                                                      | Action                                                                                            |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Provision probe returns `database_unavailable`            | Missing `EPHEMERAL_POW_SECRET` on API Worker                                                      | Set secret, redeploy `api`, re-run smoke                                                          |
-| Provision probe returns `ephemeral_provision_unavailable` | Missing/failing `EPHEMERAL_PROVISION_GATE`, or invalid/unreadable `EPHEMERAL_PROVISION_CONFIG` KV | Verify DO binding; delete or fix bad KV config (see runtime cap tuning); redeploy `api` if needed |
-| Hosted smoke exits 0 with "skipped"                       | Secret absent or `AGENT_PASTE_SKIP_EPHEMERAL_SMOKE=1`                                             | Configure secrets; do not treat skip as production proof                                          |
+| Provision probe returns `ephemeral_provision_unavailable` | Missing/failing `EPHEMERAL_PROVISION_GATE`, or invalid/unreadable `EPHEMERAL_PROVISION_CONFIG` KV | Verify DO binding; fix or update bad KV config (see runtime cap tuning); redeploy `api` if needed |
+| Hosted smoke exits 0 with "skipped"                       | `AGENT_PASTE_SKIP_EPHEMERAL_SMOKE=1`                                                              | Remove the skip flag; do not treat skip as production proof                                       |
 | CLI `--ephemeral` rate limited                            | Hard global cap or per-IP/native outer cap                                                        | Retry with backoff; investigate source and aggregate volume                                       |
 | Claim returns 404                                         | Redeemed, expired, or invalid token                                                               | See support table; no token recovery                                                              |
 | Content executes script                                   | Claimed tenant or wrong tier token                                                                | Verify `claimed_at`, re-fetch CSP from content URL                                                |

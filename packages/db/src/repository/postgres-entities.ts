@@ -1,5 +1,6 @@
 import type { Entities } from "./ports.js";
 import { postgresAccessLinks } from "./postgres-entities/access-links.js";
+import { postgresAgentAuth } from "./postgres-entities/agent-auth.js";
 import { postgresApiKeys } from "./postgres-entities/api-keys.js";
 import { postgresArtifactFiles } from "./postgres-entities/artifact-files.js";
 import { postgresArtifacts } from "./postgres-entities/artifacts.js";
@@ -24,6 +25,7 @@ export function postgresEntities(ctx: PostgresContext): Entities {
   return {
     workspaces: postgresWorkspaces(ctx),
     apiKeys: postgresApiKeys(ctx),
+    agentAuth: postgresAgentAuth(ctx),
     claimTokens: postgresClaimTokens(ctx),
     contentBlobs: postgresContentBlobs(ctx),
     members: postgresMembers(ctx),

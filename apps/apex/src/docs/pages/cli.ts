@@ -113,14 +113,14 @@ export const CLI_DOC: DocsPage = {
           kind: "note",
           title: "Ephemeral output leads with the no-login link",
           body: [
-            "With `--ephemeral`, human-readable output leads with `unlisted_url`, the no-login script-disabled Share Link that works immediately. The `claim_url` is the keep/upgrade path for owning the Artifact and unlocking interactivity. If the publish command includes `--claim-code <clm_...>`, the CLI sends it for attribution and the API embeds it in the Claim Token; no generated URL contains `claim_code`. Agents should relay `unlisted_url` for viewing and never relay `private_url` from an unclaimed ephemeral publish.",
+            "With `--ephemeral`, human-readable output leads with `unlisted_url`, the no-login script-disabled Share Link that works immediately. The `claim_url` is the keep/upgrade path for owning the Artifact and unlocking interactivity. There is no user-backed session before claim; the signed-in browser session that opens `claim_url` chooses the destination Workspace, and pre-claim credentials stop working after claim. If the publish command includes `--claim-code <clm_...>`, the CLI sends it for attribution and the API embeds it in the Claim Token; no generated URL contains `claim_code`. Agents should relay `unlisted_url` for viewing and never relay `private_url` from an unclaimed ephemeral publish.",
           ],
         },
         {
           kind: "note",
           title: "Check auth before ephemeral",
           body: [
-            "Agents should run `agent-paste whoami --json` before using `--ephemeral`; it exits `0` either way, so check the JSON, not the exit code. If it reports you are signed in, publish normally. Ephemeral is fine for non-interactive text, markdown, images, and static HTML/CSS. It is wrong for interactive HTML/JS because scripts stay disabled while unclaimed; after claim, interactivity runs through the controlled Artifact Viewer.",
+            "Agents should run `agent-paste whoami --json` before using `--ephemeral`; it exits `0` either way, so check the JSON, not the exit code. If it reports you are signed in, publish normally. If browser auth is possible, run `agent-paste login` before publishing. Use `--ephemeral` only when login is unavailable or explicitly skipped. Ephemeral is fine for non-interactive text, markdown, images, and static HTML/CSS. It is wrong for interactive HTML/JS because scripts stay disabled while unclaimed; after claim, interactivity runs through the controlled Artifact Viewer.",
           ],
         },
       ],

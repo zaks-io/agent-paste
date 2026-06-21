@@ -1,3 +1,4 @@
+// biome-ignore lint: central Drizzle schema intentionally keeps all tables together.
 import { sql } from "drizzle-orm";
 import {
   bigint,
@@ -131,6 +132,7 @@ export const workspaceMembers = pgTable(
   },
   (table) => [
     index("workspace_members_workspace_idx").on(table.workspaceId),
+    unique("workspace_members_workspace_id_id_unique").on(table.workspaceId, table.id),
     uniqueIndex("workspace_members_workos_user_unique").on(table.workosUserId),
   ],
 );
@@ -174,6 +176,119 @@ export const apiKeys = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },
   (table) => [index("api_keys_active_workspace_idx").on(table.workspaceId)],
+);
+
+export const agentAuthDelegations = pgTable(
+  "agent_auth_delegations",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "restrict" }),
+    workspaceMemberId: text("workspace_member_id").notNull(),
+    providerIssuer: text("provider_issuer").notNull(),
+    providerSubject: text("provider_subject").notNull(),
+    audience: text("audience").notNull(),
+    providerClientId: text("provider_client_id").notNull(),
+    email: text("email").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [
+    foreignKey({
+      name: "agent_auth_delegations_workspace_member_fk",
+      columns: [table.workspaceId, table.workspaceMemberId],
+      foreignColumns: [workspaceMembers.workspaceId, workspaceMembers.id],
+    }).onDelete("restrict"),
+    index("agent_auth_delegations_workspace_idx").on(table.workspaceId),
+    index("agent_auth_delegations_member_idx").on(table.workspaceMemberId),
+    uniqueIndex("agent_auth_delegations_active_identity_unique")
+      .on(table.providerIssuer, table.providerSubject, table.audience)
+      .where(sql`${table.revokedAt} is null`),
+  ],
+);
+
+export const agentAuthRegistrations = pgTable(
+  "agent_auth_registrations",
+  {
+    id: text("id").primaryKey(),
+    registrationType: text("registration_type")
+      .$type<"identity_assertion" | "anonymous">()
+      .notNull()
+      .default("identity_assertion"),
+    delegationId: text("delegation_id").references(() => agentAuthDelegations.id, { onDelete: "restrict" }),
+    workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "restrict" }),
+    workspaceMemberId: text("workspace_member_id"),
+    providerIssuer: text("provider_issuer").notNull(),
+    providerSubject: text("provider_subject").notNull(),
+    audience: text("audience").notNull(),
+    providerClientId: text("provider_client_id").notNull(),
+    email: text("email").notNull(),
+    status: text("status").notNull(),
+    claimTokenId: text("claim_token_id").references(() => claimTokens.id, { onDelete: "restrict" }),
+    claimTokenHash: bytea("claim_token_hash"),
+    claimAttemptTokenHash: bytea("claim_attempt_token_hash"),
+    userCodeHash: bytea("user_code_hash"),
+    claimExpiresAt: timestamp("claim_expires_at", { withTimezone: true }),
+    claimAttemptExpiresAt: timestamp("claim_attempt_expires_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "agent_auth_registrations_workspace_member_fk",
+      columns: [table.workspaceId, table.workspaceMemberId],
+      foreignColumns: [workspaceMembers.workspaceId, workspaceMembers.id],
+    }).onDelete("restrict"),
+    index("agent_auth_registrations_delegation_idx").on(table.delegationId),
+    index("agent_auth_registrations_claim_idx").on(table.claimTokenHash),
+    index("agent_auth_registrations_claim_attempt_idx").on(table.claimAttemptTokenHash),
+    index("agent_auth_registrations_claim_token_id_idx").on(table.claimTokenId),
+    check("agent_auth_registrations_type_check", sql`${table.registrationType} in ('identity_assertion', 'anonymous')`),
+    check(
+      "agent_auth_registrations_member_workspace_check",
+      sql`${table.workspaceMemberId} is null or ${table.workspaceId} is not null`,
+    ),
+    check(
+      "agent_auth_registrations_status_check",
+      sql`${table.status} in (
+        'verified', 'pending_step_up', 'anonymous_unclaimed',
+        'anonymous_claim_pending', 'revoked'
+      )`,
+    ),
+  ],
+);
+
+export const agentAuthJtis = pgTable(
+  "agent_auth_jtis",
+  {
+    providerIssuer: text("provider_issuer").notNull(),
+    jti: text("jti").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.providerIssuer, table.jti] }),
+    index("agent_auth_jtis_expires_idx").on(table.expiresAt),
+  ],
+);
+
+export const agentAuthAccessTokens = pgTable(
+  "agent_auth_access_tokens",
+  {
+    apiKeyId: text("api_key_id")
+      .primaryKey()
+      .references(() => apiKeys.id, { onDelete: "cascade" }),
+    registrationId: text("registration_id")
+      .notNull()
+      .references(() => agentAuthRegistrations.id, { onDelete: "restrict" }),
+    delegationId: text("delegation_id").references(() => agentAuthDelegations.id, { onDelete: "restrict" }),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [index("agent_auth_access_tokens_delegation_idx").on(table.delegationId)],
 );
 
 export const uploadSessions = pgTable(

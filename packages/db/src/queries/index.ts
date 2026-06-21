@@ -1,4 +1,5 @@
 export { accessLinkQueries } from "./access-links.js";
+export { agentAuthQueries } from "./agent-auth.js";
 export { apiKeyQueries } from "./api-keys.js";
 export { artifactFileQueries, artifactQueries } from "./artifacts.js";
 export { claimTokenQueries } from "./claim-tokens.js";

@@ -1,4 +1,5 @@
 import { localAccessLinks } from "./local-entities/access-links.js";
+import { localAgentAuth } from "./local-entities/agent-auth.js";
 import { localApiKeys } from "./local-entities/api-keys.js";
 import { localArtifactFiles } from "./local-entities/artifact-files.js";
 import { localArtifacts } from "./local-entities/artifacts.js";
@@ -20,6 +21,7 @@ export function localEntities(state: LocalState): Entities {
   return {
     workspaces: localWorkspaces(state),
     apiKeys: localApiKeys(state),
+    agentAuth: localAgentAuth(state),
     claimTokens: localClaimTokens(state),
     contentBlobs: localContentBlobs(state),
     members: localMembers(state),

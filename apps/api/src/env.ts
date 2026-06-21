@@ -73,8 +73,7 @@ export type Env = {
   EPHEMERAL_PROVISION_IP_RATE_LIMIT?: RateLimitBinding;
   EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT?: RateLimitBinding;
   EPHEMERAL_PROVISION_GATE?: EphemeralProvisionGateNamespace;
-  EPHEMERAL_POW_SECRET?: string;
-  EPHEMERAL_POW_DIFFICULTY_BITS?: string;
+  EPHEMERAL_PROVISION_DELAY_MS?: string;
   BUNDLE_GENERATE_QUEUE?: { send(message: unknown): Promise<unknown> };
   SAFETY_SCAN_QUEUE?: { send(message: unknown): Promise<unknown> };
   BYTE_PURGE_QUEUE?: { send(message: unknown): Promise<unknown> };
@@ -103,6 +102,14 @@ export type Env = {
   WORKOS_MCP_AUDIENCE?: string;
   WORKOS_MCP_JWKS_URL?: string;
   WORKOS_MCP_ISSUER?: string;
+  AGENT_AUTH_ASSERTION_SIGNING_SECRET?: string;
+  AGENT_AUTH_TRUSTED_PROVIDERS_JSON?: string;
+  AGENT_AUTH_ISSUER?: string;
+  AGENT_AUTH_RESOURCE?: string;
+  AGENT_AUTH_ASSERTION_TTL_SECONDS?: string;
+  AGENT_AUTH_ACCESS_TOKEN_TTL_SECONDS?: string;
+  AGENT_AUTH_CLAIM_TTL_SECONDS?: string;
+  AGENT_AUTH_ANONYMOUS_DELAY_MS?: string;
   BILLING_ENABLED?: string;
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SIGNING_SECRET?: string;

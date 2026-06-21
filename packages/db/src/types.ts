@@ -117,6 +117,67 @@ export type WorkspaceMember = {
   last_seen_at: string;
 };
 
+export type AgentAuthDelegation = {
+  id: string;
+  workspace_id: string;
+  workspace_member_id: string;
+  provider_issuer: string;
+  provider_subject: string;
+  audience: string;
+  provider_client_id: string;
+  email: string;
+  created_at: string;
+  last_seen_at: string;
+  revoked_at: string | null;
+};
+
+export type AgentAuthRegistrationType = "identity_assertion" | "anonymous";
+
+export type AgentAuthRegistrationStatus =
+  | "verified"
+  | "pending_step_up"
+  | "anonymous_unclaimed"
+  | "anonymous_claim_pending"
+  | "revoked";
+
+export type AgentAuthRegistration = {
+  id: string;
+  registration_type: AgentAuthRegistrationType;
+  delegation_id: string | null;
+  workspace_id: string | null;
+  workspace_member_id: string | null;
+  provider_issuer: string;
+  provider_subject: string;
+  audience: string;
+  provider_client_id: string;
+  email: string;
+  status: AgentAuthRegistrationStatus;
+  claim_token_id: string | null;
+  claim_token_hash: Uint8Array | null;
+  claim_attempt_token_hash: Uint8Array | null;
+  user_code_hash: Uint8Array | null;
+  claim_expires_at: string | null;
+  claim_attempt_expires_at: string | null;
+  completed_at: string | null;
+  expires_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AgentAuthJti = {
+  provider_issuer: string;
+  jti: string;
+  expires_at: string;
+  created_at: string;
+};
+
+export type AgentAuthAccessToken = {
+  api_key_id: string;
+  registration_id: string;
+  delegation_id: string | null;
+  issued_at: string;
+};
+
 export type RevisionStatus = "draft" | "published" | "retained";
 
 export type RenderMode = "html" | "markdown" | "text" | "image" | "audio" | "video";

@@ -311,3 +311,35 @@ export async function claimEphemeral(data: {
     }),
   );
 }
+
+export function completeAgentAuthClaim(data: {
+  claim_token?: string;
+  claim_attempt_token?: string;
+  user_code: string;
+}): Promise<MutationResult<{ ok: true; registration_id: string }>> {
+  const claimToken = typeof data.claim_token === "string" ? data.claim_token.trim() : "";
+  const claimAttemptToken = typeof data.claim_attempt_token === "string" ? data.claim_attempt_token.trim() : "";
+  const userCode = typeof data.user_code === "string" ? data.user_code.trim() : "";
+  if ((!claimToken && !claimAttemptToken) || !/^\d{6}$/.test(userCode)) {
+    return Promise.resolve({
+      data: null,
+      error: {
+        status: 400,
+        code: "validation_error",
+        message: "Enter the 6-digit code.",
+        requestId: undefined,
+      },
+    });
+  }
+  return runMutation<{ ok: true; registration_id: string }>((accessToken) =>
+    apiFetch<{ ok: true; registration_id: string }>("/v1/web/agent-auth/claim/complete", {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify({
+        ...(claimToken ? { claim_token: claimToken } : {}),
+        ...(claimAttemptToken ? { claim_attempt_token: claimAttemptToken } : {}),
+        user_code: userCode,
+      }),
+    }),
+  );
+}

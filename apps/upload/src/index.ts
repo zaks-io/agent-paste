@@ -42,6 +42,18 @@ export const nonContractRoutePaths = ["/healthz", "/openapi.json"] as const;
 app.use("*", securityHeadersMiddleware());
 app.use("*", requestIdMiddleware());
 app.use("*", boundRespondersMiddleware(boundResponderConfig));
+app.use("*", async (context, next) => {
+  await next();
+  if (context.res.status === 401 && !context.res.headers.has("WWW-Authenticate")) {
+    const issuer = trimTrailingSlash(
+      firstNonBlank(context.env.AGENT_AUTH_ISSUER, context.env.API_BASE_URL) ?? "https://api.agent-paste.sh",
+    );
+    context.res.headers.set(
+      "WWW-Authenticate",
+      `Bearer resource_metadata="${issuer}/.well-known/oauth-protected-resource"`,
+    );
+  }
+});
 app.get("/healthz", (c) => c.text("ok"));
 app.get("/openapi.json", (context) =>
   context.json(buildUploadOpenApiDocument({ serverUrl: context.env.UPLOAD_BASE_URL })),
@@ -127,4 +139,16 @@ export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   return await app.fetch(request, env);
+}
+
+function firstNonBlank(...values: Array<string | undefined>): string | undefined {
+  return values.map((value) => value?.trim()).find((value): value is string => !!value);
+}
+
+function trimTrailingSlash(value: string): string {
+  let end = value.length;
+  while (end > 0 && value.charCodeAt(end - 1) === 47) {
+    end -= 1;
+  }
+  return value.slice(0, end);
 }

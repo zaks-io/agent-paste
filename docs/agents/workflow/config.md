@@ -178,10 +178,13 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 - Local: self-contained in-memory MVP harness (`scripts/local-mvp-server.mjs`),
   mocked R2/KV, PGlite for tests; no Docker/Postgres needed for the quick path
 - Local commands: `pnpm dev:all`, `pnpm cli:dev …`, `pnpm smoke:local`
-- Agent publish surfaces: CLI first (`agent-paste whoami`, then
-  `agent-paste login` only when interactive auth is possible, then
-  `agent-paste publish <path>`); use `agent-paste publish <path> --ephemeral`
-  when no login is available. Use MCP when a hosted agent cannot run the CLI. Do
+- Agent publish surfaces: CLI first (`agent-paste whoami --json`, branch on
+  `authenticated`, then `agent-paste login` only when interactive auth is
+  possible, then `agent-paste publish <path>`); use
+  `agent-paste publish <path> --ephemeral` only when no login is available or
+  the user explicitly asks for accountless publish. Ephemeral output handoff is
+  `unlisted_url` for immediate no-login viewing and `claim_url` only for the
+  optional keep/upgrade step. Use MCP when a hosted agent cannot run the CLI. Do
   not recommend any other publish surface for agent workflows.
 - Local Postgres path: `pnpm smoke:ci:postgres` runs migrations against a
   job-local Postgres container and exercises the local smoke through `app_role`

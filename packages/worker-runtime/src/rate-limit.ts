@@ -48,7 +48,10 @@ export async function applyEphemeralProvisionRateLimit(
   }
 
   const globalOutcome = await checkRateLimit(bindings?.ephemeralProvisionGlobal, "global", "global");
-  if (globalOutcome !== "allowed") {
+  if (globalOutcome === "limited") {
+    return { ok: false, code: "ephemeral_provision_rate_limited", retryAfter: "3600" } as const;
+  }
+  if (globalOutcome === "unavailable") {
     return { ok: false, code: "ephemeral_provision_unavailable", retryAfter: "3600" } as const;
   }
 

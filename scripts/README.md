@@ -170,15 +170,13 @@ AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN=... pnpm smoke:production:epheme
 ```
 
 Targets: `preview`, `pr`, `production` (alias `live`). The script probes
-`POST /v1/ephemeral/provision` for a `pow_required` challenge before running.
-When `EPHEMERAL_POW_SECRET` is not configured on the preview or production API
-Worker, it exits **0** with a skip message. Other provision probe failures,
-including network errors, 5xx responses, and unexpected error codes, fail the
-smoke.
+`POST /v1/ephemeral/provision` before running. Provision probe failures,
+including network errors, 5xx responses, rate-limit/gate failures, and
+unexpected error codes, fail the smoke.
 
 Assertions:
 
-- proof-of-work provision and ephemeral daily write allowance via API
+- rate-limited provision and ephemeral daily write allowance via API
 - CLI `publish --ephemeral` on `examples/local-harness/ephemeral-site`
 - `artifact_url`, optional `access_link_url`, `revision_content_url`, and Agent View JSON/HTML, including `noindex` and script-disabled CSP
 - Claim Token never appears in public URLs or stderr

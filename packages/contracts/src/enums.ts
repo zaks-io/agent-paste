@@ -37,6 +37,12 @@ export const OperationEventAction = z.enum([
   "safety_warnings.replaced",
   "access_link.lockdown.set",
   "access_link.lockdown.lifted",
+  "agent_auth.access_token.issued",
+  "agent_auth.access_token.revoked",
+  "agent_auth.claim.completed",
+  "agent_auth.delegation.created",
+  "agent_auth.delegation.revoked",
+  "agent_auth.registration.created",
   "ephemeral.workspace.provisioned",
   "ephemeral.workspace.claimed",
   "platform.lockdown.set",
@@ -51,6 +57,8 @@ export const OperationEventTargetType = z.enum([
   "upload_session",
   "artifact",
   "revision",
+  "agent_auth_delegation",
+  "agent_auth_registration",
   "cleanup",
 ]);
 export type OperationEventTargetType = z.infer<typeof OperationEventTargetType>;

@@ -52,7 +52,62 @@ Secrets are never accepted as query parameters or flags.
 
 The route registry still uses older internal guard identifiers for some CLI
 credential routes. Agent-facing guidance should use the CLI or MCP surfaces, not
-direct hosted route calls.
+direct hosted route calls, unless the agent is implementing the auth.md HTTP
+client flow below.
+
+## Agent Auth Discovery
+
+The API Worker publishes the WorkOS auth.md discovery surface for agent sign-up:
+
+| Method | Path                                      | Auth            | Purpose                                                                             |
+| ------ | ----------------------------------------- | --------------- | ----------------------------------------------------------------------------------- |
+| `GET`  | `/auth.md`                                | none            | Human/agent-readable summary of supported agent auth.                               |
+| `GET`  | `/.well-known/oauth-protected-resource`   | none            | Protected Resource Metadata with the API resource and authorization server.         |
+| `GET`  | `/.well-known/oauth-authorization-server` | none            | OAuth metadata with `agent_auth` endpoints and supported event schemas.             |
+| `POST` | `/agent/identity`                         | none            | WorkOS auth.md registration for anonymous user-claimed starts and provider ID-JAGs. |
+| `POST` | `/agent/identity/claim`                   | none            | Starts an anonymous claim attempt or looks up a first-link step-up claim token.     |
+| `POST` | `/oauth2/token`                           | none            | JWT-bearer exchange for a service-signed `identity_assertion`, plus claim polling.  |
+| `POST` | `/oauth2/revoke`                          | none            | Idempotent revocation of one agent-auth access token.                               |
+| `POST` | `/agent/event/notify`                     | none            | Provider Security Event Token receiver for identity-assertion revocation.           |
+| `POST` | `/v1/web/agent-auth/claim/complete`       | `workos_bearer` | Signed-in first-link confirmation from the dashboard.                               |
+
+The anonymous user-claimed flow is advertised when `api` has
+`AGENT_AUTH_ASSERTION_SIGNING_SECRET`. `POST /agent/identity` with
+`{ "type": "anonymous" }` creates an Ephemeral Workspace-backed registration,
+returns a service-signed `identity_assertion`, and returns an opaque
+`claim_token` held by the agent. Its `claim_url` field is the API claim endpoint,
+not the browser URL. The agent exchanges the assertion at `/oauth2/token` for a
+short-lived pre-claim `ap_pk_*` credential scoped only to that Ephemeral
+Workspace.
+
+To bind the anonymous registration, the agent calls `/agent/identity/claim` with
+`{ claim_token }`. The API returns a six-digit `user_code` and a browser
+`verification_uri` containing a separate `claim_attempt_token`; the original
+`claim_token` is not sent to the browser. `/v1/web/agent-auth/claim/complete`
+requires a signed-in WorkOS user and the matching code. That browser session
+chooses the destination Workspace. On success the existing Ephemeral Workspace
+claim path reparents Artifacts into that user's Workspace, records the completed
+claim on the agent-auth registration, and revokes all source-workspace API keys,
+including pre-claim agent-auth tokens. The agent's claim-token grant returns
+`authorization_pending` until this browser completion succeeds, then returns a
+user-backed access token.
+
+The agent-verified `identity_assertion` flow is additionally advertised only
+when `AGENT_AUTH_TRUSTED_PROVIDERS_JSON` parses to at least one trusted
+provider. The trust list is JSON configured by operators and must include
+issuer, display name, and accepted provider `client_ids`. `service_auth`
+registrations are intentionally not advertised or accepted.
+
+Agent-auth access tokens are short-lived `ap_pk_*` credentials with `read` and
+`publish` scopes. They are issued only by `/oauth2/token`; `/agent/identity`
+returns a service-signed `identity_assertion`, never a bearer credential.
+Anonymous pre-claim credentials inherit the Ephemeral Workspace trust tier:
+low-cap writes, script-disabled serving while unclaimed, and no admin/billing
+scope. Existing-user ID-JAG matches without a stored provider delegation require
+first-link step-up in the dashboard before the delegation is bound. No-match
+ID-JAGs JIT provision a normal Personal Workspace using a synthetic
+`agent-auth:` member id and a durable provider delegation, so later ID-JAGs for
+the same `(iss, sub, aud)` resume the same account.
 
 ## Request Guard Order
 

@@ -36,6 +36,7 @@ describe("secret-routing", () => {
     const required = requiredSecretsForApp("api", "production");
     expect(required).not.toContain("API_KEY_PEPPER_V2");
     expect(required).not.toContain("ARTIFACT_BYTES_ENCRYPTION_KEY_V2");
+    expect(required).not.toContain("AGENT_AUTH_ASSERTION_SIGNING_SECRET");
     expect(required).not.toContain("CF_ACCESS_AUD");
     expect(required).toContain("API_KEY_PEPPER_V1");
     expect(secretsForApp("api", "production")).toContain("ARTIFACT_BYTES_ENCRYPTION_KEY_V2");
@@ -54,7 +55,6 @@ describe("secret-routing", () => {
       "API_KEY_PEPPER_V1",
       "ARTIFACT_BYTES_ENCRYPTION_KEY",
       "CONTENT_SIGNING_SECRET",
-      "EPHEMERAL_POW_SECRET",
       "STREAM_INTERNAL_SECRET",
       "WORKOS_API_KEY",
     ]);
@@ -78,6 +78,9 @@ describe("secret-routing", () => {
     expect(secretsForApp("api", "production", { source: "workos" })).toContain("WORKOS_API_KEY");
     expect(secretsForApp("api", "production", { source: "symmetric" })).not.toContain("WORKOS_API_KEY");
     expect(secretsForApp("api", "production", { source: "symmetric" })).toContain("CONTENT_SIGNING_SECRET");
+    expect(secretsForApp("api", "production", { source: "symmetric" })).toContain(
+      "AGENT_AUTH_ASSERTION_SIGNING_SECRET",
+    );
   });
 
   it("routes Sentry DSN as optional provider config", () => {

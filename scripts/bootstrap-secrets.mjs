@@ -21,7 +21,6 @@ const workerSecrets = [
       "API_KEY_PEPPER_V1",
       "ARTIFACT_BYTES_ENCRYPTION_KEY",
       ...smokeHarnessSecretNames,
-      "EPHEMERAL_POW_SECRET",
       "STREAM_INTERNAL_SECRET",
       ...(options.includeWeb ? ["WORKOS_API_KEY", "WORKOS_CLIENT_ID"] : []),
     ],
@@ -174,7 +173,6 @@ function generatedSecrets() {
     ARTIFACT_BYTES_ENCRYPTION_KEY: secretBytes(),
     API_KEY_PEPPER_V1: apiKeyPepper,
     ...(target === "preview" ? { SMOKE_HARNESS_SECRET: secretBytes(32) } : {}),
-    EPHEMERAL_POW_SECRET: secretBytes(32),
     STREAM_INTERNAL_SECRET: secretBytes(32),
     ...(options.includeWeb
       ? {
@@ -193,7 +191,6 @@ function plannedSecrets() {
     ARTIFACT_BYTES_ENCRYPTION_KEY: "<generated; shared by api, upload, content, and jobs>",
     API_KEY_PEPPER_V1: "<generated>",
     ...(target === "preview" ? { SMOKE_HARNESS_SECRET: "<generated; non-production smoke harness only>" } : {}),
-    EPHEMERAL_POW_SECRET: "<generated; api Worker proof-of-work for ephemeral provision>",
     STREAM_INTERNAL_SECRET: "<generated; shared by api and stream Workers>",
     ...(options.includeWeb
       ? {

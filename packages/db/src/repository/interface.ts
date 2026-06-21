@@ -19,6 +19,17 @@ import type {
 import type { OperatorEventFilters } from "./operator-event-filters.js";
 import type { CreateUploadSessionRequest } from "./upload-session-lifecycle.js";
 import type { toWebArtifactRow, toWebAuditRow, toWebOperatorEventRow } from "./web-transforms.js";
+import type {
+  RegisterAgentAnonymousIdentityInput,
+  RegisterAgentAnonymousIdentityResult,
+  StartAgentAuthAnonymousClaimResult,
+} from "./workflows/agent-auth-anonymous-workflow.js";
+import type {
+  AgentAuthClaimView,
+  ExchangeAgentAuthResult,
+  RegisterAgentVerifiedIdentityInput,
+  RegisterAgentVerifiedIdentityResult,
+} from "./workflows/agent-auth-workflow.js";
 import type { ClaimEphemeralWorkspaceResult, CreateEphemeralWorkspaceResult } from "./workflows/ephemeral-workflow.js";
 
 type AgentView = ReturnType<typeof buildAgentView>;
@@ -193,6 +204,50 @@ export type Repository = {
   }): Promise<WebAuthResponse>;
   getWebMemberByWorkOsUserId(input: { workosUserId: string }): Promise<WebMemberActor | null>;
   ensureWebMember(input: { workosUserId: string; email: string; now?: string }): Promise<WebMemberActor>;
+  registerAgentVerifiedIdentity(
+    input: RegisterAgentVerifiedIdentityInput,
+  ): Promise<RegisterAgentVerifiedIdentityResult>;
+  registerAgentAnonymousIdentity(
+    input: RegisterAgentAnonymousIdentityInput,
+  ): Promise<RegisterAgentAnonymousIdentityResult>;
+  getAgentAuthClaim(input: { claimToken: string; now?: Date }): Promise<AgentAuthClaimView | null>;
+  completeAgentAuthClaim(input: {
+    actor: WebMemberActor;
+    claimToken: string;
+    userCode: string;
+    now?: Date;
+  }): Promise<{ id: string; expires_at: string; scopes: Array<"read" | "publish"> } | null>;
+  startAgentAuthAnonymousClaim(input: {
+    claimToken: string;
+    claimAttemptExpiresInSeconds: number;
+    now?: Date;
+  }): Promise<StartAgentAuthAnonymousClaimResult>;
+  completeAgentAuthAnonymousClaim(input: {
+    actor: WebMemberActor;
+    claimAttemptToken: string;
+    userCode: string;
+    now?: Date;
+  }): Promise<{ id: string; expires_at: string; scopes: Array<"read" | "publish"> } | null>;
+  exchangeAgentAuthIdentityAssertion(input: {
+    registrationId: string;
+    anonymousClaimState?: "pre_claim" | "post_claim";
+    accessTokenExpiresInSeconds: number;
+    now?: Date;
+  }): Promise<ExchangeAgentAuthResult>;
+  exchangeAgentAuthClaimToken(input: {
+    claimToken: string;
+    accessTokenExpiresInSeconds: number;
+    now?: Date;
+  }): Promise<ExchangeAgentAuthResult>;
+  revokeAgentAuthAccessToken(input: { token: string; now?: Date }): Promise<boolean>;
+  revokeAgentAuthProviderIdentity(input: {
+    providerIssuer: string;
+    providerSubject: string;
+    audience: string;
+    jti: string;
+    jtiExpiresAt: string;
+    now?: Date;
+  }): Promise<"revoked" | "not_found" | "replay_detected">;
   getWebWorkspace(actor: ApiActor): Promise<WebWorkspaceView>;
   listWebArtifacts(
     actor: ApiActor,

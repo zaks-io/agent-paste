@@ -200,23 +200,26 @@ describe("cli ephemeral publish", () => {
     }
   });
 
-  it("surfaces proof-of-work failures after retry without printing secrets", async () => {
+  it("surfaces provision rate-limit failures", async () => {
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-pow-"));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-rate-limit-"));
     try {
       await fs.writeFile(path.join(root, "index.html"), "<h1>fail</h1>");
-      const provision = vi
-        .fn()
-        .mockRejectedValue(
-          new AgentPasteError({ code: "pow_invalid", message: "pow_invalid", status: 400, requestId: "req_pow" }),
-        );
+      const provision = vi.fn().mockRejectedValue(
+        new AgentPasteError({
+          code: "ephemeral_provision_rate_limited",
+          message: "ephemeral_provision_rate_limited",
+          status: 429,
+          requestId: "req_limit",
+        }),
+      );
 
       await expect(
         publishEphemeral(parsedPublishArgs(root), {
           provision,
           createPublishClient: () => fakePublishClient(),
         }),
-      ).rejects.toMatchObject({ code: "pow_invalid" });
+      ).rejects.toMatchObject({ code: "ephemeral_provision_rate_limited" });
 
       const stderrOutput = vi
         .mocked(process.stderr.write)

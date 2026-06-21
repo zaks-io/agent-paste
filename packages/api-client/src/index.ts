@@ -11,14 +11,12 @@ import {
   CreateApiKeyResponse,
   type CreateUploadSessionRequest,
   CreateUploadSessionResponse,
-  EphemeralPowRequiredResponse,
   EphemeralProvisionResponse,
   ErrorEnvelope,
   FinalizeUploadSessionResponse,
   type IdempotencyKey,
   McpListAccessLinksOutput,
   McpRevokeAccessLinkOutput,
-  type PowChallenge,
   PublishResult,
   type PublishRevisionRequest,
   type RevisionId,
@@ -28,7 +26,6 @@ import {
   UsagePolicy,
   WhoamiResponse,
 } from "@agent-paste/contracts";
-import { solvePowChallenge } from "@agent-paste/tokens/pow";
 
 type Schema<Output> = {
   parse: (value: unknown) => Output;
@@ -229,65 +226,10 @@ export class ApiClient {
   }
 
   private async provisionEphemeralWorkspace(options: EphemeralProvisionOptions): Promise<EphemeralProvisionResponse> {
-    const maxAttempts = options.maxPowAttempts ?? 2;
-    let lastError: AgentPasteError | undefined;
-    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-      try {
-        const challenge = await this.fetchEphemeralPowChallenge(options.claimCode);
-        const counter = await solvePowChallenge(challenge);
-        return await this.request(EphemeralProvisionResponse, this.apiBaseUrl, "/v1/ephemeral/provision", {
-          method: "POST",
-          body: {
-            ...(options.claimCode ? { claim_code: options.claimCode } : {}),
-            challenge,
-            solution: { nonce: challenge.nonce, counter },
-          },
-          auth: "none",
-        });
-      } catch (error) {
-        if (error instanceof AgentPasteError && error.code === "pow_invalid" && attempt + 1 < maxAttempts) {
-          lastError = error;
-          continue;
-        }
-        throw error;
-      }
-    }
-    throw lastError ?? new AgentPasteError({ code: "pow_invalid", message: "pow_invalid", status: 400 });
-  }
-
-  private async fetchEphemeralPowChallenge(claimCode?: ClaimCode): Promise<PowChallenge> {
-    const response = await this.fetchImpl(`${this.apiBaseUrl}/v1/ephemeral/provision`, {
+    return await this.request(EphemeralProvisionResponse, this.apiBaseUrl, "/v1/ephemeral/provision", {
       method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(claimCode ? { claim_code: claimCode } : {}),
-    });
-    const text = await response.text();
-    let data: unknown = {};
-    try {
-      data = text.length === 0 ? {} : JSON.parse(text);
-    } catch {
-      throw new AgentPasteError({
-        code: "http_error",
-        message: text || `HTTP ${response.status}`,
-        status: response.status,
-      });
-    }
-    if (response.status === 401) {
-      const parsed = EphemeralPowRequiredResponse.safeParse(data);
-      if (parsed.success) {
-        return parsed.data.challenge;
-      }
-    }
-    if (!response.ok) {
-      await throwParsedResponseError(response, text, data);
-    }
-    throw new AgentPasteError({
-      code: "ephemeral_provision_unavailable",
-      message: "Ephemeral provision did not return a proof-of-work challenge.",
-      status: response.status,
+      body: options.claimCode ? { claim_code: options.claimCode } : {},
+      auth: "none",
     });
   }
 
@@ -449,7 +391,7 @@ function isErrorEnvelopeLike(
 }
 
 export type EphemeralProvisionOptions = {
-  /** Retries provision with a fresh challenge after `pow_invalid` (default 2). */
+  /** @deprecated Ignored after PoW removal; kept temporarily for source compatibility. */
   maxPowAttempts?: number;
   /** Optional public claim code from a copied marketing prompt. */
   claimCode?: ClaimCode;

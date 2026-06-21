@@ -13,9 +13,8 @@ export function registerEphemeralPaths(registry: OpenAPIRegistry, helpers: ApiPa
     method: "post",
     path: "/v1/ephemeral/provision",
     operationId: "ephemeral.provision",
-    summary:
-      "Provision an Ephemeral Workspace behind proof-of-work. Send an empty body or `{}` to receive a signed challenge.",
-    security: [{ EphemeralProofOfWork: [] }],
+    summary: "Provision an Ephemeral Workspace behind rate limits and a short server-side wait.",
+    security: [],
     request: {
       headers: [requestIdHeader],
       body: {
@@ -30,10 +29,6 @@ export function registerEphemeralPaths(registry: OpenAPIRegistry, helpers: ApiPa
     responses: {
       "201": jsonOk(schemaRef("EphemeralProvisionResponse"), "Provisioned (201)"),
       "400": errorResponse,
-      "401": jsonOk(
-        schemaRef("EphemeralPowRequiredResponse"),
-        "Proof-of-work required; response includes a signed challenge to solve and resubmit.",
-      ),
       "429": errorResponse,
       "500": errorResponse,
       "503": errorResponse,
