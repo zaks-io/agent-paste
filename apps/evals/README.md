@@ -47,6 +47,18 @@ Run the configured suite:
 pnpm evals:run
 ```
 
+Run the configured prompt against every enabled model in the main matrix:
+
+```sh
+pnpm evals:run -- --fresh
+```
+
+Run the same prompt against opt-in harnesses:
+
+```sh
+pnpm evals:run -- --harnesses claude-code,codex --models anthropic/claude-sonnet-4.6,openai/gpt-5.5-low
+```
+
 The first live run builds `agent-paste-evals-agent-runner:0.2.0` from
 `apps/evals/docker/agent-runner.Dockerfile`. That image caches Pi, Claude Code,
 Codex, and generic runner tools only; each run still gets a new container and

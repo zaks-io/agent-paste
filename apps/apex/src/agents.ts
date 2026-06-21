@@ -1,17 +1,46 @@
+// Source for the public /agents.md guide.
+//
+// Treat this as product documentation for agents using Agent Paste, not as repo
+// documentation and not as an eval prompt. Every served word should help an
+// agent choose CLI vs MCP, publish an Artifact, understand the returned links,
+// or find public product docs.
+//
+// Do not put internal setup notes, deployment details, repo workflow guidance,
+// eval harness hints, generic agent behavior coaching, or brittle prompt/copy
+// test expectations here.
 import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL } from "./copy";
 
 export const AGENTS_MD = `# agent-paste for agents
 
-Agent Paste publishes files or directories and returns links. Read this when
-[/llms.txt](/llms.txt) is not enough.
+Agent Paste turns agent-made files or directories into links. Use it when the
+next step should be a URL, not a deploy, zip, gist, screenshot, or "run this
+locally."
+
+Authenticated publish creates a private Workspace view first. For a no-login
+handoff, either make that Artifact unlisted with \`set-visibility\` or use
+\`--ephemeral\` when there is no login.
 
 Default to the CLI. Use MCP only when the host can connect to remote MCP but
 cannot run shell commands.
 
-In a fresh or empty workspace, create the requested file yourself. Do not spend
-time inspecting home directories, git state, or environment dumps unless the
-user's task requires it. Never print or publish API keys, env values, claim
-tokens, access-link fragments, or other secrets.
+Published Artifacts are visible to anyone who can open their returned link. Do
+not put API keys, credentials, raw claim tokens, or other secrets inside
+Artifact content.
+
+## When This Saves Time
+
+Use Agent Paste when an agent has made something inspectable and the next step
+should be a link:
+
+- Publish a report, prototype, dashboard, log, image, Markdown file, or static
+  site.
+- Open remote-agent output on any device without a repo, local server, or deploy
+  project.
+- Send a one-off Artifact to a chat, issue, PR, or customer thread.
+- Keep iterating on one Artifact while its viewer link stays stable.
+- Hand work between tools with a browser view for humans and Agent View for
+  agents.
+- Publish from hosted agents through MCP when shell commands are unavailable.
 
 ## Choose A Surface
 
@@ -22,7 +51,7 @@ tokens, access-link fragments, or other secrets.
 
 ## Install
 
-Default: use \`npx\` with Node.js 24+. No install is required.
+Default: use \`npx\` with Node.js 24+. No global install is required.
 
 \`\`\`sh
 npx @zaks-io/agent-paste publish ./path --json
@@ -67,8 +96,8 @@ npx @zaks-io/agent-paste login
 Login is OAuth and opens a browser window for the user. After login, publish
 normally.
 
-If the environment is non-interactive, do not loop on login. Use the anonymous
-ephemeral flow below.
+If browser login cannot be completed, use the anonymous ephemeral flow below
+instead of retrying login.
 
 Signed-in publish:
 
@@ -112,7 +141,7 @@ npx @zaks-io/agent-paste publish ./path --ephemeral --claim-code <clm_...> --jso
 \`\`\`
 
 Use \`--ephemeral\` when no login/account is available, or when the user
-explicitly asks for accountless publish. It ignores stored login and environment
+explicitly asks for accountless publish. It ignores stored login and configured
 credentials.
 
 Ephemeral publish returns \`unlisted_url\` and \`claim_url\`. Relay
@@ -137,11 +166,8 @@ links. The claim code belongs on the CLI command, not in the page.
 expires, does not Live Update, and is not the final live page.
 
 \`private_url\` is app navigation. A plain HTTP 200 may be only the app shell or
-sign-in state. \`unlisted_url\` is the no-login browser handoff.
-
-Respect the hostnames returned by the CLI and any \`AGENT_PASTE_*_URL\`
-environment variables. If the environment points at preview, keep preview URLs
-in the final answer. Do not rewrite preview links to production hosts.
+sign-in state. \`unlisted_url\` is the no-login browser handoff. Use returned
+URLs exactly as provided by the CLI or MCP.
 
 ## Object Model
 

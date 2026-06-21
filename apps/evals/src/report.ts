@@ -111,7 +111,7 @@ function evalContext(config: EvalConfig | undefined): string[] {
     "",
     `- Suite: ${config.suite.id}`,
     `- Target: ${config.environment.target}`,
-    `- Reject production URLs: ${config.environment.reject_production_urls}`,
+    `- Reject production handoff URLs: ${config.environment.reject_production_urls}`,
     `- Required HTTP status: ${config.verification.require_http_status}`,
     `- Require unlisted URL: ${config.verification.require_unlisted_url}`,
     `- Claim-code mode: ${config.suite.prompt.claim_code.mode}`,

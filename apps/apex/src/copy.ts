@@ -98,13 +98,13 @@ export const EXAMPLE_REPORT_ROWS = [
   "You could publish a decision plan as a URL.",
   "You could open generated pages without a local server.",
 ];
-// The personalized-discovery prompt. It asks the visitor's own agent to make a
-// shareable demo page, use the docs only as command reference, then publish a
-// no-login link. The prompt stays short because it is marketing copy; the demo
+// The use-case discovery prompt. It asks the visitor's own agent to read the
+// agent guide and website, then publish a shareable HTML report and hand back
+// the link. The prompt stays short because it is marketing copy; the demo
 // narration and docs carry the detailed safety rules.
 export const EXAMPLE_PROMPT =
-  "Create a small static HTML page on where agent-paste would save me time. Use any relevant context you already have from this conversation or memory. Read https://agent-paste.sh/agents.md for current CLI/MCP syntax, publish with agent-paste, and give me the no-login link.";
-export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v8_trust_calibrated";
+  "Can you look over https://agent-paste.sh/agents.md, then make a simple HTML page showing a few concrete ways Agent Paste saves time? Publish it with Agent Paste and send me the link.";
+export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v9_human_use_cases";
 
 // Inline run affordance shown right after the prompt line, and the replay control
 // in the head once the run has played. Copy floats freely; not a test contract.

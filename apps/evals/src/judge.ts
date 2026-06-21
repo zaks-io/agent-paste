@@ -82,6 +82,11 @@ export async function judgeRun(params: {
         harness_id: params.result.harness_id,
         failures: params.result.failures,
         warnings: params.result.warnings,
+        suite: {
+          id: params.config.suite.id,
+          description: params.config.suite.description,
+        },
+        prompt_under_test: params.result.prompt,
         verifier: params.result.verifier,
         deterministic_pass: params.result.deterministic_pass,
         final_answer: params.result.final_answer,

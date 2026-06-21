@@ -61,9 +61,6 @@ describe("text and data assets", () => {
     expect(response.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
     const body = await response.text();
     expect(body.length).toBeGreaterThan(0);
-    expect(body).toContain("Use static HTML/CSS");
-    expect(body).toContain("Do not rewrite preview links to production hosts");
-    expect(body).toContain("If the environment is non-interactive, do not loop on login");
   });
 
   it("keeps claim-code query strings out of public agent docs", async () => {

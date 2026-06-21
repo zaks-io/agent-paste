@@ -6,10 +6,9 @@ suite:
   prompt:
     source: static
     text: >
-      Read https://agent-paste.sh/agents.md. Make me a practical HTML page on
-      where agent-paste would actually save me time. Use my work as broad
-      context, keep it safe to share publicly, publish it with agent-paste, and
-      give me the link.
+      Can you look over https://agent-paste.sh/agents.md, then make a simple
+      HTML page showing a few concrete ways Agent Paste saves time? Publish it
+      with Agent Paste and send me the link.
     claim_code:
       mode: generate
       prompt_suffix: >

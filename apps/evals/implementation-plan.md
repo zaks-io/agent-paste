@@ -346,7 +346,9 @@ Keep deterministic verification narrow:
 - Extract URLs from final answer and transcript.
 - Classify Agent Paste URL types.
 - Require a preview `unlisted_url`.
-- Reject production URLs when `reject_production_urls` is true.
+- Fail wrong-environment production handoff URLs when
+  `reject_production_urls` is true.
+- Keep production docs and example URLs informational.
 - Fetch the `unlisted_url` without auth.
 - Pass deterministic verification only on HTTP 200.
 
