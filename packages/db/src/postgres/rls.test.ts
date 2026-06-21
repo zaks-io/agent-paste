@@ -348,6 +348,25 @@ describe("postgres RLS runtime enforcement", () => {
     await expect(applyMigrations(client)).resolves.toBeUndefined();
   });
 
+  it("re-applies migrations after anonymous agent-auth registration rows exist", async () => {
+    await platformQuery(
+      executor,
+      `insert into agent_auth_registrations
+         (id, registration_type, delegation_id, workspace_id, workspace_member_id,
+          provider_issuer, provider_subject, audience, provider_client_id, email,
+          status, expires_at, created_at, updated_at)
+       values ('aar-anon-reapply', 'anonymous', null, $1, null,
+          'anonymous', 'anon-subject', 'agent-paste', 'anonymous', '',
+          'anonymous_unclaimed', now() + interval '1 day', now(), now()),
+         ('aar-anon-reapply-pending', 'anonymous', null, $1, null,
+          'anonymous', 'anon-subject-pending', 'agent-paste', 'anonymous', '',
+          'anonymous_claim_pending', now() + interval '1 day', now(), now())`,
+      [ws1Id],
+    );
+
+    await expect(applyMigrations(client)).resolves.toBeUndefined();
+  });
+
   it("re-applies 0009 revisions backfill when an artifact has a null revision pointer", async () => {
     await platformQuery(
       executor,
