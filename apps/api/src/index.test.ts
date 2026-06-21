@@ -1,7 +1,14 @@
+import { mintAgentAuthServiceAssertion } from "@agent-paste/auth";
 import { IdempotencyInFlightError } from "@agent-paste/commands";
-import { routeContracts } from "@agent-paste/contracts";
+import {
+  AGENT_AUTH_CLAIM_GRANT_TYPE,
+  AGENT_AUTH_ID_JAG_ASSERTION_TYPE,
+  AGENT_AUTH_JWT_BEARER_GRANT_TYPE,
+  routeContracts,
+} from "@agent-paste/contracts";
 import { mintAccessLinkBlob } from "@agent-paste/tokens/access-link";
 import { mintAgentViewToken } from "@agent-paste/tokens/agent-view";
+import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { describe, expect, it, vi } from "vitest";
 import {
   type ApiDatabase,
@@ -21,6 +28,90 @@ function allowRateLimits(): Pick<Env, "ACTOR_RATE_LIMIT" | "WORKSPACE_BURST_CAP"
 
 function handleRequest(request: Request, env: Env = {}): Promise<Response> {
   return rawHandleRequest(request, { ...allowRateLimits(), ...env });
+}
+
+async function expectAgentAuthError(request: Request, env: Env, status: number, error: string): Promise<Response> {
+  const response = await handleRequest(request, env);
+  expect(response.status, await response.clone().text()).toBe(status);
+  await expect(response.json()).resolves.toMatchObject({ error });
+  return response;
+}
+
+function agentRegistration(id: string, registrationType: "identity_assertion" | "anonymous") {
+  return {
+    id,
+    registration_type: registrationType,
+    expires_at: "2099-06-20T13:00:00.000Z",
+    scopes: ["read", "publish"],
+  };
+}
+
+function postAgentIdentity(env: Env, assertion: string): Promise<Response> {
+  return handleRequest(
+    new Request("https://api.test/agent/identity", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ type: "identity_assertion", assertion_type: AGENT_AUTH_ID_JAG_ASSERTION_TYPE, assertion }),
+    }),
+    env,
+  );
+}
+
+function postToken(env: Env, form: Record<string, string>): Promise<Response> {
+  return handleRequest(
+    new Request("https://api.test/oauth2/token", {
+      method: "POST",
+      body: new URLSearchParams(form),
+    }),
+    env,
+  );
+}
+
+async function providerJwtFixture() {
+  const { publicKey, privateKey } = await generateKeyPair("RS256");
+  const jwk = await exportJWK(publicKey);
+  const kid = `kid-${crypto.randomUUID()}`;
+  jwk.kid = kid;
+  const fetchSpy = vi
+    .spyOn(globalThis, "fetch")
+    .mockResolvedValue(
+      new Response(JSON.stringify({ keys: [jwk] }), { headers: { "content-type": "application/json" } }),
+    );
+  const provider = {
+    issuer: "https://provider.example",
+    displayName: "Provider",
+    jwksUri: `https://provider.example/${kid}/jwks.json`,
+    clientIds: ["client_1"],
+    algorithms: ["RS256"],
+  };
+  return {
+    provider,
+    restore: () => fetchSpy.mockRestore(),
+    sign: (
+      jti: string,
+      options: {
+        typ?: "oauth-id-jag+jwt" | "secevent+jwt";
+        payload?: Record<string, unknown>;
+      } = {},
+    ) => {
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      return new SignJWT({
+        client_id: "client_1",
+        auth_time: nowSeconds,
+        email: "person@example.test",
+        email_verified: true,
+        ...options.payload,
+      })
+        .setProtectedHeader({ alg: "RS256", typ: options.typ ?? "oauth-id-jag+jwt", kid })
+        .setIssuer(provider.issuer)
+        .setAudience("https://api.test")
+        .setSubject("user_123")
+        .setJti(jti)
+        .setIssuedAt(nowSeconds)
+        .setExpirationTime(nowSeconds + 300)
+        .sign(privateKey);
+    },
+  };
 }
 
 function billingEnv(): Pick<Env, "BILLING_ENABLED"> {
@@ -218,6 +309,416 @@ describe("api worker", () => {
         verification_uri: "https://app.test/agent-auth/claim?claim_attempt_token=attempt_123",
       },
     });
+  });
+
+  it("handles agent identity request errors and rate-limit rejection", async () => {
+    await expectAgentAuthError(
+      new Request("https://api.test/agent/identity", { method: "POST", body: "{}" }),
+      {},
+      503,
+      "temporarily_unavailable",
+    );
+    await expectAgentAuthError(
+      new Request("https://api.test/agent/identity", { method: "POST", body: "not json" }),
+      { AGENT_AUTH_ASSERTION_SIGNING_SECRET: "secret", DB: baseDbForTests() },
+      400,
+      "invalid_request",
+    );
+    await expectAgentAuthError(
+      new Request("https://api.test/agent/identity", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          type: "identity_assertion",
+          assertion_type: AGENT_AUTH_ID_JAG_ASSERTION_TYPE,
+          assertion: "jwt",
+        }),
+      }),
+      { AGENT_AUTH_ASSERTION_SIGNING_SECRET: "secret", DB: baseDbForTests() },
+      503,
+      "temporarily_unavailable",
+    );
+
+    const rateLimited = await handleRequest(
+      new Request("https://api.test/agent/identity", {
+        method: "POST",
+        headers: { "content-type": "application/json", "CF-Connecting-IP": "203.0.113.10" },
+        body: JSON.stringify({ type: "anonymous" }),
+      }),
+      {
+        AGENT_AUTH_ASSERTION_SIGNING_SECRET: "secret",
+        EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT: {
+          async limit() {
+            return { success: false };
+          },
+        },
+        DB: {
+          ...baseDbForTests(),
+          async registerAgentAnonymousIdentity() {
+            throw new Error("rate limited requests should not provision");
+          },
+        } as Partial<ApiDatabase> as ApiDatabase,
+      },
+    );
+    expect(rateLimited.status).toBe(429);
+    expect(rateLimited.headers.get("retry-after")).toBe("3600");
+    await expect(rateLimited.json()).resolves.toMatchObject({ error: "ephemeral_provision_rate_limited" });
+  });
+
+  it("maps verified agent identity registration outcomes", async () => {
+    const fixture = await providerJwtFixture();
+    try {
+      const outcomes = [
+        { kind: "replay_detected" as const },
+        { kind: "ambiguous_email" as const },
+        { kind: "provision_failed" as const },
+        {
+          kind: "interaction_required" as const,
+          registration: agentRegistration("reg_step_up", "identity_assertion"),
+          claim_token: "claim_step_up",
+          user_code: "123456",
+          claim_expires_at: "2099-06-20T12:10:00.000Z",
+        },
+        { kind: "verified" as const, registration: agentRegistration("reg_verified", "identity_assertion") },
+      ];
+      const registerAgentVerifiedIdentity = vi.fn(async () => outcomes.shift());
+      const env: Env = {
+        API_BASE_URL: "https://api.test",
+        WEB_BASE_URL: "https://app.test",
+        AGENT_AUTH_ASSERTION_SIGNING_SECRET: "secret",
+        AGENT_AUTH_TRUSTED_PROVIDERS_JSON: JSON.stringify([
+          {
+            issuer: fixture.provider.issuer,
+            display_name: fixture.provider.displayName,
+            jwks_uri: fixture.provider.jwksUri,
+            client_ids: fixture.provider.clientIds,
+            algorithms: fixture.provider.algorithms,
+          },
+        ]),
+        DB: {
+          ...baseDbForTests(),
+          registerAgentVerifiedIdentity,
+        } as Partial<ApiDatabase> as ApiDatabase,
+      };
+
+      const replay = await postAgentIdentity(env, await fixture.sign("jti_replay"));
+      expect(replay.status).toBe(400);
+      await expect(replay.json()).resolves.toMatchObject({ error: "replay_detected" });
+
+      const ambiguous = await postAgentIdentity(env, await fixture.sign("jti_ambiguous"));
+      expect(ambiguous.status).toBe(400);
+      await expect(ambiguous.json()).resolves.toMatchObject({ error: "invalid_request" });
+
+      const provisionFailed = await postAgentIdentity(env, await fixture.sign("jti_failed"));
+      expect(provisionFailed.status).toBe(503);
+      await expect(provisionFailed.json()).resolves.toMatchObject({ error: "server_error" });
+
+      const stepUp = await postAgentIdentity(env, await fixture.sign("jti_step_up"));
+      expect(stepUp.status).toBe(401);
+      expect(stepUp.headers.get("www-authenticate")).toContain("interaction_required");
+      await expect(stepUp.json()).resolves.toMatchObject({
+        error: "interaction_required",
+        claim: { user_code: "123456", verification_uri: "https://app.test/agent-auth/claim?claim_token=claim_step_up" },
+      });
+
+      const verified = await postAgentIdentity(env, await fixture.sign("jti_verified"));
+      expect(verified.status).toBe(200);
+      await expect(verified.json()).resolves.toMatchObject({
+        registration_id: "reg_verified",
+        registration_type: "identity_assertion",
+        scopes: ["read", "publish"],
+      });
+      expect(registerAgentVerifiedIdentity).toHaveBeenCalledTimes(5);
+    } finally {
+      fixture.restore();
+    }
+  });
+
+  it("handles agent claim lookup and token exchange outcomes", async () => {
+    const registration = agentRegistration("reg_anon", "anonymous");
+    const assertion = await mintAgentAuthServiceAssertion({
+      issuer: "https://api.test",
+      secret: "secret",
+      registrationId: registration.id,
+      registrationType: "anonymous",
+      scopes: registration.scopes,
+      expiresAt: new Date(registration.expires_at),
+      now: new Date("2099-06-20T12:00:00.000Z"),
+    });
+    const exchangeAgentAuthClaimToken = vi
+      .fn()
+      .mockResolvedValueOnce({ kind: "authorization_pending" })
+      .mockResolvedValueOnce({ kind: "expired_token" })
+      .mockResolvedValueOnce({ kind: "invalid_grant" })
+      .mockResolvedValueOnce({ kind: "issued", access_token: "claimed_token", expires_in: 3600, registration });
+    const revokeAgentAuthAccessToken = vi.fn(async () => true);
+    const env: Env = {
+      API_BASE_URL: "https://api.test",
+      WEB_BASE_URL: "https://app.test",
+      AGENT_AUTH_ASSERTION_SIGNING_SECRET: "secret",
+      DB: {
+        ...baseDbForTests(),
+        async startAgentAuthAnonymousClaim() {
+          return { kind: "invalid_grant" };
+        },
+        async getAgentAuthClaim() {
+          return {
+            registration_id: "reg_verified",
+            registration_type: "identity_assertion",
+            email: "person@example.test",
+            provider_issuer: "https://provider.example",
+            provider_client_id: "client_1",
+            expires_at: "2099-06-20T12:10:00.000Z",
+            completed_at: null,
+          };
+        },
+        async exchangeAgentAuthIdentityAssertion() {
+          return { kind: "issued", access_token: "pre_claim_token", expires_in: 3600, registration };
+        },
+        exchangeAgentAuthClaimToken,
+        revokeAgentAuthAccessToken,
+      } as Partial<ApiDatabase> as ApiDatabase,
+    };
+
+    const claim = await handleRequest(
+      new Request("https://api.test/agent/identity/claim", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ claim_token: "claim_verified" }),
+      }),
+      env,
+    );
+    expect(claim.status).toBe(200);
+    await expect(claim.json()).resolves.toMatchObject({
+      claim: { verification_uri: "https://app.test/agent-auth/claim?claim_token=claim_verified" },
+    });
+
+    const jwtBearer = await postToken(env, { grant_type: AGENT_AUTH_JWT_BEARER_GRANT_TYPE, assertion });
+    expect(jwtBearer.status).toBe(200);
+    await expect(jwtBearer.json()).resolves.toMatchObject({ access_token: "pre_claim_token" });
+
+    await expectAgentAuthError(
+      new Request("https://api.test/oauth2/token", {
+        method: "POST",
+        body: new URLSearchParams({ grant_type: AGENT_AUTH_JWT_BEARER_GRANT_TYPE }),
+      }),
+      env,
+      400,
+      "invalid_request",
+    );
+    await expectAgentAuthError(
+      new Request("https://api.test/oauth2/token", {
+        method: "POST",
+        body: new URLSearchParams({ grant_type: AGENT_AUTH_JWT_BEARER_GRANT_TYPE, assertion: "bad" }),
+      }),
+      env,
+      400,
+      "invalid_grant",
+    );
+    await expectAgentAuthError(
+      new Request("https://api.test/oauth2/token", {
+        method: "POST",
+        body: new URLSearchParams({ grant_type: AGENT_AUTH_CLAIM_GRANT_TYPE }),
+      }),
+      env,
+      400,
+      "invalid_request",
+    );
+
+    await expectAgentAuthError(
+      new Request("https://api.test/oauth2/token", {
+        method: "POST",
+        body: new URLSearchParams({ grant_type: AGENT_AUTH_CLAIM_GRANT_TYPE, claim_token: "claim_1" }),
+      }),
+      env,
+      400,
+      "authorization_pending",
+    );
+    await expectAgentAuthError(
+      new Request("https://api.test/oauth2/token", {
+        method: "POST",
+        body: new URLSearchParams({ grant_type: AGENT_AUTH_CLAIM_GRANT_TYPE, claim_token: "claim_2" }),
+      }),
+      env,
+      400,
+      "expired_token",
+    );
+    await expectAgentAuthError(
+      new Request("https://api.test/oauth2/token", {
+        method: "POST",
+        body: new URLSearchParams({ grant_type: AGENT_AUTH_CLAIM_GRANT_TYPE, claim_token: "claim_3" }),
+      }),
+      env,
+      400,
+      "invalid_grant",
+    );
+
+    const claimed = await postToken(env, { grant_type: AGENT_AUTH_CLAIM_GRANT_TYPE, claim_token: "claim_4" });
+    expect(claimed.status).toBe(200);
+    await expect(claimed.json()).resolves.toMatchObject({
+      access_token: "claimed_token",
+      identity_assertion: expect.any(String),
+    });
+
+    await expectAgentAuthError(
+      new Request("https://api.test/oauth2/token", {
+        method: "POST",
+        body: new URLSearchParams({ grant_type: "unsupported" }),
+      }),
+      env,
+      400,
+      "unsupported_grant_type",
+    );
+
+    const revoke = await handleRequest(
+      new Request("https://api.test/oauth2/revoke", {
+        method: "POST",
+        body: new URLSearchParams({ token: "claimed_token" }),
+      }),
+      env,
+    );
+    expect(revoke.status).toBe(200);
+    expect(revokeAgentAuthAccessToken).toHaveBeenCalledWith({ token: "claimed_token" });
+  });
+
+  it("handles agent security event notification outcomes", async () => {
+    await expectAgentAuthError(
+      new Request("https://api.test/agent/event/notify", { method: "POST", body: "event" }),
+      { AGENT_AUTH_ASSERTION_SIGNING_SECRET: "secret" },
+      503,
+      "temporarily_unavailable",
+    );
+
+    const fixture = await providerJwtFixture();
+    try {
+      const trustedEnv: Env = {
+        API_BASE_URL: "https://api.test",
+        AGENT_AUTH_ASSERTION_SIGNING_SECRET: "secret",
+        AGENT_AUTH_TRUSTED_PROVIDERS_JSON: JSON.stringify([
+          {
+            issuer: fixture.provider.issuer,
+            display_name: fixture.provider.displayName,
+            jwks_uri: fixture.provider.jwksUri,
+            client_ids: fixture.provider.clientIds,
+            algorithms: fixture.provider.algorithms,
+          },
+        ]),
+      };
+      const eventPayload = {
+        events: { "https://schemas.workos.com/events/agent/auth/identity/assertion/revoked": {} },
+      };
+
+      await expectAgentAuthError(
+        new Request("https://api.test/agent/event/notify", {
+          method: "POST",
+          body: await fixture.sign("set_db_missing", { typ: "secevent+jwt", payload: eventPayload }),
+        }),
+        trustedEnv,
+        503,
+        "server_error",
+      );
+
+      const invalid = await handleRequest(
+        new Request("https://api.test/agent/event/notify", { method: "POST", body: "not.jwt" }),
+        { ...trustedEnv, DB: baseDbForTests() },
+      );
+      expect(invalid.status).toBe(400);
+      await expect(invalid.json()).resolves.toMatchObject({ err: "invalid_request" });
+
+      const replay = await handleRequest(
+        new Request("https://api.test/agent/event/notify", {
+          method: "POST",
+          body: await fixture.sign("set_replay", { typ: "secevent+jwt", payload: eventPayload }),
+        }),
+        {
+          ...trustedEnv,
+          DB: {
+            ...baseDbForTests(),
+            async revokeAgentAuthProviderIdentity() {
+              return "replay_detected";
+            },
+          } as Partial<ApiDatabase> as ApiDatabase,
+        },
+      );
+      expect(replay.status).toBe(400);
+      await expect(replay.json()).resolves.toMatchObject({ err: "replay_detected" });
+
+      const accepted = await handleRequest(
+        new Request("https://api.test/agent/event/notify", {
+          method: "POST",
+          body: await fixture.sign("set_revoked", { typ: "secevent+jwt", payload: eventPayload }),
+        }),
+        {
+          ...trustedEnv,
+          DB: {
+            ...baseDbForTests(),
+            async revokeAgentAuthProviderIdentity() {
+              return "revoked";
+            },
+          } as Partial<ApiDatabase> as ApiDatabase,
+        },
+      );
+      expect(accepted.status).toBe(202);
+    } finally {
+      fixture.restore();
+    }
+  });
+
+  it("handles browser completion for verified and anonymous agent claims", async () => {
+    const authEnv: Pick<Env, "AUTH"> = { AUTH: webAuthForTests() };
+    const missingAuth = await handleRequest(
+      new Request("https://api.test/v1/web/agent-auth/claim/complete", { method: "POST" }),
+      { DB: baseDbForTests() },
+    );
+    expect(missingAuth.status).toBe(401);
+    await expect(missingAuth.json()).resolves.toMatchObject({ error: { code: "not_authenticated" } });
+
+    const invalid = await handleRequest(
+      new Request("https://api.test/v1/web/agent-auth/claim/complete", {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok", "content-type": "application/json" },
+        body: JSON.stringify({ claim_token: "claim", user_code: "bad" }),
+      }),
+      { ...authEnv, DB: webMemberDbForTests(["read", "publish"]) },
+    );
+    expect(invalid.status).toBe(400);
+    await expect(invalid.json()).resolves.toMatchObject({ error: { code: "invalid_request" } });
+
+    const failed = await handleRequest(
+      new Request("https://api.test/v1/web/agent-auth/claim/complete", {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok", "content-type": "application/json" },
+        body: JSON.stringify({ claim_token: "claim", user_code: "123456" }),
+      }),
+      {
+        ...authEnv,
+        DB: webMemberDbForTests(["read", "publish"], {
+          async completeAgentAuthClaim() {
+            return null;
+          },
+        }),
+      },
+    );
+    expect(failed.status).toBe(400);
+    await expect(failed.json()).resolves.toMatchObject({ error: { code: "invalid_request" } });
+
+    const completed = await handleRequest(
+      new Request("https://api.test/v1/web/agent-auth/claim/complete", {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok", "content-type": "application/json" },
+        body: JSON.stringify({ claim_attempt_token: "attempt", user_code: "123456" }),
+      }),
+      {
+        ...authEnv,
+        DB: webMemberDbForTests(["read", "publish"], {
+          async completeAgentAuthAnonymousClaim() {
+            return agentRegistration("reg_completed", "anonymous");
+          },
+        }),
+      },
+    );
+    expect(completed.status).toBe(200);
+    await expect(completed.json()).resolves.toEqual({ ok: true, registration_id: "reg_completed" });
   });
 
   it("serves a generated OpenAPI document", async () => {

@@ -173,6 +173,9 @@ async function agentIdentity(context: AgentAuthContext, resolveDatabase: (env: E
     if (result.kind === "ambiguous_email") {
       return oauthError(context, 400, "invalid_request", "The asserted email is ambiguous.");
     }
+    if (result.kind === "provision_failed") {
+      return oauthError(context, 503, "server_error", "Agent identity provisioning failed.");
+    }
     if (result.kind === "interaction_required") {
       return stepUpResponse(context, env, result);
     }

@@ -95,6 +95,10 @@ export function parseAgentAuthTrustedProviders(raw: string | undefined): AgentAu
       throw new Error("agent_auth_trusted_provider_missing_required_fields");
     }
     const jwksUri = stringValue(provider.jwks_uri) ?? stringValue(provider.jwksUri);
+    assertHttpsUrl(issuer, "agent_auth_trusted_provider_invalid_issuer_url");
+    if (jwksUri) {
+      assertHttpsUrl(jwksUri, "agent_auth_trusted_provider_invalid_jwks_uri");
+    }
     const algorithms = stringArray(provider.algorithms);
     return {
       issuer: normalizeIssuer(issuer),
@@ -313,6 +317,16 @@ function findTrustedProvider(providers: AgentAuthTrustedProvider[], issuer: stri
 
 function normalizeIssuer(issuer: string): string {
   return issuer.replace(/\/+$/, "");
+}
+
+function assertHttpsUrl(value: string, errorCode: string) {
+  try {
+    if (new URL(value).protocol !== "https:") {
+      throw new Error(errorCode);
+    }
+  } catch {
+    throw new Error(errorCode);
+  }
 }
 
 function audienceMatches(value: JWTPayload["aud"], expected: string): boolean {

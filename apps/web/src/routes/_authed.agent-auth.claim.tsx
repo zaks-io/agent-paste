@@ -1,6 +1,6 @@
 import { Button, Card, CardHeader } from "@agent-paste/ui";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Input } from "../components/ui/Input";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -33,7 +33,7 @@ function AgentAuthClaimPage() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<{ message: string; requestId?: string } | null>(null);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const tokens = claimTokensFromSearch();
     setClaimToken(tokens.claimToken);
     setClaimAttemptToken(tokens.claimAttemptToken);

@@ -200,7 +200,7 @@ describe("cli ephemeral publish", () => {
     }
   });
 
-  it("surfaces provision rate-limit failures without printing secrets", async () => {
+  it("surfaces provision rate-limit failures", async () => {
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-rate-limit-"));
     try {

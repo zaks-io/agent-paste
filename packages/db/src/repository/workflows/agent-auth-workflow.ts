@@ -43,7 +43,8 @@ export type RegisterAgentVerifiedIdentityResult =
       claim_expires_at: string;
     }
   | { kind: "replay_detected" }
-  | { kind: "ambiguous_email" };
+  | { kind: "ambiguous_email" }
+  | { kind: "provision_failed" };
 
 export type AgentAuthClaimView = {
   registration_id: string;
@@ -114,7 +115,7 @@ export async function registerAgentVerifiedIdentity(
         const member = await entities.members.findById(provisioned.workspace_member.id);
         const workspaceId = provisioned.workspace.id;
         if (!member) {
-          return { kind: "ambiguous_email" };
+          return { kind: "provision_failed" };
         }
         const delegation = await insertDelegation(entities, input, member, workspaceId, now);
         const registration = await insertVerifiedRegistration(entities, input, delegation, expiresAt, now);

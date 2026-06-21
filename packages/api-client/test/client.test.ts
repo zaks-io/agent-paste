@@ -1,6 +1,6 @@
 import { CLAIM_CODE_HEADER } from "@agent-paste/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type AgentPasteError, ApiClient } from "../src/index.js";
+import { type AgentPasteError, ApiClient, createIdempotencyKey } from "../src/index.js";
 
 const usagePolicy = {
   file_size_cap_bytes: 10,
@@ -31,6 +31,7 @@ const claimCode = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 describe("ApiClient", () => {
@@ -214,6 +215,42 @@ describe("ApiClient", () => {
     expect(calls[1]?.headers.get("idempotency-key")).toBe("idem_publish");
   });
 
+  it("publishes revision options and reads pinned artifact files", async () => {
+    const calls: Request[] = [];
+    const client = authedClient({
+      apiBaseUrl: "https://api.example.test/",
+      fetch: async (input, init) => {
+        calls.push(new Request(input, init));
+        if (calls.at(-1)?.url.includes("/file-content?")) {
+          return Response.json({
+            path: "index.html",
+            sha256: "a".repeat(64),
+            size_bytes: 13,
+            content_type: "text/html",
+            is_binary: false,
+            body: "<h1>Demo</h1>",
+          });
+        }
+        return Response.json(publishResult());
+      },
+    });
+
+    await expect(client.revisions.publish(artifactId, revisionId, "idem_publish", {})).resolves.toMatchObject({
+      artifact_id: artifactId,
+      revision_id: revisionId,
+    });
+    await expect(client.artifacts.readFile(artifactId, "index.html", revisionId)).resolves.toMatchObject({
+      path: "index.html",
+      body: "<h1>Demo</h1>",
+    });
+
+    expect(calls[0]?.headers.get("content-type")).toBe("application/json");
+    await expect(calls[0]?.json()).resolves.toEqual({});
+    expect(calls[1]?.url).toBe(
+      `https://api.example.test/v1/artifacts/${artifactId}/file-content?path=index.html&revision_id=${revisionId}`,
+    );
+  });
+
   it("publishes a revision with no request body (content-only, private)", async () => {
     const calls: Request[] = [];
     const client = authedClient({
@@ -342,6 +379,33 @@ describe("ApiClient", () => {
       requestId: "req_custom",
       docs: "https://docs.example.test/custom",
     });
+
+    const empty = authedClient({ fetch: async () => new Response(null, { status: 500 }) });
+    await expect(empty.whoami()).rejects.toMatchObject({
+      code: "http_error",
+      message: "HTTP 500",
+      status: 500,
+    });
+  });
+
+  it("uses env defaults and creates idempotency keys", async () => {
+    vi.stubEnv("AGENT_PASTE_API_KEY", apiKeySecret);
+    vi.stubEnv("AGENT_PASTE_API_URL", "https://api.env.test/");
+    vi.stubEnv("AGENT_PASTE_UPLOAD_URL", "https://upload.env.test/");
+    const calls: Request[] = [];
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push(new Request(input, init));
+      return Response.json(usagePolicy);
+    });
+
+    const client = new ApiClient();
+    await expect(client.usagePolicy()).resolves.toEqual(usagePolicy);
+
+    expect(client.apiBaseUrl).toBe("https://api.env.test");
+    expect(client.uploadBaseUrl).toBe("https://upload.env.test");
+    expect(calls[0]?.headers.get("authorization")).toBe(`Bearer ${apiKeySecret}`);
+    expect(createIdempotencyKey()).toMatch(/^cli_[0-9a-f-]+$/);
+    expect(createIdempotencyKey("publish")).toMatch(/^publish_[0-9a-f-]+$/);
   });
 });
 

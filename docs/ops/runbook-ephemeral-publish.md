@@ -259,18 +259,18 @@ Local harness: `pnpm dev:all` then `pnpm cli:dev publish <absolute-path> --ephem
 
 ## Configuration secrets
 
-| Secret / binding                                  | Worker     | Purpose                                                    |
-| ------------------------------------------------- | ---------- | ---------------------------------------------------------- |
-| `EPHEMERAL_PROVISION_IP_RATE_LIMIT`               | `api`      | Per-IP provision dampening                                 |
-| `EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT`           | `api`      | Native outer-layer burst dampening                         |
-| `EPHEMERAL_PROVISION_GATE`                        | `api`      | Hard global Durable Object provision ceiling               |
-| `EPHEMERAL_PROVISION_CONFIG`                      | `api`      | Runtime `limit_per_minute` for the DO gate (KV)            |
-| `EPHEMERAL_PROVISION_DELAY_MS`                    | `api`      | Non-secret server-side provision wait, default 200ms       |
-| `AI`                                              | `jobs`     | Optional Llama Guard warning signal                        |
-| `URL_SCANNER_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`  | `jobs`     | Optional Cloudflare URL Scanner verdicts                   |
-| `API_BASE_URL`, Agent View signing secret         | `jobs`     | Mint public Agent View URL for URL Scanner                 |
-| `AGENT_PASTE_*_SMOKE_HARNESS_SECRET`              | smoke only | Preview/PR artifact cleanup via `__test__/delete-artifact` |
-| `AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN` | smoke only | Optional hosted claim redemption check                     |
+| Secret / binding                                  | Worker     | Purpose                                                                |
+| ------------------------------------------------- | ---------- | ---------------------------------------------------------------------- |
+| `EPHEMERAL_PROVISION_IP_RATE_LIMIT`               | `api`      | Per-IP provision dampening                                             |
+| `EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT`           | `api`      | Native outer-layer burst dampening                                     |
+| `EPHEMERAL_PROVISION_GATE`                        | `api`      | Hard global Durable Object provision ceiling                           |
+| `EPHEMERAL_PROVISION_CONFIG`                      | `api`      | Runtime `limit_per_minute` for the DO gate (KV)                        |
+| `EPHEMERAL_PROVISION_DELAY_MS`                    | `api`      | Non-secret server-side provision wait; unset/invalid defaults to 200ms |
+| `AI`                                              | `jobs`     | Optional Llama Guard warning signal                                    |
+| `URL_SCANNER_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`  | `jobs`     | Optional Cloudflare URL Scanner verdicts                               |
+| `API_BASE_URL`, Agent View signing secret         | `jobs`     | Mint public Agent View URL for URL Scanner                             |
+| `AGENT_PASTE_*_SMOKE_HARNESS_SECRET`              | smoke only | Preview/PR artifact cleanup via `__test__/delete-artifact`             |
+| `AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN` | smoke only | Optional hosted claim redemption check                                 |
 
 Bootstrap preview/production API secrets with `pnpm bootstrap:preview` /
 `pnpm bootstrap:production` when operator-approved. PR previews can seed via
