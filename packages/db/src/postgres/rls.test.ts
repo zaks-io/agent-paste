@@ -357,7 +357,10 @@ describe("postgres RLS runtime enforcement", () => {
           status, expires_at, created_at, updated_at)
        values ('aar-anon-reapply', 'anonymous', null, $1, null,
           'anonymous', 'anon-subject', 'agent-paste', 'anonymous', '',
-          'anonymous_unclaimed', now() + interval '1 day', now(), now())`,
+          'anonymous_unclaimed', now() + interval '1 day', now(), now()),
+         ('aar-anon-reapply-pending', 'anonymous', null, $1, null,
+          'anonymous', 'anon-subject-pending', 'agent-paste', 'anonymous', '',
+          'anonymous_claim_pending', now() + interval '1 day', now(), now())`,
       [ws1Id],
     );
 
