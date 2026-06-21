@@ -201,9 +201,13 @@ Rules:
   fall back: an unknown extension fails the publish with an error asking for an
   explicit `--render-mode`.
 - Paths are normalized POSIX paths.
-- Max file size is `10 MB`.
-- Max total size is `25 MB`.
-- Max file count is `100`.
+- File and total Revision size enforcement uses the caller's effective **Usage
+  Policy**. Current public tier values are Ephemeral/Free: `10 MB` per file and
+  `25 MB` per Revision; Pro: `25 MB` per file and `100 MB` per Revision.
+  Authenticated caps are exposed by `GET /v1/usage-policy`. The request schema
+  also has a `25 MB` per-file hard ceiling so no client can submit a larger
+  individual file entry.
+- Max file count is `100` per Revision.
 - `sha256` is optional for compatibility on whole-file entries. New CLI/MCP
   clients send lowercase hex SHA-256 for each whole-file entry; legacy clients
   that omit it keep the full-upload revision-object path and do not participate

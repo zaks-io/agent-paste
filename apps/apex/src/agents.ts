@@ -15,6 +15,36 @@ cannot run shell commands.
 3. **Protocol client implementation:** fetch auth metadata at \`${API_BASE_URL}/auth.md\`.
 4. **Human dashboard:** send humans to \`${APP_BASE_URL}\`.
 
+## Install
+
+No install, Node.js 24+:
+
+\`\`\`sh
+npx @zaks-io/agent-paste publish ./path --json
+\`\`\`
+
+Repeated npm use:
+
+\`\`\`sh
+npm install -g @zaks-io/agent-paste
+agent-paste publish ./path --json
+\`\`\`
+
+Standalone binary, no Node required:
+
+\`\`\`sh
+curl -fsSL https://agent-paste.sh/install.sh | sh
+\`\`\`
+
+Windows PowerShell:
+
+\`\`\`powershell
+irm https://agent-paste.sh/install.ps1 | iex
+\`\`\`
+
+The npm package is \`@zaks-io/agent-paste\`. The installed command is
+\`agent-paste\`.
+
 ## CLI Flow
 
 Check auth first:
@@ -41,6 +71,13 @@ npx @zaks-io/agent-paste publish ./path --json
 
 This uploads to the user's Workspace. Return \`private_url\` to the user. Save
 \`artifact_id\` from the JSON if you may update or share it later.
+
+\`./path\` may be a file or directory. Directory publish preserves relative
+paths, so \`index.html\` can load sibling CSS, JS, JSON, images, and fonts.
+Entrypoint inference is: \`index.html\`, \`index.md\`, \`README.md\`, then the
+only file in the directory. If a multi-file directory has none of those, publish
+fails; pass \`--entrypoint <path>\`. Folder uploads exclude \`.git/\`,
+\`node_modules/\`, \`.DS_Store\`, \`.env\`, and \`.env.*\`.
 
 No-login link after authenticated publish:
 
@@ -83,15 +120,14 @@ If copied instructions include \`--claim-code <clm_...>\`, preserve it on the
 \`publish --ephemeral\` command. Agent Paste uses it for attribution and claim
 links.
 
-## Reading And Verification
+## Reading URLs
 
 \`agent_view_url\` is the machine-readable manifest. Per-file signed URLs are
 \`files[].url\`. \`revision_content_url\` is raw signed bytes for one Revision; it
 expires, does not Live Update, and is not the final live page.
 
 \`private_url\` is app navigation. A plain HTTP 200 may be only the app shell or
-sign-in state. Use \`unlisted_url\` for no-login browser verification, or
-\`agent_view_url\` plus \`files[].url\` for machine verification.
+sign-in state. \`unlisted_url\` is the no-login browser handoff.
 
 ## Object Model
 

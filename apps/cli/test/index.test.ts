@@ -169,6 +169,8 @@ describe("cli command dispatch", () => {
     expect(help).toContain("claim_url");
     expect(help).toContain("access_link_id");
     expect(help).toContain("unlisted_url");
+    expect(help).toContain("multi-file directory has no inferred entrypoint");
+    expect(help).toContain("pass\n  --entrypoint <path>");
     expect(help).not.toContain("--share");
   });
 

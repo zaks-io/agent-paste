@@ -157,10 +157,9 @@ is explicitly created. The Revision Content URL is exact signed byte delivery
 for one Revision; direct `usercontent` HTML is inert and should not be presented
 as the live page.
 
-A plain HTTP status check is not enough to verify a Private Link: unauthenticated
-clients may receive the app shell or sign-in redirect state with HTTP 200. Use a
-Share Link from `set-visibility unlisted` for no-login browser handoff, or use
-Agent View and its `files[].url` entries for machine verification.
+The Private Link is still login-walled even when an unauthenticated HTTP client
+receives the app shell or sign-in redirect state with HTTP 200. For no-login
+browser handoff, use a Share Link from `set-visibility unlisted`.
 
 ## Use Cases
 
