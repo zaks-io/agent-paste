@@ -8,6 +8,11 @@ Agent Paste publishes files or directories and returns links. Read this when
 Default to the CLI. Use MCP only when the host can connect to remote MCP but
 cannot run shell commands.
 
+In a fresh or empty workspace, create the requested file yourself. Do not spend
+time inspecting home directories, git state, or environment dumps unless the
+user's task requires it. Never print or publish API keys, env values, claim
+tokens, access-link fragments, or other secrets.
+
 ## Choose A Surface
 
 1. **CLI available:** use \`npx @zaks-io/agent-paste\`.
@@ -62,6 +67,9 @@ npx @zaks-io/agent-paste login
 Login is OAuth and opens a browser window for the user. After login, publish
 normally.
 
+If the environment is non-interactive, do not loop on login. Use the anonymous
+ephemeral flow below.
+
 Signed-in publish:
 
 \`\`\`sh
@@ -108,16 +116,19 @@ explicitly asks for accountless publish. It ignores stored login and environment
 credentials.
 
 Ephemeral publish returns \`unlisted_url\` and \`claim_url\`. Relay
-\`unlisted_url\` for viewing. Relay \`claim_url\` too when the human wants to keep
-or claim it. Unclaimed ephemeral uploads expire in 24h and serve HTML with
-scripts disabled. Use it for text, markdown, images, and static HTML/CSS, not
-interactive JS before claim. The signed-in human opens \`claim_url\` in a browser
-to claim the Artifact into that user's Workspace. Pre-claim credentials stop
-working after claim.
+\`unlisted_url\` as the view link in your final answer. Relay \`claim_url\` too
+when the human wants to keep or claim it. Do not place the concrete claim code
+or claim URL token inside the public Artifact content.
+
+Unclaimed ephemeral uploads expire in 24h and serve HTML with scripts disabled.
+Use static HTML/CSS. Do not make the page depend on client-side JavaScript,
+module scripts, or CDN scripts before claim. The signed-in human opens
+\`claim_url\` in a browser to claim the Artifact into that user's Workspace.
+Pre-claim credentials stop working after claim.
 
 If copied instructions include \`--claim-code <clm_...>\`, preserve it on the
 \`publish --ephemeral\` command. Agent Paste uses it for attribution and claim
-links.
+links. The claim code belongs on the CLI command, not in the page.
 
 ## Reading URLs
 
@@ -127,6 +138,10 @@ expires, does not Live Update, and is not the final live page.
 
 \`private_url\` is app navigation. A plain HTTP 200 may be only the app shell or
 sign-in state. \`unlisted_url\` is the no-login browser handoff.
+
+Respect the hostnames returned by the CLI and any \`AGENT_PASTE_*_URL\`
+environment variables. If the environment points at preview, keep preview URLs
+in the final answer. Do not rewrite preview links to production hosts.
 
 ## Object Model
 

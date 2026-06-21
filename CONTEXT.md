@@ -101,7 +101,7 @@ _Avoid_: Anonymous account, agent account, guest workspace
 
 <a id="ephemeral-publish"></a>
 **Ephemeral Publish**:
-A **Publish** performed against an **Ephemeral Workspace** with no human in the loop, gated by proof-of-work and the lowest trust-tier caps.
+A **Publish** performed against an **Ephemeral Workspace** with no human in the loop, gated by provision rate limits, the ephemeral provision gate, a short server-side wait, and the lowest trust-tier caps.
 _Avoid_: Anonymous publish, guest publish
 
 <a id="claim-token"></a>

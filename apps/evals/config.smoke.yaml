@@ -1,0 +1,163 @@
+version: 1
+
+suite:
+  id: homepage-cold-smoke
+  description: One-model live smoke for the homepage copied-prompt eval.
+  prompt:
+    source: static
+    text: >
+      Read https://agent-paste.sh/agents.md. Make me a practical HTML page on
+      where agent-paste would actually save me time. Use my work as broad
+      context, keep it safe to share publicly, publish it with agent-paste, and
+      give me the link.
+    claim_code:
+      mode: generate
+      prompt_suffix: >
+        This eval runs against the configured preview Agent Paste environment.
+        Use the AGENT_PASTE_* environment variables that are already set. Do not
+        publish to production. If login is unavailable or non-interactive,
+        publish with --ephemeral. Include this attribution flag only on the
+        publish command, not inside the public artifact: --claim-code
+        {claim_code}. Do not print API keys, environment values, claim tokens, or
+        other secrets.
+
+environment:
+  target: preview
+  reject_production_urls: true
+  env:
+    AGENT_PASTE_API_URL: https://api.preview.agent-paste.sh
+    AGENT_PASTE_UPLOAD_URL: https://upload.preview.agent-paste.sh
+    AGENT_PASTE_WEB_URL: https://app.preview.agent-paste.sh
+
+sandbox:
+  provider: docker
+  image: agent-paste-evals-pi-runner:0.1.0
+  docker:
+    build: missing
+    dockerfile: apps/evals/docker/pi-runner.Dockerfile
+    context: apps/evals/docker
+    network: bridge
+    workdir: /workspace
+    extra_run_args: []
+  max_concurrent_creates: 1
+  max_concurrent_running: 1
+  resources:
+    cpu: 2
+    memory_gb: 4
+    disk_gb: 20
+  lifecycle:
+    auto_stop_interval_minutes: 30
+    auto_delete_interval_minutes: 180
+  network:
+    allow_domains: []
+    allow_cidrs: []
+    probe_urls:
+      - https://agent-paste.sh/agents.md
+      - https://api.preview.agent-paste.sh/openapi.json
+      - https://upload.preview.agent-paste.sh/openapi.json
+      - https://app.preview.agent-paste.sh/robots.txt
+      - https://registry.npmjs.org/-/ping
+      - https://registry.npmjs.org/@zaks-io%2Fagent-paste
+      - https://openrouter.ai/api/v1/models
+      - https://openrouter.ai/api/v1/endpoints/zdr
+    block_all: false
+  fresh_paths:
+    HOME: /tmp/agent-home
+    XDG_CONFIG_HOME: /tmp/agent-xdg
+    NPM_CONFIG_CACHE: /tmp/agent-npm-cache
+    PI_CODING_AGENT_DIR: /tmp/pi-agent
+    PI_CODING_AGENT_SESSION_DIR: /tmp/pi-sessions
+  forbidden_cached_packages:
+    - "@zaks-io/agent-paste"
+
+matrix:
+  repeats_per_model: 1
+  concurrency: 1
+  openrouter:
+    max_concurrent_requests: 1
+    requests_per_minute: null
+    tokens_per_minute: null
+  harnesses:
+    - id: pi-rpc
+      adapter: pi
+      command: pi
+      mode: rpc
+      version: latest
+      profile: homepage-cold-smoke
+      capabilities:
+        shell: true
+        filesystem: true
+        network: true
+        web_search: false
+      config:
+        tools:
+          - read
+          - write
+          - edit
+          - bash
+          - grep
+          - find
+          - ls
+        no_session: false
+        no_extensions: true
+
+  models:
+    - id: anthropic/claude-sonnet-4.6
+      provider: openrouter
+      effort_label: medium
+      provider_params:
+        reasoning:
+          exclude: true
+        verbosity: medium
+
+timeouts:
+  agent_timeout_ms: 600000
+  command_idle_timeout_ms: 90000
+  sandbox_boot_timeout_ms: 180000
+  verification_timeout_ms: 60000
+  judge_timeout_ms: 120000
+  max_turns: 20
+
+retries:
+  infra_attempts: 3
+  retryable_categories:
+    - docker_image_build
+    - docker_container_start
+    - pi_start
+    - openrouter_transient
+    - verifier_fetch
+    - judge_request
+
+verification:
+  require_unlisted_url: true
+  require_final_answer_url: true
+  require_http_status: 200
+  capture_claim_url: true
+  redeem_claim_url: false
+  fetch_artifact_snapshot: true
+
+judge:
+  enabled: true
+  provider: openrouter
+  model: openai/gpt-5.5
+  rubric_version: homepage-cold-v1
+  max_transcript_chars: 200000
+  oversized_transcript: fail
+  structured_output: true
+  weights:
+    task_success: 40
+    onboarding_correctness: 20
+    efficiency: 20
+    doc_friction_signal: 15
+    safety_public_sharing: 5
+
+reporting:
+  output_dir: eval-results
+  env_file: .env.local
+  write_jsonl_events: true
+  write_html_transcript: true
+  write_artifact_snapshot: true
+  write_aggregate_markdown: true
+
+cleanup:
+  mode: expire_only
