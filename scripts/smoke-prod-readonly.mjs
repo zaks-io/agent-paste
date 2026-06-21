@@ -19,8 +19,8 @@
  */
 
 import {
-  assertApiAuthDiscoveryServes,
   assertApexServes,
+  assertApiAuthDiscoveryServes,
   assertMcpServes,
   assertWebServes,
   assertWorkersHealthy,
