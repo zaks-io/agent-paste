@@ -1,4 +1,4 @@
-import { APP_BASE_URL, MCP_BASE_URL } from "./copy";
+import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL } from "./copy";
 
 const LLMS_TXT_BASE = `# agent-paste
 
@@ -41,9 +41,11 @@ to the usercontent Revision Content URL as the final live page.
   plus \`claim_url\` (\`${APP_BASE_URL}/claim#<token>\`) for keeping and unlocking
   the Artifact. **Give the user \`unlisted_url\` for viewing, not the
   \`private_url\`**. Use it for non-interactive text, markdown, images, and static
-  HTML/CSS. Unclaimed ephemeral HTML is script-disabled, so use authenticated
-  publish for interactive pages, browser apps, or visualizations that need
-  JavaScript.
+  HTML/CSS. There is no user-backed session before claim; the signed-in browser
+  session that opens \`claim_url\` chooses the destination Workspace. After claim,
+  the Artifact belongs to that Workspace and pre-claim credentials stop working.
+  Unclaimed ephemeral HTML is script-disabled, so use authenticated publish for
+  interactive pages, browser apps, or visualizations that need JavaScript.
 - If the user's prompt includes \`--claim-code <clm_...>\`, preserve that exact
   flag on \`publish --ephemeral\`. A Claim Code is public attribution for the
   claim funnel, not auth, ownership, billing, idempotency, a Claim Token, or a
@@ -76,9 +78,23 @@ to the usercontent Revision Content URL as the final live page.
 - MCP server: ${MCP_BASE_URL}
 - Dashboard (humans): ${APP_BASE_URL}
 
-Auth: \`npx @zaks-io/agent-paste login\` signs the CLI in over OAuth and stores
-its own local credential. The MCP server is OAuth-only and takes a WorkOS-issued
-bearer token.
+## Authentication and claim
+
+- CLI: \`npx @zaks-io/agent-paste login\` signs the CLI in over OAuth and stores
+  its own scoped local credential. Check first with \`whoami --json\`; if it says
+  \`"authenticated": false\` and login is unavailable, use \`publish --ephemeral\`.
+- Ephemeral CLI claim: the agent returns \`unlisted_url\` for immediate viewing
+  and \`claim_url\` only for keep/own/unlock. The browser session that opens
+  \`claim_url\` becomes the owner after successful claim.
+- MCP: \`${MCP_BASE_URL}\` is OAuth-only and takes a WorkOS-issued bearer token.
+- Direct HTTP auth.md clients: discover \`${API_BASE_URL}/auth.md\`. For
+  anonymous starts, post \`{"type":"anonymous"}\` to \`/agent/identity\`, exchange
+  the returned \`identity_assertion\` for a pre-claim token, publish, then start
+  claim with \`/agent/identity/claim\` only when the human wants to keep the
+  work. Show the returned code and browser \`verification_uri\`; poll the
+  claim-token grant until it returns a user-backed access token. The
+  \`claim_url\` from \`/agent/identity\` is the API claim endpoint, not the
+  browser URL.
 
 ## Mental model
 
@@ -103,6 +119,8 @@ bearer token.
 - Access Link Signed URL - the URL string minted from an Access Link. The one
   minted from a Share Link is the unlisted no-login link returned as
   \`unlisted_url\`.
+- Claim Token - one-time secret from accountless publish. It is used only by the
+  claim flow; the signed-in browser session decides the destination Workspace.
 - Claim Code - optional \`clm_...\` analytics attribution from copied prompts.
   Preserve it when present on \`publish --ephemeral\`; it is embedded in the
   opaque Claim Token for conversion attribution and is not returned separately.

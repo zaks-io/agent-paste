@@ -89,6 +89,17 @@ describe("api worker", () => {
         identity_types_supported: ["anonymous", "identity_assertion"],
       },
     });
+
+    const authMd = await handleRequest(new Request("https://api.test/auth.md"), env);
+    expect(authMd.status).toBe(200);
+    const body = await authMd.text();
+    expect(body).toContain('POST /agent/identity with {"type":"anonymous"}');
+    expect(body).toContain("grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer");
+    expect(body).toContain("claim_url from /agent/identity is the API claim endpoint");
+    expect(body).toContain("claim.verification_uri from /agent/identity/claim is the browser URL");
+    expect(body).toContain("authorization_pending");
+    expect(body).toContain("The signed-in browser session determines the destination Agent Paste Workspace.");
+    expect(body).toContain("Agent Paste does not support service_auth agent registration.");
   });
 
   it("advertises anonymous agent auth with only a signing secret", async () => {

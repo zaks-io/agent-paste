@@ -1,4 +1,4 @@
-import { APP_BASE_URL, MCP_BASE_URL } from "./copy";
+import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL } from "./copy";
 
 export const AGENTS_MD = `# agent-paste for agents
 
@@ -47,6 +47,9 @@ agent-paste has three objects an agent needs to know:
 - **Access Link Signed URL** - The URL string minted from an Access Link. The
   one minted from a Share Link is the unlisted no-login live page URL, returned as
   \`unlisted_url\`.
+- **Claim Token** - A one-time secret returned by accountless publish and used
+  only to claim the ephemeral Artifact. The signed-in browser session that opens
+  the claim page decides the destination Workspace.
 
 ## CLI quickstart
 
@@ -165,9 +168,11 @@ Publish returns \`unlisted_url\`, a no-login script-disabled Share Link that wor
 immediately, and \`claim_url\` (\`${APP_BASE_URL}/claim#<token>\`) for keeping,
 owning, and unlocking interactivity. **Relay \`unlisted_url\` for viewing** — not
 \`private_url\`. A signed-in human opens \`claim_url\` to reparent the Artifact
-into their Workspace. The token rides the URL **hash** only: it never appears in
-the query string or in any public Access Link Signed URL. The \`private_url\`
-clean viewer works only after claim.
+into their Workspace. There is no user-backed session before claim; the browser
+session that completes the claim chooses the destination Workspace, and pre-claim
+credentials stop working after claim. The token rides the URL **hash** only: it
+never appears in the query string or in any public Access Link Signed URL. The
+\`private_url\` clean viewer works only after claim.
 
 If a copied prompt includes \`--claim-code <clm_...>\`, preserve that flag on the
 \`publish --ephemeral\` command. The Claim Code is public attribution for the
@@ -183,7 +188,8 @@ authenticated publish rather than \`--ephemeral\`.
 
 ## Authentication
 
-Agents should use either the CLI or MCP.
+For normal publishing, agents should use either the CLI or MCP. Use direct HTTP
+only when you are implementing an auth.md client.
 
 - **CLI:** \`npx @zaks-io/agent-paste login\` completes a browser OAuth flow and
   stores a scoped local credential for you. Nothing to copy or paste.
@@ -195,6 +201,14 @@ Agents should use either the CLI or MCP.
 - **MCP:** OAuth bearer only. The MCP server verifies a WorkOS-issued access
   token. Product capabilities are derived from the authenticated Workspace
   Member in \`api\`, not from OAuth token scopes.
+- **Direct HTTP auth.md:** discover \`${API_BASE_URL}/auth.md\` only when you are
+  implementing an auth.md client directly. For anonymous starts, post
+  \`{"type":"anonymous"}\` to \`/agent/identity\`, exchange the returned
+  \`identity_assertion\` for a pre-claim token, publish, and start claim with
+  \`/agent/identity/claim\` only when the human wants to keep the work. Show the
+  returned code and browser \`verification_uri\`; poll the claim-token grant until
+  it returns a user-backed token. The \`claim_url\` from \`/agent/identity\` is the
+  API claim endpoint, not the browser URL.
 
 ## MCP server
 

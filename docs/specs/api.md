@@ -75,20 +75,22 @@ The anonymous user-claimed flow is advertised when `api` has
 `AGENT_AUTH_ASSERTION_SIGNING_SECRET`. `POST /agent/identity` with
 `{ "type": "anonymous" }` creates an Ephemeral Workspace-backed registration,
 returns a service-signed `identity_assertion`, and returns an opaque
-`claim_token` held by the agent. The agent exchanges the assertion at
-`/oauth2/token` for a short-lived pre-claim `ap_pk_*` credential scoped only to
-that Ephemeral Workspace.
+`claim_token` held by the agent. Its `claim_url` field is the API claim endpoint,
+not the browser URL. The agent exchanges the assertion at `/oauth2/token` for a
+short-lived pre-claim `ap_pk_*` credential scoped only to that Ephemeral
+Workspace.
 
 To bind the anonymous registration, the agent calls `/agent/identity/claim` with
 `{ claim_token }`. The API returns a six-digit `user_code` and a browser
 `verification_uri` containing a separate `claim_attempt_token`; the original
 `claim_token` is not sent to the browser. `/v1/web/agent-auth/claim/complete`
-requires a signed-in WorkOS user and the matching code. On success the existing
-Ephemeral Workspace claim path reparents Artifacts into that user's Workspace,
-records the completed claim on the agent-auth registration, and revokes all
-source-workspace API keys, including pre-claim agent-auth tokens. The agent's
-claim-token grant returns `authorization_pending` until this browser completion
-succeeds.
+requires a signed-in WorkOS user and the matching code. That browser session
+chooses the destination Workspace. On success the existing Ephemeral Workspace
+claim path reparents Artifacts into that user's Workspace, records the completed
+claim on the agent-auth registration, and revokes all source-workspace API keys,
+including pre-claim agent-auth tokens. The agent's claim-token grant returns
+`authorization_pending` until this browser completion succeeds, then returns a
+user-backed access token.
 
 The agent-verified `identity_assertion` flow is additionally advertised only
 when `AGENT_AUTH_TRUSTED_PROVIDERS_JSON` parses to at least one trusted

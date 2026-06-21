@@ -69,6 +69,9 @@ Choose the mode:
     Use:  return unlisted_url, not private_url. Also provide claim_url when the
           human wants to keep, own, or unlock interactivity. Unclaimed ephemeral
           HTML has scripts disabled, so do not use it for interactive JS apps.
+          There is no user-backed session before claim; the signed-in browser
+          session that opens claim_url chooses the destination workspace.
+          Pre-claim credentials stop working after claim.
     Note: --claim-code is optional attribution. The CLI sends it to the API and
           the API embeds it in the claim token for conversion tracking. Do not
           return it separately and do not put it in any URL query string.
@@ -101,7 +104,8 @@ What to hand back:
   unlisted_url          No-login Share Link from set-visibility unlisted, or
                         from ephemeral publish when no login is available.
   claim_url             Ephemeral keep/upgrade link. Do not use as the primary
-                        no-login viewing link.
+                        no-login viewing link. The signed-in browser session
+                        that opens it becomes the owner after claim.
   revision_content_url  Raw signed bytes for one Revision. Do not use as the
                         final live page.
   agent_view_url        Agent metadata and per-file signed URLs for inspection.

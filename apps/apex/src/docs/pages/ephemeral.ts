@@ -31,7 +31,7 @@ export const EPHEMERAL_DOC: DocsPage = {
             "If copied instructions include `--claim-code <clm_...>`, the agent preserves it on the publish command.",
             "The CLI provisions an Ephemeral Workspace, then publishes through the normal Upload Session flow.",
             "Human-readable output leads with `unlisted_url`, a working no-login Share Link. Relay this link for immediate viewing, not the `private_url`.",
-            "A signed-in human opens the `claim_url` to keep, unlock interactivity, and move the Artifact into their Personal Workspace.",
+            "A signed-in human opens the `claim_url` to keep, unlock interactivity, and move the Artifact into their Personal Workspace. That browser session chooses the destination Workspace.",
           ],
         },
       ],
@@ -95,7 +95,7 @@ export const EPHEMERAL_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Claiming reparents the Artifact into the signed-in member's Personal Workspace. The Artifact moves to the Free Plan limits unless the destination Workspace is already Pro.",
+          text: "Claiming reparents the Artifact into the signed-in member's Personal Workspace. There is no user-backed session before claim; after claim, pre-claim ephemeral credentials stop working. The Artifact moves to the Free Plan limits unless the destination Workspace is already Pro.",
         },
       ],
     },

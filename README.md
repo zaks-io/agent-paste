@@ -86,7 +86,10 @@ Agents should choose one publish surface:
 - **Implementing a direct HTTP auth.md client:** discover `GET /auth.md`.
   Start with `{ "type": "anonymous" }`, publish with the pre-claim credential,
   and send the human the browser verification URI plus code only when they want
-  to claim.
+  to claim. The signed-in browser session that completes claim chooses the
+  destination Workspace. The `claim_url` from `/agent/identity` is the API claim
+  endpoint; the browser URL is `claim.verification_uri` from
+  `/agent/identity/claim`.
 
 ### No login available
 
@@ -99,7 +102,9 @@ npx @zaks-io/agent-paste publish ./report --ephemeral
 
 The output leads with `unlisted_url`, a working no-login link. Relay that for
 immediate viewing. Relay `claim_url` only when the human wants to keep, own, or
-unlock interactivity for the Artifact. Two rules keep this path safe:
+unlock interactivity for the Artifact. There is no user-backed session before
+claim; the signed-in browser session that opens `claim_url` owns it after claim.
+Two rules keep this path safe:
 
 - **Check before falling back.** Run `whoami --json` first -- `whoami` exits
   `0` even when signed out, so the exit code tells you nothing. Check the JSON:

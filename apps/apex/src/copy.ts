@@ -7,6 +7,7 @@ const ENV = (typeof process !== "undefined" ? process.env.AGENT_PASTE_ENV : unde
 const SUBDOMAIN_PREFIX = ENV === "preview" ? "preview." : "";
 
 export const APP_BASE_URL = `https://app.${SUBDOMAIN_PREFIX}agent-paste.sh`;
+export const API_BASE_URL = `https://api.${SUBDOMAIN_PREFIX}agent-paste.sh`;
 // The app has no /login route; sign-in is initiated at /api/auth/sign-in
 // (root "/" also redirects there for unauthenticated visitors).
 export const SIGN_IN_URL = `${APP_BASE_URL}/api/auth/sign-in`;

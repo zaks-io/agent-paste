@@ -60,6 +60,10 @@ describe("text and data assets", () => {
     expect(body).toContain("plain HTTP 200");
     expect(body).toMatch(/Ephemeral is not\s+the Free Plan/);
     expect(body).toContain("non-interactive text");
+    expect(body).toContain("Direct HTTP auth.md clients");
+    expect(body).toContain("claim-token grant until it returns a user-backed access token");
+    expect(body).toContain("API claim endpoint");
+    expect(body).toContain("signed-in browser session");
     expect(body).toContain("/llms-full.txt");
   });
 
@@ -79,6 +83,10 @@ describe("text and data assets", () => {
     expect(body).not.toContain("REST API");
     expect(body).toMatch(/Ephemeral is not\s+the Free Plan/);
     expect(body).toContain("non-interactive work");
+    expect(body).toContain("**Claim Token**");
+    expect(body).toContain("Direct HTTP auth.md");
+    expect(body).toContain("API claim endpoint");
+    expect(body).toMatch(/pre-claim\s+credentials stop working after claim/);
     expect(body).toContain("https://agent-paste.sh/docs");
     expect(body).toContain("https://agent-paste.sh/llms-full.txt");
   });
