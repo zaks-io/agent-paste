@@ -103,8 +103,8 @@ export const EXAMPLE_REPORT_ROWS = [
 // report and hand back the link. The prompt stays short because it is marketing
 // copy; the demo narration and docs carry the detailed safety rules.
 export const EXAMPLE_PROMPT =
-  "Read https://agent-paste.sh/llms.txt. Make me a practical HTML page on where agent-paste would actually save me time. Use my work as broad context, keep it safe to share publicly, publish it with agent-paste, and give me the link.";
-export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v6_public_safe_llms_summary";
+  "Read https://agent-paste.sh/agents.md. Make me a practical HTML page on where agent-paste would actually save me time. Use my work as broad context, keep it safe to share publicly, publish it with agent-paste, and give me the link.";
+export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v7_public_safe_agents_guide";
 
 // Inline run affordance shown right after the prompt line, and the replay control
 // in the head once the run has played. Copy floats freely; not a test contract.
@@ -213,7 +213,7 @@ export const TRANSCRIPT: TranscriptLine[] = [
   {
     kind: "tool",
     wait: 1300,
-    text: "Fetch(https://agent-paste.sh/llms.txt)",
+    text: "Fetch(https://agent-paste.sh/agents.md)",
     result: "CLI + MCP publish · public-safe sharing · accountless --ephemeral links",
     hint: "+18 lines (ctrl+o to expand)",
   },

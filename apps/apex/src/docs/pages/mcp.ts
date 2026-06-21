@@ -112,7 +112,7 @@ export const MCP_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "The MCP publish tools are text-only. Binary uploads, multi-file folder uploads, and standalone Bundle downloads stay in the CLI. Workspace settings, billing, and lockdown controls stay in the dashboard.",
+          text: "The MCP publish tools are text-only. Use the CLI for binary uploads and multi-file folder uploads. Ready Bundle URLs are exposed through Agent View/read tools. Workspace settings, billing, and lockdown controls stay in the dashboard.",
         },
         {
           kind: "paragraph",

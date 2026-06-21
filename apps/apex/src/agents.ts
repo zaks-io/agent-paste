@@ -123,9 +123,9 @@ Tool choice:
 - Manage links: \`list_access_links\`, \`revoke_access_link\`
 - Delete/update metadata: \`delete_artifact\`, \`update_display_metadata\`
 
-MCP publish tools are text-only today. Use the CLI for folders, binary files,
-and standalone Bundle downloads. Use the dashboard for settings, billing, and
-lockdown controls.
+MCP publish tools are text-only today. Use the CLI for folders and binary
+uploads. Ready Bundle URLs are exposed through Agent View/read tools. Use the
+dashboard for settings, billing, and lockdown controls.
 
 ## More
 
