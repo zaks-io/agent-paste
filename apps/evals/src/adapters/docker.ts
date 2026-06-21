@@ -6,8 +6,9 @@ import { accountlessProvisionProbeCommand, networkProbeCommand } from "../networ
 import type { EvalConfig, EvalRun, RunEvent } from "../types";
 import { dockerEnvArgs, runDocker } from "./docker-cli";
 import { DockerProcess } from "./docker-process";
-import { type HarnessRunOutput, runPiRpc } from "./pi-rpc";
+import type { HarnessRunOutput } from "./harness-output";
 import type { ProcessSandboxLike } from "./process-sandbox";
+import { runConfiguredHarness } from "./run-harness";
 
 const ensuredImages = new Map<string, Promise<void>>();
 
@@ -48,7 +49,7 @@ export class DockerEvalSandbox {
     if (!this.sandbox) {
       throw new Error("Sandbox has not started");
     }
-    return runPiRpc({
+    return runConfiguredHarness({
       sandbox: this.sandbox,
       config: this.config,
       run: this.run,
@@ -75,7 +76,11 @@ export class DockerEvalSandbox {
     const env = this.config.sandbox.fresh_paths;
     const command = [
       "set -eu",
-      'mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$NPM_CONFIG_CACHE" "$PI_CODING_AGENT_DIR" "$PI_CODING_AGENT_SESSION_DIR"',
+      'mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$NPM_CONFIG_CACHE"',
+      optionalMkdir("PI_CODING_AGENT_DIR"),
+      optionalMkdir("PI_CODING_AGENT_SESSION_DIR"),
+      optionalMkdir("CODEX_HOME"),
+      optionalMkdir("CLAUDE_CONFIG_DIR"),
       'test ! -e "$XDG_CONFIG_HOME/agent-paste"',
       'test ! -e "$HOME/.config/agent-paste"',
       "! command -v agent-paste >/dev/null 2>&1",
@@ -250,6 +255,12 @@ function containerName(runId: string): string {
 
 function safe(value: string): string {
   return value.replace(/[^a-zA-Z0-9_.-]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function optionalMkdir(name: string): string {
+  const parameter = ["$", "{", name, ":-}"].join("");
+  const directory = `$${name}`;
+  return `[ -z "${parameter}" ] || mkdir -p "${directory}"`;
 }
 
 function resolveWorkspacePath(input: string): string {

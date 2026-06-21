@@ -1,7 +1,7 @@
 import type { EvalConfig, EvalRun, RunEvent } from "../types";
 import { DaytonaEvalSandbox } from "./daytona";
 import { DockerEvalSandbox } from "./docker";
-import type { HarnessRunOutput } from "./pi-rpc";
+import type { HarnessRunOutput } from "./harness-output";
 
 export type EvalSandbox = {
   start(): Promise<void>;

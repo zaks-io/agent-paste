@@ -59,6 +59,30 @@ describe("verifyRunOutput", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("records production-looking non-handoff URLs without warning", async () => {
+    const config = await loadConfig("config.smoke.yaml");
+    const outputDir = await mkdtemp(join(tmpdir(), "agent-paste-eval-verifier-"));
+    tempDirs.push(outputDir);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("<html>ok</html>", { status: 200 })),
+    );
+
+    const result = await verifyRunOutput({
+      config,
+      outputDir,
+      text: [
+        "Published: https://app.preview.agent-paste.sh/al/ABC123#token",
+        "Example: https://api.agent-paste.sh/auth.md",
+      ].join("\n"),
+    });
+
+    expect(result.passed).toBe(true);
+    expect(result.warnings).toEqual([]);
+    expect(result.production_url_detected).toBe(true);
+    expect(result.production_url_details.other).toEqual(["https://api.agent-paste.sh/auth.md"]);
+  });
+
   it("warns when the fetched artifact contains production handoff links", async () => {
     const config = await loadConfig("config.smoke.yaml");
     const outputDir = await mkdtemp(join(tmpdir(), "agent-paste-eval-verifier-"));

@@ -41,7 +41,7 @@ export class DockerProcess implements SandboxProcessApi {
     commandId: string,
     onStdout?: (chunk: string) => void,
     onStderr?: (chunk: string) => void,
-  ): Promise<{ output: string; stdout: string; stderr: string }> {
+  ): Promise<{ output: string; stdout: string; stderr: string; exitCode?: number }> {
     const state = this.command(commandId);
     if (onStdout) {
       state.addStdoutListener(onStdout);
@@ -65,7 +65,7 @@ export class DockerProcess implements SandboxProcessApi {
     cwd?: string,
     env?: Record<string, string>,
     timeout?: number,
-  ): Promise<{ exitCode?: number; result?: string }> {
+  ): Promise<{ exitCode?: number; result?: string; stdout?: string; stderr?: string }> {
     const args = [
       "exec",
       "--workdir",
@@ -80,6 +80,8 @@ export class DockerProcess implements SandboxProcessApi {
     return {
       exitCode: result.exitCode,
       result: [result.stdout, result.stderr].filter(Boolean).join("\n"),
+      stdout: result.stdout,
+      stderr: result.stderr,
     };
   }
 
@@ -96,6 +98,7 @@ class CommandState {
   readonly done: Promise<void>;
   private stdout = "";
   private stderr = "";
+  private exitCode: number | undefined;
   private readonly stdoutListeners: Array<(chunk: string) => void> = [];
   private readonly stderrListeners: Array<(chunk: string) => void> = [];
 
@@ -104,7 +107,10 @@ class CommandState {
       child.stdout.on("data", (chunk: Buffer) => this.recordStdout(chunk.toString()));
       child.stderr.on("data", (chunk: Buffer) => this.recordStderr(chunk.toString()));
       child.on("error", reject);
-      child.on("close", () => resolve());
+      child.on("close", (code) => {
+        this.exitCode = code ?? 1;
+        resolve();
+      });
     });
   }
 
@@ -126,8 +132,13 @@ class CommandState {
     this.child.stdin.write(data);
   }
 
-  logs(): { output: string; stdout: string; stderr: string } {
-    return { output: this.stdout, stdout: this.stdout, stderr: this.stderr };
+  logs(): { output: string; stdout: string; stderr: string; exitCode?: number } {
+    return {
+      output: this.stdout,
+      stdout: this.stdout,
+      stderr: this.stderr,
+      ...(this.exitCode !== undefined ? { exitCode: this.exitCode } : {}),
+    };
   }
 
   private recordStdout(chunk: string): void {

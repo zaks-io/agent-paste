@@ -8,8 +8,8 @@ V1 is done when a human or agent can run one local command with a YAML config
 containing any number of OpenRouter models, and the tool:
 
 1. Creates one fresh Docker container per uncached run by default.
-2. Starts cached Pi runner infrastructure in each sandbox.
-3. Sends the configured copied prompt to Pi over RPC.
+2. Starts cached coding-harness infrastructure in each sandbox.
+3. Sends the configured copied prompt to the selected harness.
 4. Routes Agent Paste publishes to preview through env vars.
 5. Verifies each final `unlisted_url` returns HTTP 200 without auth.
 6. Stores every transcript, event stream, verifier result, judge result, and
@@ -55,6 +55,19 @@ Pi:
 - OpenRouter credentials use `OPENROUTER_API_KEY`:
   <https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/providers.md>
 
+Claude Code:
+
+- Headless mode supports `claude -p`, `--model`, `--max-turns`,
+  `--permission-mode`, and `--output-format stream-json`:
+  <https://code.claude.com/docs/en/headless>
+
+Codex:
+
+- Noninteractive execution uses `codex exec`; JSONL output is available through
+  `--json`, model selection through `--model`, approval policy through
+  `--ask-for-approval`, and final answer capture through `--output-last-message`:
+  <https://developers.openai.com/codex/cli/reference>
+
 OpenRouter:
 
 - List models with `GET https://openrouter.ai/api/v1/models`:
@@ -82,6 +95,8 @@ Current package versions observed during planning:
   `0.187.0` because the repo's pnpm minimum-release-age policy blocked the
   newest package during installation.
 - `@earendil-works/pi-coding-agent`: `0.79.9`
+- `@anthropic-ai/claude-code`: `2.1.185`
+- `@openai/codex`: `0.141.0`
 
 Current implementation dependencies:
 
@@ -100,13 +115,17 @@ Build a local CLI app in `apps/evals` with three internal layers:
 2. `sandbox`
    Provider adapter. Docker is the default practical adapter; Daytona remains
    available behind the same boundary. The adapter creates isolated sandboxes,
-   verifies fresh Agent Paste state, starts Pi, streams files/logs back, and
-   stops or deletes resources according to config.
+   verifies fresh Agent Paste state, runs the selected harness, streams files
+   and logs back, and stops or deletes resources according to config.
 
 3. `harness`
-   Harness-neutral interface with one v1 adapter: `pi-rpc`. The adapter starts
-   Pi in RPC mode, sends the prompt, records JSONL events, detects completion,
-   requests stats/export artifacts where available, and normalizes events.
+   Harness-neutral interface with `pi-rpc`, `claude-code`, and `codex`
+   adapters. Pi runs in RPC mode, Claude Code runs in stream JSON print mode,
+   and Codex runs through `exec --json`. Codex uses an HTTPS-only custom OpenAI
+   provider and bypasses its inner command sandbox when running in Docker,
+   because Docker is the isolation boundary for this suite. All adapters write
+   JSONL events, transcripts, final answers, and normalized metrics when
+   available.
 
 Then run:
 
@@ -132,8 +151,8 @@ Use a local Docker image for the cached harness layer:
 
 ```sh
 docker build \
-  -t agent-paste-evals-pi-runner:0.1.0 \
-  -f apps/evals/docker/pi-runner.Dockerfile apps/evals/docker
+  -t agent-paste-evals-agent-runner:0.2.0 \
+  -f apps/evals/docker/agent-runner.Dockerfile apps/evals/docker
 ```
 
 The image installs:
@@ -141,20 +160,22 @@ The image installs:
 - Node 24
 - curl, jq, git, ripgrep, and basic shell tools
 - `@earendil-works/pi-coding-agent@0.79.9`
+- `@anthropic-ai/claude-code@2.1.185`
+- `@openai/codex@0.141.0`
 
 The image must not install Agent Paste or preserve an Agent Paste npm cache.
 Each run starts a new named container with fresh values for `HOME`,
 `XDG_CONFIG_HOME`, `NPM_CONFIG_CACHE`, `PI_CODING_AGENT_DIR`, and
-`PI_CODING_AGENT_SESSION_DIR`.
+`PI_CODING_AGENT_SESSION_DIR`, `CODEX_HOME`, and `CLAUDE_CONFIG_DIR`.
 
-The Docker adapter exposes the same process/session API used by the Pi RPC
-adapter:
+The Docker adapter exposes the same process/session API used by the harness
+adapters:
 
 1. `docker run -d ... sleep infinity`
 2. freshness probe with `docker exec`
 3. network probe with `docker exec`
-4. `docker exec -i ... pi --mode rpc ...`
-5. stream stdout/stderr and write prompt JSONL to stdin
+4. run the selected harness command
+5. stream stdout/stderr and write prompt input when the harness protocol needs it
 6. `docker rm -f` unless `cleanup.mode: keep`
 
 ## Daytona plan
@@ -171,14 +192,14 @@ Create a runner snapshot manually or through a CLI command:
 1. Create a base sandbox.
 2. Install Node and common tools if the snapshot image does not already have
    them.
-3. Install Pi globally:
+3. Install the harness CLIs globally:
 
    ```sh
-   npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+   npm install -g --ignore-scripts @earendil-works/pi-coding-agent @anthropic-ai/claude-code @openai/codex
    ```
 
 4. Verify no Agent Paste package or config exists.
-5. Snapshot the sandbox as `agent-paste-evals-pi-runner`.
+5. Snapshot the sandbox as `agent-paste-evals-agent-runner`.
 
 Run creation should use the snapshot:
 
@@ -204,11 +225,15 @@ await sandbox.setLabels({
 });
 ```
 
-Before starting Pi, execute a freshness probe:
+Before starting a harness, execute a freshness probe:
 
 ```sh
 set -eu
-mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$NPM_CONFIG_CACHE" "$PI_CODING_AGENT_DIR" "$PI_CODING_AGENT_SESSION_DIR"
+mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$NPM_CONFIG_CACHE"
+[ -z "${PI_CODING_AGENT_DIR:-}" ] || mkdir -p "$PI_CODING_AGENT_DIR"
+[ -z "${PI_CODING_AGENT_SESSION_DIR:-}" ] || mkdir -p "$PI_CODING_AGENT_SESSION_DIR"
+[ -z "${CODEX_HOME:-}" ] || mkdir -p "$CODEX_HOME"
+[ -z "${CLAUDE_CONFIG_DIR:-}" ] || mkdir -p "$CLAUDE_CONFIG_DIR"
 test ! -e "$XDG_CONFIG_HOME/agent-paste"
 test ! -e "$HOME/.config/agent-paste"
 ! command -v agent-paste
@@ -358,7 +383,7 @@ Retry infra errors three times:
 
 - Docker image build/container start errors.
 - Daytona create/start/session errors when using the Daytona provider.
-- Pi startup failures.
+- Harness startup failures.
 - OpenRouter transient 429/5xx/network errors.
 - Preview verifier fetch 429/5xx/network errors.
 - Judge 429/5xx/network errors.
@@ -372,13 +397,16 @@ Load secrets from `apps/evals/.env.local` by default:
 
 ```sh
 OPENROUTER_API_KEY=...
+ANTHROPIC_API_KEY=...
+OPENAI_API_KEY=...
 # Required only for Daytona configs:
 DAYTONA_API_KEY=...
 ```
 
-The run environment passes OpenRouter keys to Pi. Daytona keys are passed only
-when the selected provider is Daytona. Result artifacts are local development
-artifacts, so v1 does not redact preview claim tokens or links by default.
+The run environment passes OpenRouter keys to Pi and the judge, Anthropic keys to
+Claude Code, and OpenAI keys to Codex. Daytona keys are passed only when the
+selected provider is Daytona. Result artifacts are local development artifacts,
+so v1 does not redact preview claim tokens or links by default.
 
 ## CLI shape
 
@@ -407,7 +435,7 @@ pnpm evals:env
 1. Scaffold `@agent-paste/evals` package and config loader.
 2. Add OpenRouter model metadata fetch and validation.
 3. Add sandbox provider boundary with Docker and Daytona adapters.
-4. Add Pi RPC adapter with event capture.
+4. Add harness adapters with event capture.
 5. Add prompt matrix expansion and concurrency controls.
 6. Add URL extractor and HTTP 200 verifier.
 7. Add AI SDK structured judge call.

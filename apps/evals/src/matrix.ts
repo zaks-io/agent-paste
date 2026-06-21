@@ -1,6 +1,6 @@
 import path from "node:path";
 import { stableHash } from "./idempotency";
-import { modelRunKey } from "./model-config";
+import { modelRunKey, modelSupportsHarness } from "./model-config";
 import { buildPrompt } from "./prompts";
 import type { EvalConfig, EvalRun } from "./types";
 
@@ -8,6 +8,9 @@ export function expandRuns(config: EvalConfig, resultDir: string, executionKey: 
   const runs: EvalRun[] = [];
   for (const harness of config.matrix.harnesses) {
     for (const model of config.matrix.models) {
+      if (!modelSupportsHarness(model, harness)) {
+        continue;
+      }
       for (let repeat = 1; repeat <= config.matrix.repeats_per_model; repeat += 1) {
         const modelKey = modelRunKey(model);
         const claimSeed = `${executionKey}:${config.suite.id}:${harness.id}:${modelKey}:${repeat}`;

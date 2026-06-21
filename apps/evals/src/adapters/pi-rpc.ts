@@ -1,9 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { extractUsageMetricsFromEvents } from "../metrics";
-import { modelRunKey } from "../model-config";
+import { harnessModelId, modelRunKey } from "../model-config";
 import { redactSensitiveText } from "../redaction";
-import type { EvalConfig, EvalRun, RunEvent, TokenUsage } from "../types";
+import type { EvalConfig, EvalRun, RunEvent } from "../types";
+import { HarnessRunError, type HarnessRunOutput } from "./harness-output";
 import type { ProcessSandboxLike } from "./process-sandbox";
 
 type RpcEvent = {
@@ -36,26 +37,6 @@ type AgentMessage = {
 type ToolEventResult = {
   content?: Array<{ type?: string; text?: string }>;
 };
-
-export type HarnessRunOutput = {
-  finalAnswer: string;
-  transcript: string;
-  tokenUsage?: TokenUsage;
-  costUsd?: number;
-  turnCount?: number;
-  eventsPath: string;
-  transcriptPath: string;
-};
-
-export class HarnessRunError extends Error {
-  constructor(
-    message: string,
-    readonly output: HarnessRunOutput,
-  ) {
-    super(message);
-    this.name = "HarnessRunError";
-  }
-}
 
 export async function runPiRpc(params: {
   sandbox: ProcessSandboxLike;
@@ -226,9 +207,38 @@ async function execSandboxCommand(
 function buildPiCommand(run: EvalRun, config: EvalConfig, env: Record<string, string>): string {
   const fresh = config.sandbox.fresh_paths;
   const sessionDir = fresh.PI_CODING_AGENT_SESSION_DIR ?? "/tmp/pi-sessions";
-  const model = run.model.id;
+  const model = harnessModelId(run.model, run.harness);
   void env;
-  return `${run.harness.command} --mode rpc --provider openrouter --model ${quote(model)} --session-dir ${quote(sessionDir)} --name ${quote(run.id)}`;
+  const harnessConfig = run.harness.config;
+  const args = [
+    run.harness.command,
+    "--mode",
+    "rpc",
+    "--provider",
+    "openrouter",
+    "--model",
+    model,
+    "--session-dir",
+    sessionDir,
+    "--name",
+    run.id,
+  ];
+  const tools = arrayConfig(harnessConfig, "tools");
+  if (tools.length > 0) {
+    args.push("--tools", tools.join(","));
+  }
+  const appendSystemPrompt = stringConfig(harnessConfig, "append_system_prompt");
+  if (appendSystemPrompt) {
+    args.push("--append-system-prompt", appendSystemPrompt);
+  }
+  if (booleanConfig(harnessConfig, "no_session")) {
+    args.push("--no-session");
+  }
+  if (booleanConfig(harnessConfig, "no_extensions")) {
+    args.push("--no-extensions");
+  }
+  args.push(...arrayConfig(harnessConfig, "extra_args"));
+  return args.map(quote).join(" ");
 }
 
 async function sendRpc(
@@ -425,6 +435,22 @@ async function waitUntil(check: () => boolean, timeoutMs: number): Promise<void>
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function stringConfig(config: Record<string, unknown>, key: string): string | undefined {
+  const value = config[key];
+  return typeof value === "string" && value ? value : undefined;
+}
+
+function arrayConfig(config: Record<string, unknown>, key: string): string[] {
+  const value = config[key];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.length > 0)
+    : [];
+}
+
+function booleanConfig(config: Record<string, unknown>, key: string): boolean {
+  return config[key] === true;
 }
 
 function quote(value: string): string {

@@ -1,10 +1,10 @@
 import { mkdir, readFile } from "node:fs/promises";
-import { HarnessRunError, type HarnessRunOutput } from "./adapters/pi-rpc";
+import { HarnessRunError, type HarnessRunOutput } from "./adapters/harness-output";
 import { createEvalSandbox } from "./adapters/sandbox";
 import { createExecutionKey, judgeFingerprint, verifierFingerprint } from "./idempotency";
 import { judgeRun } from "./judge";
 import { expandRuns } from "./matrix";
-import { modelEnabled, modelMatchesRunKey, modelRunKey } from "./model-config";
+import { modelRunKey } from "./model-config";
 import {
   fetchOpenRouterModels,
   fetchOpenRouterZdrEndpoints,
@@ -20,6 +20,7 @@ import {
   writeResolvedConfig,
   writeRunResult,
 } from "./result-store";
+import { selectMatrix, validateRequiredSecrets } from "./run-selection";
 import type { EvalConfig, EvalRun, ModelConfig, ModelMetadata, RunEvent, RunResult } from "./types";
 import { verifyRunOutput } from "./verifier";
 
@@ -28,6 +29,7 @@ export type RunOptions = {
   fresh: boolean;
   noJudge: boolean;
   modelIds: string[];
+  harnessIds: string[];
   env: Record<string, string>;
   outputDir?: string | undefined;
   onEvent: (event: RunEvent) => void;
@@ -42,7 +44,8 @@ export async function runSuite(
   config: EvalConfig,
   options: RunOptions,
 ): Promise<{ resultDir: string; results: RunResult[] }> {
-  let activeConfig = selectModels(config, options.modelIds);
+  let activeConfig = selectMatrix(config, options.modelIds, options.harnessIds);
+  validateRequiredSecrets(activeConfig, options);
   const executionKey = createExecutionKey(activeConfig, options);
   const resultDir = await createResultDir(
     options.outputDir ?? activeConfig.reporting.output_dir,
@@ -62,7 +65,7 @@ export async function runSuite(
   for (const warning of validateConfiguredModels(activeConfig, modelMetadata)) {
     await event({ level: "warn", message: warning });
   }
-  if (hasZdrModels(activeConfig)) {
+  if (usesOpenRouterHarness(activeConfig) && hasZdrModels(activeConfig)) {
     await event({ level: "info", message: `loading OpenRouter ZDR endpoint metadata` });
     const zdrEndpoints = await fetchOpenRouterZdrEndpoints(options.env.OPENROUTER_API_KEY);
     for (const warning of validateConfiguredModelZdr(activeConfig, zdrEndpoints)) {
@@ -74,7 +77,13 @@ export async function runSuite(
   if (options.modelIds.length > 0) {
     await event({ level: "info", message: `filtered models ${options.modelIds.join(", ")}` });
   }
+  if (options.harnessIds.length > 0) {
+    await event({ level: "info", message: `filtered harnesses ${options.harnessIds.join(", ")}` });
+  }
   const runs = expandRuns(activeConfig, resultDir, executionKey);
+  if (runs.length === 0) {
+    throw new Error("run_matrix_empty:no_supported_model_harness_pairs");
+  }
   const limits: RunLimits = {
     createSandbox: createLimiter(activeConfig.sandbox.max_concurrent_creates),
     openrouter: createLimiter(activeConfig.matrix.openrouter.max_concurrent_requests),
@@ -110,33 +119,6 @@ export async function runSuite(
   await writeManifest(resultDir, results);
   await writeReports(resultDir, results);
   return { resultDir, results };
-}
-
-function selectModels(config: EvalConfig, requestedIds: string[]): EvalConfig {
-  const enabledModels = config.matrix.models.filter(modelEnabled);
-  if (requestedIds.length === 0) {
-    return { ...config, matrix: { ...config.matrix, models: enabledModels } };
-  }
-  const requested = new Set(requestedIds);
-  const selected = enabledModels.filter((model) => requested.has(modelRunKey(model)));
-  const selectedIds = new Set(selected.map(modelRunKey));
-  const disabled = config.matrix.models.filter(
-    (model) => !modelEnabled(model) && requestedIds.some((id) => modelMatchesRunKey(model, id)),
-  );
-  if (disabled.length > 0) {
-    throw new Error(`model_filter_disabled:${disabled.map(modelRunKey).join(",")}`);
-  }
-  const missing = requestedIds.filter((id) => !selectedIds.has(id));
-  if (missing.length > 0) {
-    throw new Error(`model_filter_not_configured:${missing.join(",")}`);
-  }
-  return {
-    ...config,
-    matrix: {
-      ...config.matrix,
-      models: selected,
-    },
-  };
 }
 
 function attachOpenRouterModelMetadata(config: EvalConfig, metadata: ModelMetadata[]): EvalConfig {
@@ -175,6 +157,10 @@ function hasZdrModels(config: EvalConfig): boolean {
     const provider = model.provider_params?.provider;
     return isRecord(provider) && provider.zdr === true;
   });
+}
+
+function usesOpenRouterHarness(config: EvalConfig): boolean {
+  return config.matrix.harnesses.some((harness) => harness.adapter === "pi");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

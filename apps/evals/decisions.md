@@ -112,6 +112,8 @@ Allowed cached runner layer:
 
 - Node and system tools needed by the harness.
 - Pi coding agent.
+- Claude Code CLI.
+- Codex CLI.
 - Eval controller and verifier utilities.
 - Optional verifier tools such as curl, jq, and browser tooling.
 
@@ -130,6 +132,8 @@ Each run should set fresh values for:
 - `NPM_CONFIG_CACHE`
 - `PI_CODING_AGENT_DIR`
 - `PI_CODING_AGENT_SESSION_DIR`
+- `CODEX_HOME`
+- `CLAUDE_CONFIG_DIR`
 
 Pi bootstrap time is harness infrastructure and should not count against the
 model. Agent Paste install time does count because this suite tests onboarding.
@@ -162,12 +166,14 @@ It also allowlists the sandbox DNS resolvers observed in Daytona
 domains: `1.1.1.1/32`, `1.0.0.1/32`, `8.8.8.8/32`, and `100.64.128.1/32`.
 
 Every sandbox performs a network preflight against docs/API/upload/app probe
-URLs before Pi starts. If the sandbox provider blocks those hosts, the run fails
-fast as infrastructure setup instead of spending model tokens.
+URLs before the harness starts. If the sandbox provider blocks those hosts, the
+run fails fast as infrastructure setup instead of spending model tokens.
 
 ## Harness architecture
 
-Pi is the only v1 harness. The design should not lock the eval system to Pi.
+Pi is the default v1 harness. Claude Code and Codex are supported as opt-in
+harnesses through the same adapter boundary so the eval can compare coding
+agent surfaces without changing verifier or judge logic.
 
 Use a harness-neutral adapter boundary:
 
@@ -182,18 +188,46 @@ interface CodingHarnessAdapter {
 }
 ```
 
-The first adapter is `pi-rpc`.
+The supported adapters are:
+
+- `pi-rpc`: Pi RPC mode over stdin/stdout JSONL.
+- `claude-code`: Claude Code print mode with `--output-format stream-json`.
+- `codex`: Codex CLI `exec --json`.
 
 Pi should run in RPC mode so the controller can collect structured events,
 session state, token/cost stats, and transcript artifacts. Non-interactive
 `pi -p` is acceptable only as a smoke fallback because it is too lossy for
 friction analysis.
 
+Claude Code should run with stream JSON, not the single final JSON envelope, so
+tool use, partial assistant output, errors, and result events become transcript
+evidence. Codex should run through `codex exec --json` and should also write the
+last message to a file so the verifier has a stable final answer even if JSONL
+event names change. In Docker, Codex runs with its inner sandbox bypassed
+because the outer eval container is already the isolation boundary and Codex's
+default `bwrap` sandbox cannot create user namespaces there.
+
+Model IDs are harness-specific. The config keeps OpenRouter IDs as the logical
+model IDs for Pi and metadata lookup, then uses `harness_model_ids` to translate
+native harness IDs such as `sonnet`, `opus`, or `gpt-5.5`. Use
+`supported_harnesses` to avoid invalid cross-products like running Kimi through
+Codex.
+
+Codex CLI `0.141.0` also needs an HTTPS-only custom OpenAI provider for API-key
+auth in this harness. The built-in provider's websocket path was observed
+sending no auth header in Docker, while the same `OPENAI_API_KEY` succeeded
+against the OpenAI REST API.
+
 Pi sources:
 
 - <https://pi.dev/docs/latest>
 - <https://github.com/earendil-works/pi/blob/main/packages/coding-agent/README.md>
 - <https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/rpc.md>
+
+Claude Code and Codex sources:
+
+- <https://code.claude.com/docs/en/headless>
+- <https://developers.openai.com/codex/cli/reference>
 
 ## Models and reasoning config
 
@@ -250,7 +284,7 @@ evidence.
 Search tooling should be configurable by harness profile:
 
 - `homepage-cold-basic`: normal network, no extra search extension.
-- `homepage-cold-web`: normal network plus a Pi web-search/fetch extension.
+- `homepage-cold-web`: normal network plus harness-specific web search/fetch tools.
 
 The report should distinguish models that succeed with only shell/network from
 models that need richer search tools.
@@ -282,7 +316,7 @@ Default timeout policy:
 Timeouts should be classified as specific failure modes, not generic failures.
 
 Infra errors retry automatically up to three times. Retries apply to sandbox
-create/start, Pi start, OpenRouter transient errors, preview verifier fetches,
+create/start, harness start, provider transient errors, preview verifier fetches,
 and judge requests. Model task failures do not retry as infra failures.
 
 ## Idempotent reruns

@@ -9,6 +9,7 @@ export type CliArgs =
       outputDir?: string | undefined;
       noJudge: boolean;
       modelIds: string[];
+      harnessIds: string[];
     }
   | { command: "report"; resultDir: string; refresh: boolean }
   | { command: "models"; outputPath?: string | undefined }
@@ -199,9 +200,10 @@ export type MatrixConfig = {
 
 export type HarnessConfig = {
   id: string;
-  adapter: "pi";
+  enabled?: boolean | undefined;
+  adapter: "pi" | "claude-code" | "codex";
   command: string;
-  mode: "rpc";
+  mode: "rpc" | "stream-json" | "jsonl";
   version: string;
   profile: string;
   capabilities: Record<string, boolean>;
@@ -214,6 +216,8 @@ export type ModelConfig = {
   provider: "openrouter";
   enabled?: boolean | undefined;
   effort_label?: string | undefined;
+  harness_model_ids?: Record<string, string> | undefined;
+  supported_harnesses?: string[] | undefined;
   pi?:
     | {
         thinking?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | undefined;

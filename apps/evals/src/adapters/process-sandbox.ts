@@ -9,20 +9,20 @@ export type SandboxProcessApi = {
     commandId: string,
     onStdout?: (chunk: string) => void,
     onStderr?: (chunk: string) => void,
-  ): Promise<undefined | { output?: string; stdout?: string; stderr?: string }>;
+  ): Promise<undefined | { output?: string; stdout?: string; stderr?: string; exitCode?: number }>;
   sendSessionCommandInput(sessionId: string, commandId: string, data: string): Promise<void>;
   exec?(
     command: string,
     cwd?: string,
     env?: Record<string, string>,
     timeout?: number,
-  ): Promise<{ exitCode?: number; result?: string }>;
+  ): Promise<{ exitCode?: number; result?: string; stdout?: string; stderr?: string }>;
   executeCommand?(
     command: string,
     cwd?: string,
     env?: Record<string, string>,
     timeout?: number,
-  ): Promise<{ exitCode?: number; result?: string }>;
+  ): Promise<{ exitCode?: number; result?: string; stdout?: string; stderr?: string }>;
 };
 
 export type ProcessSandboxLike = {

@@ -74,6 +74,52 @@ describe("metrics", () => {
     });
   });
 
+  it("extracts metrics from Codex-style JSONL events", () => {
+    expect(
+      extractUsageMetricsFromEvents([
+        {
+          type: "turn.completed",
+          usage: {
+            cached_input_tokens: 5,
+            input_tokens: 10,
+            output_tokens: 7,
+            reasoning_output_tokens: 3,
+            total_tokens: 20,
+          },
+        },
+      ]),
+    ).toEqual({
+      tokenUsage: { cache_read: 5, input: 10, output: 7, reasoning: 3, total: 20 },
+      turnCount: 1,
+    });
+  });
+
+  it("extracts metrics from Claude Code result events", () => {
+    expect(
+      extractUsageMetricsFromEvents([
+        {
+          type: "result",
+          total_cost_usd: 0.02748375,
+          usage: {
+            input_tokens: 3,
+            cache_creation_input_tokens: 5927,
+            cache_read_input_tokens: 16945,
+            output_tokens: 11,
+          },
+        },
+      ]),
+    ).toEqual({
+      costUsd: 0.02748375,
+      tokenUsage: {
+        cache_read: 16945,
+        cache_write: 5927,
+        input: 3,
+        output: 11,
+      },
+      turnCount: 1,
+    });
+  });
+
   it("derives duration from timestamps when duration_ms is absent", () => {
     expect(
       resultDurationMs({

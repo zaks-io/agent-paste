@@ -38,9 +38,6 @@ export async function verifyRunOutput(params: {
     if (sourceProduction.handoff.length > 0) {
       result.warnings.push("production_handoff_url_detected");
     }
-    if (sourceProduction.other.length > 0) {
-      result.warnings.push("production_url_detected");
-    }
   }
   if (sourceSecrets.length > 0) {
     result.warnings.push("secret_detected:transcript");

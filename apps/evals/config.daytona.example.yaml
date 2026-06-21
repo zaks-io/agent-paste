@@ -13,8 +13,16 @@ suite:
     claim_code:
       mode: generate
       prompt_suffix: >
-        When you publish with agent-paste, include this attribution flag:
-        --claim-code {claim_code}.
+        This eval runs against the configured preview Agent Paste environment.
+        The sandbox is intentionally empty: no user repository, git checkout,
+        package.json, or app source is mounted in /workspace. Do not inspect
+        /workspace or look for local project context unless source files are
+        explicitly provided. Use the AGENT_PASTE_* environment variables that are
+        already set. Do not publish to production. If login is unavailable or
+        non-interactive, publish with --ephemeral. Include this attribution flag
+        only on the publish command, not inside the public artifact: --claim-code
+        {claim_code}. Do not print API keys, environment values, claim tokens, or
+        other secrets.
 
 environment:
   target: preview
@@ -26,7 +34,7 @@ environment:
 
 sandbox:
   provider: daytona
-  snapshot: agent-paste-evals-pi-runner
+  snapshot: agent-paste-evals-agent-runner
   region: us
   max_concurrent_creates: 1
   max_concurrent_running: 1
@@ -56,6 +64,7 @@ sandbox:
       - https://registry.npmjs.org/-/ping
       - https://registry.npmjs.org/@zaks-io%2Fagent-paste
       - https://openrouter.ai/api/v1/models
+      - https://openrouter.ai/api/v1/endpoints/zdr
     block_all: false
   fresh_paths:
     HOME: /tmp/agent-home
@@ -63,6 +72,8 @@ sandbox:
     NPM_CONFIG_CACHE: /tmp/agent-npm-cache
     PI_CODING_AGENT_DIR: /tmp/pi-agent
     PI_CODING_AGENT_SESSION_DIR: /tmp/pi-sessions
+    CODEX_HOME: /workspace/.codex-home
+    CLAUDE_CONFIG_DIR: /tmp/claude-config
   forbidden_cached_packages:
     - "@zaks-io/agent-paste"
 
@@ -96,6 +107,12 @@ matrix:
           - ls
         no_session: false
         no_extensions: true
+        append_system_prompt: >
+          This eval sandbox is an empty scratch workspace, not the user's app
+          repository. Do not inspect /workspace, search for a git checkout, or
+          look for package.json unless the prompt explicitly provides local
+          source files. Use public docs and the configured Agent Paste
+          environment, then create and publish the requested artifact.
 
   models:
     - id: anthropic/claude-sonnet-4.6
@@ -119,7 +136,7 @@ retries:
   retryable_categories:
     - daytona_sandbox_create
     - daytona_sandbox_start
-    - pi_start
+    - harness_start
     - openrouter_transient
     - verifier_fetch
     - judge_request

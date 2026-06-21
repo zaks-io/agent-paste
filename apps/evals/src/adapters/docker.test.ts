@@ -24,7 +24,7 @@ describe("docker sandbox adapter", () => {
     });
 
     expect(args).toContain("agent-paste-evals-test");
-    expect(args).toContain("agent-paste-evals-pi-runner:0.1.0");
+    expect(args).toContain("agent-paste-evals-agent-runner:0.2.0");
     expect(args).toContain("OPENROUTER_API_KEY=openrouter");
     expect(args).toContain("DAYTONA_API_KEY=daytona");
     expect(args).toContain("HOME=/tmp/agent-home");
@@ -35,7 +35,7 @@ describe("docker sandbox adapter", () => {
     const config = await loadConfig("config.smoke.yaml");
     const args = dockerBuildArgs(config, config.sandbox.image ?? "");
 
-    expect(args).toContain("agent-paste-evals-pi-runner:0.1.0");
-    expect(args.join(" ")).toContain("apps/evals/docker/pi-runner.Dockerfile");
+    expect(args).toContain("agent-paste-evals-agent-runner:0.2.0");
+    expect(args.join(" ")).toContain("apps/evals/docker/agent-runner.Dockerfile");
   });
 });

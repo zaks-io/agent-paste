@@ -1,8 +1,9 @@
 import { modelRunKey } from "../model-config";
 import { accountlessProvisionProbeCommand, networkProbeCommand, resolveNetworkAllowList } from "../network";
 import type { EvalConfig, EvalRun, RunEvent } from "../types";
-import { type HarnessRunOutput, runPiRpc } from "./pi-rpc";
+import type { HarnessRunOutput } from "./harness-output";
 import type { ProcessSandboxLike } from "./process-sandbox";
+import { runConfiguredHarness } from "./run-harness";
 
 export class DaytonaEvalSandbox {
   private sandbox: ProcessSandboxLike | undefined;
@@ -55,7 +56,7 @@ export class DaytonaEvalSandbox {
     if (!this.sandbox) {
       throw new Error("Sandbox has not started");
     }
-    return runPiRpc({
+    return runConfiguredHarness({
       sandbox: this.sandbox,
       config: this.config,
       run: this.run,
@@ -87,7 +88,11 @@ export class DaytonaEvalSandbox {
     const env = this.config.sandbox.fresh_paths;
     const command = [
       "set -eu",
-      'mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$NPM_CONFIG_CACHE" "$PI_CODING_AGENT_DIR" "$PI_CODING_AGENT_SESSION_DIR"',
+      'mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$NPM_CONFIG_CACHE"',
+      optionalMkdir("PI_CODING_AGENT_DIR"),
+      optionalMkdir("PI_CODING_AGENT_SESSION_DIR"),
+      optionalMkdir("CODEX_HOME"),
+      optionalMkdir("CLAUDE_CONFIG_DIR"),
       'test ! -e "$XDG_CONFIG_HOME/agent-paste"',
       'test ! -e "$HOME/.config/agent-paste"',
       "! command -v agent-paste >/dev/null 2>&1",
@@ -155,6 +160,12 @@ function daytonaConfig(env: Record<string, string>, config: EvalConfig): Record<
 
 function compact(input: Record<string, string | undefined>): Record<string, string> {
   return Object.fromEntries(Object.entries(input).filter((entry): entry is [string, string] => Boolean(entry[1])));
+}
+
+function optionalMkdir(name: string): string {
+  const parameter = ["$", "{", name, ":-}"].join("");
+  const directory = `$${name}`;
+  return `[ -z "${parameter}" ] || mkdir -p "${directory}"`;
 }
 
 async function execCommand(

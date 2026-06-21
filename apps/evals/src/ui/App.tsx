@@ -51,6 +51,7 @@ function RunView({ args }: { args: Extract<CliArgs, { command: "run" }> }) {
         const output = await runSuite(config, {
           dryRun: args.dryRun,
           fresh: args.fresh,
+          harnessIds: args.harnessIds,
           noJudge: args.noJudge,
           modelIds: args.modelIds,
           ...(args.outputDir ? { outputDir: args.outputDir } : {}),
@@ -79,13 +80,14 @@ function RunView({ args }: { args: Extract<CliArgs, { command: "run" }> }) {
     return () => {
       cancelled = true;
     };
-  }, [args.configPath, args.dryRun, args.fresh, args.modelIds, args.noJudge, args.outputDir, exit]);
+  }, [args.configPath, args.dryRun, args.fresh, args.harnessIds, args.modelIds, args.noJudge, args.outputDir, exit]);
 
   const summary = useMemo(() => summarize(results), [results]);
   return (
     <Box flexDirection="column" gap={1}>
       <Header title="Agent Paste evals" />
       <Text dimColor>config {args.configPath}</Text>
+      {args.harnessIds.length > 0 ? <Text dimColor>harnesses {args.harnessIds.join(", ")}</Text> : null}
       {args.modelIds.length > 0 ? <Text dimColor>models {args.modelIds.join(", ")}</Text> : null}
       {!args.fresh ? <Text dimColor>resume mode: existing run results are reused</Text> : null}
       {args.fresh ? <Text color="yellow">fresh mode: existing results ignored</Text> : null}
@@ -222,8 +224,8 @@ function Help() {
     <Box flexDirection="column">
       <Header title="agent-paste-evals" />
       <Text>
-        run --config apps/evals/config.example.yaml [--model id] [--models a,b] [--dry-run] [--fresh] [--no-judge]
-        [--output dir]
+        run --config apps/evals/config.example.yaml [--harness id] [--harnesses a,b] [--model id] [--models a,b]
+        [--dry-run] [--fresh] [--no-judge] [--output dir]
       </Text>
       <Text>report &lt;result-dir&gt; [--refresh]</Text>
       <Text>models refresh [--output models.json]</Text>

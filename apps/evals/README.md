@@ -16,7 +16,10 @@ copy or docs changes ship.
 - Use fresh local Docker containers per uncached run by default.
 - Keep Daytona as a configurable future sandbox provider.
 - Cache only the generic harness layer, not Agent Paste install state.
-- Drive Pi through RPC mode as the first coding harness.
+- Treat `/workspace` as an empty scratch directory unless a test explicitly
+  mounts source files.
+- Drive Pi through RPC mode by default.
+- Support Claude Code stream JSON and Codex `exec --json` as opt-in harnesses.
 - Use OpenRouter model IDs and provider-native reasoning config.
 - Preflight OpenRouter ZDR endpoint availability for enabled ZDR-required
   models.
@@ -44,10 +47,33 @@ Run the configured suite:
 pnpm evals:run
 ```
 
-The first live run builds `agent-paste-evals-pi-runner:0.1.0` from
-`apps/evals/docker/pi-runner.Dockerfile`. That image caches Pi and generic
-runner tools only; each run still gets a new container and fresh Agent Paste
-install/cache paths.
+The first live run builds `agent-paste-evals-agent-runner:0.2.0` from
+`apps/evals/docker/agent-runner.Dockerfile`. That image caches Pi, Claude Code,
+Codex, and generic runner tools only; each run still gets a new container and
+fresh Agent Paste install/cache paths.
+
+Pi is the only enabled harness in the default matrix. Claude Code and Codex are
+present in `config.example.yaml` with `enabled: false`; explicitly selecting a
+harness runs it even when disabled in the default matrix:
+
+```sh
+pnpm evals:run -- --harness claude-code --models anthropic/claude-sonnet-4.6
+pnpm evals:run -- --harness codex --models openai/gpt-5.5-low,openai/gpt-5.5-xhigh
+```
+
+Model IDs can be translated per harness with `harness_model_ids`. For example,
+Pi can use `openai/gpt-5.5` through OpenRouter while Codex receives `gpt-5.5`,
+and Pi can use `anthropic/claude-sonnet-4.6` while Claude Code receives
+`sonnet`. Use `supported_harnesses` to keep incompatible model/harness pairs out
+of the run matrix.
+
+The Codex harness defaults are tuned for nested Docker isolation:
+
+- `bypass_sandbox: true` disables Codex's inner `bwrap` sandbox, which does not
+  work in the eval Docker container without privileged user namespaces.
+- `config_overrides.model_provider: openai_http` uses the OpenAI API key over
+  HTTPS with `supports_websockets: false`; this avoids the unauthenticated
+  websocket path observed in Codex CLI `0.141.0`.
 
 The `run` command is resumable by default. Repeating the same command reuses
 existing results and does not relaunch expensive runs. Use `--fresh` to force a
@@ -73,9 +99,9 @@ Results are written under `eval-results/` by default. Use `--output <dir>` on
 - `run.json` and `runs/*/result.json`: structured data for scripts.
 
 Verifier output separates preview-host mistakes from normal docs access:
-production docs URLs are informational, wrong production handoff URLs fail, and
-production links or secret-looking values inside the fetched artifact become
-warnings.
+production docs and example URLs are informational, wrong production handoff
+URLs fail, and production handoff links or secret-looking values inside the
+fetched artifact become warnings.
 
 ## Out of scope for v1
 
@@ -91,5 +117,6 @@ warnings.
 - [Decisions](./decisions.md) records the design choices made before
   implementation.
 - [Implementation plan](./implementation-plan.md) turns those decisions into the
-  first build plan, with source links for Daytona, Pi, and OpenRouter.
+  first build plan, with source links for Daytona, Pi, Claude Code, Codex, and
+  OpenRouter.
 - [Config sketch](./config.example.yaml) shows the intended configurable shape.

@@ -9,6 +9,7 @@ export function parseArgs(argv: string[]): CliArgs {
       configPath: stringFlag(rest, "--config") ?? "apps/evals/config.example.yaml",
       dryRun: boolFlag(rest, "--dry-run"),
       fresh: boolFlag(rest, "--fresh"),
+      harnessIds: harnessFlags(rest),
       modelIds: modelFlags(rest),
       ...(outputDir ? { outputDir } : {}),
       noJudge: boolFlag(rest, "--no-judge"),
@@ -75,26 +76,34 @@ function boolFlag(argv: string[], name: string): boolean {
 }
 
 function modelFlags(argv: string[]): string[] {
+  return repeatedCsvFlags(argv, "--model", "--models");
+}
+
+function harnessFlags(argv: string[]): string[] {
+  return repeatedCsvFlags(argv, "--harness", "--harnesses");
+}
+
+function repeatedCsvFlags(argv: string[], single: string, plural: string): string[] {
   const values: string[] = [];
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     const next = argv[index + 1];
-    if (arg === "--model" && next) {
+    if (arg === single && next) {
       values.push(next);
       index += 1;
       continue;
     }
-    if (arg?.startsWith("--model=")) {
-      values.push(arg.slice("--model=".length));
+    if (arg?.startsWith(`${single}=`)) {
+      values.push(arg.slice(`${single}=`.length));
       continue;
     }
-    if (arg === "--models" && next) {
+    if (arg === plural && next) {
       values.push(...next.split(","));
       index += 1;
       continue;
     }
-    if (arg?.startsWith("--models=")) {
-      values.push(...arg.slice("--models=".length).split(","));
+    if (arg?.startsWith(`${plural}=`)) {
+      values.push(...arg.slice(`${plural}=`.length).split(","));
     }
   }
   return values.map((value) => value.trim()).filter(Boolean);

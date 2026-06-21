@@ -37,7 +37,7 @@ const configSchema = z.object({
       docker: z
         .object({
           build: z.enum(["missing", "always", "never"]).default("missing"),
-          dockerfile: z.string().min(1).default("apps/evals/docker/pi-runner.Dockerfile"),
+          dockerfile: z.string().min(1).default("apps/evals/docker/agent-runner.Dockerfile"),
           context: z.string().min(1).default("apps/evals/docker"),
           network: z.string().min(1).default("bridge"),
           workdir: z.string().min(1).default("/workspace"),
@@ -46,7 +46,7 @@ const configSchema = z.object({
         })
         .default({
           build: "missing",
-          dockerfile: "apps/evals/docker/pi-runner.Dockerfile",
+          dockerfile: "apps/evals/docker/agent-runner.Dockerfile",
           context: "apps/evals/docker",
           network: "bridge",
           workdir: "/workspace",
@@ -175,16 +175,28 @@ function candidatePaths(inputPath: string): string[] {
 }
 
 function harnessSchema() {
-  return z.object({
-    id: z.string().min(1),
-    adapter: z.literal("pi"),
-    command: z.string().min(1),
-    mode: z.literal("rpc"),
-    version: z.string().min(1),
-    profile: z.string().min(1),
-    capabilities: z.record(z.string(), z.boolean()),
-    config: z.record(z.string(), z.unknown()).default({}),
-  });
+  return z
+    .object({
+      id: z.string().min(1),
+      enabled: z.boolean().optional(),
+      adapter: z.enum(["pi", "claude-code", "codex"]),
+      command: z.string().min(1),
+      mode: z.enum(["rpc", "stream-json", "jsonl"]),
+      version: z.string().min(1),
+      profile: z.string().min(1),
+      capabilities: z.record(z.string(), z.boolean()),
+      config: z.record(z.string(), z.unknown()).default({}),
+    })
+    .superRefine((harness, ctx) => {
+      const expected = harness.adapter === "pi" ? "rpc" : harness.adapter === "claude-code" ? "stream-json" : "jsonl";
+      if (harness.mode !== expected) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["mode"],
+          message: `${harness.adapter} harness requires mode ${expected}`,
+        });
+      }
+    });
 }
 
 function modelSchema() {
@@ -194,6 +206,8 @@ function modelSchema() {
     provider: z.literal("openrouter"),
     enabled: z.boolean().optional(),
     effort_label: z.string().optional(),
+    harness_model_ids: z.record(z.string(), z.string()).optional(),
+    supported_harnesses: z.array(z.string().min(1)).optional(),
     pi: z
       .object({
         thinking: z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]).optional(),

@@ -7,10 +7,11 @@ export type ExtractedUsageMetrics = {
 };
 
 export function extractUsageMetricsFromEvents(events: unknown[]): ExtractedUsageMetrics {
-  const turnEvents = events.filter((event) => isRecord(event) && event.type === "turn_end");
+  const turnEvents = events.filter((event) => isRecord(event) && isTurnEvent(event.type));
   const turnUsages = turnEvents.map(usageFromEvent);
   const usages = turnUsages.length > 0 ? turnUsages : events.map(usageFromEvent);
-  const costs = usages.map(costUsdFromUsage).filter((cost): cost is number => cost !== undefined);
+  const costSources = turnEvents.length > 0 ? turnEvents : events;
+  const costs = costSources.map(costUsdFromEvent).filter((cost): cost is number => cost !== undefined);
   const costUsd = costs.length > 0 ? costs.reduce((sum, cost) => sum + cost, 0) : undefined;
   return {
     tokenUsage: sumTokenUsage(usages.map(normalizeTokenUsage)),
@@ -24,13 +25,38 @@ export function normalizeTokenUsage(value: unknown): TokenUsage | undefined {
     return undefined;
   }
   return compactUsage({
-    input: numberFrom(value.input, value.inputTokens, value.promptTokens),
-    output: numberFrom(value.output, value.outputTokens, value.completionTokens),
-    reasoning: numberFrom(value.reasoning, value.reasoningTokens),
-    cache_read: numberFrom(value.cacheRead, value.cache_read, value.cachedTokens, value.cachedInputTokens),
-    cache_write: numberFrom(value.cacheWrite, value.cache_write),
-    total: numberFrom(value.totalTokens, value.total, value.total_tokens),
+    input: numberFrom(value.input, value.inputTokens, value.promptTokens, value.input_tokens, value.prompt_tokens),
+    output: numberFrom(value.output, value.outputTokens, value.completionTokens, value.output_tokens),
+    reasoning: numberFrom(
+      value.reasoning,
+      value.reasoningTokens,
+      value.reasoning_tokens,
+      value.reasoningOutputTokens,
+      value.reasoning_output_tokens,
+    ),
+    cache_read: numberFrom(
+      value.cacheRead,
+      value.cache_read,
+      value.cachedTokens,
+      value.cachedInputTokens,
+      value.cached_input_tokens,
+      value.cache_read_input_tokens,
+    ),
+    cache_write: numberFrom(
+      value.cacheWrite,
+      value.cache_write,
+      value.cacheCreationInputTokens,
+      value.cache_creation_input_tokens,
+    ),
+    total: numberFrom(value.totalTokens, value.total, value.total_tokens, value.token_count),
   });
+}
+
+function costUsdFromEvent(event: unknown): number | undefined {
+  if (!isRecord(event)) {
+    return undefined;
+  }
+  return numberFrom(event.total_cost_usd, event.totalCostUsd) ?? costUsdFromUsage(usageFromEvent(event));
 }
 
 export function costUsdFromUsage(value: unknown): number | undefined {
@@ -106,10 +132,23 @@ function sumNumbers(...values: Array<number | undefined>): number | undefined {
 }
 
 function usageFromEvent(event: unknown): unknown {
-  if (!isRecord(event) || !isRecord(event.message)) {
+  if (!isRecord(event)) {
     return undefined;
   }
-  return event.message.usage;
+  if (isRecord(event.usage)) {
+    return event.usage;
+  }
+  if (isRecord(event.message)) {
+    return event.message.usage;
+  }
+  if (isRecord(event.item)) {
+    return event.item.usage;
+  }
+  return undefined;
+}
+
+function isTurnEvent(type: unknown): boolean {
+  return type === "turn_end" || type === "turn.completed" || type === "turn.failed" || type === "result";
 }
 
 function numberFrom(...values: unknown[]): number | undefined {
