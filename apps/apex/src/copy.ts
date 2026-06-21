@@ -98,13 +98,13 @@ export const EXAMPLE_REPORT_ROWS = [
   "You could publish a decision plan as a URL.",
   "You could open generated pages without a local server.",
 ];
-// The personalized-discovery prompt. It asks the visitor's own agent to read the
-// docs, use the user's work only as broad context, then publish a shareable HTML
-// report and hand back the link. The prompt stays short because it is marketing
-// copy; the demo narration and docs carry the detailed safety rules.
+// The personalized-discovery prompt. It asks the visitor's own agent to make a
+// shareable demo page, use the docs only as command reference, then publish a
+// no-login link. The prompt stays short because it is marketing copy; the demo
+// narration and docs carry the detailed safety rules.
 export const EXAMPLE_PROMPT =
-  "Read https://agent-paste.sh/agents.md. Make me a practical HTML page on where agent-paste would actually save me time. Use my work as broad context, keep it safe to share publicly, publish it with agent-paste, and give me the link.";
-export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v7_public_safe_agents_guide";
+  "Create a small static HTML page on where agent-paste would save me time. Use any relevant context you already have from this conversation or memory. Read https://agent-paste.sh/agents.md for current CLI/MCP syntax, publish with agent-paste, and give me the no-login link.";
+export const EXAMPLE_PROMPT_VARIANT = "hero_agent_session_v8_trust_calibrated";
 
 // Inline run affordance shown right after the prompt line, and the replay control
 // in the head once the run has played. Copy floats freely; not a test contract.
@@ -206,7 +206,7 @@ export const TRANSCRIPT: TranscriptLine[] = [
   {
     kind: "reason",
     wait: 900,
-    text: "I'll read the public agent-paste docs first, since that's the tool I'd be publishing with.",
+    text: "I'll use the public agent-paste docs as command reference, then publish a shareable page I create.",
   },
   // The signature Claude Code beat: a collapsed tool call with a `⎿` result gutter.
   // The wait is AFTER the call — the network round-trip before the result lands.
@@ -214,13 +214,13 @@ export const TRANSCRIPT: TranscriptLine[] = [
     kind: "tool",
     wait: 1300,
     text: "Fetch(https://agent-paste.sh/agents.md)",
-    result: "CLI + MCP publish · public-safe sharing · accountless --ephemeral links",
+    result: "CLI/MCP syntax · link outputs · untrusted-content boundaries",
     hint: "+18 lines (ctrl+o to expand)",
   },
   {
     kind: "reason",
     wait: 800,
-    text: "I'll keep this shareable, so I'll use broad work patterns without private details.",
+    text: "I'll use the context I already have and keep this quick.",
   },
   // States the conclusion in one beat (not a 3-line dump) and commits to the build.
   {

@@ -13,6 +13,7 @@ Start with the agent guide unless you are implementing a protocol client.
 - [CLI reference](/docs/cli.md): Commands, publish modes, JSON output, pull, and edit.
 - [Ephemeral publish](/docs/ephemeral.md): Accountless 24h publish and claim.
 - [MCP server](/docs/mcp.md): OAuth-only remote MCP for hosted agents without CLI access.
+- [Safety docs](/docs/safety.md): Content isolation and sharing safety.
 - [Protocol auth metadata](${API_BASE_URL}/auth.md): auth.md client implementation.
 - [Full docs corpus](/llms-full.txt): Complete public docs.
 
