@@ -34,9 +34,8 @@ describe("verifyRunOutput", () => {
     expect(result.status).toBe(200);
     expect(result.errors).toEqual([]);
     expect(result.warnings).toEqual([]);
-    expect(result.production_url_detected).toBe(true);
-    expect(result.production_doc_url_detected).toBe(true);
     expect(result.production_handoff_url_detected).toBe(false);
+    expect(result.production_url_details).toEqual({ handoff: [], artifact: [] });
   });
 
   it("fails production handoff URLs for a preview eval", async () => {
@@ -59,7 +58,7 @@ describe("verifyRunOutput", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("records production-looking non-handoff URLs without warning", async () => {
+  it("ignores production-looking non-handoff URLs outside the artifact", async () => {
     const config = await loadConfig("config.smoke.yaml");
     const outputDir = await mkdtemp(join(tmpdir(), "agent-paste-eval-verifier-"));
     tempDirs.push(outputDir);
@@ -79,8 +78,7 @@ describe("verifyRunOutput", () => {
 
     expect(result.passed).toBe(true);
     expect(result.warnings).toEqual([]);
-    expect(result.production_url_detected).toBe(true);
-    expect(result.production_url_details.other).toEqual(["https://api.agent-paste.sh/auth.md"]);
+    expect(result.production_url_details).toEqual({ handoff: [], artifact: [] });
   });
 
   it("warns when the fetched artifact contains production handoff links", async () => {
@@ -104,7 +102,7 @@ describe("verifyRunOutput", () => {
     expect(result.production_url_details.artifact).toEqual(["https://app.agent-paste.sh/al/prod#token"]);
   });
 
-  it("warns when the transcript or artifact contains secrets", async () => {
+  it("does not warn on transcript or artifact secret-looking values", async () => {
     const config = await loadConfig("config.smoke.yaml");
     const outputDir = await mkdtemp(join(tmpdir(), "agent-paste-eval-verifier-"));
     tempDirs.push(outputDir);
@@ -120,10 +118,6 @@ describe("verifyRunOutput", () => {
     });
 
     expect(result.passed).toBe(true);
-    expect(result.warnings).toEqual(["secret_detected:transcript", "secret_detected:artifact"]);
-    expect(result.secret_detected).toBe(true);
-    expect(result.secret_sources).toEqual(
-      expect.arrayContaining(["transcript:secret_assignment", "artifact:secret_assignment"]),
-    );
+    expect(result.warnings).toEqual([]);
   });
 });

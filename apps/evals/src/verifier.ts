@@ -1,6 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { findSensitiveText } from "./redaction";
 import type { EvalConfig, VerifierResult } from "./types";
 import { classifyUrls } from "./urls";
 
@@ -11,25 +10,18 @@ export async function verifyRunOutput(params: {
 }): Promise<VerifierResult> {
   const urls = classifyUrls(params.text);
   const sourceProduction = groupProductionUrls(urls.production);
-  const sourceSecrets = findSensitiveText(params.text);
   const result: VerifierResult = {
     passed: false,
     ...(urls.unlisted ? { unlisted_url: urls.unlisted } : {}),
     ...(urls.claim ? { claim_url: urls.claim } : {}),
     ...(urls.private ? { private_url: urls.private } : {}),
     ...(urls.revisionContent ? { revision_content_url: urls.revisionContent } : {}),
-    production_url_detected: urls.production.length > 0,
-    production_doc_url_detected: sourceProduction.docs.length > 0,
     production_handoff_url_detected: sourceProduction.handoff.length > 0,
     production_artifact_url_detected: false,
     production_url_details: {
-      docs: sourceProduction.docs,
       handoff: sourceProduction.handoff,
-      other: sourceProduction.other,
       artifact: [],
     },
-    secret_detected: sourceSecrets.length > 0,
-    secret_sources: sourceSecrets.map((match) => `transcript:${match}`),
     warnings: [],
     errors: [],
   };
@@ -38,9 +30,6 @@ export async function verifyRunOutput(params: {
     if (sourceProduction.handoff.length > 0) {
       result.warnings.push("production_handoff_url_detected");
     }
-  }
-  if (sourceSecrets.length > 0) {
-    result.warnings.push("secret_detected:transcript");
   }
   result.errors.push(...handoffEnvironmentErrors(params.config, urls.all));
   if (params.config.verification.require_unlisted_url && !urls.unlisted) {
@@ -81,25 +70,14 @@ function attachArtifactChecks(result: VerifierResult, config: EvalConfig, artifa
   const relevantProduction = [...artifactProduction.handoff, ...artifactProduction.other];
   result.production_artifact_url_detected = relevantProduction.length > 0;
   result.production_url_details.artifact = relevantProduction;
-  result.production_url_detected ||= artifactUrls.production.length > 0;
-  result.production_doc_url_detected ||= artifactProduction.docs.length > 0;
   result.production_handoff_url_detected ||= artifactProduction.handoff.length > 0;
-  result.production_url_details.docs = unique([...result.production_url_details.docs, ...artifactProduction.docs]);
   result.production_url_details.handoff = unique([
     ...result.production_url_details.handoff,
     ...artifactProduction.handoff,
   ]);
-  result.production_url_details.other = unique([...result.production_url_details.other, ...artifactProduction.other]);
 
   if (config.environment.reject_production_urls && relevantProduction.length > 0) {
     result.warnings.push("production_artifact_url_detected");
-  }
-
-  const artifactSecrets = findSensitiveText(artifact);
-  if (artifactSecrets.length > 0) {
-    result.secret_detected = true;
-    result.secret_sources = unique([...result.secret_sources, ...artifactSecrets.map((match) => `artifact:${match}`)]);
-    result.warnings.push("secret_detected:artifact");
   }
 }
 

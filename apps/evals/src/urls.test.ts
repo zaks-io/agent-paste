@@ -11,6 +11,18 @@ describe("classifyUrls", () => {
     expect(urls.production).toEqual([]);
   });
 
+  it("does not classify preview apex docs as production", () => {
+    const urls = classifyUrls(
+      "Read https://preview.agent-paste.sh/agents.md and MCP https://mcp.preview.agent-paste.sh",
+    );
+    expect(urls.production).toEqual([]);
+  });
+
+  it("cleans escaped markdown URLs before classification", () => {
+    const urls = classifyUrls('Docs: https://agent-paste.sh/agents.md\\"');
+    expect(urls.production).toEqual(["https://agent-paste.sh/agents.md"]);
+  });
+
   it("detects production Agent Paste URLs", () => {
     const urls = classifyUrls("https://app.agent-paste.sh/al/abc#secret");
     expect(urls.production).toEqual(["https://app.agent-paste.sh/al/abc#secret"]);

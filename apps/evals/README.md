@@ -112,8 +112,8 @@ Results are written under `eval-results/` by default. Use `--output <dir>` on
 
 Verifier output separates preview-host mistakes from normal docs access:
 production docs and example URLs are informational, wrong production handoff
-URLs fail, and production handoff links or secret-looking values inside the
-fetched artifact become warnings.
+URLs fail, and production handoff links inside the fetched artifact become
+warnings.
 
 ## Out of scope for v1
 

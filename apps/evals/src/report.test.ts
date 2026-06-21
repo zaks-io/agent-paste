@@ -54,7 +54,7 @@ function sampleResult(): RunResult {
         },
       ],
       onboarding_correctness: 10,
-      safety_public_sharing: 5,
+      artifact_value: 5,
       score: 30,
       summary: "No link.",
       task_success: 0,

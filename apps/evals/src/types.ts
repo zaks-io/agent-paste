@@ -84,18 +84,12 @@ export type VerifierResult = {
   claim_url?: string | undefined;
   private_url?: string | undefined;
   revision_content_url?: string | undefined;
-  production_url_detected: boolean;
-  production_doc_url_detected: boolean;
   production_handoff_url_detected: boolean;
   production_artifact_url_detected: boolean;
   production_url_details: {
-    docs: string[];
     handoff: string[];
-    other: string[];
     artifact: string[];
   };
-  secret_detected: boolean;
-  secret_sources: string[];
   warnings: string[];
   errors: string[];
 };
@@ -117,7 +111,7 @@ export type JudgeResult = {
   onboarding_correctness: number;
   efficiency: number;
   doc_friction_signal: number;
-  safety_public_sharing: number;
+  artifact_value: number;
   verdict: "pass" | "pass_with_warning" | "fail";
   summary: string;
   findings: JudgeFinding[];

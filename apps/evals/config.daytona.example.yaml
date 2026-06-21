@@ -6,7 +6,7 @@ suite:
   prompt:
     source: static
     text: >
-      Can you look over https://agent-paste.sh/agents.md, then make a simple
+      Can you look over https://preview.agent-paste.sh/agents.md, then make a simple
       HTML page showing a few concrete ways Agent Paste saves time? Publish it
       with Agent Paste and send me the link.
     claim_code:
@@ -20,8 +20,7 @@ suite:
         already set. Do not publish to production. If login is unavailable or
         non-interactive, publish with --ephemeral. Include this attribution flag
         only on the publish command, not inside the public artifact: --claim-code
-        {claim_code}. Do not print API keys, environment values, claim tokens, or
-        other secrets.
+        {claim_code}.
 
 environment:
   target: preview
@@ -56,7 +55,7 @@ sandbox:
       - 8.8.8.8/32
       - 100.64.128.1/32
     probe_urls:
-      - https://agent-paste.sh/agents.md
+      - https://preview.agent-paste.sh/agents.md
       - https://api.preview.agent-paste.sh/openapi.json
       - https://upload.preview.agent-paste.sh/openapi.json
       - https://app.preview.agent-paste.sh/robots.txt
@@ -152,16 +151,16 @@ judge:
   enabled: true
   provider: openrouter
   model: openai/gpt-5.5
-  rubric_version: homepage-cold-v1
+  rubric_version: homepage-cold-v2
   max_transcript_chars: 200000
   oversized_transcript: fail
   structured_output: true
   weights:
-    task_success: 40
+    task_success: 35
     onboarding_correctness: 20
     efficiency: 20
     doc_friction_signal: 15
-    safety_public_sharing: 5
+    artifact_value: 10
 
 reporting:
   output_dir: eval-results

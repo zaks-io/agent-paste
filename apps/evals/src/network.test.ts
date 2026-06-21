@@ -31,8 +31,8 @@ describe("network allowlist", () => {
   });
 
   it("builds a curl preflight for configured probe urls", () => {
-    expect(networkProbeCommand(["https://agent-paste.sh/agents.md"])).toContain("curl -fsSL --max-time 20");
-    expect(networkProbeCommand(["https://agent-paste.sh/agents.md"])).toContain("network preflight");
+    expect(networkProbeCommand(["https://preview.agent-paste.sh/agents.md"])).toContain("curl -fsSL --max-time 20");
+    expect(networkProbeCommand(["https://preview.agent-paste.sh/agents.md"])).toContain("network preflight");
   });
 
   it("builds an accountless provision preflight that avoids printing success secrets", () => {

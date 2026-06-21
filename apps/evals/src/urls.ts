@@ -17,7 +17,7 @@ export function classifyUrls(text: string): ClassifiedUrls {
     if (!parsed) {
       continue;
     }
-    if (parsed.hostname.endsWith("agent-paste.sh") && !parsed.hostname.includes(".preview.")) {
+    if (isProductionAgentPasteHost(parsed.hostname)) {
       classified.production.push(url);
     }
     if (parsed.hostname.startsWith("app.") && parsed.pathname.startsWith("/al/")) {
@@ -34,7 +34,7 @@ export function classifyUrls(text: string): ClassifiedUrls {
 }
 
 function cleanUrl(url: string): string {
-  return url.replace(/[.,;:!?]+$/g, "");
+  return url.replace(/[\\.,;:!?]+$/g, "");
 }
 
 function parseUrl(url: string): URL | null {
@@ -43,4 +43,15 @@ function parseUrl(url: string): URL | null {
   } catch {
     return null;
   }
+}
+
+function isProductionAgentPasteHost(hostname: string): boolean {
+  if (hostname === "agent-paste.sh") {
+    return true;
+  }
+  return hostname.endsWith(".agent-paste.sh") && !isPreviewAgentPasteHost(hostname);
+}
+
+function isPreviewAgentPasteHost(hostname: string): boolean {
+  return hostname === "preview.agent-paste.sh" || hostname.endsWith(".preview.agent-paste.sh");
 }

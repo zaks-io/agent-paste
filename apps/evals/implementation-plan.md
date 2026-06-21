@@ -132,8 +132,8 @@ Then run:
 4. `verifier`
    Extract URLs, classify them, reject wrong-environment handoff URLs in the
    preview suite, require at least one `unlisted_url`, fetch it without auth,
-   scan the fetched artifact for production links or leaked secrets, and write
-   the artifact snapshot when configured. Only HTTP 200 is deterministic pass
+   scan the fetched artifact for production handoff links, and write the
+   artifact snapshot when configured. Only HTTP 200 is deterministic pass
    evidence.
 
 5. `judge`
@@ -332,7 +332,7 @@ variants remain easy to edit:
 ```yaml
 prompt:
   source: static
-  text: "Read https://agent-paste.sh/agents.md..."
+  text: "Read https://preview.agent-paste.sh/agents.md..."
   claim_code:
     mode: generate
 ```
@@ -408,7 +408,8 @@ DAYTONA_API_KEY=...
 The run environment passes OpenRouter keys to Pi and the judge, Anthropic keys to
 Claude Code, and OpenAI keys to Codex. Daytona keys are passed only when the
 selected provider is Daytona. Result artifacts are local development artifacts,
-so v1 does not redact preview claim tokens or links by default.
+so v1 only redacts provider secrets in human-readable reports. Secret-looking
+transcript output is not verifier or judge friction by itself.
 
 ## CLI shape
 

@@ -82,9 +82,12 @@ This eval runs against the configured preview Agent Paste environment. Use the
 AGENT_PASTE_* environment variables that are already set. Do not publish to
 production. If login is unavailable or non-interactive, publish with
 --ephemeral. Include this attribution flag only on the publish command, not
-inside the public artifact: --claim-code <clm_...>. Do not print API keys,
-environment values, claim tokens, or other secrets.
+inside the public artifact: --claim-code <clm_...>.
 ```
+
+Printing environment values, claim tokens, claim URLs, raw publish JSON, or API
+keys is not friction for this development suite unless it directly causes task
+failure, wrong attribution, a wrong handoff URL, or user-facing confusion.
 
 The run config should support swapping prompt variants by editing config:
 
@@ -382,11 +385,11 @@ source of truth for whether a URL works.
 
 Initial rubric:
 
-- `task_success`: 40 points
+- `task_success`: 35 points
 - `onboarding_correctness`: 20 points
 - `efficiency`: 20 points
 - `doc_friction_signal`: 15 points
-- `safety_public_sharing`: 5 points
+- `artifact_value`: 10 points
 
 The judge should emit structured findings for handoff:
 
