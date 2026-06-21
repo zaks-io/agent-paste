@@ -63,7 +63,7 @@ api_key_id, claim_token_id }`. When the caller supplies
   `{ schema_version, artifact_id, visibility, access_link_id, unlisted_url }`.
   `unlisted_url` is the no-login Access Link Signed URL for the Artifact's Share
   Link and follows later publishes. Browser rendering depends on the URL
-  fragment; a plain HTTP fetch cannot verify the final rendered page.
+  fragment; plain HTTP clients only see the pre-rendered response.
 - `set-visibility <artifact-id> private --json` revokes active Access Links and
   emits `{ schema_version, artifact_id, visibility, private_url,
 revoked_access_link_ids }`.

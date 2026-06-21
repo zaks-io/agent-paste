@@ -83,6 +83,20 @@ export const CLI_DOC: DocsPage = {
       ],
     },
     {
+      id: "path-behavior",
+      title: "Path behavior",
+      blocks: [
+        {
+          kind: "paragraph",
+          text: "`publish <path>` accepts a file or directory. Directory publish uploads every included file and preserves relative paths, so an HTML entrypoint can load sibling CSS, JS, JSON, images, and fonts. Entrypoint inference is exactly `index.html`, `index.md`, `README.md`, then the only file in the directory. If a multi-file directory has none of those, publish fails; pass `--entrypoint <path>`.",
+        },
+        {
+          kind: "paragraph",
+          text: "Folder uploads exclude `.git/`, `.DS_Store`, `node_modules/`, `.env`, and `.env.*`.",
+        },
+      ],
+    },
+    {
       id: "output",
       title: "Output",
       blocks: [
@@ -97,9 +111,9 @@ export const CLI_DOC: DocsPage = {
         },
         {
           kind: "note",
-          title: "Do not verify Private Links with status code alone",
+          title: "Private Links are login-walled",
           body: [
-            "A `private_url` opens the app viewer for a signed-in Workspace Member. Plain HTTP clients can receive the app shell or sign-in redirect state with a 200 response; that does not make the Artifact reachable without login. Use `set-visibility <artifact-id> unlisted` for a no-login browser link, and use `agent_view_url` plus Agent View `files[].url` entries for machine verification.",
+            "A `private_url` opens the app viewer for a signed-in Workspace Member. Plain HTTP clients can receive the app shell or sign-in redirect state with a 200 response; that does not make the Artifact reachable without login. Use `set-visibility <artifact-id> unlisted` for a no-login browser link.",
           ],
         },
         {
@@ -155,15 +169,11 @@ export const CLI_DOC: DocsPage = {
     },
     {
       id: "retries",
-      title: "Retries and local exclusions",
+      title: "Retries",
       blocks: [
         {
           kind: "paragraph",
           text: "The CLI generates one idempotency key per publish and reuses it across automatic retries, so transient failures do not create duplicate Artifacts or Revisions.",
-        },
-        {
-          kind: "paragraph",
-          text: "Folder uploads exclude `.git/`, `.DS_Store`, `node_modules/`, `.env`, and `.env.*`. The exclusion list is intentionally not configurable.",
         },
       ],
     },

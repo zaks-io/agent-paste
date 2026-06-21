@@ -256,10 +256,10 @@ prints the Share Link's `unlisted_url`.
 does not Live Update; direct HTML opened there is raw/inert byte delivery, not
 the product viewer. `agent_view_url` is the Agent View JSON on the API origin.
 In Agent View, each file's signed content URL is `files[].url`; there is no
-`content_url` field. Do not verify a `private_url` with HTTP status alone:
+`content_url` field. A `private_url` is login-walled app navigation:
 unauthenticated HTTP clients may receive the app shell or sign-in redirect state
-with HTTP 200. Use `set-visibility <artifact-id> unlisted` for no-login browser
-verification, or Agent View `files[].url` entries for machine verification.
+with HTTP 200. Use `set-visibility <artifact-id> unlisted` for a no-login
+browser handoff.
 `bundle` reports whether the revision archive is pending, ready, failed, or disabled.
 
 With `--json`, `set-visibility <artifact-id> unlisted` emits:
@@ -336,9 +336,13 @@ Each `old_string` must match the current file exactly once unless
 `replace_all: true` is set. A non-matching or ambiguous edit fails loudly; pull
 the file first to get the exact base text.
 
-## Inference
+## Path behavior
 
-- **Entrypoint** for a folder is the first match of `index.html`, `index.md`, `README.md`, or the single file if the folder contains exactly one. Otherwise publish fails; pass `--entrypoint`.
+- **Directories** upload every included file and preserve relative paths, so an
+  HTML entrypoint can load sibling JS/CSS/JSON/assets.
+- **Entrypoint** for a folder is the first match of `index.html`, `index.md`,
+  `README.md`, or the single file if the folder contains exactly one. Otherwise
+  publish fails; pass `--entrypoint`.
 - **Render mode** is inferred from the entrypoint extension. Override with `--render-mode`.
 
 ## Excluded by default

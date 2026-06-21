@@ -132,7 +132,9 @@ Path behavior:
   <path> may be a file or directory. Directory publish uploads every included
   file except .git, node_modules, .DS_Store, and .env*; relative paths are
   preserved, so the entrypoint can load sibling JS/CSS/JSON/assets. Entrypoint
-  defaults to index.html, index.md, README.md, then the only file.
+  defaults to index.html, index.md, README.md, then the only file. If a
+  multi-file directory has no inferred entrypoint, publish fails; pass
+  --entrypoint <path>.
   --artifact-id Revise an EXISTING Artifact: publishes a new Revision under it
                 instead of creating a new Artifact. Existing links stay stable.
                 Omit it to create a new Artifact on a new link.
@@ -149,6 +151,4 @@ Set visibility:
   set-visibility private revokes active Access Links and returns private_url.
   set-visibility unlisted creates or reuses the Artifact's revocable Share Link
   and returns unlisted_url, a no-login signed URL that follows later publishes.
-  Browser rendering for unlisted_url depends on the URL fragment; a plain HTTP
-  fetch cannot verify the final rendered page.
 `;

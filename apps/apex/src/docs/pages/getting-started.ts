@@ -12,12 +12,12 @@ export const GETTING_STARTED_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Use `npx @zaks-io/agent-paste ...` for one-shot Node.js 24 runs. After the standalone installer, use the installed `agent-paste ...` command; both run the same CLI.",
+          text: "Use `npx @zaks-io/agent-paste ...` for one-shot Node.js 24+ runs, `npm install -g @zaks-io/agent-paste` for repeated npm use, or the standalone installer when Node is unavailable. After installation, use the installed `agent-paste ...` command; all paths run the same CLI.",
         },
         {
           kind: "code",
           language: "sh",
-          code: "npx @zaks-io/agent-paste publish ./report\ncurl -fsSL https://agent-paste.sh/install.sh | sh",
+          code: "npx @zaks-io/agent-paste publish ./report\nnpm install -g @zaks-io/agent-paste\ncurl -fsSL https://agent-paste.sh/install.sh | sh",
         },
         {
           kind: "code",
@@ -64,11 +64,11 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "`private_url` is login-walled app navigation. A plain `curl` may receive the web app shell with a sign-in redirect state and HTTP 200; that does not prove the Artifact is publicly readable. Verify public/no-login handoff with a Share Link from `agent-paste set-visibility <artifact-id> unlisted`, or verify machine access through `agent_view_url` and the signed per-file `files[].url` entries.",
+          text: "`private_url` is login-walled app navigation. A plain `curl` may receive the web app shell with a sign-in redirect state and HTTP 200; that does not make the Artifact publicly readable. For a no-login browser handoff, use a Share Link from `agent-paste set-visibility <artifact-id> unlisted`.",
         },
         {
           kind: "paragraph",
-          text: "A folder entrypoint is inferred from `index.html`, `index.md`, `README.md`, or the only file in the folder. Pass `--entrypoint` when that is not enough.",
+          text: "A publish path can be a file or directory. Directory publish preserves relative paths, so an HTML entrypoint can load sibling CSS, JS, JSON, images, and fonts. Folder entrypoint inference is exactly `index.html`, `index.md`, `README.md`, then the only file in the folder. If a multi-file folder has none of those, publish fails; pass `--entrypoint <path>`. Folder uploads exclude `.git/`, `node_modules/`, `.DS_Store`, `.env`, and `.env.*`.",
         },
         {
           kind: "paragraph",

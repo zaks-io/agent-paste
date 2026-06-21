@@ -40,6 +40,10 @@ export const LIMITS_DOC: DocsPage = {
             "Pinned Artifact cap: 50 per Workspace.",
           ],
         },
+        {
+          kind: "paragraph",
+          text: "Authenticated clients can read their effective machine-readable caps from `GET /v1/usage-policy`.",
+        },
       ],
     },
     {
