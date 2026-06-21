@@ -35,6 +35,8 @@ export function protectedResourceMetadata(env: Env) {
 
 export function authorizationServerMetadata(env: Env) {
   const issuer = agentAuthIssuer(env);
+  const identityTypes = agentAuthIdentityTypes(env);
+  const verifiedProviderEnabled = identityTypes.includes("identity_assertion");
   return {
     ...protectedResourceMetadata(env),
     issuer,
@@ -45,12 +47,16 @@ export function authorizationServerMetadata(env: Env) {
       skill: `${issuer}/auth.md`,
       identity_endpoint: `${issuer}/agent/identity`,
       claim_endpoint: `${issuer}/agent/identity/claim`,
-      events_endpoint: `${issuer}/agent/event/notify`,
-      identity_types_supported: agentAuthIdentityTypes(env),
-      identity_assertion: {
-        assertion_types_supported: [AGENT_AUTH_ID_JAG_ASSERTION_TYPE],
-      },
-      events_supported: [AGENT_AUTH_REVOKED_EVENT],
+      identity_types_supported: identityTypes,
+      ...(verifiedProviderEnabled
+        ? {
+            events_endpoint: `${issuer}/agent/event/notify`,
+            identity_assertion: {
+              assertion_types_supported: [AGENT_AUTH_ID_JAG_ASSERTION_TYPE],
+            },
+            events_supported: [AGENT_AUTH_REVOKED_EVENT],
+          }
+        : {}),
     },
   };
 }

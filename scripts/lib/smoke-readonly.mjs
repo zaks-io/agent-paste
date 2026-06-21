@@ -106,6 +106,61 @@ export async function assertWorkersHealthy(c) {
   }
 }
 
+/** API AuthMD discovery must match the configured auth surface. */
+export async function assertApiAuthDiscoveryServes(c) {
+  const authMd = await fetch(`${c.apiBaseUrl}/auth.md`, { redirect: "manual" });
+  assert(authMd.status === 200, `api /auth.md returned ${authMd.status}`);
+  assert(authMd.headers.get("content-type")?.includes("text/markdown"), "api /auth.md is text/markdown");
+  const authMdBody = await authMd.text();
+  assert(authMdBody.includes("Supported registration types:"), "api /auth.md lists registration types");
+
+  const metadataResponse = await fetch(`${c.apiBaseUrl}/.well-known/oauth-authorization-server`, {
+    redirect: "manual",
+  });
+  assert(
+    metadataResponse.status === 200,
+    `api /.well-known/oauth-authorization-server returned ${metadataResponse.status}`,
+  );
+  assert(
+    metadataResponse.headers.get("content-type")?.includes("application/json"),
+    "api /.well-known/oauth-authorization-server is JSON",
+  );
+  const metadata = await metadataResponse.json();
+  const agentAuth = metadata?.agent_auth;
+  assert(agentAuth && typeof agentAuth === "object", "api OAuth metadata includes agent_auth");
+  assert(agentAuth.identity_endpoint === `${c.apiBaseUrl}/agent/identity`, "api metadata identity endpoint matches");
+  assert(agentAuth.claim_endpoint === `${c.apiBaseUrl}/agent/identity/claim`, "api metadata claim endpoint matches");
+  assert(Array.isArray(agentAuth.identity_types_supported), "api metadata lists identity types");
+
+  const identityTypes = agentAuth.identity_types_supported;
+  const verifiedProviderAdvertised = identityTypes.includes("identity_assertion");
+  if (verifiedProviderAdvertised) {
+    assert(
+      agentAuth.events_endpoint === `${c.apiBaseUrl}/agent/event/notify`,
+      "api metadata advertises event endpoint",
+    );
+    assert(Array.isArray(agentAuth.events_supported), "api metadata advertises event schemas");
+    assert(
+      Array.isArray(agentAuth.identity_assertion?.assertion_types_supported),
+      "api metadata advertises identity assertion types",
+    );
+  } else {
+    assert(!("events_endpoint" in agentAuth), "api metadata must not advertise disabled event endpoint");
+    assert(!("events_supported" in agentAuth), "api metadata must not advertise disabled event schemas");
+    assert(!("identity_assertion" in agentAuth), "api metadata must not advertise disabled identity assertions");
+  }
+
+  const invalidIdentity = await fetch(`${c.apiBaseUrl}/agent/identity`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "{}",
+    redirect: "manual",
+  });
+  assert(invalidIdentity.status === 400, `api /agent/identity invalid body returned ${invalidIdentity.status}`);
+
+  process.stdout.write("  api auth discovery ok\n");
+}
+
 /** Apex marketing routes serve their static content with no cookies. */
 export async function assertApexServes(c) {
   const home = await fetch(`${c.apexBaseUrl}/`, { redirect: "manual" });

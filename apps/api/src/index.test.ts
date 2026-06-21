@@ -177,6 +177,11 @@ describe("api worker", () => {
       token_endpoint: "https://api.test/oauth2/token",
       agent_auth: {
         identity_endpoint: "https://api.test/agent/identity",
+        events_endpoint: "https://api.test/agent/event/notify",
+        events_supported: ["https://schemas.workos.com/events/agent/auth/identity/assertion/revoked"],
+        identity_assertion: {
+          assertion_types_supported: ["urn:ietf:params:oauth:token-type:id-jag"],
+        },
         identity_types_supported: ["anonymous", "identity_assertion"],
       },
     });
@@ -200,11 +205,15 @@ describe("api worker", () => {
     };
     const as = await handleRequest(new Request("https://api.test/.well-known/oauth-authorization-server"), env);
     expect(as.status).toBe(200);
-    await expect(as.json()).resolves.toMatchObject({
+    const metadata = await as.json();
+    expect(metadata).toMatchObject({
       agent_auth: {
         identity_types_supported: ["anonymous"],
       },
     });
+    expect(metadata.agent_auth).not.toHaveProperty("events_endpoint");
+    expect(metadata.agent_auth).not.toHaveProperty("events_supported");
+    expect(metadata.agent_auth).not.toHaveProperty("identity_assertion");
   });
 
   it("registers an anonymous agent identity behind ephemeral provision rate limits", async () => {
