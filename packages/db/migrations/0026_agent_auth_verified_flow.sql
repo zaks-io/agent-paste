@@ -124,7 +124,13 @@ create index if not exists agent_auth_registrations_claim_idx
 alter table agent_auth_registrations
   drop constraint if exists agent_auth_registrations_status_check,
   add constraint agent_auth_registrations_status_check
-    check (status in ('verified', 'pending_step_up', 'revoked'));
+    check (status in (
+      'verified',
+      'pending_step_up',
+      'anonymous_unclaimed',
+      'anonymous_claim_pending',
+      'revoked'
+    ));
 
 create table if not exists agent_auth_jtis (
   provider_issuer text not null,
