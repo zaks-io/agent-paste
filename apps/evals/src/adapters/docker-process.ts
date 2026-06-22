@@ -60,6 +60,10 @@ export class DockerProcess implements SandboxProcessApi {
     this.command(commandId).write(data);
   }
 
+  async stopSessionCommand(_sessionId: string, commandId: string): Promise<void> {
+    this.command(commandId).kill();
+  }
+
   async exec(
     command: string,
     cwd?: string,
@@ -137,6 +141,13 @@ class CommandState {
     } catch {
       return;
     }
+  }
+
+  kill(): void {
+    if (this.exitCode !== undefined) {
+      return;
+    }
+    this.child.kill("SIGKILL");
   }
 
   logs(): { output: string; stdout: string; stderr: string; exitCode?: number } {

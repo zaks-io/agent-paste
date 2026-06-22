@@ -65,9 +65,13 @@ function selectHarnesses(config: EvalConfig, requestedIds: string[]): EvalConfig
     return { ...config, matrix: { ...config.matrix, harnesses: enabledHarnesses } };
   }
   const requested = new Set(requestedIds);
-  const selected = config.matrix.harnesses.filter(
-    (harness) => requested.has(harness.id) || requested.has(harness.adapter),
+  const selected = enabledHarnesses.filter((harness) => requested.has(harness.id) || requested.has(harness.adapter));
+  const disabled = config.matrix.harnesses.filter(
+    (harness) => !harnessEnabled(harness) && (requested.has(harness.id) || requested.has(harness.adapter)),
   );
+  if (disabled.length > 0) {
+    throw new Error(`harness_filter_disabled:${disabled.map((harness) => harness.id).join(",")}`);
+  }
   const selectedIds = new Set(selected.flatMap((harness) => [harness.id, harness.adapter]));
   const missing = requestedIds.filter((id) => !selectedIds.has(id));
   if (missing.length > 0) {

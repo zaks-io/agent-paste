@@ -175,7 +175,7 @@ function candidatePaths(inputPath: string): string[] {
     return [inputPath];
   }
   const candidates = [path.resolve(inputPath)];
-  const prefix = `apps${path.sep}evals${path.sep}`;
+  const prefix = "apps/evals/";
   if (inputPath.startsWith(prefix)) {
     candidates.push(path.resolve(inputPath.slice(prefix.length)));
   } else {

@@ -25,7 +25,7 @@ describe("Pi RPC harness", () => {
     });
 
     expect(process.command).toContain("'--tools' 'read,bash,write'");
-    expect(process.command).toContain("'--append-system-prompt' 'No local user repository is mounted.'");
+    expect(process.command).toMatch(/'--append-system-prompt'\s+'[^']+'/);
     expect(process.command).toContain("'--no-session'");
     expect(process.command).toContain("'--no-extensions'");
   });

@@ -23,6 +23,7 @@ import type { EvalConfig, RunResult } from "./types";
 type ReportOptions = {
   config?: EvalConfig | undefined;
   transcripts?: Map<string, string> | undefined;
+  env?: Record<string, string | undefined> | undefined;
 };
 
 export type ReportFiles = {
@@ -31,6 +32,7 @@ export type ReportFiles = {
 };
 
 export function summarizeResults(results: RunResult[], options: ReportOptions = {}): string {
+  const env = options.env ?? process.env;
   const rows = results.map((result) => {
     const mark = result.status.toUpperCase();
     const warnings = result.warnings.length > 0 ? ` warnings=${result.warnings.join(",")}` : "";
@@ -65,15 +67,15 @@ export function summarizeResults(results: RunResult[], options: ReportOptions = 
     "",
     "## Trust Concerns",
     "",
-    ...trustConcernLines(results),
+    ...trustConcernLines(results, env),
     "",
     "## Remote Agent Handoff",
     "",
     "This section is self-contained for a remote coding agent. Do not rely on local transcript paths.",
     "",
-    ...handoffItems(results),
+    ...handoffItems(results, env),
     "",
-    ...runEvidence(results, options.transcripts ?? new Map()),
+    ...runEvidence(results, options.transcripts ?? new Map(), env),
     "",
   ].join("\n");
 }
@@ -83,14 +85,18 @@ export async function writeReports(resultDir: string, results: RunResult[]): Pro
   const report = summarizeResults(results, {
     config,
     transcripts: await readTranscripts(results),
+    env: process.env,
   });
   const aggregatePath = path.join(resultDir, "aggregate.md");
   const summaryPath = path.join(resultDir, "summary.md");
-  await Promise.all([writeFile(aggregatePath, report), writeFile(summaryPath, summarizeFinalResults(results, config))]);
+  await Promise.all([
+    writeFile(aggregatePath, report),
+    writeFile(summaryPath, summarizeFinalResults(results, config, process.env)),
+  ]);
   return { aggregatePath, summaryPath };
 }
 
-function handoffItems(results: RunResult[]): string[] {
+function handoffItems(results: RunResult[], env: Record<string, string | undefined>): string[] {
   const deterministicIssues = results.flatMap((result) =>
     result.failures.map((failure) =>
       [
@@ -104,9 +110,9 @@ function handoffItems(results: RunResult[]): string[] {
   const findings = results.flatMap((result) =>
     (result.judge?.findings ?? []).map((finding) =>
       [
-        `- ${finding.severity} ${finding.kind} (${result.model_id}): ${finding.evidence}`,
-        finding.suggested_doc_target ? `  Target: ${finding.suggested_doc_target}` : "",
-        finding.suggested_fix ? `  Suggested fix: ${finding.suggested_fix}` : "",
+        `- ${finding.severity} ${finding.kind} (${result.model_id}): ${safeText(finding.evidence, env)}`,
+        finding.suggested_doc_target ? `  Target: ${safeText(finding.suggested_doc_target, env)}` : "",
+        finding.suggested_fix ? `  Suggested fix: ${safeText(finding.suggested_fix, env)}` : "",
       ]
         .filter(Boolean)
         .join("\n"),
@@ -115,11 +121,11 @@ function handoffItems(results: RunResult[]): string[] {
   const trustConcerns = results.flatMap((result) =>
     (result.judge?.trust_concerns ?? []).map((concern) =>
       [
-        `- ${concern.severity} trust (${result.model_id}, ${result.harness_id}): ${concern.evidence}`,
-        `  Reason: ${concern.stated_reason}`,
-        concern.suspected_trigger ? `  Trigger: ${concern.suspected_trigger}` : "",
-        concern.suggested_doc_target ? `  Target: ${concern.suggested_doc_target}` : "",
-        concern.suggested_fix ? `  Suggested fix: ${concern.suggested_fix}` : "",
+        `- ${concern.severity} trust (${result.model_id}, ${result.harness_id}): ${safeText(concern.evidence, env)}`,
+        `  Reason: ${safeText(concern.stated_reason, env)}`,
+        concern.suspected_trigger ? `  Trigger: ${safeText(concern.suspected_trigger, env)}` : "",
+        concern.suggested_doc_target ? `  Target: ${safeText(concern.suggested_doc_target, env)}` : "",
+        concern.suggested_fix ? `  Suggested fix: ${safeText(concern.suggested_fix, env)}` : "",
       ]
         .filter(Boolean)
         .join("\n"),
@@ -155,7 +161,11 @@ function evalContext(config: EvalConfig | undefined): string[] {
   ];
 }
 
-function runEvidence(results: RunResult[], transcripts: Map<string, string>): string[] {
+function runEvidence(
+  results: RunResult[],
+  transcripts: Map<string, string>,
+  env: Record<string, string | undefined>,
+): string[] {
   const detailResults = results.filter((result) => result.status !== "skipped");
   if (detailResults.length === 0) {
     return ["## Embedded Run Evidence", "", "No non-skipped runs recorded."];
@@ -163,11 +173,15 @@ function runEvidence(results: RunResult[], transcripts: Map<string, string>): st
   return [
     "## Embedded Run Evidence",
     "",
-    ...detailResults.flatMap((result) => runEvidenceBlock(result, transcripts.get(result.run_id))),
+    ...detailResults.flatMap((result) => runEvidenceBlock(result, transcripts.get(result.run_id), env)),
   ];
 }
 
-function runEvidenceBlock(result: RunResult, transcript: string | undefined): string[] {
+function runEvidenceBlock(
+  result: RunResult,
+  transcript: string | undefined,
+  env: Record<string, string | undefined>,
+): string[] {
   return [
     `### ${result.model_id} (${result.status})`,
     "",
@@ -188,34 +202,34 @@ function runEvidenceBlock(result: RunResult, transcript: string | undefined): st
     "",
     "#### Prompt Sent To Agent",
     "",
-    fenced(redactSensitiveText(result.prompt ?? "Prompt was not recorded for this run."), "text"),
+    fenced(redactSensitiveText(result.prompt ?? "Prompt was not recorded for this run.", env), "text"),
     "",
     "#### Judge Summary",
     "",
-    result.judge?.summary ?? "No judge summary recorded.",
+    safeText(result.judge?.summary, env) ?? "No judge summary recorded.",
     "",
     "#### Judge Findings",
     "",
-    ...judgeFindingLines(result),
+    ...judgeFindingLines(result, env),
     "",
     "#### Trust Concerns",
     "",
-    ...trustConcernDetailLines(result),
+    ...trustConcernDetailLines(result, env),
     "",
     "#### Final Answer",
     "",
-    fenced(redactSensitiveText(result.final_answer?.trim() || "(empty)"), "text"),
+    fenced(redactSensitiveText(result.final_answer?.trim() || "(empty)", env), "text"),
     "",
     "#### Transcript Excerpt",
     "",
     transcript
-      ? fenced(transcriptExcerpt(transcript), "text")
+      ? fenced(transcriptExcerpt(transcript, env), "text")
       : "No transcript content was available in the local result artifacts.",
     "",
   ];
 }
 
-function trustConcernLines(results: RunResult[]): string[] {
+function trustConcernLines(results: RunResult[], env: Record<string, string | undefined>): string[] {
   const concerns = results.flatMap((result) =>
     (result.judge?.trust_concerns ?? []).map((concern) => ({ concern, result })),
   );
@@ -224,11 +238,11 @@ function trustConcernLines(results: RunResult[]): string[] {
   }
   return concerns.map(({ concern, result }) =>
     [
-      `- ${concern.severity} (${result.model_id}, ${result.harness_id}): ${concern.evidence}`,
-      `  Reason: ${concern.stated_reason}`,
-      concern.suspected_trigger ? `  Trigger: ${concern.suspected_trigger}` : "",
-      concern.suggested_doc_target ? `  Target: ${concern.suggested_doc_target}` : "",
-      concern.suggested_fix ? `  Suggested fix: ${concern.suggested_fix}` : "",
+      `- ${concern.severity} (${result.model_id}, ${result.harness_id}): ${safeText(concern.evidence, env)}`,
+      `  Reason: ${safeText(concern.stated_reason, env)}`,
+      concern.suspected_trigger ? `  Trigger: ${safeText(concern.suspected_trigger, env)}` : "",
+      concern.suggested_doc_target ? `  Target: ${safeText(concern.suggested_doc_target, env)}` : "",
+      concern.suggested_fix ? `  Suggested fix: ${safeText(concern.suggested_fix, env)}` : "",
       `  Confidence: ${formatNumber(concern.confidence)}`,
     ]
       .filter(Boolean)
@@ -236,7 +250,7 @@ function trustConcernLines(results: RunResult[]): string[] {
   );
 }
 
-function judgeFindingLines(result: RunResult): string[] {
+function judgeFindingLines(result: RunResult, env: Record<string, string | undefined>): string[] {
   const findings = result.judge?.findings ?? [];
   if (findings.length === 0) {
     return ["No judge findings recorded."];
@@ -244,20 +258,20 @@ function judgeFindingLines(result: RunResult): string[] {
   return findings.flatMap((finding, index) =>
     [
       `${index + 1}. ${finding.severity} ${finding.kind}`,
-      `   Evidence: ${finding.evidence}`,
+      `   Evidence: ${safeText(finding.evidence, env)}`,
       finding.wasted_turns !== undefined ? `   Wasted turns: ${formatNumber(finding.wasted_turns)}` : "",
       finding.estimated_wasted_tokens !== undefined
         ? `   Estimated wasted tokens: ${formatNumber(finding.estimated_wasted_tokens)}`
         : "",
-      finding.suggested_doc_target ? `   Suggested doc target: ${finding.suggested_doc_target}` : "",
-      finding.suggested_fix ? `   Suggested fix: ${finding.suggested_fix}` : "",
+      finding.suggested_doc_target ? `   Suggested doc target: ${safeText(finding.suggested_doc_target, env)}` : "",
+      finding.suggested_fix ? `   Suggested fix: ${safeText(finding.suggested_fix, env)}` : "",
       `   Confidence: ${formatNumber(finding.confidence)}`,
       "",
     ].filter(Boolean),
   );
 }
 
-function trustConcernDetailLines(result: RunResult): string[] {
+function trustConcernDetailLines(result: RunResult, env: Record<string, string | undefined>): string[] {
   const concerns = result.judge?.trust_concerns ?? [];
   if (concerns.length === 0) {
     return ["No trust/suspicion concerns recorded."];
@@ -265,11 +279,11 @@ function trustConcernDetailLines(result: RunResult): string[] {
   return concerns.flatMap((concern, index) =>
     [
       `${index + 1}. ${concern.severity} trust concern`,
-      `   Evidence: ${concern.evidence}`,
-      `   Reason: ${concern.stated_reason}`,
-      concern.suspected_trigger ? `   Trigger: ${concern.suspected_trigger}` : "",
-      concern.suggested_doc_target ? `   Suggested doc target: ${concern.suggested_doc_target}` : "",
-      concern.suggested_fix ? `   Suggested fix: ${concern.suggested_fix}` : "",
+      `   Evidence: ${safeText(concern.evidence, env)}`,
+      `   Reason: ${safeText(concern.stated_reason, env)}`,
+      concern.suspected_trigger ? `   Trigger: ${safeText(concern.suspected_trigger, env)}` : "",
+      concern.suggested_doc_target ? `   Suggested doc target: ${safeText(concern.suggested_doc_target, env)}` : "",
+      concern.suggested_fix ? `   Suggested fix: ${safeText(concern.suggested_fix, env)}` : "",
       `   Confidence: ${formatNumber(concern.confidence)}`,
       "",
     ].filter(Boolean),
@@ -376,8 +390,8 @@ function appendMissingEventErrors(transcript: string | undefined, errors: string
   return [base, ...missing.map((error) => `\n[model error] ${error}\n`)].join("");
 }
 
-function transcriptExcerpt(transcript: string): string {
-  const clean = redactSensitiveText(transcript);
+function transcriptExcerpt(transcript: string, env: Record<string, string | undefined>): string {
+  const clean = redactSensitiveText(transcript, env);
   const max = 12_000;
   if (clean.length <= max) {
     return clean;
@@ -385,6 +399,10 @@ function transcriptExcerpt(transcript: string): string {
   const head = clean.slice(0, 5_000);
   const tail = clean.slice(-7_000);
   return `${head}\n\n[... omitted ${formatNumber(clean.length - max)} transcript chars ...]\n\n${tail}`;
+}
+
+function safeText(value: string | undefined, env: Record<string, string | undefined>): string | undefined {
+  return value === undefined ? undefined : redactSensitiveText(value, env);
 }
 
 function fenced(content: string, language: string): string {

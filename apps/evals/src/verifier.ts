@@ -43,6 +43,7 @@ export async function verifyRunOutput(params: {
     return result;
   }
   if (!unlistedUrl) {
+    result.passed = result.errors.length === 0;
     return result;
   }
   if (result.errors.length > 0) {

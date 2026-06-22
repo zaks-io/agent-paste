@@ -21,6 +21,7 @@ export class DaytonaEvalSandbox {
   ) {}
 
   async start(): Promise<void> {
+    await this.stop();
     const { Daytona } = await import("@daytonaio/sdk");
     const daytona = new Daytona(daytonaConfig(this.env, this.config));
     const snapshot = this.config.sandbox.snapshot;
@@ -47,16 +48,21 @@ export class DaytonaEvalSandbox {
         ...(networkAllowList ? { networkAllowList } : {}),
       }),
     );
-    const sandbox = this.sandbox;
-    await sandbox.setLabels?.({
-      app: "agent-paste-evals",
-      suite: this.run.suiteId,
-      run_id: this.run.id,
-      model: modelRunKey(this.run.model),
-    });
-    await this.freshnessProbe();
-    await this.networkProbe();
-    await this.accountlessProvisionProbe();
+    try {
+      const sandbox = this.sandbox;
+      await sandbox.setLabels?.({
+        app: "agent-paste-evals",
+        suite: this.run.suiteId,
+        run_id: this.run.id,
+        model: modelRunKey(this.run.model),
+      });
+      await this.freshnessProbe();
+      await this.networkProbe();
+      await this.accountlessProvisionProbe();
+    } catch (err) {
+      await this.stop();
+      throw err;
+    }
   }
 
   async runHarness(): Promise<HarnessRunOutput> {
@@ -73,11 +79,13 @@ export class DaytonaEvalSandbox {
   }
 
   async stop(): Promise<void> {
-    if (!this.sandbox) {
+    const sandbox = this.sandbox;
+    this.sandbox = undefined;
+    if (!sandbox) {
       return;
     }
     try {
-      await this.sandbox.stop?.(30, true);
+      await sandbox.stop?.(30, true);
     } catch (err) {
       this.onEvent({
         at: new Date().toISOString(),

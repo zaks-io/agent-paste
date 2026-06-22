@@ -246,6 +246,7 @@ async function liveRun(
       result_dir: run.outputDir,
     };
     await attachJudge(config, options, limits, result, output.transcript);
+    refreshStatus(result);
     return result;
   } catch (err) {
     failures.push((err as Error).message);
@@ -385,6 +386,7 @@ async function readReusableResult(
   }
   if (transcript && result.judge_fingerprint !== judgeFingerprint(config)) {
     await attachJudge(config, options, limits, result, transcript);
+    refreshStatus(result);
   }
   return result;
 }

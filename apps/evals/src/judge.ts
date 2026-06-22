@@ -89,6 +89,7 @@ export async function judgeRun(params: {
     model: openrouter(params.config.judge.model),
     system: systemPrompt(),
     maxOutputTokens: params.config.judge.max_output_tokens,
+    timeout: params.config.timeouts.judge_timeout_ms,
     prompt: JSON.stringify(
       {
         rubric_version: params.config.judge.rubric_version,

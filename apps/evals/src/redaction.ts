@@ -6,7 +6,7 @@ const SECRET_NAMES = [
   "ANTHROPIC_API_KEY",
 ];
 
-export function redactSensitiveText(content: string, env: Record<string, string | undefined> = {}): string {
+export function redactSensitiveText(content: string, env: Record<string, string | undefined>): string {
   let redacted = sanitizeText(content)
     .replace(secretAssignmentPattern(), "$1[redacted]")
     .replace(secretJsonPattern(), '$1"[redacted]"')
@@ -26,7 +26,7 @@ function secretEnvValues(env: Record<string, string | undefined>): Record<string
 }
 
 function secretAssignmentPattern(): RegExp {
-  return new RegExp(`\\b((?:${SECRET_NAMES.join("|")})=)[^\\s\\\\"']+`, "g");
+  return new RegExp(`\\b((?:${SECRET_NAMES.join("|")})\\s*=\\s*)(?:"[^"]*"|'[^']*'|[^\\s\\\\"']+)`, "g");
 }
 
 function secretJsonPattern(): RegExp {

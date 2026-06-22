@@ -1,4 +1,5 @@
 import { resultDurationMs, totalTokens } from "./metrics";
+import { redactSensitiveText } from "./redaction";
 import {
   count,
   formatDuration,
@@ -15,7 +16,11 @@ import {
 import { failureSuggestedFix } from "./report-helpers";
 import type { EvalConfig, JudgeFinding, RunResult } from "./types";
 
-export function summarizeFinalResults(results: RunResult[], config?: EvalConfig | undefined): string {
+export function summarizeFinalResults(
+  results: RunResult[],
+  config?: EvalConfig | undefined,
+  env: Record<string, string | undefined> = process.env,
+): string {
   return [
     "# Agent Paste eval summary",
     "",
@@ -46,11 +51,11 @@ export function summarizeFinalResults(results: RunResult[], config?: EvalConfig 
     "",
     "## Trust Concerns",
     "",
-    ...trustConcernLines(results),
+    ...trustConcernLines(results, env),
     "",
     "## Top Friction",
     "",
-    ...topFriction(results),
+    ...topFriction(results, env),
     "",
     "## Files",
     "",
@@ -88,7 +93,7 @@ function missingAgentCostCount(results: RunResult[]): number {
   return results.filter((result) => result.status !== "skipped" && result.cost_usd === undefined).length;
 }
 
-function topFriction(results: RunResult[]): string[] {
+function topFriction(results: RunResult[], env: Record<string, string | undefined>): string[] {
   const failures = results.flatMap((result) =>
     result.failures.map((failure) => ({
       line: [
@@ -105,9 +110,9 @@ function topFriction(results: RunResult[]): string[] {
     .sort((left, right) => rank(right.finding) - rank(left.finding))
     .map(({ finding, result }) => ({
       line: [
-        `- ${finding.severity} ${finding.kind} (${result.model_id}, ${result.harness_id}): ${finding.evidence}`,
-        finding.suggested_doc_target ? `  Target: ${finding.suggested_doc_target}` : "",
-        finding.suggested_fix ? `  Fix: ${finding.suggested_fix}` : "",
+        `- ${finding.severity} ${finding.kind} (${result.model_id}, ${result.harness_id}): ${safeText(finding.evidence, env)}`,
+        finding.suggested_doc_target ? `  Target: ${safeText(finding.suggested_doc_target, env)}` : "",
+        finding.suggested_fix ? `  Fix: ${safeText(finding.suggested_fix, env)}` : "",
       ]
         .filter(Boolean)
         .join("\n"),
@@ -120,7 +125,7 @@ function topFriction(results: RunResult[]): string[] {
   return items.map((item) => item.line);
 }
 
-function trustConcernLines(results: RunResult[]): string[] {
+function trustConcernLines(results: RunResult[], env: Record<string, string | undefined>): string[] {
   const concerns = results
     .flatMap((result) => (result.judge?.trust_concerns ?? []).map((concern) => ({ concern, result })))
     .sort((left, right) => trustRank(right.concern) - trustRank(left.concern));
@@ -129,15 +134,19 @@ function trustConcernLines(results: RunResult[]): string[] {
   }
   return concerns.map(({ concern, result }) =>
     [
-      `- ${concern.severity} (${result.model_id}, ${result.harness_id}): ${concern.evidence}`,
-      `  Reason: ${concern.stated_reason}`,
-      concern.suspected_trigger ? `  Trigger: ${concern.suspected_trigger}` : "",
-      concern.suggested_doc_target ? `  Target: ${concern.suggested_doc_target}` : "",
-      concern.suggested_fix ? `  Fix: ${concern.suggested_fix}` : "",
+      `- ${concern.severity} (${result.model_id}, ${result.harness_id}): ${safeText(concern.evidence, env)}`,
+      `  Reason: ${safeText(concern.stated_reason, env)}`,
+      concern.suspected_trigger ? `  Trigger: ${safeText(concern.suspected_trigger, env)}` : "",
+      concern.suggested_doc_target ? `  Target: ${safeText(concern.suggested_doc_target, env)}` : "",
+      concern.suggested_fix ? `  Fix: ${safeText(concern.suggested_fix, env)}` : "",
     ]
       .filter(Boolean)
       .join("\n"),
   );
+}
+
+function safeText(value: string, env: Record<string, string | undefined>): string {
+  return redactSensitiveText(value, env);
 }
 
 function verdict(results: RunResult[]): string {

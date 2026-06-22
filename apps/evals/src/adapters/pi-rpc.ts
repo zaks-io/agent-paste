@@ -52,7 +52,7 @@ export async function runPiRpc(params: {
   let finalAnswer = "";
   let finished = false;
   let stdoutBuffer = "";
-  const seenLines = new Set<string>();
+  const lineCursor = { processed: 0 };
   const eventsPath = path.join(params.run.outputDir, "pi-session.jsonl");
   const transcriptPath = path.join(params.run.outputDir, "pi-transcript.txt");
 
@@ -71,7 +71,7 @@ export async function runPiRpc(params: {
     sessionId,
     commandId,
     (chunk: string) => {
-      stdoutBuffer = ingestStdout(stdoutBuffer + chunk, events, transcript, seenLines, (text) => {
+      stdoutBuffer = ingestStdout(stdoutBuffer + chunk, events, transcript, lineCursor, (text) => {
         finalAnswer += text;
       });
       finished = events.some((event) => isRpcEvent(event) && event.type === "agent_end");
@@ -96,7 +96,8 @@ export async function runPiRpc(params: {
   try {
     await waitUntil(() => finished, params.config.timeouts.agent_timeout_ms);
   } catch (err) {
-    await collectCurrentLogs(params.sandbox, sessionId, commandId, events, transcript, seenLines, (text) => {
+    await terminateCommand(params.sandbox, sessionId, commandId);
+    await collectCurrentLogs(params.sandbox, sessionId, commandId, events, transcript, lineCursor, (text) => {
       finalAnswer += text;
     }).catch((collectErr) => {
       transcript.push(`\n[harness log collection failed] ${(collectErr as Error).message}\n`);
@@ -119,12 +120,24 @@ async function collectCurrentLogs(
   commandId: string,
   events: unknown[],
   transcript: string[],
-  seenLines: Set<string>,
+  lineCursor: { processed: number },
   onText: (text: string) => void,
 ): Promise<void> {
   const logs = await sandbox.process.getSessionCommandLogs(sessionId, commandId);
   if (logs) {
-    ingestStdout(logs.stdout ?? logs.output ?? "", events, transcript, seenLines, onText);
+    ingestStdout(logs.stdout ?? logs.output ?? "", events, transcript, lineCursor, onText, true);
+  }
+}
+
+async function terminateCommand(sandbox: ProcessSandboxLike, sessionId: string, commandId: string): Promise<void> {
+  try {
+    if (sandbox.process.stopSessionCommand) {
+      await sandbox.process.stopSessionCommand(sessionId, commandId);
+      return;
+    }
+    await sandbox.stop?.(5, true);
+  } catch {
+    return;
   }
 }
 
@@ -270,15 +283,15 @@ function ingestStdout(
   chunk: string,
   events: unknown[],
   transcript: string[],
-  seenLines: Set<string>,
+  lineCursor: { processed: number },
   onText: (text: string) => void,
+  replay = false,
 ): string {
   const lines = splitJsonl(chunk);
-  for (const line of lines.complete) {
-    if (seenLines.has(line)) {
+  for (const [index, line] of lines.complete.entries()) {
+    if (replay && index < lineCursor.processed) {
       continue;
     }
-    seenLines.add(line);
     const event = parseEvent(line);
     events.push(event ?? { raw: line });
     if (!event) {
@@ -300,6 +313,11 @@ function ingestStdout(
         onText(finalText);
       }
     }
+  }
+  if (replay) {
+    lineCursor.processed = Math.max(lineCursor.processed, lines.complete.length);
+  } else {
+    lineCursor.processed += lines.complete.length;
   }
   return lines.remainder;
 }

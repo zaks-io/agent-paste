@@ -82,6 +82,9 @@ async function runJsonlProcess(params: RunParams, spec: CommandSpec): Promise<Ha
     }
     return output;
   } catch (err) {
+    if ((err as Error).message === "agent_timeout") {
+      await terminateCommand(params.sandbox, sessionId, commandId);
+    }
     void logPromise.catch(() => undefined);
     const finalAnswer = spec.finalAnswerPath ? await readSandboxFile(params, spec.finalAnswerPath).catch(() => "") : "";
     const output = await writeOutput(params, spec, stdout, stderr, finalAnswer);
@@ -89,6 +92,18 @@ async function runJsonlProcess(params: RunParams, spec: CommandSpec): Promise<Ha
       throw err;
     }
     throw new HarnessRunError((err as Error).message, output);
+  }
+}
+
+async function terminateCommand(sandbox: ProcessSandboxLike, sessionId: string, commandId: string): Promise<void> {
+  try {
+    if (sandbox.process.stopSessionCommand) {
+      await sandbox.process.stopSessionCommand(sessionId, commandId);
+      return;
+    }
+    await sandbox.stop?.(5, true);
+  } catch {
+    return;
   }
 }
 

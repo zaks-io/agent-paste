@@ -49,6 +49,8 @@ sandbox:
       - api.preview.agent-paste.sh
       - upload.preview.agent-paste.sh
       - app.preview.agent-paste.sh
+      - openrouter.ai
+      - registry.npmjs.org
     allow_cidrs:
       - 1.1.1.1/32
       - 1.0.0.1/32

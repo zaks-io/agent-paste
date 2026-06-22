@@ -182,9 +182,16 @@ async function ensureDockerImage(config: EvalConfig, onEvent: (message: string) 
   let promise = ensuredImages.get(key);
   if (!promise) {
     promise = ensureDockerImageOnce(config, image, onEvent);
-    ensuredImages.set(key, promise);
+    if (config.sandbox.docker.build !== "always") {
+      ensuredImages.set(key, promise);
+    }
   }
-  return promise;
+  try {
+    await promise;
+  } catch (err) {
+    ensuredImages.delete(key);
+    throw err;
+  }
 }
 
 async function ensureDockerImageOnce(

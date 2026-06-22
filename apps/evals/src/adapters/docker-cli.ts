@@ -19,7 +19,10 @@ export async function runDocker(
     child.stderr.on("data", (chunk: Buffer) => {
       stderr += chunk.toString();
     });
-    child.on("error", reject);
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
     child.on("close", (code) => {
       clearTimeout(timer);
       if (timedOut) {

@@ -68,4 +68,9 @@ describe("parseArgs", () => {
       dryRun: true,
     });
   });
+
+  it("fails fast when repeated filters are missing values", () => {
+    expect(() => parseArgs(["run", "--model"])).toThrow("missing value for --model");
+    expect(() => parseArgs(["run", "--harnesses", "--dry-run"])).toThrow("missing value for --harnesses");
+  });
 });

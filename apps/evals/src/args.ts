@@ -91,7 +91,10 @@ function repeatedCsvFlags(argv: string[], single: string, plural: string): strin
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     const next = argv[index + 1];
-    if (arg === single && next) {
+    if (arg === single) {
+      if (!next || next.startsWith("--")) {
+        throw new Error(`missing value for ${single}`);
+      }
       values.push(next);
       index += 1;
       continue;
@@ -100,7 +103,10 @@ function repeatedCsvFlags(argv: string[], single: string, plural: string): strin
       values.push(arg.slice(`${single}=`.length));
       continue;
     }
-    if (arg === plural && next) {
+    if (arg === plural) {
+      if (!next || next.startsWith("--")) {
+        throw new Error(`missing value for ${plural}`);
+      }
       values.push(...next.split(","));
       index += 1;
       continue;

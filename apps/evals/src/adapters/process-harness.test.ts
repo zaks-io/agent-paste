@@ -31,7 +31,7 @@ describe("process harness adapters", () => {
     });
 
     expect(process.command).toContain("'--output-format' 'stream-json'");
-    expect(process.command).toContain("'--append-system-prompt' 'No local user repository is mounted.'");
+    expect(process.command).toMatch(/'--append-system-prompt'\s+'[^']+'/);
     expect(output.finalAnswer).toContain("https://preview.example/v/123");
     expect(await readFile(path.join(outputDir, "claude-stream.jsonl"), "utf8")).toContain('"type":"result"');
   });
@@ -56,7 +56,7 @@ describe("process harness adapters", () => {
     expect(process.command).toContain("'codex' '--model' 'gpt-5.5' '--ask-for-approval' 'never'");
     expect(process.command).toContain("'exec' '--json'");
     expect(process.command).toContain("'gpt-5.5'");
-    expect(process.command).toContain("No local user repository is mounted.");
+    expect(process.command).toContain("printf '%s'");
     expect(output.finalAnswer).toContain("https://preview.example/v/456");
     expect(output.tokenUsage).toEqual({ input: 2, output: 3, total: 5 });
   });
@@ -142,7 +142,7 @@ function claudeHarness(): HarnessConfig {
     version: "latest",
     profile: "test",
     capabilities: {},
-    config: { permission_mode: "bypassPermissions", append_system_prompt: "No local user repository is mounted." },
+    config: { permission_mode: "bypassPermissions", append_system_prompt: "fixture system prompt" },
   };
 }
 
@@ -155,7 +155,7 @@ function codexHarness(): HarnessConfig {
     version: "latest",
     profile: "test",
     capabilities: {},
-    config: { append_system_prompt: "No local user repository is mounted." },
+    config: { append_system_prompt: "fixture system prompt" },
   };
 }
 

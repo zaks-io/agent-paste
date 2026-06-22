@@ -39,7 +39,7 @@ export function networkProbeCommand(urls: string[]): string | undefined {
 export function accountlessProvisionProbeCommand(): string {
   return [
     "set -eu",
-    "node - <<'NODE'",
+    "node --input-type=module - <<'NODE'",
     "const apiUrl = process.env.AGENT_PASTE_API_URL;",
     "if (!apiUrl) {",
     '  console.error(JSON.stringify({ code: "missing_agent_paste_api_url" }));',
@@ -79,7 +79,7 @@ export function accountlessProvisionProbeCommand(): string {
     "}",
     'if (target === "preview") {',
     "  const hostname = new URL(apiUrl).hostname;",
-    '  if (!hostname.includes(".preview.") && !hostname.includes("-preview.")) {',
+    '  if (hostname !== "api.preview.agent-paste.sh") {',
     '    console.error(JSON.stringify({ code: "wrong_api_environment", hostname, target }));',
     "    process.exit(1);",
     "  }",

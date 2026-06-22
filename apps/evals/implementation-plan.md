@@ -132,19 +132,19 @@ Build a local CLI app in `apps/evals` with three internal layers:
 
 Then run:
 
-4. `verifier`
+1. `verifier`
    Extract URLs, classify them, reject wrong-environment handoff URLs in the
    preview suite, require at least one `unlisted_url`, fetch it without auth,
    scan the fetched artifact for production handoff links, and write the
    artifact snapshot when configured. Only HTTP 200 is deterministic pass
    evidence.
 
-5. `judge`
+2. `judge`
    AI SDK structured-output LLM call over transcript plus verifier data. Scores
    the run, identifies failure modes, wasted turns, wasted tokens, and concrete
    doc-friction findings.
 
-6. `reporter`
+3. `reporter`
    Aggregates per-run results into a concise model matrix and a handoff report
    for a coding agent.
 

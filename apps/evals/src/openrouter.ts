@@ -45,6 +45,9 @@ export function validateConfiguredModels(config: EvalConfig, models: ModelMetada
   const warnings: string[] = [];
   const byId = new Map(models.map((model) => [model.id, model]));
   for (const model of config.matrix.models) {
+    if (!modelEnabled(model)) {
+      continue;
+    }
     const metadata = byId.get(model.id);
     if (!metadata) {
       throw new Error(`OpenRouter model not found: ${model.id}`);

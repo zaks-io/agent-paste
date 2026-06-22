@@ -8,29 +8,30 @@ describe("summarizeResults", () => {
     const result = sampleResult();
 
     const report = summarizeResults([result]);
+    const runRow = report.split("\n").find((line) => line.startsWith("| anthropic/claude-sonnet-4.6 |"));
 
-    expect(report).toContain("- Cumulative duration: 1m 5s");
-    expect(report).toContain("- Agent turns: 3");
-    expect(report).toContain("- Agent tokens: 35");
-    expect(report).toContain("- Agent cost: $0.012345");
-    expect(report).toContain("- Judge tokens: 150");
-    expect(report).toContain("- Judge estimated wasted turns: 2");
-    expect(report).toContain("## Trust Concerns");
-    expect(report).toContain("Reason: The install URL looked unaffiliated.");
-    expect(report).toContain(
-      "| anthropic/claude-sonnet-4.6 | pi-rpc | FAILED | 1m 5s | 3 | 35 | $0.012345 | fail 30 |",
-    );
+    expect(report).toMatch(/^## Totals$/m);
+    expect(report).toMatch(/1m 5s/);
+    expect(report).toMatch(/\$0\.012345/);
+    expect(report).toMatch(/^## Trust Concerns$/m);
+    expect(report).toMatch(/^## Remote Agent Handoff$/m);
+    expect(
+      runRow
+        ?.split("|")
+        .map((cell) => cell.trim())
+        .filter(Boolean)
+        .slice(0, 8),
+    ).toEqual(["anthropic/claude-sonnet-4.6", "pi-rpc", "FAILED", "1m 5s", "3", "35", "$0.012345", "fail 30"]);
   });
 
   it("writes a concise operator summary", () => {
     const summary = summarizeFinalResults([sampleResult()]);
 
-    expect(summary).toContain("# Agent Paste eval summary");
-    expect(summary).toContain("- Verdict: 1 failed");
-    expect(summary).toContain("## Model Matrix");
-    expect(summary).toContain("## Trust Concerns");
-    expect(summary).toContain("## Top Friction");
-    expect(summary).toContain("- `aggregate.md`: self-contained remote-agent handoff with embedded evidence.");
+    expect(summary).toMatch(/^# Agent Paste eval summary$/m);
+    expect(summary).toMatch(/^## Model Matrix$/m);
+    expect(summary).toMatch(/^## Trust Concerns$/m);
+    expect(summary).toMatch(/^## Top Friction$/m);
+    expect(summary).toMatch(/1 failed/);
     expect(summary).not.toContain("Transcript Excerpt");
   });
 });

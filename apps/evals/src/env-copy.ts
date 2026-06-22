@@ -40,7 +40,7 @@ export async function copyEnvLocal(options: {
 
   if (!options.dryRun) {
     await mkdir(path.dirname(targetPath), { recursive: true });
-    await writeFile(targetPath, source);
+    await writeFile(targetPath, source, { mode: 0o600 });
   }
 
   return {

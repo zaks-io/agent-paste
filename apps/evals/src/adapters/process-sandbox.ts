@@ -12,6 +12,7 @@ export type SandboxProcessApi = {
     onStderr?: (chunk: string) => void,
   ): Promise<undefined | { output?: string; stdout?: string; stderr?: string; exitCode?: number }>;
   sendSessionCommandInput(sessionId: string, commandId: string, data: string): Promise<void>;
+  stopSessionCommand?(sessionId: string, commandId: string): Promise<void>;
   // Docker exposes exec; Daytona exposes executeCommand. Callers normalize both.
   exec?(
     command: string,
