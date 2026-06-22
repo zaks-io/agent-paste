@@ -123,9 +123,9 @@ function handoffItems(results: RunResult[], env: Record<string, string | undefin
       [
         `- ${concern.severity} trust (${result.model_id}, ${result.harness_id}): ${safeText(concern.evidence, env)}`,
         optionalSafeLine("  Reason: ", concern.stated_reason, env),
-        concern.suspected_trigger ? `  Trigger: ${safeText(concern.suspected_trigger, env)}` : "",
-        concern.suggested_doc_target ? `  Target: ${safeText(concern.suggested_doc_target, env)}` : "",
-        concern.suggested_fix ? `  Suggested fix: ${safeText(concern.suggested_fix, env)}` : "",
+        optionalSafeLine("  Trigger: ", concern.suspected_trigger, env),
+        optionalSafeLine("  Target: ", concern.suggested_doc_target, env),
+        optionalSafeLine("  Suggested fix: ", concern.suggested_fix, env),
       ]
         .filter(Boolean)
         .join("\n"),
@@ -240,9 +240,9 @@ function trustConcernLines(results: RunResult[], env: Record<string, string | un
     [
       `- ${concern.severity} (${result.model_id}, ${result.harness_id}): ${safeText(concern.evidence, env)}`,
       optionalSafeLine("  Reason: ", concern.stated_reason, env),
-      concern.suspected_trigger ? `  Trigger: ${safeText(concern.suspected_trigger, env)}` : "",
-      concern.suggested_doc_target ? `  Target: ${safeText(concern.suggested_doc_target, env)}` : "",
-      concern.suggested_fix ? `  Suggested fix: ${safeText(concern.suggested_fix, env)}` : "",
+      optionalSafeLine("  Trigger: ", concern.suspected_trigger, env),
+      optionalSafeLine("  Target: ", concern.suggested_doc_target, env),
+      optionalSafeLine("  Suggested fix: ", concern.suggested_fix, env),
       `  Confidence: ${formatNumber(concern.confidence)}`,
     ]
       .filter(Boolean)
@@ -281,9 +281,9 @@ function trustConcernDetailLines(result: RunResult, env: Record<string, string |
       `${index + 1}. ${concern.severity} trust concern`,
       `   Evidence: ${safeText(concern.evidence, env)}`,
       optionalSafeLine("   Reason: ", concern.stated_reason, env),
-      concern.suspected_trigger ? `   Trigger: ${safeText(concern.suspected_trigger, env)}` : "",
-      concern.suggested_doc_target ? `   Suggested doc target: ${safeText(concern.suggested_doc_target, env)}` : "",
-      concern.suggested_fix ? `   Suggested fix: ${safeText(concern.suggested_fix, env)}` : "",
+      optionalSafeLine("   Trigger: ", concern.suspected_trigger, env),
+      optionalSafeLine("   Suggested doc target: ", concern.suggested_doc_target, env),
+      optionalSafeLine("   Suggested fix: ", concern.suggested_fix, env),
       `   Confidence: ${formatNumber(concern.confidence)}`,
       "",
     ].filter(Boolean),
