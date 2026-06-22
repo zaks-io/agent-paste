@@ -20,7 +20,7 @@ export function createExecutionKey(config: EvalConfig, options: RunKeyOptions): 
 }
 
 export function judgeFingerprint(config: EvalConfig): string {
-  return stableHash({ judge: config.judge, version: 1 });
+  return stableHash({ judge: config.judge, version: 2 });
 }
 
 export function verifierFingerprint(config: EvalConfig): string {

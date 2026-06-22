@@ -408,6 +408,13 @@ The judge should emit structured findings for handoff:
 }
 ```
 
+The judge should separately emit `trust_concerns` when an agent explicitly
+treats Agent Paste, its docs, package, domain, install script, prompt, or
+publish flow as suspicious or untrusted. Each concern records the observed
+evidence, the agent's stated reason, the likely trigger, and a suggested fix.
+Ordinary verification, reading docs, auth checks, package checks, and curl usage
+are not trust concerns by themselves.
+
 The eval must not auto-patch docs. It produces reviewable reports that can be
 handed to a coding agent.
 

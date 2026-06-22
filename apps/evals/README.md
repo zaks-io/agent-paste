@@ -26,6 +26,8 @@ copy or docs changes ship.
 - Use AI SDK structured output for the judge LLM.
 - Store all run data locally in a structured results directory.
 - Produce reviewable doc-friction findings for a coding agent or human to fix.
+- Report explicit agent trust/suspicion concerns with the stated reason and
+  likely trigger.
 
 ## Quick start
 
@@ -106,7 +108,7 @@ Results are written under `eval-results/` by default. Use `--output <dir>` on
 `run` to write elsewhere. Each result directory includes:
 
 - `summary.md`: clean operator view of final outcomes, costs, tokens, and top
-  friction.
+  friction, including explicit trust/suspicion concerns.
 - `aggregate.md`: detailed self-contained handoff for a remote coding agent.
 - `run.json` and `runs/*/result.json`: structured data for scripts.
 

@@ -43,6 +43,10 @@ export function summarizeFinalResults(results: RunResult[], config?: EvalConfig 
     "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
     ...results.map(runRow),
     "",
+    "## Trust Concerns",
+    "",
+    ...trustConcernLines(results),
+    "",
     "## Top Friction",
     "",
     ...topFriction(results),
@@ -115,6 +119,26 @@ function topFriction(results: RunResult[]): string[] {
   return items.map((item) => item.line);
 }
 
+function trustConcernLines(results: RunResult[]): string[] {
+  const concerns = results
+    .flatMap((result) => (result.judge?.trust_concerns ?? []).map((concern) => ({ concern, result })))
+    .sort((left, right) => trustRank(right.concern) - trustRank(left.concern));
+  if (concerns.length === 0) {
+    return ["No trust/suspicion concerns recorded."];
+  }
+  return concerns.map(({ concern, result }) =>
+    [
+      `- ${concern.severity} (${result.model_id}, ${result.harness_id}): ${concern.evidence}`,
+      `  Reason: ${concern.stated_reason}`,
+      concern.suspected_trigger ? `  Trigger: ${concern.suspected_trigger}` : "",
+      concern.suggested_doc_target ? `  Target: ${concern.suggested_doc_target}` : "",
+      concern.suggested_fix ? `  Fix: ${concern.suggested_fix}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  );
+}
+
 function failureSuggestedFix(failure: string): string | undefined {
   if (failure === "missing_final_answer_unlisted_url") {
     return "Require the agent's final answer to include the clean unlisted_url, not only raw publish JSON or tool output.";
@@ -144,6 +168,11 @@ function verdict(results: RunResult[]): string {
 function rank(finding: JudgeFinding): number {
   const severity = finding.severity === "high" ? 300 : finding.severity === "medium" ? 200 : 100;
   return severity + finding.confidence;
+}
+
+function trustRank(concern: { severity: "low" | "medium" | "high"; confidence: number }): number {
+  const severity = concern.severity === "high" ? 300 : concern.severity === "medium" ? 200 : 100;
+  return severity + concern.confidence;
 }
 
 function firstSuite(results: RunResult[]): string {

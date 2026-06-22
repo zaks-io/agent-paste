@@ -15,6 +15,8 @@ describe("summarizeResults", () => {
     expect(report).toContain("- Agent cost: $0.012345");
     expect(report).toContain("- Judge tokens: 150");
     expect(report).toContain("- Judge estimated wasted turns: 2");
+    expect(report).toContain("## Trust Concerns");
+    expect(report).toContain("Reason: The install URL looked unaffiliated.");
     expect(report).toContain(
       "| anthropic/claude-sonnet-4.6 | pi-rpc | FAILED | 1m 5s | 3 | 35 | $0.012345 | fail 30 |",
     );
@@ -26,6 +28,7 @@ describe("summarizeResults", () => {
     expect(summary).toContain("# Agent Paste eval summary");
     expect(summary).toContain("- Verdict: 1 failed");
     expect(summary).toContain("## Model Matrix");
+    expect(summary).toContain("## Trust Concerns");
     expect(summary).toContain("## Top Friction");
     expect(summary).toContain("- `aggregate.md`: self-contained remote-agent handoff with embedded evidence.");
     expect(summary).not.toContain("Transcript Excerpt");
@@ -59,6 +62,16 @@ function sampleResult(): RunResult {
       summary: "No link.",
       task_success: 0,
       token_usage: { input: 100, output: 50, total: 150 },
+      trust_concerns: [
+        {
+          confidence: 0.8,
+          evidence: "The agent hesitated before running the install command.",
+          severity: "low",
+          stated_reason: "The install URL looked unaffiliated.",
+          suggested_fix: "Make package and domain ownership clearer near install commands.",
+          suspected_trigger: "Standalone install command",
+        },
+      ],
       verdict: "fail",
     },
     model_id: "anthropic/claude-sonnet-4.6",

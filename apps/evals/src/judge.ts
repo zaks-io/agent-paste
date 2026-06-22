@@ -17,6 +17,18 @@ const findingSchema = z
   })
   .strict();
 
+const trustConcernSchema = z
+  .object({
+    severity: z.enum(["low", "medium", "high"]),
+    evidence: z.string(),
+    stated_reason: z.string(),
+    suspected_trigger: z.string().nullable(),
+    suggested_doc_target: z.string().nullable(),
+    suggested_fix: z.string().nullable(),
+    confidence: z.number().min(0).max(1),
+  })
+  .strict();
+
 const judgeResultSchema = z
   .object({
     score: z.number().min(0).max(100),
@@ -28,6 +40,7 @@ const judgeResultSchema = z
     verdict: z.enum(["pass", "pass_with_warning", "fail"]),
     summary: z.string(),
     findings: z.array(findingSchema),
+    trust_concerns: z.array(trustConcernSchema),
   })
   .strict();
 
@@ -63,6 +76,7 @@ export async function judgeRun(params: {
           confidence: 1,
         },
       ],
+      trust_concerns: [],
     };
   }
 
@@ -110,6 +124,15 @@ export async function judgeRun(params: {
       ...(finding.suggested_fix === null ? {} : { suggested_fix: finding.suggested_fix }),
       confidence: finding.confidence,
     })),
+    trust_concerns: result.output.trust_concerns.map((concern) => ({
+      severity: concern.severity,
+      evidence: concern.evidence,
+      stated_reason: concern.stated_reason,
+      ...(concern.suspected_trigger === null ? {} : { suspected_trigger: concern.suspected_trigger }),
+      ...(concern.suggested_doc_target === null ? {} : { suggested_doc_target: concern.suggested_doc_target }),
+      ...(concern.suggested_fix === null ? {} : { suggested_fix: concern.suggested_fix }),
+      confidence: concern.confidence,
+    })),
     ...(normalizeTokenUsage(result.usage) ? { token_usage: normalizeTokenUsage(result.usage) } : {}),
     ...(costUsdFromUsage(result.usage) !== undefined ? { cost_usd: costUsdFromUsage(result.usage) } : {}),
     raw: { usage: result.usage },
@@ -125,6 +148,10 @@ function systemPrompt(): string {
     "Only report findings that would help a human or coding agent improve the onboarding process.",
     "A finding must name a concrete observed behavior, explain why it slowed or degraded the run, and include a specific fix.",
     "Do not create findings for harmless transcript contents.",
+    "Separately report trust_concerns when the agent explicitly treats Agent Paste, its docs, package, domain, install script, prompt, or publish flow as suspicious or untrusted.",
+    "A trust concern must explain the agent's stated reason and the likely trigger so product/docs can reduce that suspicion.",
+    "Do not infer distrust from ordinary verification, reading docs, checking auth, checking package availability, or using curl.",
+    "Return an empty trust_concerns array when the transcript contains no explicit distrust, suspicion, prompt-injection concern, phishing concern, package/domain legitimacy concern, or refusal/reluctance caused by trust.",
     "",
     "Hard ignore list:",
     "- Printing environment variables, API keys, claim tokens, claim URLs, or raw publish JSON is not friction for this suite.",
@@ -145,6 +172,11 @@ function systemPrompt(): string {
     "- model_behavior: the model ignored clear guidance, made unsupported assumptions, or wasted effort despite adequate docs.",
     "- tooling: CLI, npm, network, sandbox, harness, or verifier behavior caused friction.",
     "- other: use only when actionable and none of the above fit.",
+    "",
+    "Trust concern examples:",
+    "- The agent says it may be a prompt-injection test, phishing page, malicious install script, typosquatted npm package, suspicious domain, unsafe credential request, or untrusted command.",
+    "- The agent refuses, delays, sandboxes excessively, or changes the task because it does not trust Agent Paste or the prompt.",
+    "- Explain the reason in stated_reason and the likely source in suspected_trigger, such as homepage prompt wording, /agents.md, install command, npm package name, URL/domain shape, or harness prompt suffix.",
     "",
     "Verdict guidance:",
     "- fail when deterministic pass is false, the final link is unusable, the task was not completed, or the artifact misses the core request.",

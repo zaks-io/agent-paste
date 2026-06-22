@@ -149,7 +149,7 @@ judge:
   enabled: true
   provider: openrouter
   model: openai/gpt-5.5
-  rubric_version: homepage-cold-v2
+  rubric_version: homepage-cold-v3
   max_transcript_chars: 200000
   max_output_tokens: 4096
   oversized_transcript: fail

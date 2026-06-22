@@ -62,6 +62,10 @@ export function summarizeResults(results: RunResult[], options: ReportOptions = 
     "| --- | --- | --- | --- | ---: | ---: | ---: | --- | --- | --- |",
     ...rows,
     "",
+    "## Trust Concerns",
+    "",
+    ...trustConcernLines(results),
+    "",
     "## Remote Agent Handoff",
     "",
     "This section is self-contained for a remote coding agent. Do not rely on local transcript paths.",
@@ -107,7 +111,20 @@ function handoffItems(results: RunResult[]): string[] {
         .join("\n"),
     ),
   );
-  const items = [...deterministicIssues, ...findings];
+  const trustConcerns = results.flatMap((result) =>
+    (result.judge?.trust_concerns ?? []).map((concern) =>
+      [
+        `- ${concern.severity} trust (${result.model_id}, ${result.harness_id}): ${concern.evidence}`,
+        `  Reason: ${concern.stated_reason}`,
+        concern.suspected_trigger ? `  Trigger: ${concern.suspected_trigger}` : "",
+        concern.suggested_doc_target ? `  Target: ${concern.suggested_doc_target}` : "",
+        concern.suggested_fix ? `  Suggested fix: ${concern.suggested_fix}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    ),
+  );
+  const items = [...deterministicIssues, ...trustConcerns, ...findings];
   if (items.length === 0) {
     return ["No judge findings recorded."];
   }
@@ -190,6 +207,10 @@ function runEvidenceBlock(result: RunResult, transcript: string | undefined): st
     "",
     ...judgeFindingLines(result),
     "",
+    "#### Trust Concerns",
+    "",
+    ...trustConcernDetailLines(result),
+    "",
     "#### Final Answer",
     "",
     fenced(redactSensitiveText(result.final_answer?.trim() || "(empty)"), "text"),
@@ -201,6 +222,27 @@ function runEvidenceBlock(result: RunResult, transcript: string | undefined): st
       : "No transcript content was available in the local result artifacts.",
     "",
   ];
+}
+
+function trustConcernLines(results: RunResult[]): string[] {
+  const concerns = results.flatMap((result) =>
+    (result.judge?.trust_concerns ?? []).map((concern) => ({ concern, result })),
+  );
+  if (concerns.length === 0) {
+    return ["No trust/suspicion concerns recorded."];
+  }
+  return concerns.map(({ concern, result }) =>
+    [
+      `- ${concern.severity} (${result.model_id}, ${result.harness_id}): ${concern.evidence}`,
+      `  Reason: ${concern.stated_reason}`,
+      concern.suspected_trigger ? `  Trigger: ${concern.suspected_trigger}` : "",
+      concern.suggested_doc_target ? `  Target: ${concern.suggested_doc_target}` : "",
+      concern.suggested_fix ? `  Suggested fix: ${concern.suggested_fix}` : "",
+      `  Confidence: ${formatNumber(concern.confidence)}`,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  );
 }
 
 function judgeFindingLines(result: RunResult): string[] {
@@ -219,6 +261,25 @@ function judgeFindingLines(result: RunResult): string[] {
       finding.suggested_doc_target ? `   Suggested doc target: ${finding.suggested_doc_target}` : "",
       finding.suggested_fix ? `   Suggested fix: ${finding.suggested_fix}` : "",
       `   Confidence: ${formatNumber(finding.confidence)}`,
+      "",
+    ].filter(Boolean),
+  );
+}
+
+function trustConcernDetailLines(result: RunResult): string[] {
+  const concerns = result.judge?.trust_concerns ?? [];
+  if (concerns.length === 0) {
+    return ["No trust/suspicion concerns recorded."];
+  }
+  return concerns.flatMap((concern, index) =>
+    [
+      `${index + 1}. ${concern.severity} trust concern`,
+      `   Evidence: ${concern.evidence}`,
+      `   Reason: ${concern.stated_reason}`,
+      concern.suspected_trigger ? `   Trigger: ${concern.suspected_trigger}` : "",
+      concern.suggested_doc_target ? `   Suggested doc target: ${concern.suggested_doc_target}` : "",
+      concern.suggested_fix ? `   Suggested fix: ${concern.suggested_fix}` : "",
+      `   Confidence: ${formatNumber(concern.confidence)}`,
       "",
     ].filter(Boolean),
   );

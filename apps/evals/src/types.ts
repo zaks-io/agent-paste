@@ -105,6 +105,16 @@ export type JudgeFinding = {
   confidence: number;
 };
 
+export type TrustConcern = {
+  severity: "low" | "medium" | "high";
+  evidence: string;
+  stated_reason: string;
+  suspected_trigger?: string | undefined;
+  suggested_doc_target?: string | undefined;
+  suggested_fix?: string | undefined;
+  confidence: number;
+};
+
 export type JudgeResult = {
   score: number;
   task_success: number;
@@ -115,6 +125,7 @@ export type JudgeResult = {
   verdict: "pass" | "pass_with_warning" | "fail";
   summary: string;
   findings: JudgeFinding[];
+  trust_concerns?: TrustConcern[] | undefined;
   token_usage?: TokenUsage | undefined;
   cost_usd?: number | undefined;
   raw?: unknown;
