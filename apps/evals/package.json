@@ -1,0 +1,35 @@
+{
+  "name": "@agent-paste/evals",
+  "license": "Apache-2.0",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "agent-paste-evals": "dist/index.js"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "pnpm typecheck && pnpm test",
+    "dev": "pnpm build && node dist/index.js",
+    "evals": "pnpm build && node dist/index.js",
+    "lint": "biome lint .",
+    "test": "vitest run",
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@daytonaio/sdk": "0.187.0",
+    "@openrouter/ai-sdk-provider": "^2.9.1",
+    "ai": "^6.0.208",
+    "ink": "^7.1.0",
+    "react": "^19.2.7",
+    "yaml": "^2.9.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.4",
+    "@types/react": "^19.2.17",
+    "esbuild": "^0.28.1",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

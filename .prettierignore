@@ -11,3 +11,4 @@ dist/
 .turbo/
 .wrangler/
 coverage/
+apps/evals/eval-results/

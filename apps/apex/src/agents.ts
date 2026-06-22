@@ -1,12 +1,38 @@
+// Source for the public /agents.md guide.
+//
+// Treat this as product documentation for agents using Agent Paste, not as repo
+// documentation and not as an eval prompt. Every served word should help an
+// agent choose CLI vs MCP, publish an Artifact, understand the returned links,
+// or find public product docs.
+//
+// Do not put internal setup notes, deployment details, repo workflow guidance,
+// eval harness hints, generic agent behavior coaching, or brittle prompt/copy
+// test expectations here.
 import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL } from "./copy";
 
 export const AGENTS_MD = `# agent-paste for agents
 
-Agent Paste publishes files or directories and returns links. Read this when
-[/llms.txt](/llms.txt) is not enough.
+Agent Paste turns agent-made files or directories into links. Use it when the
+next step should be a URL, not a deploy, zip, gist, screenshot, or "run this
+locally."
+
+Authenticated publish creates a private Workspace view first. To send a
+no-login browser link, either make that Artifact unlisted with
+\`set-visibility\` or use \`--ephemeral\` when there is no login.
 
 Default to the CLI. Use MCP only when the host can connect to remote MCP but
 cannot run shell commands.
+
+## When This Saves Time
+
+Use Agent Paste for:
+
+- Reports, prototypes, dashboards, logs, images, Markdown files, or static
+  sites.
+- Remote-agent output that should open on any device without a repo, local
+  server, or deploy project.
+- Iterating on one Artifact while its viewer link stays stable.
+- Hosted agents that can use MCP but cannot run shell commands.
 
 ## Choose A Surface
 
@@ -17,7 +43,7 @@ cannot run shell commands.
 
 ## Install
 
-Default: use \`npx\` with Node.js 24+. No install is required.
+Default: use \`npx\` with Node.js 24+. No global install is required.
 
 \`\`\`sh
 npx @zaks-io/agent-paste publish ./path --json
@@ -59,8 +85,10 @@ can interact, run:
 npx @zaks-io/agent-paste login
 \`\`\`
 
-Login is OAuth and opens a browser window for the user. After login, publish
-normally.
+Login is OAuth and opens a browser window for the user.
+
+If browser login cannot be completed, use the anonymous ephemeral flow below
+instead of retrying login.
 
 Signed-in publish:
 
@@ -68,8 +96,8 @@ Signed-in publish:
 npx @zaks-io/agent-paste publish ./path --json
 \`\`\`
 
-This uploads to the user's Workspace. Return \`private_url\` to the user. Save
-\`artifact_id\` from the JSON if you may update or share it later.
+This uploads to the user's Workspace. Save \`artifact_id\` if you may update the
+Artifact or create an unlisted link later.
 
 \`./path\` may be a file or directory. Directory publish preserves relative
 paths, so \`index.html\` can load sibling CSS, JS, JSON, images, and fonts.
@@ -84,17 +112,13 @@ No-login link after authenticated publish:
 npx @zaks-io/agent-paste set-visibility <artifact_id> unlisted --json
 \`\`\`
 
-Use \`artifact_id\` from the publish JSON. Return \`unlisted_url\`. This is the
-link to use when the user wants anyone to open it without signing in.
-
 Update work you already published:
 
 \`\`\`sh
 npx @zaks-io/agent-paste publish ./path --artifact-id <artifact_id> --json
 \`\`\`
 
-Use the \`artifact_id\` from the earlier publish JSON. This keeps the existing
-\`private_url\` and any \`unlisted_url\` stable.
+Publishing with \`--artifact-id\` keeps existing viewer links stable.
 
 Anonymous 24h upload:
 
@@ -104,29 +128,24 @@ npx @zaks-io/agent-paste publish ./path --ephemeral --claim-code <clm_...> --jso
 \`\`\`
 
 Use \`--ephemeral\` when no login/account is available, or when the user
-explicitly asks for accountless publish. It ignores stored login and environment
+explicitly asks for accountless publish. It ignores stored login and configured
 credentials.
 
-Ephemeral publish returns \`unlisted_url\` and \`claim_url\`. Relay
-\`unlisted_url\` for viewing. Relay \`claim_url\` too when the human wants to keep
-or claim it. Unclaimed ephemeral uploads expire in 24h and serve HTML with
-scripts disabled. Use it for text, markdown, images, and static HTML/CSS, not
-interactive JS before claim. The signed-in human opens \`claim_url\` in a browser
-to claim the Artifact into that user's Workspace. Pre-claim credentials stop
-working after claim.
+\`claim_url\` lets a signed-in human keep the 24h upload in a Workspace.
+
+Unclaimed ephemeral uploads expire in 24h and serve HTML with scripts disabled.
+Use static HTML/CSS. Do not make the page depend on client-side JavaScript,
+module scripts, or CDN scripts before claim. Pre-claim credentials stop working
+after claim.
 
 If copied instructions include \`--claim-code <clm_...>\`, preserve it on the
-\`publish --ephemeral\` command. Agent Paste uses it for attribution and claim
-links.
+\`publish --ephemeral\` command. Agent Paste uses it for attribution.
 
 ## Reading URLs
 
-\`agent_view_url\` is the machine-readable manifest. Per-file signed URLs are
-\`files[].url\`. \`revision_content_url\` is raw signed bytes for one Revision; it
-expires, does not Live Update, and is not the final live page.
-
-\`private_url\` is app navigation. A plain HTTP 200 may be only the app shell or
-sign-in state. \`unlisted_url\` is the no-login browser handoff.
+\`agent_view_url\` is the machine-readable manifest for agents. Per-file signed
+URLs are \`files[].url\`. \`revision_content_url\` is raw signed bytes for one
+Revision; it expires and does not Live Update.
 
 ## Object Model
 
@@ -134,7 +153,7 @@ sign-in state. \`unlisted_url\` is the no-login browser handoff.
 - **Revision:** immutable saved state. Use \`--artifact-id\` or MCP
   \`add_revision\` to add a new Revision to an existing Artifact.
 - **Share Link:** revocable no-login link returned as \`unlisted_url\`.
-- **Claim Token:** one-time secret inside the ephemeral \`claim_url\`; the
+- **Claim Token:** one-time token inside the ephemeral \`claim_url\`; the
   signed-in browser session that redeems it chooses the destination Workspace.
 - **Claim Code:** optional \`clm_...\` attribution from copied prompts.
 

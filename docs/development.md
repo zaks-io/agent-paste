@@ -33,6 +33,7 @@ pnpm hooks:install
 | [`apps/upload`](../apps/upload)                           | Implemented | Upload-session Worker, signed upload-worker PUT URLs, private R2 writes, finalize flow.                                                                                         |
 | [`apps/content`](../apps/content)                         | Implemented | Isolated untrusted-content Worker with signed content tokens, R2 reads, denylist checks, MIME/CSP/header hardening, and artifact read throttling.                               |
 | [`apps/cli`](../apps/cli)                                 | Implemented | `agent-paste` CLI for login, logout, whoami, publish, and standalone upgrade.                                                                                                   |
+| [`apps/evals`](../apps/evals)                             | Tooling     | Local eval harness for cold Agent Paste onboarding runs across configurable coding harnesses and models.                                                                        |
 | [`apps/web`](../apps/web)                                 | Implemented | TanStack Start dashboard Worker with WorkOS AuthKit, dashboard loaders/mutations, Access Link viewer, and Live Update client proxies.                                           |
 | [`apps/jobs`](../apps/jobs)                               | Implemented | Queue/cron Worker for bundle generation, byte purge, safety scan, and lifecycle discovery.                                                                                      |
 | [`apps/stream`](../apps/stream)                           | Implemented | Live Updates Worker with per-artifact Durable Objects, SSE fan-out, and connection authorization via `api`.                                                                     |
@@ -75,6 +76,9 @@ pnpm hooks:install
 | `pnpm dev:all`           | Build packages and start only the local MVP API/upload/content/jobs/stream harness.                                   |
 | `pnpm cli:dev -- <args>` | Run the local CLI from source after building it.                                                                      |
 | `pnpm cli:test`          | Run only the CLI test suite.                                                                                          |
+| `pnpm evals -- <args>`   | Run the eval harness CLI from source.                                                                                 |
+| `pnpm evals:env`         | Copy the eval harness `.env.local` from the central checkout path.                                                    |
+| `pnpm evals:run`         | Run the default eval suite from `apps/evals/config.example.yaml`.                                                     |
 
 ### Quality
 
