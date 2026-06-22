@@ -34,6 +34,17 @@ describe("summarizeResults", () => {
     expect(summary).toMatch(/1 failed/);
     expect(summary).not.toContain("Transcript Excerpt");
   });
+
+  it("omits absent optional trust concern reasons", () => {
+    const result = sampleResult();
+    const concern = result.judge?.trust_concerns?.[0] as Partial<{ stated_reason: string }>;
+    delete concern.stated_reason;
+
+    const report = summarizeResults([result]);
+
+    expect(report).toMatch(/^## Trust Concerns$/m);
+    expect(report).not.toContain("undefined");
+  });
 });
 
 function sampleResult(): RunResult {

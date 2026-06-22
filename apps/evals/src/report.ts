@@ -122,7 +122,7 @@ function handoffItems(results: RunResult[], env: Record<string, string | undefin
     (result.judge?.trust_concerns ?? []).map((concern) =>
       [
         `- ${concern.severity} trust (${result.model_id}, ${result.harness_id}): ${safeText(concern.evidence, env)}`,
-        `  Reason: ${safeText(concern.stated_reason, env)}`,
+        optionalSafeLine("  Reason: ", concern.stated_reason, env),
         concern.suspected_trigger ? `  Trigger: ${safeText(concern.suspected_trigger, env)}` : "",
         concern.suggested_doc_target ? `  Target: ${safeText(concern.suggested_doc_target, env)}` : "",
         concern.suggested_fix ? `  Suggested fix: ${safeText(concern.suggested_fix, env)}` : "",
@@ -239,7 +239,7 @@ function trustConcernLines(results: RunResult[], env: Record<string, string | un
   return concerns.map(({ concern, result }) =>
     [
       `- ${concern.severity} (${result.model_id}, ${result.harness_id}): ${safeText(concern.evidence, env)}`,
-      `  Reason: ${safeText(concern.stated_reason, env)}`,
+      optionalSafeLine("  Reason: ", concern.stated_reason, env),
       concern.suspected_trigger ? `  Trigger: ${safeText(concern.suspected_trigger, env)}` : "",
       concern.suggested_doc_target ? `  Target: ${safeText(concern.suggested_doc_target, env)}` : "",
       concern.suggested_fix ? `  Suggested fix: ${safeText(concern.suggested_fix, env)}` : "",
@@ -280,7 +280,7 @@ function trustConcernDetailLines(result: RunResult, env: Record<string, string |
     [
       `${index + 1}. ${concern.severity} trust concern`,
       `   Evidence: ${safeText(concern.evidence, env)}`,
-      `   Reason: ${safeText(concern.stated_reason, env)}`,
+      optionalSafeLine("   Reason: ", concern.stated_reason, env),
       concern.suspected_trigger ? `   Trigger: ${safeText(concern.suspected_trigger, env)}` : "",
       concern.suggested_doc_target ? `   Suggested doc target: ${safeText(concern.suggested_doc_target, env)}` : "",
       concern.suggested_fix ? `   Suggested fix: ${safeText(concern.suggested_fix, env)}` : "",
@@ -403,6 +403,11 @@ function transcriptExcerpt(transcript: string, env: Record<string, string | unde
 
 function safeText(value: string | undefined, env: Record<string, string | undefined>): string | undefined {
   return value === undefined ? undefined : redactSensitiveText(value, env);
+}
+
+function optionalSafeLine(prefix: string, value: string | undefined, env: Record<string, string | undefined>): string {
+  const text = safeText(value, env);
+  return text ? `${prefix}${text}` : "";
 }
 
 function fenced(content: string, language: string): string {
