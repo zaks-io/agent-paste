@@ -1,5 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { normalizeConfig } from "./config";
 import { resultDurationMs, totalTokens } from "./metrics";
 import { redactSensitiveText } from "./redaction";
 import {
@@ -85,6 +86,16 @@ export async function writeReports(resultDir: string, results: RunResult[]): Pro
 }
 
 function handoffItems(results: RunResult[]): string[] {
+  const deterministicIssues = results.flatMap((result) =>
+    result.failures.map((failure) =>
+      [
+        `- harness/verifier (${result.model_id}, ${result.harness_id}): ${failure}`,
+        failureSuggestedFix(failure) ? `  Suggested fix: ${failureSuggestedFix(failure)}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    ),
+  );
   const findings = results.flatMap((result) =>
     (result.judge?.findings ?? []).map((finding) =>
       [
@@ -96,10 +107,21 @@ function handoffItems(results: RunResult[]): string[] {
         .join("\n"),
     ),
   );
-  if (findings.length === 0) {
+  const items = [...deterministicIssues, ...findings];
+  if (items.length === 0) {
     return ["No judge findings recorded."];
   }
-  return findings;
+  return items;
+}
+
+function failureSuggestedFix(failure: string): string | undefined {
+  if (failure === "missing_final_answer_unlisted_url") {
+    return "Require the agent's final answer to include the clean unlisted_url, not only raw publish JSON or tool output.";
+  }
+  if (failure.startsWith("judge_failed:")) {
+    return "Retry judging with available provider credits and a bounded judge.max_output_tokens value.";
+  }
+  return undefined;
 }
 
 function evalContext(config: EvalConfig | undefined): string[] {
@@ -114,8 +136,10 @@ function evalContext(config: EvalConfig | undefined): string[] {
     `- Reject production handoff URLs: ${config.environment.reject_production_urls}`,
     `- Required HTTP status: ${config.verification.require_http_status}`,
     `- Require unlisted URL: ${config.verification.require_unlisted_url}`,
+    `- Require final-answer URL: ${config.verification.require_final_answer_url}`,
     `- Claim-code mode: ${config.suite.prompt.claim_code.mode}`,
     `- Judge model: ${config.judge.enabled ? config.judge.model : "disabled"}`,
+    ...(config.judge.enabled ? [`- Judge max output tokens: ${formatNumber(config.judge.max_output_tokens)}`] : []),
     "",
     "### Prompt Under Test",
     "",
@@ -214,7 +238,7 @@ function totals(results: RunResult[]): string[] {
     `- Cumulative duration: ${formatDuration(duration)}`,
     `- Agent turns: ${formatNumber(turns)}`,
     `- Agent tokens: ${formatNumber(totalAgentTokens(results))}`,
-    `- Agent cost: ${formatUsd(totalAgentCost(results))}`,
+    `- Agent cost: ${formatKnownCost(totalAgentCost(results), missingAgentCostCount(results))}`,
     `- Judge tokens: ${formatNumber(totalJudgeTokens(results))}`,
     `- Judge cost: ${formatUsd(totalJudgeCost(results))}`,
     `- Judge estimated wasted turns: ${formatNumber(sum(results.flatMap((result) => (result.judge?.findings ?? []).map((finding) => finding.wasted_turns))))}`,
@@ -222,9 +246,18 @@ function totals(results: RunResult[]): string[] {
   ];
 }
 
+function formatKnownCost(cost: number | undefined, missingCount: number): string {
+  const suffix = missingCount > 0 ? ` (${missingCount} run${missingCount === 1 ? "" : "s"} n/a)` : "";
+  return `${formatUsd(cost)}${suffix}`;
+}
+
+function missingAgentCostCount(results: RunResult[]): number {
+  return results.filter((result) => result.status !== "skipped" && result.cost_usd === undefined).length;
+}
+
 async function readResolvedConfig(resultDir: string): Promise<EvalConfig | undefined> {
   try {
-    return JSON.parse(await readFile(path.join(resultDir, "config.resolved.json"), "utf8")) as EvalConfig;
+    return normalizeConfig(JSON.parse(await readFile(path.join(resultDir, "config.resolved.json"), "utf8")));
   } catch {
     return undefined;
   }

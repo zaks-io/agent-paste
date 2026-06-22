@@ -7,7 +7,7 @@ export type ClassifiedUrls = {
   all: string[];
 };
 
-const URL_PATTERN = /https?:\/\/[^\s<>"')\]]+/g;
+const URL_PATTERN = /https?:\/\/[^\s<>"'()[\]{}|\\^`*]+/g;
 
 export function classifyUrls(text: string): ClassifiedUrls {
   const urls = Array.from(new Set(text.match(URL_PATTERN) ?? [])).map(cleanUrl);
@@ -34,7 +34,21 @@ export function classifyUrls(text: string): ClassifiedUrls {
 }
 
 function cleanUrl(url: string): string {
-  return url.replace(/[\\.,;:!?]+$/g, "");
+  const trimmed = url.replace(/[\\.,;:!?*_]+$/g, "");
+  const parsed = parseUrl(trimmed);
+  if (!parsed) {
+    return trimmed;
+  }
+
+  if (parsed.hostname.startsWith("app.") && parsed.hash) {
+    parsed.hash = sanitizeHash(parsed.pathname, parsed.hash);
+  }
+  return parsed.toString();
+}
+
+function sanitizeHash(pathname: string, hash: string): string {
+  const allowed = pathname.startsWith("/al/") ? /^#[A-Za-z0-9_-]+/ : /^#[A-Za-z0-9._-]+/;
+  return hash.match(allowed)?.[0] ?? "";
 }
 
 function parseUrl(url: string): URL | null {

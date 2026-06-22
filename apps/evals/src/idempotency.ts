@@ -30,7 +30,7 @@ export function verifierFingerprint(config: EvalConfig): string {
       target: config.environment.target,
     },
     verification: config.verification,
-    version: 4,
+    version: 5,
   });
 }
 

@@ -115,6 +115,10 @@ production docs and example URLs are informational, wrong production handoff
 URLs fail, and production handoff links inside the fetched artifact become
 warnings.
 
+When `verification.require_final_answer_url` is true, the final assistant answer
+must include the usable `unlisted_url`. A URL that appears only in tool output or
+raw publish JSON does not satisfy the handoff.
+
 ## Out of scope for v1
 
 - Authenticated/login flows.

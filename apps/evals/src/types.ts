@@ -256,6 +256,7 @@ export type JudgeConfig = {
   model: string;
   rubric_version: string;
   max_transcript_chars: number;
+  max_output_tokens: number;
   oversized_transcript: "fail" | "truncate";
   structured_output: boolean;
   weights: Record<string, number>;

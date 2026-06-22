@@ -367,6 +367,8 @@ answer, then classify them:
 For this suite:
 
 - `unlisted_url` is required.
+- The final answer must include the usable `unlisted_url` when
+  `verification.require_final_answer_url` is true.
 - `claim_url` is captured but not redeemed.
 - `private_url` alone is not enough.
 - Production URLs fail preview runs.

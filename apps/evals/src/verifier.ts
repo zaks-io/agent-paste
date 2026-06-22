@@ -5,14 +5,17 @@ import { classifyUrls } from "./urls";
 
 export async function verifyRunOutput(params: {
   config: EvalConfig;
+  finalAnswer?: string | undefined;
   text: string;
   outputDir: string;
 }): Promise<VerifierResult> {
+  const finalAnswerUrls = classifyUrls(params.finalAnswer ?? "");
   const urls = classifyUrls(params.text);
+  const unlistedUrl = finalAnswerUrls.unlisted ?? urls.unlisted;
   const sourceProduction = groupProductionUrls(urls.production);
   const result: VerifierResult = {
     passed: false,
-    ...(urls.unlisted ? { unlisted_url: urls.unlisted } : {}),
+    ...(unlistedUrl ? { unlisted_url: unlistedUrl } : {}),
     ...(urls.claim ? { claim_url: urls.claim } : {}),
     ...(urls.private ? { private_url: urls.private } : {}),
     ...(urls.revisionContent ? { revision_content_url: urls.revisionContent } : {}),
@@ -32,18 +35,21 @@ export async function verifyRunOutput(params: {
     }
   }
   result.errors.push(...handoffEnvironmentErrors(params.config, urls.all));
-  if (params.config.verification.require_unlisted_url && !urls.unlisted) {
+  if (params.config.verification.require_final_answer_url && !finalAnswerUrls.unlisted) {
+    result.errors.push("missing_final_answer_unlisted_url");
+  }
+  if (params.config.verification.require_unlisted_url && !unlistedUrl) {
     result.errors.push("missing_unlisted_url");
     return result;
   }
-  if (!urls.unlisted) {
+  if (!unlistedUrl) {
     return result;
   }
   if (result.errors.length > 0) {
     return result;
   }
 
-  const response = await fetch(urls.unlisted, { redirect: "follow" });
+  const response = await fetch(unlistedUrl, { redirect: "follow" });
   result.status = response.status;
   const artifact = await response.text();
   if (params.config.verification.fetch_artifact_snapshot) {

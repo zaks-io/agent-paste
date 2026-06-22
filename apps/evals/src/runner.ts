@@ -203,7 +203,12 @@ async function liveRun(
     await withRetries(config.retries.infra_attempts, () => limits.createSandbox(() => sandbox.start()));
     const output = await sandbox.runHarness();
     const verifier = await withRetries(config.retries.infra_attempts, () =>
-      verifyRunOutput({ config, text: output.finalAnswer + output.transcript, outputDir: run.outputDir }),
+      verifyRunOutput({
+        config,
+        finalAnswer: output.finalAnswer,
+        text: [output.finalAnswer, output.transcript].join("\n"),
+        outputDir: run.outputDir,
+      }),
     );
     appendUnique(warnings, verifier.warnings);
     if (run.claimCode && !output.transcript.includes(run.claimCode) && !output.finalAnswer.includes(run.claimCode)) {
@@ -286,7 +291,8 @@ async function attachVerifier(
   try {
     const verifier = await verifyRunOutput({
       config,
-      text: output.finalAnswer + output.transcript,
+      finalAnswer: output.finalAnswer,
+      text: [output.finalAnswer, output.transcript].join("\n"),
       outputDir: run.outputDir,
     });
     result.verifier = verifier;
@@ -412,11 +418,12 @@ function refreshStatus(result: RunResult): void {
     return;
   }
   const taskFailures = result.failures.filter((failure) => !failure.startsWith("judge_failed:"));
+  const judgeFailures = result.failures.length - taskFailures.length;
   if (taskFailures.length > 0 || !result.deterministic_pass) {
     result.status = "failed";
     return;
   }
-  result.status = result.warnings.length > 0 ? "warning" : "passed";
+  result.status = result.warnings.length > 0 || judgeFailures > 0 ? "warning" : "passed";
 }
 
 function appendUnique(target: string[], values: string[]): void {

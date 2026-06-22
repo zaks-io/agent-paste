@@ -123,6 +123,7 @@ const configSchema = z.object({
     model: z.string().min(1),
     rubric_version: z.string().min(1),
     max_transcript_chars: positiveInt,
+    max_output_tokens: positiveInt.default(4096),
     oversized_transcript: z.enum(["fail", "truncate"]).default("fail"),
     structured_output: z.boolean().default(true),
     weights: z.record(z.string(), z.number()),
@@ -144,7 +145,11 @@ export async function loadConfig(path: string): Promise<EvalConfig> {
   const resolvedPath = await resolveConfigPath(path);
   const source = await readFile(resolvedPath, "utf8");
   const parsed = parseYaml(source);
-  return configSchema.parse(parsed) as EvalConfig;
+  return normalizeConfig(parsed);
+}
+
+export function normalizeConfig(value: unknown): EvalConfig {
+  return configSchema.parse(value) as EvalConfig;
 }
 
 export async function resolveConfigPath(inputPath: string): Promise<string> {

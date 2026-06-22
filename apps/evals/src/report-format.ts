@@ -31,7 +31,7 @@ export function formatNumber(value: number | undefined): string {
 
 export function formatUsd(value: number | undefined): string {
   if (value === undefined) {
-    return "";
+    return "n/a";
   }
   return Intl.NumberFormat("en-US", {
     currency: "USD",

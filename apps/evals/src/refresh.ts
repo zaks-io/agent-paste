@@ -1,12 +1,13 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { normalizeConfig } from "./config";
 import { verifierFingerprint } from "./idempotency";
 import { readRunResults, writeRunResult } from "./result-store";
 import type { EvalConfig, RunResult } from "./types";
 import { verifyRunOutput } from "./verifier";
 
 export async function refreshStoredResults(resultDir: string): Promise<RunResult[]> {
-  const config = JSON.parse(await readFile(path.join(resultDir, "config.resolved.json"), "utf8")) as EvalConfig;
+  const config = normalizeConfig(JSON.parse(await readFile(path.join(resultDir, "config.resolved.json"), "utf8")));
   const results = await readRunResults(resultDir);
   await Promise.all(results.map((result) => refreshResult(config, result)));
   return results;
@@ -23,6 +24,7 @@ async function refreshResult(config: EvalConfig, result: RunResult): Promise<voi
   const verifier = await verifyRunOutput({
     config,
     outputDir: result.result_dir,
+    finalAnswer: result.final_answer ?? "",
     text: [result.final_answer, transcript].filter(Boolean).join("\n"),
   });
   result.verifier = verifier;
@@ -68,11 +70,12 @@ function refreshStatus(result: RunResult): void {
     return;
   }
   const taskFailures = result.failures.filter((failure) => !failure.startsWith("judge_failed:"));
+  const judgeFailures = result.failures.length - taskFailures.length;
   if (taskFailures.length > 0 || !result.deterministic_pass) {
     result.status = "failed";
     return;
   }
-  result.status = result.warnings.length > 0 ? "warning" : "passed";
+  result.status = result.warnings.length > 0 || judgeFailures > 0 ? "warning" : "passed";
 }
 
 function appendUnique(target: string[], values: string[]): void {

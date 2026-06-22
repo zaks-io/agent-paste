@@ -74,6 +74,7 @@ export async function judgeRun(params: {
   const result = await generateText({
     model: openrouter(params.config.judge.model),
     system: systemPrompt(),
+    maxOutputTokens: params.config.judge.max_output_tokens,
     prompt: JSON.stringify(
       {
         rubric_version: params.config.judge.rubric_version,

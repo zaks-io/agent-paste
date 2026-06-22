@@ -33,14 +33,14 @@ export function summarizeFinalResults(results: RunResult[], config?: EvalConfig 
     `- Duration: ${formatDuration(totalDuration(results))}`,
     `- Agent turns: ${formatNumber(sum(results.map((result) => result.turn_count)))}`,
     `- Agent tokens: ${formatNumber(totalAgentTokens(results))}`,
-    `- Agent cost: ${formatUsd(totalAgentCost(results))}`,
+    `- Agent cost: ${formatKnownCost(totalAgentCost(results), missingAgentCostCount(results))}`,
     `- Judge tokens: ${formatNumber(totalJudgeTokens(results))}`,
     `- Judge cost: ${formatUsd(totalJudgeCost(results))}`,
     "",
     "## Model Matrix",
     "",
-    "| Model | Status | URL | Judge | Duration | Turns | Agent tokens | Agent cost | Notes |",
-    "| --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
+    "| Model | Harness | Status | URL | Judge | Duration | Turns | Agent tokens | Agent cost | Notes |",
+    "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
     ...results.map(runRow),
     "",
     "## Top Friction",
@@ -59,6 +59,7 @@ export function summarizeFinalResults(results: RunResult[], config?: EvalConfig 
 function runRow(result: RunResult): string {
   return `| ${[
     result.model_id,
+    result.harness_id,
     result.status.toUpperCase(),
     result.unlisted_url ?? "",
     formatJudge(result),
@@ -73,23 +74,55 @@ function runRow(result: RunResult): string {
   ].join(" | ")} |`;
 }
 
+function formatKnownCost(cost: number | undefined, missingCount: number): string {
+  const suffix = missingCount > 0 ? ` (${missingCount} run${missingCount === 1 ? "" : "s"} n/a)` : "";
+  return `${formatUsd(cost)}${suffix}`;
+}
+
+function missingAgentCostCount(results: RunResult[]): number {
+  return results.filter((result) => result.status !== "skipped" && result.cost_usd === undefined).length;
+}
+
 function topFriction(results: RunResult[]): string[] {
+  const failures = results.flatMap((result) =>
+    result.failures.map((failure) => ({
+      line: [
+        `- ${result.status === "failed" ? "high" : "medium"} tooling (${result.model_id}, ${result.harness_id}): ${failure}`,
+        failureSuggestedFix(failure) ? `  Fix: ${failureSuggestedFix(failure)}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      rank: result.status === "failed" ? 1_000 : 500,
+    })),
+  );
   const findings = results
     .flatMap((result) => (result.judge?.findings ?? []).map((finding) => ({ finding, result })))
     .sort((left, right) => rank(right.finding) - rank(left.finding))
-    .slice(0, 8);
-  if (findings.length === 0) {
+    .map(({ finding, result }) => ({
+      line: [
+        `- ${finding.severity} ${finding.kind} (${result.model_id}, ${result.harness_id}): ${finding.evidence}`,
+        finding.suggested_doc_target ? `  Target: ${finding.suggested_doc_target}` : "",
+        finding.suggested_fix ? `  Fix: ${finding.suggested_fix}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      rank: rank(finding),
+    }));
+  const items = [...failures, ...findings].sort((left, right) => right.rank - left.rank).slice(0, 8);
+  if (items.length === 0) {
     return ["No judge findings recorded."];
   }
-  return findings.map(({ finding, result }) =>
-    [
-      `- ${finding.severity} ${finding.kind} (${result.model_id}): ${finding.evidence}`,
-      finding.suggested_doc_target ? `  Target: ${finding.suggested_doc_target}` : "",
-      finding.suggested_fix ? `  Fix: ${finding.suggested_fix}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n"),
-  );
+  return items.map((item) => item.line);
+}
+
+function failureSuggestedFix(failure: string): string | undefined {
+  if (failure === "missing_final_answer_unlisted_url") {
+    return "Require the agent's final answer to include the clean unlisted_url, not only raw publish JSON or tool output.";
+  }
+  if (failure.startsWith("judge_failed:")) {
+    return "Retry judging with available provider credits and a bounded judge.max_output_tokens value.";
+  }
+  return undefined;
 }
 
 function verdict(results: RunResult[]): string {
