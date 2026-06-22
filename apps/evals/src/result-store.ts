@@ -83,8 +83,11 @@ async function enrichStoredResult(result: RunResult): Promise<RunResult> {
       enriched.claim_code = claimCode;
     }
     return enriched;
-  } catch {
-    return result;
+  } catch (err) {
+    return {
+      ...result,
+      warnings: appendUnique(result.warnings, [`event_backfill_failed:${errorMessage(err)}`]),
+    };
   }
 }
 
@@ -134,6 +137,20 @@ function contentText(content: unknown): string | undefined {
     .map((part) => (isRecord(part) && typeof part.text === "string" ? part.text : ""))
     .join("")
     .trim();
+}
+
+function appendUnique(target: string[], values: string[]): string[] {
+  const next = [...target];
+  for (const value of values) {
+    if (!next.includes(value)) {
+      next.push(value);
+    }
+  }
+  return next;
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 export async function writeManifest(resultDir: string, results: RunResult[]): Promise<void> {

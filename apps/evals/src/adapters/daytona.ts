@@ -1,9 +1,14 @@
 import { modelRunKey } from "../model-config";
-import { accountlessProvisionProbeCommand, networkProbeCommand, resolveNetworkAllowList } from "../network";
+import { resolveNetworkAllowList } from "../network";
 import type { EvalConfig, EvalRun, RunEvent } from "../types";
 import type { HarnessRunOutput } from "./harness-output";
-import type { ProcessSandboxLike } from "./process-sandbox";
+import type { ProcessSandboxLike, SandboxProcessApi } from "./process-sandbox";
 import { runConfiguredHarness } from "./run-harness";
+import {
+  accountlessProvisionProbe as runAccountlessProvisionProbe,
+  freshnessProbe as runFreshnessProbe,
+  networkProbe as runNetworkProbe,
+} from "./sandbox-probes";
 
 export class DaytonaEvalSandbox {
   private sandbox: ProcessSandboxLike | undefined;
@@ -31,15 +36,17 @@ export class DaytonaEvalSandbox {
         message: `daytona network allowlist ${networkAllowList}`,
       });
     }
-    this.sandbox = (await daytona.create({
-      snapshot,
-      language: "typescript",
-      envVars: this.env,
-      autoStopInterval: this.config.sandbox.lifecycle.auto_stop_interval_minutes,
-      autoDeleteInterval: this.config.sandbox.lifecycle.auto_delete_interval_minutes,
-      ...(this.config.sandbox.network.block_all ? { networkBlockAll: true } : {}),
-      ...(networkAllowList ? { networkAllowList } : {}),
-    })) as unknown as ProcessSandboxLike;
+    this.sandbox = adaptDaytonaSandbox(
+      await daytona.create({
+        snapshot,
+        language: "typescript",
+        envVars: this.env,
+        autoStopInterval: this.config.sandbox.lifecycle.auto_stop_interval_minutes,
+        autoDeleteInterval: this.config.sandbox.lifecycle.auto_delete_interval_minutes,
+        ...(this.config.sandbox.network.block_all ? { networkBlockAll: true } : {}),
+        ...(networkAllowList ? { networkAllowList } : {}),
+      }),
+    );
     const sandbox = this.sandbox;
     await sandbox.setLabels?.({
       app: "agent-paste-evals",
@@ -85,66 +92,43 @@ export class DaytonaEvalSandbox {
     if (!this.sandbox) {
       throw new Error("Sandbox has not started");
     }
-    const env = this.config.sandbox.fresh_paths;
-    const command = [
-      "set -eu",
-      'mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$NPM_CONFIG_CACHE"',
-      optionalMkdir("PI_CODING_AGENT_DIR"),
-      optionalMkdir("PI_CODING_AGENT_SESSION_DIR"),
-      optionalMkdir("CODEX_HOME"),
-      optionalMkdir("CLAUDE_CONFIG_DIR"),
-      'test ! -e "$XDG_CONFIG_HOME/agent-paste"',
-      'test ! -e "$HOME/.config/agent-paste"',
-      "! command -v agent-paste >/dev/null 2>&1",
-      "npm cache ls @zaks-io/agent-paste >/tmp/agent-paste-cache.txt 2>&1 || true",
-      '! grep -q "@zaks-io/agent-paste" /tmp/agent-paste-cache.txt',
-    ].join("\n");
-    const result = await execCommand(this.sandbox, command, env, 30);
-    if (result.exitCode && result.exitCode !== 0) {
-      throw new Error(`freshness_probe_failed:${result.result ?? result.exitCode}`);
-    }
-    this.emit("info", "freshness preflight passed");
+    await runFreshnessProbe({
+      sandbox: this.sandbox,
+      freshPaths: this.config.sandbox.fresh_paths,
+      exec: execCommand,
+      emit: (level, message) => this.emit(level, message),
+    });
   }
 
   private async networkProbe(): Promise<void> {
     if (!this.sandbox) {
       throw new Error("Sandbox has not started");
     }
-    const command = networkProbeCommand(this.config.sandbox.network.probe_urls);
-    if (!command) {
-      return;
-    }
-    this.emit("info", `network preflight starting ${this.config.sandbox.network.probe_urls.length} urls`);
-    const result = await execCommand(this.sandbox, command, this.config.sandbox.fresh_paths, 60);
-    if (result.exitCode && result.exitCode !== 0) {
-      throw new Error(`network_probe_failed:${result.result ?? result.exitCode}`);
-    }
-    this.emit("info", "network preflight passed");
+    await runNetworkProbe({
+      sandbox: this.sandbox,
+      config: this.config,
+      exec: execCommand,
+      emit: (level, message) => this.emit(level, message),
+      timeoutSeconds: 60,
+    });
   }
 
   private async accountlessProvisionProbe(): Promise<void> {
-    if (!this.sandbox || !this.config.verification.require_unlisted_url) {
+    if (!this.sandbox) {
       return;
     }
-    this.emit("info", "accountless provision preflight starting");
-    const result = await execCommand(this.sandbox, accountlessProvisionProbeCommand(), this.preflightEnv(), 30);
-    if (result.exitCode && result.exitCode !== 0) {
-      throw new Error(`accountless_provision_preflight_failed:${result.result ?? result.exitCode}`);
-    }
-    this.emit("info", "accountless provision preflight passed");
+    await runAccountlessProvisionProbe({
+      sandbox: this.sandbox,
+      config: this.config,
+      run: this.run,
+      env: this.env,
+      exec: execCommand,
+      emit: (level, message) => this.emit(level, message),
+    });
   }
 
   private emit(level: RunEvent["level"], message: string): void {
     this.onEvent({ at: new Date().toISOString(), runId: this.run.id, level, message });
-  }
-
-  private preflightEnv(): Record<string, string> {
-    return {
-      ...this.config.sandbox.fresh_paths,
-      AGENT_PASTE_API_URL: this.env.AGENT_PASTE_API_URL ?? "",
-      AGENT_PASTE_EVAL_TARGET: this.env.AGENT_PASTE_EVAL_TARGET ?? this.config.environment.target,
-      ...(this.run.claimCode ? { AGENT_PASTE_EVAL_CLAIM_CODE: this.run.claimCode } : {}),
-    };
   }
 }
 
@@ -162,10 +146,34 @@ function compact(input: Record<string, string | undefined>): Record<string, stri
   return Object.fromEntries(Object.entries(input).filter((entry): entry is [string, string] => Boolean(entry[1])));
 }
 
-function optionalMkdir(name: string): string {
-  const parameter = ["$", "{", name, ":-}"].join("");
-  const directory = `$${name}`;
-  return `[ -z "${parameter}" ] || mkdir -p "${directory}"`;
+function adaptDaytonaSandbox(value: unknown): ProcessSandboxLike {
+  if (!isRecord(value) || !isSandboxProcessApi(value.process)) {
+    throw new Error("Daytona sandbox does not expose the expected process API");
+  }
+  const sandbox: ProcessSandboxLike = { process: value.process };
+  const setLabels = value.setLabels;
+  if (typeof setLabels === "function") {
+    sandbox.setLabels = (labels) => setLabels.call(value, labels) as Promise<Record<string, string> | undefined>;
+  }
+  const stop = value.stop;
+  if (typeof stop === "function") {
+    sandbox.stop = (timeout, force) => stop.call(value, timeout, force) as Promise<void>;
+  }
+  return sandbox;
+}
+
+function isSandboxProcessApi(value: unknown): value is SandboxProcessApi {
+  return (
+    isRecord(value) &&
+    typeof value.createSession === "function" &&
+    typeof value.executeSessionCommand === "function" &&
+    typeof value.getSessionCommandLogs === "function" &&
+    typeof value.sendSessionCommandInput === "function"
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 async function execCommand(

@@ -59,7 +59,7 @@ export async function runPiRpc(params: {
   await writePiModelsConfig(params);
   await params.sandbox.process.createSession(sessionId);
   const command = await params.sandbox.process.executeSessionCommand(sessionId, {
-    command: buildPiCommand(params.run, params.config, params.env),
+    command: buildPiCommand(params.run, params.config),
     runAsync: true,
   });
   const commandId = command.cmdId ?? command.cmd_id;
@@ -123,7 +123,7 @@ async function collectCurrentLogs(
   onText: (text: string) => void,
 ): Promise<void> {
   const logs = await sandbox.process.getSessionCommandLogs(sessionId, commandId);
-  if (logs && typeof logs !== "undefined") {
+  if (logs) {
     ingestStdout(logs.stdout ?? logs.output ?? "", events, transcript, seenLines, onText);
   }
 }
@@ -204,11 +204,10 @@ async function execSandboxCommand(
   throw new Error("Sandbox process API does not expose exec or executeCommand");
 }
 
-function buildPiCommand(run: EvalRun, config: EvalConfig, env: Record<string, string>): string {
+function buildPiCommand(run: EvalRun, config: EvalConfig): string {
   const fresh = config.sandbox.fresh_paths;
   const sessionDir = fresh.PI_CODING_AGENT_SESSION_DIR ?? "/tmp/pi-sessions";
   const model = harnessModelId(run.model, run.harness);
-  void env;
   const harnessConfig = run.harness.config;
   const args = [
     run.harness.command,

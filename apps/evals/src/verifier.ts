@@ -48,8 +48,16 @@ export async function verifyRunOutput(params: {
   if (result.errors.length > 0) {
     return result;
   }
+  const hostError = unlistedUrlHostError(params.config, unlistedUrl);
+  if (hostError) {
+    result.errors.push(hostError);
+    return result;
+  }
 
-  const response = await fetch(unlistedUrl, { redirect: "follow" });
+  const response = await fetch(unlistedUrl, {
+    redirect: "follow",
+    signal: AbortSignal.timeout(params.config.timeouts.verification_timeout_ms),
+  });
   result.status = response.status;
   const artifact = await response.text();
   if (params.config.verification.fetch_artifact_snapshot) {
@@ -122,6 +130,22 @@ function handoffEnvironmentErrors(config: EvalConfig, urls: string[]): string[] 
     }
   }
   return Array.from(errors);
+}
+
+function unlistedUrlHostError(config: EvalConfig, url: string): string | undefined {
+  const parsed = parseUrl(url);
+  if (!parsed) {
+    return `invalid_unlisted_url:${url}`;
+  }
+  const expectedWebHost = hostFromUrl(config.environment.env.AGENT_PASTE_WEB_URL);
+  if (expectedWebHost) {
+    return parsed.hostname === expectedWebHost ? undefined : `wrong_environment_url:${parsed.hostname}`;
+  }
+  return isAllowedAgentPasteDomain(parsed.hostname) ? undefined : `unallowed_unlisted_url_host:${parsed.hostname}`;
+}
+
+function isAllowedAgentPasteDomain(hostname: string): boolean {
+  return hostname === "agent-paste.sh" || hostname.endsWith(".agent-paste.sh");
 }
 
 function isAgentPasteDocsUrl(url: URL): boolean {

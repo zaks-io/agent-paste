@@ -86,7 +86,7 @@ async function findSourceCheckoutRoot(worktreeRoot: string): Promise<string> {
   } catch {
     // A main checkout has a .git directory, not a gitdir pointer.
   }
-  return path.dirname(worktreeRoot);
+  return worktreeRoot;
 }
 
 function resolvePath(inputPath: string | undefined, worktreeRoot: string, defaultPath: string): string {

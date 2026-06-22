@@ -26,7 +26,13 @@ export function normalizeTokenUsage(value: unknown): TokenUsage | undefined {
   }
   return compactUsage({
     input: numberFrom(value.input, value.inputTokens, value.promptTokens, value.input_tokens, value.prompt_tokens),
-    output: numberFrom(value.output, value.outputTokens, value.completionTokens, value.output_tokens),
+    output: numberFrom(
+      value.output,
+      value.outputTokens,
+      value.completionTokens,
+      value.output_tokens,
+      value.completion_tokens,
+    ),
     reasoning: numberFrom(
       value.reasoning,
       value.reasoningTokens,

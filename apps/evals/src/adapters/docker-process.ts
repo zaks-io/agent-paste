@@ -129,7 +129,14 @@ class CommandState {
   }
 
   write(data: string): void {
-    this.child.stdin.write(data);
+    if (this.exitCode !== undefined || this.child.stdin.destroyed || !this.child.stdin.writable) {
+      return;
+    }
+    try {
+      this.child.stdin.write(data);
+    } catch {
+      return;
+    }
   }
 
   logs(): { output: string; stdout: string; stderr: string; exitCode?: number } {

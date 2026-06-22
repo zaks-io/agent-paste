@@ -12,6 +12,7 @@ import { runSuite } from "../runner";
 import type { CliArgs, RunEvent, RunResult } from "../types";
 
 type Props = { args: CliArgs };
+const FINAL_RENDER_DELAY_MS = 80;
 
 export function App({ args }: Props) {
   if (args.command === "help") {
@@ -29,7 +30,10 @@ export function App({ args }: Props) {
   if (args.command === "env") {
     return <EnvCopyView args={args} />;
   }
-  return <SnapshotView configPath={args.configPath} dryRun={args.dryRun} />;
+  if (args.command === "snapshot") {
+    return <SnapshotView configPath={args.configPath} dryRun={args.dryRun} />;
+  }
+  return <Help />;
 }
 
 function RunView({ args }: { args: Extract<CliArgs, { command: "run" }> }) {
@@ -47,7 +51,7 @@ function RunView({ args }: { args: Extract<CliArgs, { command: "run" }> }) {
         const configPath = await resolveConfigPath(args.configPath);
         const config = await loadConfig(configPath);
         const envFile = path.resolve(path.dirname(configPath), config.reporting.env_file);
-        const env = { ...process.env, ...(await loadEnvFile(envFile)) } as Record<string, string>;
+        const env = { ...processEnv(), ...(await loadEnvFile(envFile)) };
         const output = await runSuite(config, {
           dryRun: args.dryRun,
           fresh: args.fresh,
@@ -72,7 +76,7 @@ function RunView({ args }: { args: Extract<CliArgs, { command: "run" }> }) {
         }
       } finally {
         if (!cancelled) {
-          setTimeout(exit, 80);
+          setTimeout(exit, FINAL_RENDER_DELAY_MS);
         }
       }
     }
@@ -129,7 +133,7 @@ function ReportView({ refresh, resultDir }: { refresh: boolean; resultDir: strin
       } catch (err) {
         setMessage(`error ${(err as Error).message}`);
       } finally {
-        setTimeout(exit, 80);
+        setTimeout(exit, FINAL_RENDER_DELAY_MS);
       }
     }
     void run();
@@ -157,7 +161,7 @@ function ModelsView({ outputPath }: { outputPath?: string | undefined }) {
       } catch (err) {
         setMessage(`error ${(err as Error).message}`);
       } finally {
-        setTimeout(exit, 80);
+        setTimeout(exit, FINAL_RENDER_DELAY_MS);
       }
     }
     void run();
@@ -194,7 +198,7 @@ function EnvCopyView({ args }: { args: Extract<CliArgs, { command: "env" }> }) {
       } catch (err) {
         setMessage(`error ${(err as Error).message}`);
       } finally {
-        setTimeout(exit, 80);
+        setTimeout(exit, FINAL_RENDER_DELAY_MS);
       }
     }
     void run();
@@ -240,6 +244,12 @@ function Header({ title }: { title: string }) {
     <Box borderStyle="round" borderColor="cyan" paddingX={1}>
       <Text bold>{title}</Text>
     </Box>
+  );
+}
+
+function processEnv(): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
   );
 }
 

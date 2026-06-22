@@ -93,7 +93,12 @@ export function accountlessProvisionProbeCommand(): string {
 }
 
 function normalizeCidr(value: string): string {
-  if (!/^\d{1,3}(?:\.\d{1,3}){3}\/(?:[0-9]|[1-2][0-9]|3[0-2])$/.test(value)) {
+  const match = value.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(?:[0-9]|[1-2][0-9]|3[0-2])$/);
+  if (!match) {
+    throw new Error(`invalid_daytona_network_cidr:${value}`);
+  }
+  const octets = match.slice(1, 5).map(Number);
+  if (octets.some((octet) => octet < 0 || octet > 255)) {
     throw new Error(`invalid_daytona_network_cidr:${value}`);
   }
   return value;

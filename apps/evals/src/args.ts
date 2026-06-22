@@ -56,7 +56,7 @@ export function parseArgs(argv: string[]): CliArgs {
 
 function stripPnpmSeparators(argv: string[]): string[] {
   let firstCommandIndex = 0;
-  while (argv[firstCommandIndex] === "--") {
+  while (firstCommandIndex < argv.length && argv[firstCommandIndex] === "--") {
     firstCommandIndex += 1;
   }
   return argv.slice(firstCommandIndex);
@@ -67,6 +67,9 @@ function stringFlag(argv: string[], name: string): string | undefined {
   if (index === -1) {
     const prefix = `${name}=`;
     return argv.find((arg) => arg.startsWith(prefix))?.slice(prefix.length);
+  }
+  if (index + 1 >= argv.length) {
+    return undefined;
   }
   return argv[index + 1];
 }

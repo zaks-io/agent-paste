@@ -17,5 +17,8 @@ export function runConfiguredHarness(params: {
   if (params.run.harness.adapter === "claude-code") {
     return runClaudeCode(params);
   }
+  if (params.run.harness.adapter !== "codex") {
+    throw new Error(`Unsupported harness adapter: ${params.run.harness.adapter}`);
+  }
   return runCodexExec(params);
 }

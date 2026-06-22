@@ -17,26 +17,6 @@ export function redactSensitiveText(content: string, env: Record<string, string 
   return redacted;
 }
 
-export function findSensitiveText(content: string, env: Record<string, string | undefined> = {}): string[] {
-  const sanitized = sanitizeText(content);
-  const matches = new Set<string>();
-  if (secretAssignmentPattern().test(sanitized)) {
-    matches.add("secret_assignment");
-  }
-  if (secretJsonPattern().test(sanitized)) {
-    matches.add("secret_json");
-  }
-  if (/sk-or-v1-[A-Za-z0-9]+/.test(sanitized)) {
-    matches.add("openrouter_api_key");
-  }
-  for (const [name, value] of Object.entries(secretEnvValues(env))) {
-    if (sanitized.includes(value)) {
-      matches.add(name);
-    }
-  }
-  return Array.from(matches);
-}
-
 function secretEnvValues(env: Record<string, string | undefined>): Record<string, string> {
   return Object.fromEntries(
     SECRET_NAMES.map((name) => [name, env[name]])

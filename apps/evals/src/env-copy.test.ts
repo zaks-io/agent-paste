@@ -48,4 +48,23 @@ describe("copyEnvLocal", () => {
       await rm(fixture, { recursive: true, force: true });
     }
   });
+
+  it("uses the current root as the source in a main checkout", async () => {
+    const fixture = await mkdtemp(path.join(os.tmpdir(), "agent-paste-evals-env-"));
+    try {
+      const checkoutRoot = path.join(fixture, "agent-paste");
+      await mkdir(path.join(checkoutRoot, ".git"), { recursive: true });
+      await mkdir(path.join(checkoutRoot, "apps", "evals"), { recursive: true });
+      await writeFile(path.join(checkoutRoot, "apps", "evals", ".env.local"), "OPENROUTER_API_KEY=openrouter\n");
+
+      const result = await copyEnvLocal({ cwd: checkoutRoot, dryRun: false });
+
+      expect(result.sourcePath).toBe(path.join(checkoutRoot, "apps", "evals", ".env.local"));
+      expect(result.targetPath).toBe(path.join(checkoutRoot, "apps", "evals", ".env.local"));
+      expect(result.targetExisted).toBe(true);
+      expect(result.missingKeys).toEqual([]);
+    } finally {
+      await rm(fixture, { recursive: true, force: true });
+    }
+  });
 });

@@ -7,6 +7,11 @@ import type { EvalConfig } from "./types";
 const stringRecord = z.record(z.string(), z.string());
 const positiveInt = z.number().int().positive();
 const nonNegativeInt = z.number().int().nonnegative();
+const ADAPTER_MODE_MAP = {
+  pi: "rpc",
+  "claude-code": "stream-json",
+  codex: "jsonl",
+} as const;
 
 const configSchema = z.object({
   version: z.literal(1),
@@ -52,8 +57,8 @@ const configSchema = z.object({
           workdir: "/workspace",
           extra_run_args: [],
         }),
-      max_concurrent_creates: positiveInt.default(3),
-      max_concurrent_running: positiveInt.default(3),
+      max_concurrent_creates: positiveInt.default(1),
+      max_concurrent_running: positiveInt.default(1),
       resources: z.object({ cpu: positiveInt, memory_gb: positiveInt, disk_gb: positiveInt }),
       lifecycle: z.object({
         auto_stop_interval_minutes: nonNegativeInt,
@@ -90,7 +95,7 @@ const configSchema = z.object({
     repeats_per_model: positiveInt.default(1),
     concurrency: positiveInt.default(1),
     openrouter: z.object({
-      max_concurrent_requests: positiveInt.default(3),
+      max_concurrent_requests: positiveInt.default(1),
       requests_per_minute: positiveInt.nullable().default(null),
       tokens_per_minute: positiveInt.nullable().default(null),
     }),
@@ -193,7 +198,7 @@ function harnessSchema() {
       config: z.record(z.string(), z.unknown()).default({}),
     })
     .superRefine((harness, ctx) => {
-      const expected = harness.adapter === "pi" ? "rpc" : harness.adapter === "claude-code" ? "stream-json" : "jsonl";
+      const expected = ADAPTER_MODE_MAP[harness.adapter];
       if (harness.mode !== expected) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

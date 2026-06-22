@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { normalizeConfig } from "./config";
 import { verifierFingerprint } from "./idempotency";
+import { appendUnique, refreshStatus, removeVerifierFailures, removeVerifierWarnings } from "./result-helpers";
 import { readRunResults, writeRunResult } from "./result-store";
 import type { EvalConfig, RunResult } from "./types";
 import { verifyRunOutput } from "./verifier";
@@ -9,7 +10,20 @@ import { verifyRunOutput } from "./verifier";
 export async function refreshStoredResults(resultDir: string): Promise<RunResult[]> {
   const config = normalizeConfig(JSON.parse(await readFile(path.join(resultDir, "config.resolved.json"), "utf8")));
   const results = await readRunResults(resultDir);
-  await Promise.all(results.map((result) => refreshResult(config, result)));
+  const outcomes = await Promise.allSettled(results.map((result) => refreshResult(config, result)));
+  await Promise.all(
+    outcomes.map((outcome, index) => {
+      if (outcome.status !== "rejected") {
+        return undefined;
+      }
+      const result = results[index];
+      if (!result) {
+        return undefined;
+      }
+      appendUnique(result.warnings, [`refresh_failed:${errorMessage(outcome.reason)}`]);
+      return writeRunResult(result);
+    }),
+  );
   return results;
 }
 
@@ -51,37 +65,6 @@ async function readTranscript(result: RunResult): Promise<string | undefined> {
   }
 }
 
-function removeVerifierFailures(result: RunResult): void {
-  const staleErrors = new Set(result.verifier?.errors ?? []);
-  if (staleErrors.size > 0) {
-    result.failures = result.failures.filter((failure) => !staleErrors.has(failure));
-  }
-}
-
-function removeVerifierWarnings(result: RunResult): void {
-  const staleWarnings = new Set(result.verifier?.warnings ?? []);
-  if (staleWarnings.size > 0) {
-    result.warnings = result.warnings.filter((warning) => !staleWarnings.has(warning));
-  }
-}
-
-function refreshStatus(result: RunResult): void {
-  if (result.status === "skipped") {
-    return;
-  }
-  const taskFailures = result.failures.filter((failure) => !failure.startsWith("judge_failed:"));
-  const judgeFailures = result.failures.length - taskFailures.length;
-  if (taskFailures.length > 0 || !result.deterministic_pass) {
-    result.status = "failed";
-    return;
-  }
-  result.status = result.warnings.length > 0 || judgeFailures > 0 ? "warning" : "passed";
-}
-
-function appendUnique(target: string[], values: string[]): void {
-  for (const value of values) {
-    if (!target.includes(value)) {
-      target.push(value);
-    }
-  }
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }

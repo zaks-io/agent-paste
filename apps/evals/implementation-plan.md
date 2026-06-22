@@ -29,9 +29,12 @@ Daytona:
   IPv4 CIDR-only, does not support hostnames/domains, and is limited to 10
   entries:
   <https://www.daytona.io/docs/en/network-limits/>
-  Because the sandbox still needs DNS to use hostname-based commands, include
-  the observed Daytona resolver CIDRs alongside the resolved Agent Paste host
-  CIDRs.
+  The docs list essential services, including package managers and Git hosts,
+  as tier-level access, but the allow list itself only accepts CIDR entries.
+  Treat Daytona allowlisting as a brittle future provider path for this suite:
+  every hostname used by the harness, docs, model provider, npm, and Agent
+  Paste may need explicit operational verification before Daytona can be a
+  default backend again.
 - Snapshot creation and sandbox lifecycle methods live on `Sandbox`, including
   `_experimental_createSnapshot`, `_experimental_fork`, `start`, `stop`, labels,
   auto-stop, auto-delete, and network settings:
@@ -268,7 +271,8 @@ create/run limits differ by provider:
 - `matrix.openrouter.requests_per_minute`: optional throttle.
 - `matrix.openrouter.tokens_per_minute`: optional throttle.
 
-Default all concurrency to `3` until real limits are measured.
+Default concurrency to `1` until real limits are measured. Operators can raise
+the sandbox and OpenRouter knobs independently once a suite is stable.
 
 ## Model and reasoning config
 

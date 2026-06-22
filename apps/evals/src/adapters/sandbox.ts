@@ -18,5 +18,8 @@ export function createEvalSandbox(
   if (config.sandbox.provider === "docker") {
     return new DockerEvalSandbox(config, run, env, onEvent);
   }
-  return new DaytonaEvalSandbox(config, run, env, onEvent);
+  if (config.sandbox.provider === "daytona") {
+    return new DaytonaEvalSandbox(config, run, env, onEvent);
+  }
+  throw new Error(`Unknown sandbox provider: ${config.sandbox.provider}`);
 }

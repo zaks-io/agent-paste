@@ -2,13 +2,17 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { modelRunKey } from "../model-config";
-import { accountlessProvisionProbeCommand, networkProbeCommand } from "../network";
 import type { EvalConfig, EvalRun, RunEvent } from "../types";
 import { dockerEnvArgs, runDocker } from "./docker-cli";
 import { DockerProcess } from "./docker-process";
 import type { HarnessRunOutput } from "./harness-output";
 import type { ProcessSandboxLike } from "./process-sandbox";
 import { runConfiguredHarness } from "./run-harness";
+import {
+  accountlessProvisionProbe as runAccountlessProvisionProbe,
+  freshnessProbe as runFreshnessProbe,
+  networkProbe as runNetworkProbe,
+} from "./sandbox-probes";
 
 const ensuredImages = new Map<string, Promise<void>>();
 
@@ -73,53 +77,39 @@ export class DockerEvalSandbox {
     if (!this.sandbox) {
       throw new Error("Sandbox has not started");
     }
-    const env = this.config.sandbox.fresh_paths;
-    const command = [
-      "set -eu",
-      'mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$NPM_CONFIG_CACHE"',
-      optionalMkdir("PI_CODING_AGENT_DIR"),
-      optionalMkdir("PI_CODING_AGENT_SESSION_DIR"),
-      optionalMkdir("CODEX_HOME"),
-      optionalMkdir("CLAUDE_CONFIG_DIR"),
-      'test ! -e "$XDG_CONFIG_HOME/agent-paste"',
-      'test ! -e "$HOME/.config/agent-paste"',
-      "! command -v agent-paste >/dev/null 2>&1",
-      "npm cache ls @zaks-io/agent-paste >/tmp/agent-paste-cache.txt 2>&1 || true",
-      '! grep -q "@zaks-io/agent-paste" /tmp/agent-paste-cache.txt',
-    ].join("\n");
-    const result = await execCommand(this.sandbox, command, env, 30);
-    if (result.exitCode && result.exitCode !== 0) {
-      throw new Error(`freshness_probe_failed:${result.result ?? result.exitCode}`);
-    }
-    this.emit("info", "freshness preflight passed");
+    await runFreshnessProbe({
+      sandbox: this.sandbox,
+      freshPaths: this.config.sandbox.fresh_paths,
+      exec: execCommand,
+      emit: (level, message) => this.emit(level, message),
+    });
   }
 
   private async networkProbe(): Promise<void> {
     if (!this.sandbox) {
       throw new Error("Sandbox has not started");
     }
-    const command = networkProbeCommand(this.config.sandbox.network.probe_urls);
-    if (!command) {
-      return;
-    }
-    this.emit("info", `network preflight starting ${this.config.sandbox.network.probe_urls.length} urls`);
-    const result = await execCommand(this.sandbox, command, this.config.sandbox.fresh_paths, 90);
-    if (result.exitCode && result.exitCode !== 0) {
-      throw new Error(`network_probe_failed:${result.result ?? result.exitCode}`);
-    }
-    this.emit("info", "network preflight passed");
+    await runNetworkProbe({
+      sandbox: this.sandbox,
+      config: this.config,
+      exec: execCommand,
+      emit: (level, message) => this.emit(level, message),
+      timeoutSeconds: 90,
+    });
   }
 
   private async accountlessProvisionProbe(): Promise<void> {
-    if (!this.sandbox || !this.config.verification.require_unlisted_url) {
+    if (!this.sandbox) {
       return;
     }
-    this.emit("info", "accountless provision preflight starting");
-    const result = await execCommand(this.sandbox, accountlessProvisionProbeCommand(), this.preflightEnv(), 30);
-    if (result.exitCode && result.exitCode !== 0) {
-      throw new Error(`accountless_provision_preflight_failed:${result.result ?? result.exitCode}`);
-    }
-    this.emit("info", "accountless provision preflight passed");
+    await runAccountlessProvisionProbe({
+      sandbox: this.sandbox,
+      config: this.config,
+      run: this.run,
+      env: this.env,
+      exec: execCommand,
+      emit: (level, message) => this.emit(level, message),
+    });
   }
 
   private async removeContainer(): Promise<void> {
@@ -135,15 +125,6 @@ export class DockerEvalSandbox {
 
   private emit(level: RunEvent["level"], message: string): void {
     this.onEvent({ at: new Date().toISOString(), runId: this.run.id, level, message });
-  }
-
-  private preflightEnv(): Record<string, string> {
-    return {
-      ...this.config.sandbox.fresh_paths,
-      AGENT_PASTE_API_URL: this.env.AGENT_PASTE_API_URL ?? "",
-      AGENT_PASTE_EVAL_TARGET: this.env.AGENT_PASTE_EVAL_TARGET ?? this.config.environment.target,
-      ...(this.run.claimCode ? { AGENT_PASTE_EVAL_CLAIM_CODE: this.run.claimCode } : {}),
-    };
   }
 }
 
@@ -255,12 +236,6 @@ function containerName(runId: string): string {
 
 function safe(value: string): string {
   return value.replace(/[^a-zA-Z0-9_.-]+/g, "-").replace(/^-|-$/g, "");
-}
-
-function optionalMkdir(name: string): string {
-  const parameter = ["$", "{", name, ":-}"].join("");
-  const directory = `$${name}`;
-  return `[ -z "${parameter}" ] || mkdir -p "${directory}"`;
 }
 
 function resolveWorkspacePath(input: string): string {

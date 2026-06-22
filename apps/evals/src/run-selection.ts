@@ -28,7 +28,7 @@ export function validateRequiredSecrets(
     missing.push("OPENAI_API_KEY");
   }
   if (missing.length > 0) {
-    throw new Error(`missing_env:${Array.from(new Set(missing)).join(",")}`);
+    throw new Error(`missing_env:${missing.join(",")}`);
   }
 }
 

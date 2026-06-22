@@ -3,6 +3,7 @@ export type SandboxProcessApi = {
   executeSessionCommand(
     sessionId: string,
     request: { command: string; runAsync: boolean },
+    // Daytona returns cmd_id; Docker returns cmdId. Harness code accepts either.
   ): Promise<{ cmdId?: string; cmd_id?: string }>;
   getSessionCommandLogs(
     sessionId: string,
@@ -11,6 +12,7 @@ export type SandboxProcessApi = {
     onStderr?: (chunk: string) => void,
   ): Promise<undefined | { output?: string; stdout?: string; stderr?: string; exitCode?: number }>;
   sendSessionCommandInput(sessionId: string, commandId: string, data: string): Promise<void>;
+  // Docker exposes exec; Daytona exposes executeCommand. Callers normalize both.
   exec?(
     command: string,
     cwd?: string,

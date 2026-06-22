@@ -112,6 +112,8 @@ export async function judgeRun(params: {
     ),
     output: Output.object({ schema: judgeResultSchema }),
   });
+  const tokenUsage = normalizeTokenUsage(result.usage);
+  const costUsd = costUsdFromUsage(result.usage);
   return {
     ...result.output,
     findings: result.output.findings.map((finding) => ({
@@ -133,8 +135,8 @@ export async function judgeRun(params: {
       ...(concern.suggested_fix === null ? {} : { suggested_fix: concern.suggested_fix }),
       confidence: concern.confidence,
     })),
-    ...(normalizeTokenUsage(result.usage) ? { token_usage: normalizeTokenUsage(result.usage) } : {}),
-    ...(costUsdFromUsage(result.usage) !== undefined ? { cost_usd: costUsdFromUsage(result.usage) } : {}),
+    ...(tokenUsage ? { token_usage: tokenUsage } : {}),
+    ...(costUsd !== undefined ? { cost_usd: costUsd } : {}),
     raw: { usage: result.usage },
   } satisfies JudgeResult;
 }

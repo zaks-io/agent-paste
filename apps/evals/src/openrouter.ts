@@ -4,6 +4,7 @@ import type { EvalConfig, ModelMetadata } from "./types";
 
 const MODELS_URL = "https://openrouter.ai/api/v1/models";
 const ZDR_ENDPOINTS_URL = "https://openrouter.ai/api/v1/endpoints/zdr";
+const OPENROUTER_METADATA_TIMEOUT_MS = 30_000;
 
 export type OpenRouterZdrEndpoint = {
   model_id: string;
@@ -17,7 +18,7 @@ export async function fetchOpenRouterModels(apiKey?: string): Promise<ModelMetad
   if (apiKey) {
     headers.authorization = `Bearer ${apiKey}`;
   }
-  const response = await fetch(MODELS_URL, { headers });
+  const response = await fetch(MODELS_URL, { headers, signal: AbortSignal.timeout(OPENROUTER_METADATA_TIMEOUT_MS) });
   if (!response.ok) {
     throw new Error(`OpenRouter model list failed: ${response.status} ${response.statusText}`);
   }
@@ -30,7 +31,10 @@ export async function fetchOpenRouterZdrEndpoints(apiKey?: string): Promise<Open
   if (apiKey) {
     headers.authorization = `Bearer ${apiKey}`;
   }
-  const response = await fetch(ZDR_ENDPOINTS_URL, { headers });
+  const response = await fetch(ZDR_ENDPOINTS_URL, {
+    headers,
+    signal: AbortSignal.timeout(OPENROUTER_METADATA_TIMEOUT_MS),
+  });
   if (!response.ok) {
     throw new Error(`OpenRouter ZDR endpoint list failed: ${response.status} ${response.statusText}`);
   }

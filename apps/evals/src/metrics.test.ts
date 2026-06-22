@@ -51,27 +51,25 @@ describe("metrics", () => {
   });
 
   it("extracts metrics from stored RPC events", () => {
-    expect(
-      extractUsageMetricsFromEvents([
-        { type: "message_update", message: { usage: { input: 999, totalTokens: 999 } } },
-        {
-          message: {
-            usage: { cost: { total: 0.1 }, input: 1, output: 2, totalTokens: 3 },
-          },
-          type: "turn_end",
+    const extracted = extractUsageMetricsFromEvents([
+      { type: "message_update", message: { usage: { input: 999, totalTokens: 999 } } },
+      {
+        message: {
+          usage: { cost: { total: 0.1 }, input: 1, output: 2, totalTokens: 3 },
         },
-        {
-          message: {
-            usage: { cost: { total: 0.2 }, cacheRead: 4, input: 5, output: 6, totalTokens: 15 },
-          },
-          type: "turn_end",
+        type: "turn_end",
+      },
+      {
+        message: {
+          usage: { cost: { total: 0.2 }, cacheRead: 4, input: 5, output: 6, totalTokens: 15 },
         },
-      ]),
-    ).toEqual({
-      costUsd: 0.30000000000000004,
-      tokenUsage: { input: 6, output: 8, cache_read: 4, total: 18 },
-      turnCount: 2,
-    });
+        type: "turn_end",
+      },
+    ]);
+
+    expect(extracted.tokenUsage).toEqual({ input: 6, output: 8, cache_read: 4, total: 18 });
+    expect(extracted.turnCount).toBe(2);
+    expect(extracted.costUsd).toBeCloseTo(0.3, 5);
   });
 
   it("extracts metrics from Codex-style JSONL events", () => {

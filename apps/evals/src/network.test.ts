@@ -30,6 +30,20 @@ describe("network allowlist", () => {
     ).rejects.toThrow("daytona_network_allowlist_too_large");
   });
 
+  it("rejects invalid CIDR octets", async () => {
+    await expect(
+      resolveNetworkAllowList(
+        {
+          allow_cidrs: ["999.0.0.1/32"],
+          allow_domains: [],
+          block_all: false,
+          probe_urls: [],
+        },
+        async () => [],
+      ),
+    ).rejects.toThrow("invalid_daytona_network_cidr:999.0.0.1/32");
+  });
+
   it("builds a curl preflight for configured probe urls", () => {
     expect(networkProbeCommand(["https://preview.agent-paste.sh/agents.md"])).toContain("curl -fsSL --max-time 20");
     expect(networkProbeCommand(["https://preview.agent-paste.sh/agents.md"])).toContain("network preflight");

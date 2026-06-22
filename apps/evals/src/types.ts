@@ -1,5 +1,3 @@
-export type CommandName = "run" | "report" | "models" | "snapshot" | "env" | "help";
-
 export type CliArgs =
   | {
       command: "run";

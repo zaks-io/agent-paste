@@ -169,6 +169,7 @@ describe("verifyRunOutput", () => {
     expect(result.unlisted_url).toBe("https://app.preview.agent-paste.sh/al/ABC123#AQEabc_DEF-123");
     expect(fetchSpy).toHaveBeenCalledWith("https://app.preview.agent-paste.sh/al/ABC123#AQEabc_DEF-123", {
       redirect: "follow",
+      signal: expect.any(AbortSignal),
     });
   });
 });
