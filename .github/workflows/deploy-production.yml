@@ -86,20 +86,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --strict-peer-dependencies
 
-      - name: Setup security attestation tools
-        uses: ./.github/actions/setup-security-attestation-tools
-
-      - name: Run release security attestation
-        run: pnpm security:attest
-
-      - name: Upload release security attestation
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: production-release-security-attestation
-          path: artifacts/security/**
-          if-no-files-found: error
-          retention-days: 90
+      # The release security attestation runs in the Security workflow (push to
+      # main + daily), not here. It used to gate the deploy, but its dependency
+      # CVE scans cover the whole monorepo (including non-deployed apps like
+      # apps/evals), so an advisory in dev-only tooling would freeze the
+      # production deploy over code that never ships. Keep the deploy job focused
+      # on shipping; the Security workflow surfaces vulnerabilities out of band.
 
       - name: Validate manual dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
