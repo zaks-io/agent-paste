@@ -41,12 +41,7 @@ function ArtifactViewerIframeFrame({ src, className }: { src: string; className?
         return;
       }
       const nextHeight = Math.ceil(event.data.height);
-      setContentHeight((current) => {
-        if (current !== null && nextHeight > current + 8 && nextHeight > current * 1.1) {
-          return current;
-        }
-        return nextHeight;
-      });
+      setContentHeight(nextHeight);
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
