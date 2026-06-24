@@ -12,13 +12,7 @@ export function ArtifactViewerIframe({ src, className }: { src: string; classNam
   return <ArtifactViewerIframeFrame key={src} src={src} className={className} />;
 }
 
-function ArtifactViewerIframeFrame({
-  src,
-  className,
-}: {
-  src: string;
-  className?: string | undefined;
-}) {
+function ArtifactViewerIframeFrame({ src, className }: { src: string; className?: string | undefined }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [contentHeight, setContentHeight] = useState<number | null>(null);
   const contentOrigin = useMemo(() => {
