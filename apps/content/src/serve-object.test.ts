@@ -511,6 +511,12 @@ describe("content etag", () => {
     expect(await contentEtag("rev_2", "index.html")).not.toBe(base);
     expect(await contentEtag("rev_1", "other.html")).not.toBe(base);
   });
+
+  it("differs when the HTML representation variant changes", async () => {
+    const base = await contentEtag("rev_1", "index.html");
+    const viewer = await contentEtag("rev_1", "index.html", "viewer:resize:script-on");
+    expect(viewer).not.toBe(base);
+  });
 });
 
 describe("etagMatches", () => {

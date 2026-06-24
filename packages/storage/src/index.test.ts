@@ -7,6 +7,7 @@ import {
   SCRIPT_DISABLED_CONTENT_SECURITY_POLICY,
   servedContentForPath,
   withFrameAncestors,
+  withScriptSrcNonce,
 } from "./index";
 
 function parseContentSecurityPolicyDirectives(csp: string): Map<string, string> {
@@ -120,5 +121,14 @@ describe("withFrameAncestors", () => {
   it("adds a frame-ancestors directive when the source policy omits it", () => {
     const result = withFrameAncestors("default-src 'none'; img-src data:", ["https://app.agent-paste.sh"]);
     expect(result).toBe("default-src 'none'; img-src data:; frame-ancestors https://app.agent-paste.sh");
+  });
+});
+
+describe("withScriptSrcNonce", () => {
+  it("replaces script-src with a single nonce source", () => {
+    const result = withScriptSrcNonce(SCRIPT_DISABLED_CONTENT_SECURITY_POLICY, "deadbeef");
+    expect(result).toContain("script-src 'nonce-deadbeef'");
+    expect(result).not.toContain("script-src 'none'");
+    expect(result).toContain("style-src 'self' 'unsafe-inline'");
   });
 });

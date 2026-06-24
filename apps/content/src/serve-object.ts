@@ -11,6 +11,7 @@ import {
   plaintextByteLengthFromStoredObject,
   servedContentForPath,
   withFrameAncestors,
+  withScriptSrcNonce,
 } from "@agent-paste/storage";
 import type { ContentTokenPayload } from "@agent-paste/tokens/content";
 import { BASELINE_SECURITY_HEADERS, getBoundResponders, writeArtifactEvent } from "@agent-paste/worker-runtime";
@@ -97,7 +98,9 @@ export async function serveSignedObject(
     return getBoundResponders(context).respondError("not_found");
   }
 
-  const etag = await contentEtag(payload.revision_id, path);
+  const frameAncestors = frameAncestorsForEnv(env);
+  const representationKey = contentRepresentationKey(path, payload, request, frameAncestors);
+  const etag = await contentEtag(payload.revision_id, path, representationKey);
   // Only short-circuit when the 200 path would actually serve: a workspace-less
   // token 404s below (prepareEncryptedObjectResponse), so a conditional request
   // must 404 too, not return a 304 the client could never have a 200 for.
@@ -106,10 +109,16 @@ export async function serveSignedObject(
     // including the inline frame-ancestors relaxation, content-type,
     // cache-control) so the 304 cannot weaken them: RFC 9111 §4.3.4 lets a 304
     // replace the cached response's headers.
+    const trustedViewerFrame = isTrustedViewerFrameRequest(request, frameAncestors);
+    const scriptDisabled = payload.script_disabled !== false || (isHtmlPath(path) && !trustedViewerFrame);
+    const injectsResizeReporter = isHtmlPath(path) && trustedViewerFrame;
+    const resizeNonce = injectsResizeReporter
+      ? await viewerResizeNonce(payload.revision_id, path, representationKey, scriptDisabled)
+      : undefined;
     return notModifiedResponse(
       context,
       payload,
-      responseHeadersForPath(path, 0, payload, etag, frameAncestorsForEnv(env), request),
+      responseHeadersForPath(path, 0, payload, etag, frameAncestors, request, resizeNonce),
     );
   }
 
@@ -132,16 +141,23 @@ export async function serveSignedObject(
   }
 
   const injectsNoindex = payload.noindex === true && isHtmlPath(path);
-  const trustedViewerFrame = isTrustedViewerFrameRequest(request, frameAncestorsForEnv(env));
+  const trustedViewerFrame = isTrustedViewerFrameRequest(request, frameAncestors);
   const scriptDisabled = payload.script_disabled !== false || (isHtmlPath(path) && !trustedViewerFrame);
-  const injectsResizeReporter = isHtmlPath(path) && trustedViewerFrame && !scriptDisabled;
+  const injectsResizeReporter = isHtmlPath(path) && trustedViewerFrame;
+  const resizeNonce = injectsResizeReporter
+    ? await viewerResizeNonce(payload.revision_id, path, representationKey, scriptDisabled)
+    : undefined;
   const bytes =
     served.bytes && (injectsNoindex || injectsResizeReporter)
-      ? transformViewerHtmlBytes(served.bytes, { noindex: injectsNoindex, resizeReporter: injectsResizeReporter })
+      ? transformViewerHtmlBytes(served.bytes, {
+          noindex: injectsNoindex,
+          resizeReporter: injectsResizeReporter,
+          ...(resizeNonce ? { resizeNonce } : {}),
+        })
       : served.bytes;
   const size = bytes ? bytes.byteLength : served.plaintextSize;
 
-  const headers = responseHeadersForPath(path, size, payload, etag, frameAncestorsForEnv(env), request);
+  const headers = responseHeadersForPath(path, size, payload, etag, frameAncestors, request, resizeNonce);
   // A HEAD has no body to measure, so it reports the arithmetic plaintext size.
   // When HTML injection would grow the GET body, that size is wrong, so drop
   // content-length rather than advertise a length the GET would not match.
@@ -383,6 +399,7 @@ export function responseHeadersForPath(
   etag: string,
   frameAncestors: readonly string[] = [],
   request?: Request,
+  resizeNonce?: string,
 ): Headers {
   const trustedViewerFrame = isTrustedViewerFrameRequest(request, frameAncestors);
   const scriptDisabled = payload.script_disabled !== false || (isHtmlPath(path) && !trustedViewerFrame);
@@ -392,14 +409,18 @@ export function responseHeadersForPath(
   headers.set("etag", etag);
   headers.set("content-length", String(size));
   headers.set("content-type", served.contentType);
+  let csp = served.csp;
+  if (resizeNonce) {
+    csp = withScriptSrcNonce(csp, resizeNonce);
+  }
   // Inline content is rendered in the trusted viewer's sandboxed iframe; let the
   // app origin frame it via CSP and drop the origin-blind XFO that would re-block
   // it. Attachments are downloads and stay frame-denied.
   if (served.disposition === "inline" && trustedViewerFrame) {
-    headers.set("content-security-policy", withFrameAncestors(served.csp, frameAncestors));
+    headers.set("content-security-policy", withFrameAncestors(csp, frameAncestors));
     headers.delete("x-frame-options");
   } else {
-    headers.set("content-security-policy", served.csp);
+    headers.set("content-security-policy", csp);
   }
   if (served.disposition === "attachment") {
     headers.set("content-disposition", `attachment; filename="${attachmentFilename(path)}"`);
@@ -482,16 +503,65 @@ function notModifiedResponse(context: AppContext, payload: ContentTokenPayload, 
 
 function transformViewerHtmlBytes(
   bytes: Uint8Array,
-  options: { noindex: boolean; resizeReporter: boolean },
+  options: { noindex: boolean; resizeReporter: boolean; resizeNonce?: string },
 ): Uint8Array {
   let html = new TextDecoder().decode(bytes);
   if (options.noindex) {
     html = injectNoindexMeta(html);
   }
   if (options.resizeReporter) {
-    html = injectViewerResizeReporter(html);
+    html = injectViewerResizeReporter(html, options.resizeNonce);
   }
   return new TextEncoder().encode(html);
+}
+
+/**
+ * Distinguishes HTML response variants that rewrite the body or change per-path
+ * CSP (viewer iframe vs direct navigation, script policy, noindex injection).
+ * Non-HTML paths omit a representation suffix so the validator stays revision-only.
+ */
+export function contentRepresentationKey(
+  path: string,
+  payload: ContentTokenPayload,
+  request: Request | undefined,
+  frameAncestors: readonly string[],
+): string | undefined {
+  if (!isHtmlPath(path)) {
+    return undefined;
+  }
+  const trustedViewerFrame = isTrustedViewerFrameRequest(request, frameAncestors);
+  const scriptDisabled = payload.script_disabled !== false || !trustedViewerFrame;
+  const parts: string[] = [];
+  if (payload.noindex === true) {
+    parts.push("noindex");
+  }
+  parts.push(trustedViewerFrame ? "viewer" : "direct");
+  if (trustedViewerFrame) {
+    parts.push("resize");
+    parts.push(scriptDisabled ? "script-none-nonce" : "script-on");
+  } else {
+    parts.push(scriptDisabled ? "script-none" : "script-on");
+  }
+  return parts.join(":");
+}
+
+async function viewerResizeNonce(
+  revisionId: string,
+  path: string,
+  representationKey: string | undefined,
+  scriptDisabled: boolean,
+): Promise<string | undefined> {
+  if (!scriptDisabled || !representationKey) {
+    return undefined;
+  }
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(`viewer-resize-nonce\n${revisionId}\n${path}\n${representationKey}`),
+  );
+  return Array.from(new Uint8Array(digest))
+    .slice(0, 16)
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 export function injectNoindexMeta(html: string): string {

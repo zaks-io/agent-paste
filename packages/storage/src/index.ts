@@ -158,6 +158,17 @@ export function deriveScriptDisabledContentSecurityPolicy(baseCsp: string): stri
 }
 
 /**
+ * Replaces `script-src` with a single nonce source so one trusted inline script
+ * (for example the viewer resize reporter) may run while publisher scripts stay
+ * blocked.
+ */
+export function withScriptSrcNonce(csp: string, nonce: string): string {
+  const directives = parseContentSecurityPolicyDirectives(csp);
+  directives.set("script-src", `'nonce-${nonce}'`);
+  return serializeContentSecurityPolicy(contentSecurityPolicyDirectiveOrder(csp), directives);
+}
+
+/**
  * Rewrites the `frame-ancestors` directive so the trusted app origin(s) may frame
  * this otherwise-locked content. The served HTML is still sandboxed by the viewer
  * (`sandbox="allow-scripts"`, no `allow-same-origin`); this only relaxes which page

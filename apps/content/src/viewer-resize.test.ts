@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { VIEWER_FRAME_HEIGHT_MESSAGE_TYPE } from "@agent-paste/contracts";
+import { describe, expect, it } from "vitest";
 import { injectViewerResizeReporter } from "./viewer-resize.js";
 
 describe("injectViewerResizeReporter", () => {
@@ -19,5 +19,10 @@ describe("injectViewerResizeReporter", () => {
   it("is idempotent when the reporter is already present", () => {
     const once = injectViewerResizeReporter("<html><body></body></html>");
     expect(injectViewerResizeReporter(once)).toBe(once);
+  });
+
+  it("adds a nonce attribute when requested", () => {
+    const html = injectViewerResizeReporter("<html><body></body></html>", "abc123");
+    expect(html).toContain('nonce="abc123"');
   });
 });
