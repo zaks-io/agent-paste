@@ -17,6 +17,7 @@ import { BASELINE_SECURITY_HEADERS, getBoundResponders, writeArtifactEvent } fro
 import type { AppContext, Env, R2ObjectBody } from "./env.js";
 import { contentEtag, etagMatches } from "./etag.js";
 import { frameAncestorsForEnv } from "./frame-ancestors.js";
+import { injectViewerResizeReporter } from "./viewer-resize.js";
 
 export const BUNDLE_FILENAME = "bundle.zip";
 const securityHeaders = { ...BASELINE_SECURITY_HEADERS, ...CONTENT_SECURITY_HEADERS };
@@ -131,14 +132,20 @@ export async function serveSignedObject(
   }
 
   const injectsNoindex = payload.noindex === true && isHtmlPath(path);
-  const bytes = served.bytes && injectsNoindex ? injectNoindexMetaBytes(served.bytes) : served.bytes;
+  const trustedViewerFrame = isTrustedViewerFrameRequest(request, frameAncestorsForEnv(env));
+  const scriptDisabled = payload.script_disabled !== false || (isHtmlPath(path) && !trustedViewerFrame);
+  const injectsResizeReporter = isHtmlPath(path) && trustedViewerFrame && !scriptDisabled;
+  const bytes =
+    served.bytes && (injectsNoindex || injectsResizeReporter)
+      ? transformViewerHtmlBytes(served.bytes, { noindex: injectsNoindex, resizeReporter: injectsResizeReporter })
+      : served.bytes;
   const size = bytes ? bytes.byteLength : served.plaintextSize;
 
   const headers = responseHeadersForPath(path, size, payload, etag, frameAncestorsForEnv(env), request);
   // A HEAD has no body to measure, so it reports the arithmetic plaintext size.
-  // When noindex injection would grow the GET body, that size is wrong, so drop
+  // When HTML injection would grow the GET body, that size is wrong, so drop
   // content-length rather than advertise a length the GET would not match.
-  if (!bytes && injectsNoindex) {
+  if (!bytes && (injectsNoindex || injectsResizeReporter)) {
     headers.delete("content-length");
   }
   headers.set(REQUEST_ID_HEADER, getRequestId(context));
@@ -473,13 +480,18 @@ function notModifiedResponse(context: AppContext, payload: ContentTokenPayload, 
   return new Response(null, { status: 304, headers });
 }
 
-function injectNoindexMetaBytes(bytes: Uint8Array): Uint8Array {
-  const html = new TextDecoder().decode(bytes);
-  return new TextEncoder().encode(injectNoindexMeta(html));
-}
-
-export function isHtmlPath(path: string): boolean {
-  return /\.(?:html?|xhtml)$/i.test(path);
+function transformViewerHtmlBytes(
+  bytes: Uint8Array,
+  options: { noindex: boolean; resizeReporter: boolean },
+): Uint8Array {
+  let html = new TextDecoder().decode(bytes);
+  if (options.noindex) {
+    html = injectNoindexMeta(html);
+  }
+  if (options.resizeReporter) {
+    html = injectViewerResizeReporter(html);
+  }
+  return new TextEncoder().encode(html);
 }
 
 export function injectNoindexMeta(html: string): string {
@@ -493,6 +505,10 @@ export function injectNoindexMeta(html: string): string {
     return `${html.slice(0, index)}${tag}${html.slice(index)}`;
   }
   return `${tag}${html}`;
+}
+
+export function isHtmlPath(path: string): boolean {
+  return /\.(?:html?|xhtml)$/i.test(path);
 }
 
 function safeDecodeURIComponent(value: string): string | null {

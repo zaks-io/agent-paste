@@ -21,5 +21,6 @@ export * from "./renderMode.js";
 export * from "./revisions.js";
 export * from "./routes.js";
 export * from "./uploadSessions.js";
+export * from "./viewerFrame.js";
 export * from "./web.js";
 export * from "./workspace.js";

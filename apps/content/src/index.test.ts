@@ -1,4 +1,4 @@
-import { routeContracts } from "@agent-paste/contracts";
+import { routeContracts, VIEWER_FRAME_HEIGHT_MESSAGE_TYPE } from "@agent-paste/contracts";
 import { encryptArtifactBytes } from "@agent-paste/storage";
 import {
   seedEncryptedRevisionFile,
@@ -1285,6 +1285,17 @@ describe("CSP header per content type", () => {
     expect(response.headers.get("content-security-policy")).toMatchInlineSnapshot(
       `"default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://esm.sh https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors https://app.agent-paste.sh"`,
     );
+  });
+
+  it("injects the viewer resize reporter into viewer-framed interactive HTML", async () => {
+    const response = await fetchServedFile(
+      "index.html",
+      "<html><body><main style='height:2400px'>tall</main></body></html>",
+      { script_disabled: false },
+      viewerFrameHeaders,
+      { AGENT_PASTE_ENV: "production" },
+    );
+    await expect(response.text()).resolves.toContain(VIEWER_FRAME_HEIGHT_MESSAGE_TYPE);
   });
 
   it("pins the CSS CSP", async () => {
