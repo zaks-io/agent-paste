@@ -63,6 +63,7 @@ describe("resolveContentTokenSigner", () => {
         CONTENT_SIGNING_KID: "v2",
       }),
     );
+    expect(rotated.signingSecret).toBe("c2");
     expect(await rotated.verify(minted)).toMatchObject(contentPayload);
   });
 

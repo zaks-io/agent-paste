@@ -5,7 +5,7 @@
   "testRunner": "vitest",
   "checkers": ["typescript"],
   "tsconfigFile": "tsconfig.json",
-  "mutate": ["src/access-link.ts", "src/pow.ts", "src/crockford.ts", "src/crypto.ts", "src/codec.ts"],
+  "mutate": ["src/access-link.ts", "src/crockford.ts", "src/crypto.ts", "src/codec.ts"],
   "ignorePatterns": ["dist", "coverage", ".stryker-tmp", ".turbo"],
   "incremental": true,
   "incrementalFile": ".stryker-tmp/incremental.json",

@@ -4,7 +4,6 @@ import { seedEncryptedWorkspaceBlob, testArtifactBytesKeyRing } from "./test-hel
 import {
   type R2GetObjectBody,
   readWorkspaceBlobBytes,
-  WorkspaceBlobMetadataError,
   WorkspaceBlobMissingError,
   writeWorkspaceBlob,
 } from "./workspace-blob-bytes.js";
@@ -15,14 +14,21 @@ const SHA = "a".repeat(64);
 function fakeR2() {
   const store = new Map<string, { body: Uint8Array; customMetadata?: Record<string, string> }>();
   const puts: string[] = [];
+  const putOptions: Array<{ httpMetadata?: Record<string, string>; customMetadata?: Record<string, string> }> = [];
   return {
     store,
     puts,
+    putOptions,
     async get(key: string): Promise<R2GetObjectBody | null> {
       return store.get(key) ?? null;
     },
-    async put(key: string, value: Uint8Array, options?: { customMetadata?: Record<string, string> }) {
+    async put(
+      key: string,
+      value: Uint8Array,
+      options?: { httpMetadata?: Record<string, string>; customMetadata?: Record<string, string> },
+    ) {
       puts.push(key);
+      putOptions.push(options ?? {});
       store.set(key, { body: value, customMetadata: options?.customMetadata });
     },
     async head(key: string) {
@@ -58,6 +64,13 @@ describe("readWorkspaceBlobBytes", () => {
     await expect(
       readWorkspaceBlobBytes({ r2: fakeR2(), workspaceId: WORKSPACE, sha256: SHA, ring }),
     ).rejects.toBeInstanceOf(WorkspaceBlobMissingError);
+    await expect(
+      readWorkspaceBlobBytes({ r2: fakeR2(), workspaceId: WORKSPACE, sha256: SHA, ring }),
+    ).rejects.toMatchObject({
+      name: "WorkspaceBlobMissingError",
+      message: "workspace_blob_missing",
+      sha256: SHA,
+    });
   });
 
   it("throws WorkspaceBlobMetadataError when encryption metadata is missing", async () => {
@@ -66,9 +79,10 @@ describe("readWorkspaceBlobBytes", () => {
     r2.store.set(workspaceBlobObjectKeyFor({ workspaceId: WORKSPACE, sha256: SHA }), {
       body: new Uint8Array([1, 2, 3]),
     });
-    await expect(readWorkspaceBlobBytes({ r2, workspaceId: WORKSPACE, sha256: SHA, ring })).rejects.toBeInstanceOf(
-      WorkspaceBlobMetadataError,
-    );
+    await expect(readWorkspaceBlobBytes({ r2, workspaceId: WORKSPACE, sha256: SHA, ring })).rejects.toMatchObject({
+      name: "WorkspaceBlobMetadataError",
+      message: "workspace_blob_metadata_missing",
+    });
   });
 });
 
@@ -81,6 +95,12 @@ describe("writeWorkspaceBlob", () => {
     const result = await writeWorkspaceBlob({ r2, workspaceId: WORKSPACE, sha256: SHA, plaintext, ring });
     expect(result.written).toBe(true);
     expect(result.key).toBe(workspaceBlobObjectKeyFor({ workspaceId: WORKSPACE, sha256: SHA }));
+    expect(r2.putOptions).toEqual([
+      expect.objectContaining({
+        httpMetadata: { contentType: "application/octet-stream" },
+        customMetadata: expect.any(Object),
+      }),
+    ]);
 
     const back = await readWorkspaceBlobBytes({ r2, workspaceId: WORKSPACE, sha256: SHA, ring });
     expect(new TextDecoder().decode(back)).toBe("reconstructed result");

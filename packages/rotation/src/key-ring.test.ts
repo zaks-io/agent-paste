@@ -49,6 +49,33 @@ describe("KeyRing rotation playbook", () => {
     expect(() => ring.dropKid(2)).toThrow(/cannot_drop_active_signing/);
   });
 
+  it("returns verify kids in stable numeric order", () => {
+    const ring = KeyRing.fromEntries(2, [
+      { kid: 10, secret: "ten" },
+      { kid: 2, secret: "two" },
+      { kid: 1, secret: "one" },
+    ]);
+    expect(ring.verifyKids).toEqual([1, 2, 10]);
+  });
+
+  it("rejects duplicate stage, unknown promote, and unknown drop operations", () => {
+    const ring = KeyRing.single("secret-v1", 1);
+    expect(() => ring.stageVerifyKey(1, "duplicate")).toThrow(/key_ring_kid_already_present:1/);
+    expect(() => ring.promoteSigningKid(2)).toThrow(/key_ring_unknown_kid:2/);
+    expect(() => ring.dropKid(2)).toThrow(/key_ring_unknown_kid:2/);
+  });
+
+  it("keeps the replacement kid verifiable after emergency secret replacement", () => {
+    const ring = KeyRing.fromEntries(2, [
+      { kid: 1, secret: "old" },
+      { kid: 2, secret: "current" },
+    ]);
+    ring.replaceSigningSecret("emergency", 1);
+    expect(ring.signingKid).toBe(1);
+    expect(ring.verifyKids).toEqual([1]);
+    expect(ring.signingSecret()).toBe("emergency");
+  });
+
   it("fails loudly when the active signing kid is not bound", () => {
     expectRedactedKeyRingError(
       () => KeyRing.fromEntries(2, [{ kid: 1, secret: "secret-v1" }]),
@@ -69,6 +96,22 @@ describe("KeyRing rotation playbook", () => {
     expect(ring.signingKid).toBe(2);
     expect(ring.verifyKids).toEqual([2]);
     expect(ring.secretForKid(2)).toBe("root-v2");
+  });
+
+  it("rejects secondary-only env while kid 1 is still configured for signing", () => {
+    expectRedactedKeyRingError(
+      () =>
+        createKeyRingFromVersionedEnv({
+          baseName: "ARTIFACT_BYTES_ENCRYPTION_KEY",
+          kidVarName: "ARTIFACT_BYTES_ENCRYPTION_KID",
+          env: {
+            ARTIFACT_BYTES_ENCRYPTION_KEY_V2: "root-v2",
+            ARTIFACT_BYTES_ENCRYPTION_KID: "v1",
+          },
+        }),
+      "key_ring_missing_env:ARTIFACT_BYTES_ENCRYPTION_KEY",
+      ["root-v2"],
+    );
   });
 
   it("parses versioned Worker env bindings", () => {
