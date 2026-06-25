@@ -8,15 +8,26 @@ import {
   viewerResizeReporterScriptSha256,
 } from "./viewer-resize.js";
 
-function countCaseInsensitiveMatches(html: string, pattern: RegExp): number {
-  return [...html.matchAll(pattern)].length;
+function countOpeningScriptTags(html: string): number {
+  const lower = html.toLowerCase();
+  const needle = "<script>";
+  let count = 0;
+  let pos = 0;
+  while (true) {
+    const found = lower.indexOf(needle, pos);
+    if (found === -1) {
+      return count;
+    }
+    count += 1;
+    pos = found + needle.length;
+  }
 }
 
 describe("injectViewerResizeReporter", () => {
   it("injects the resize reporter before </body>", () => {
     const html = injectViewerResizeReporter("<html><head></head><body><p>tall</p></body></html>");
     expect(html).toContain(VIEWER_FRAME_HEIGHT_MESSAGE_TYPE);
-    expect(countCaseInsensitiveMatches(html, /<script>/g)).toBe(1);
+    expect(countOpeningScriptTags(html)).toBe(1);
     expect(html.toLowerCase().indexOf("<script>")).toBeLessThan(html.toLowerCase().indexOf("</body>"));
   });
 
@@ -37,13 +48,13 @@ describe("injectViewerResizeReporter", () => {
       `<html><body><code>${VIEWER_FRAME_HEIGHT_MESSAGE_TYPE}</code></body></html>`,
     );
     expect(html).toContain(VIEWER_RESIZE_INJECTION_BLOCK);
-    expect(countCaseInsensitiveMatches(html, /<script>/g)).toBe(1);
+    expect(countOpeningScriptTags(html)).toBe(1);
   });
 
   it("still injects when publisher HTML contains only a bare end-marker attribute", () => {
     const html = injectViewerResizeReporter(`<html><body><div id="${VIEWER_END_MARKER_ID}"></div></body></html>`);
     expect(html).toContain(VIEWER_RESIZE_INJECTION_BLOCK);
-    expect(countCaseInsensitiveMatches(html, /<script>/g)).toBe(1);
+    expect(countOpeningScriptTags(html)).toBe(1);
   });
 
   it("inserts before the last </body> when earlier body-close tokens appear in strings", () => {
