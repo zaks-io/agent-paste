@@ -73,11 +73,14 @@ export function plaintextByteLengthFromStoredObject(storedBytes: number): number
 export function isArtifactBytesEncryptionMetadata(
   metadata: Record<string, string> | undefined,
 ): metadata is ArtifactBytesEncryptionMetadata {
-  const kid = metadata?.[ARTIFACT_BYTES_METADATA_KEYS.kid];
+  if (!metadata) {
+    return false;
+  }
+  const kid = metadata[ARTIFACT_BYTES_METADATA_KEYS.kid];
   return (
-    metadata?.[ARTIFACT_BYTES_METADATA_KEYS.alg] === ARTIFACT_BYTES_ENCRYPTION_ALG &&
-    (metadata?.[ARTIFACT_BYTES_METADATA_KEYS.aadVersion] === ARTIFACT_BYTES_AAD_VERSION ||
-      metadata?.[ARTIFACT_BYTES_METADATA_KEYS.aadVersion] === ARTIFACT_BYTES_BLOB_AAD_VERSION) &&
+    metadata[ARTIFACT_BYTES_METADATA_KEYS.alg] === ARTIFACT_BYTES_ENCRYPTION_ALG &&
+    (metadata[ARTIFACT_BYTES_METADATA_KEYS.aadVersion] === ARTIFACT_BYTES_AAD_VERSION ||
+      metadata[ARTIFACT_BYTES_METADATA_KEYS.aadVersion] === ARTIFACT_BYTES_BLOB_AAD_VERSION) &&
     typeof kid === "string" &&
     kid.length > 0
   );
@@ -259,19 +262,10 @@ export async function decryptArtifactBytesWithKeyRing(input: {
 export async function bytesFromReadableBody(
   body: ReadableStream | ArrayBuffer | Uint8Array | string | null | undefined,
 ): Promise<Uint8Array> {
-  if (body === null || body === undefined) {
-    return new Uint8Array();
-  }
-  if (typeof body === "string") {
-    return new TextEncoder().encode(body);
-  }
-  if (body instanceof ArrayBuffer) {
-    return new Uint8Array(body);
-  }
   if (body instanceof Uint8Array) {
     return body;
   }
-  return new Uint8Array(await new Response(body).arrayBuffer());
+  return new Uint8Array(await new Response(body ?? null).arrayBuffer());
 }
 
 export class ReadableBodyTooLargeError extends Error {

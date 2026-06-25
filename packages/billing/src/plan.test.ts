@@ -37,4 +37,15 @@ describe("billingSyncIdempotencyKey", () => {
       billingSyncIdempotencyKey({ ...base, appliedAt: "2026-06-03T00:00:00.000Z" }),
     );
   });
+
+  it("uses explicit none sentinels for absent subscription state", () => {
+    expect(
+      billingSyncIdempotencyKey({
+        subscriptionId: "sub_123",
+        status: null,
+        currentPeriodEnd: null,
+        appliedAt: "2026-06-02T00:00:00.000Z",
+      }),
+    ).toBe("sync:sub_123:none:none:2026-06-02T00:00:00.000Z");
+  });
 });

@@ -3,7 +3,7 @@ const CROCKFORD_DECODE = new Map<string, number>([...CROCKFORD].map((character, 
 
 /** Decodes a 16-character Crockford base32 public id to 10 bytes (80 bits). */
 export function decodeCrockfordPublicId(publicId: string): Uint8Array | null {
-  if (publicId.length !== 16 || !/^[0-9A-HJKMNP-TV-Z]{16}$/.test(publicId)) {
+  if (!/^[0-9A-HJKMNP-TV-Z]{16}$/.test(publicId)) {
     return null;
   }
 
@@ -12,10 +12,7 @@ export function decodeCrockfordPublicId(publicId: string): Uint8Array | null {
   const bytes: number[] = [];
 
   for (const character of publicId) {
-    const value = CROCKFORD_DECODE.get(character);
-    if (value === undefined) {
-      return null;
-    }
+    const value = CROCKFORD_DECODE.get(character) as number;
     buffer = (buffer << 5n) | BigInt(value);
     bits += 5;
     while (bits >= 8) {
@@ -23,10 +20,6 @@ export function decodeCrockfordPublicId(publicId: string): Uint8Array | null {
       const shift = BigInt(bits);
       bytes.push(Number((buffer >> shift) & 0xffn));
     }
-  }
-
-  if (bytes.length !== 10) {
-    return null;
   }
 
   return Uint8Array.from(bytes);
