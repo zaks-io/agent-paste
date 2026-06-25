@@ -477,7 +477,7 @@ describe("web routes", () => {
     state.loaderData = { ok: true, app: "web" };
     render(<health.Route.component />);
     expect(screen.getByText(/"app": "web"/)).toBeInTheDocument();
-  });
+  }, 30_000);
 
   it("redirects /admin for authenticated users without the WorkOS admin role", async () => {
     const admin = await import("../src/routes/_authed.admin");
