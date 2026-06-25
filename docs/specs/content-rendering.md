@@ -223,9 +223,9 @@ immutable revision identity plus any request-scoped HTML representation that
 rewrites the body or changes per-path headers. Non-HTML paths hash only
 `revision_id` and `path`. HTML paths append a representation suffix that
 distinguishes direct navigation vs trusted viewer iframe, noindex injection,
-script policy, and whether the resize reporter is present. The value is computed
-from the token payload and fetch metadata alone (no R2 read), so a `304` cannot
-reuse a cached body from a different framing or script policy.
+script policy, and the current viewer resize reporter transform id. The value is
+computed from the token payload and fetch metadata alone (no R2 read), so a `304`
+cannot reuse a cached body from a different framing or script policy.
 
 **Conditional requests.** A request whose `If-None-Match` matches the ETag (or
 is `*`) returns `304 Not Modified` with no body, **before** any R2 read or

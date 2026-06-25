@@ -2,17 +2,26 @@ import { VIEWER_FRAME_HEIGHT_MESSAGE_TYPE } from "@agent-paste/contracts";
 
 export const VIEWER_END_MARKER_ID = "__agp_viewer_end__";
 
-const VIEWER_END_MARKER_ATTR = `id="${VIEWER_END_MARKER_ID}"`;
-
 /**
- * Inline bootstrap injected into viewer-framed HTML. Reports document height to
- * the trusted app shell via postMessage so the parent can size the sandboxed
- * iframe and scroll the host page.
+ * Literal inline reporter source. Must remain a fixed string with no publisher
+ * input or template interpolation so CSP hashes and CodeQL can treat it as
+ * constant. Keep synchronized with contract constants via the guard below.
  */
-const VIEWER_RESIZE_REPORTER_SOURCE = `(function(){var T=${JSON.stringify(VIEWER_FRAME_HEIGHT_MESSAGE_TYPE)};var M=${JSON.stringify(VIEWER_END_MARKER_ID)};var last=0;function measure(){var end=document.getElementById(M);if(end){return Math.ceil(end.offsetTop+end.offsetHeight)}var b=document.body,d=document.documentElement;return Math.ceil(Math.max(b?b.scrollHeight:0,d.scrollHeight))}function post(){var h=measure();if(h<=0||h===last)return;last=h;if(window.parent!==window){window.parent.postMessage({type:T,height:h},"*")}}if(typeof ResizeObserver!=="undefined"){new ResizeObserver(post).observe(document.body||document.documentElement)}addEventListener("load",post);addEventListener("DOMContentLoaded",post);post();})();`;
+const VIEWER_RESIZE_REPORTER_SOURCE =
+  '(function(){var T="agent-paste:viewer-height";var M="__agp_viewer_end__";var last=0;function measure(){var end=document.getElementById(M);if(end){return Math.ceil(end.offsetTop+end.offsetHeight)}var b=document.body,d=document.documentElement;return Math.ceil(Math.max(b?b.scrollHeight:0,d.scrollHeight))}function post(){var h=measure();if(h<=0||h===last)return;last=h;if(window.parent!==window){window.parent.postMessage({type:T,height:h},"*")}}if(typeof ResizeObserver!=="undefined"){new ResizeObserver(post).observe(document.body||document.documentElement)}addEventListener("load",post);addEventListener("DOMContentLoaded",post);post();})();';
 
-const VIEWER_END_MARKER = `<div id="${VIEWER_END_MARKER_ID}" aria-hidden="true" style="display:block;width:0;height:0;margin:0;padding:0;border:0"></div>`;
-const VIEWER_RESIZE_REPORTER_TAG = `<script>${VIEWER_RESIZE_REPORTER_SOURCE}</script>`;
+if (VIEWER_FRAME_HEIGHT_MESSAGE_TYPE !== "agent-paste:viewer-height" || VIEWER_END_MARKER_ID !== "__agp_viewer_end__") {
+  throw new Error("viewer resize reporter constants drifted from contracts");
+}
+
+const VIEWER_END_MARKER =
+  '<div id="__agp_viewer_end__" aria-hidden="true" style="display:block;width:0;height:0;margin:0;padding:0;border:0"></div>';
+const VIEWER_RESIZE_REPORTER_TAG = "<script>" + VIEWER_RESIZE_REPORTER_SOURCE + "</script>";
+
+/** ETag/CSP representation suffix; update when VIEWER_RESIZE_REPORTER_SOURCE changes. */
+export const VIEWER_RESIZE_REPORTER_TRANSFORM_ID = "GB8p4FjZ10tL";
+
+export const VIEWER_RESIZE_INJECTION_BLOCK = VIEWER_END_MARKER + VIEWER_RESIZE_REPORTER_TAG;
 
 let reporterScriptSha256Promise: Promise<string> | undefined;
 
@@ -37,12 +46,12 @@ function lastBodyCloseIndex(html: string): number {
 }
 
 export function injectViewerResizeReporter(html: string): string {
-  if (html.includes(VIEWER_END_MARKER_ATTR)) {
+  if (html.includes(VIEWER_RESIZE_INJECTION_BLOCK)) {
     return html;
   }
   const bodyCloseIndex = lastBodyCloseIndex(html);
   if (bodyCloseIndex !== -1) {
-    return `${html.slice(0, bodyCloseIndex)}${VIEWER_END_MARKER}${VIEWER_RESIZE_REPORTER_TAG}${html.slice(bodyCloseIndex)}`;
+    return html.slice(0, bodyCloseIndex) + VIEWER_RESIZE_INJECTION_BLOCK + html.slice(bodyCloseIndex);
   }
-  return `${html}${VIEWER_END_MARKER}${VIEWER_RESIZE_REPORTER_TAG}`;
+  return html + VIEWER_RESIZE_INJECTION_BLOCK;
 }

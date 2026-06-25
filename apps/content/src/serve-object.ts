@@ -18,7 +18,11 @@ import { BASELINE_SECURITY_HEADERS, getBoundResponders, writeArtifactEvent } fro
 import type { AppContext, Env, R2ObjectBody } from "./env.js";
 import { contentEtag, etagMatches } from "./etag.js";
 import { frameAncestorsForEnv } from "./frame-ancestors.js";
-import { injectViewerResizeReporter, viewerResizeReporterScriptSha256 } from "./viewer-resize.js";
+import {
+  injectViewerResizeReporter,
+  VIEWER_RESIZE_REPORTER_TRANSFORM_ID,
+  viewerResizeReporterScriptSha256,
+} from "./viewer-resize.js";
 
 export const BUNDLE_FILENAME = "bundle.zip";
 const securityHeaders = { ...BASELINE_SECURITY_HEADERS, ...CONTENT_SECURITY_HEADERS };
@@ -536,7 +540,7 @@ export function contentRepresentationKey(
   }
   parts.push(trustedViewerFrame ? "viewer" : "direct");
   if (trustedViewerFrame) {
-    parts.push("resize");
+    parts.push(`resize-${VIEWER_RESIZE_REPORTER_TRANSFORM_ID}`);
     parts.push(scriptDisabled ? "script-none-hash" : "script-on");
   } else {
     parts.push(scriptDisabled ? "script-none" : "script-on");
