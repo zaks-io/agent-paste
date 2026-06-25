@@ -1,4 +1,4 @@
-import { routeContracts } from "@agent-paste/contracts";
+import { routeContracts, VIEWER_FRAME_HEIGHT_MESSAGE_TYPE } from "@agent-paste/contracts";
 import { encryptArtifactBytes } from "@agent-paste/storage";
 import {
   seedEncryptedRevisionFile,
@@ -7,6 +7,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import { contentEtag } from "./etag.js";
 import { type Env, handleRequest, mountedRouteIds, nonContractRoutePaths, signContentToken } from "./index.js";
+import { viewerResizeReporterScriptSha256 } from "./viewer-resize.js";
 
 const workspaceId = "00000000-0000-4000-8000-000000000001";
 const artifactBytesEncryptionEnv = {
@@ -1285,6 +1286,133 @@ describe("CSP header per content type", () => {
     expect(response.headers.get("content-security-policy")).toMatchInlineSnapshot(
       `"default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://esm.sh https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors https://app.agent-paste.sh"`,
     );
+  });
+
+  it("injects the viewer resize reporter into viewer-framed interactive HTML", async () => {
+    const response = await fetchServedFile(
+      "index.html",
+      "<html><body><main style='height:2400px'>tall</main></body></html>",
+      { script_disabled: false },
+      viewerFrameHeaders,
+      { AGENT_PASTE_ENV: "production" },
+    );
+    await expect(response.text()).resolves.toContain(VIEWER_FRAME_HEIGHT_MESSAGE_TYPE);
+  });
+
+  it("injects the viewer resize reporter into viewer-framed script-disabled HTML with a hash CSP", async () => {
+    const response = await fetchServedFile(
+      "index.html",
+      "<html><body><main style='height:2400px'>tall</main></body></html>",
+      { script_disabled: true, noindex: true },
+      viewerFrameHeaders,
+      { AGENT_PASTE_ENV: "production" },
+    );
+    const html = await response.text();
+    const hash = await viewerResizeReporterScriptSha256();
+    expect(html).toContain(VIEWER_FRAME_HEIGHT_MESSAGE_TYPE);
+    expect(html).toContain("<script>");
+    expect(html).not.toMatch(/nonce="/);
+    expect(response.headers.get("content-security-policy")).toContain(`script-src 'sha256-${hash}'`);
+    expect(response.headers.get("content-security-policy")).toContain("frame-ancestors https://app.agent-paste.sh");
+  });
+
+  it("does not 304 viewer-framed HTML against a direct-navigation cache validator", async () => {
+    const path = "index.html";
+    const token = await signContentToken(
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: [path],
+        script_disabled: false,
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const encrypted = await encryptArtifactBytes({
+      plaintext: new TextEncoder().encode("<html><body>tall</body></html>"),
+      rootSecret: artifactBytesEncryptionEnv.ARTIFACT_BYTES_ENCRYPTION_KEY,
+      kid: 1,
+      context: {
+        workspaceId,
+        artifactId: "art_1",
+        revisionId: "rev_1",
+        normalizedPath: path,
+      },
+    });
+    const get = vi.fn(async () => ({
+      body: new Blob([encrypted.ciphertext]).stream(),
+      size: encrypted.ciphertext.byteLength,
+      customMetadata: encrypted.customMetadata,
+    }));
+    const env = baseContentEnv({ ARTIFACTS: { get }, AGENT_PASTE_ENV: "production" });
+
+    const direct = await handleRequest(new Request(`https://content.test/v/${token}/${path}`), env);
+    expect(direct.status).toBe(200);
+    const directEtag = direct.headers.get("etag");
+    expect(directEtag).toBeTruthy();
+    expect(await direct.text()).not.toContain(VIEWER_FRAME_HEIGHT_MESSAGE_TYPE);
+
+    const viewerConditional = await handleRequest(
+      new Request(`https://content.test/v/${token}/${path}`, {
+        headers: { ...viewerFrameHeaders, "if-none-match": directEtag as string },
+      }),
+      env,
+    );
+    expect(viewerConditional.status).toBe(200);
+    await expect(viewerConditional.text()).resolves.toContain(VIEWER_FRAME_HEIGHT_MESSAGE_TYPE);
+    expect(viewerConditional.headers.get("etag")).not.toBe(directEtag);
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it("304s viewer-framed HTML when If-None-Match matches the viewer representation", async () => {
+    const path = "index.html";
+    const token = await signContentToken(
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: [path],
+        script_disabled: false,
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+    const encrypted = await encryptArtifactBytes({
+      plaintext: new TextEncoder().encode("<html><body>tall</body></html>"),
+      rootSecret: artifactBytesEncryptionEnv.ARTIFACT_BYTES_ENCRYPTION_KEY,
+      kid: 1,
+      context: {
+        workspaceId,
+        artifactId: "art_1",
+        revisionId: "rev_1",
+        normalizedPath: path,
+      },
+    });
+    const get = vi.fn(async () => ({
+      body: new Blob([encrypted.ciphertext]).stream(),
+      size: encrypted.ciphertext.byteLength,
+      customMetadata: encrypted.customMetadata,
+    }));
+    const env = baseContentEnv({ ARTIFACTS: { get }, AGENT_PASTE_ENV: "production" });
+
+    const first = await handleRequest(
+      new Request(`https://content.test/v/${token}/${path}`, { headers: viewerFrameHeaders }),
+      env,
+    );
+    expect(first.status).toBe(200);
+    const etag = first.headers.get("etag");
+    expect(etag).toBeTruthy();
+    expect(get).toHaveBeenCalledTimes(1);
+
+    const conditional = await handleRequest(
+      new Request(`https://content.test/v/${token}/${path}`, {
+        headers: { ...viewerFrameHeaders, "if-none-match": etag as string },
+      }),
+      env,
+    );
+    expect(conditional.status).toBe(304);
+    expect(get).toHaveBeenCalledTimes(1);
   });
 
   it("pins the CSS CSP", async () => {

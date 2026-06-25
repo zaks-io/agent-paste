@@ -9,6 +9,7 @@ import { contentEtag, etagMatches } from "./etag.js";
 import {
   bundleResponseHeaders,
   CONTENT_CACHE_CONTROL,
+  contentRepresentationKey,
   denylistKeysForPayload,
   injectNoindexMeta,
   isAllowedPath,
@@ -19,6 +20,7 @@ import {
   responseHeadersForPath,
   serveSignedObject,
 } from "./serve-object.js";
+import { VIEWER_RESIZE_REPORTER_TRANSFORM_ID } from "./viewer-resize.js";
 
 const ETAG = '"test-etag"';
 const workspaceId = "00000000-0000-4000-8000-000000000001";
@@ -510,6 +512,35 @@ describe("content etag", () => {
     const base = await contentEtag("rev_1", "index.html");
     expect(await contentEtag("rev_2", "index.html")).not.toBe(base);
     expect(await contentEtag("rev_1", "other.html")).not.toBe(base);
+  });
+
+  it("differs when the HTML representation variant changes", async () => {
+    const base = await contentEtag("rev_1", "index.html");
+    const viewer = await contentEtag(
+      "rev_1",
+      "index.html",
+      `viewer:resize-${VIEWER_RESIZE_REPORTER_TRANSFORM_ID}:script-on`,
+    );
+    expect(viewer).not.toBe(base);
+  });
+});
+
+describe("contentRepresentationKey", () => {
+  function viewerFrameRequest(): Request {
+    return new Request("https://usercontent.agent-paste.sh/v/token/index.html", {
+      headers: {
+        "sec-fetch-dest": "iframe",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-site": "same-site",
+      },
+    });
+  }
+
+  it("includes the reporter transform id for viewer-framed HTML", () => {
+    const key = contentRepresentationKey("index.html", basePayload({ script_disabled: false }), viewerFrameRequest(), [
+      "https://app.agent-paste.sh",
+    ]);
+    expect(key).toContain(`resize-${VIEWER_RESIZE_REPORTER_TRANSFORM_ID}`);
   });
 });
 

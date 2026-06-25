@@ -159,6 +159,24 @@ viewer iframe navigation. Direct `usercontent` navigations, bundle downloads,
 attachments, error envelopes, and non-content routes keep `frame-ancestors
 'none'` and `X-Frame-Options: DENY`.
 
+### Viewer iframe height handshake
+
+Trusted viewer iframe navigations for HTML inject a small inline resize reporter
+before `</body>` plus an end-marker element. The reporter posts
+`{ type: "agent-paste:viewer-height", height }` to the parent via `postMessage`
+so the app shell can size the sandboxed iframe and scroll the host page. The
+parent accepts messages only from the iframe's `contentWindow` and only when
+`event.origin` is the content URL origin or the opaque `"null"` origin produced
+by the sandbox.
+
+When the token's script policy is disabled (`script_disabled: true` or a
+non-viewer HTML navigation), publisher scripts stay blocked. For viewer-framed
+HTML that is still script-disabled, the resize reporter is the sole allowed
+script: the content Worker sets `script-src 'sha256-…'` to the reporter's
+static source hash and injects that inline script without a nonce. Interactive
+viewer-framed HTML (`script_disabled: false`) uses the normal interactive CSP
+and an inline reporter allowed by `unsafe-inline`.
+
 ## Render Modes
 
 MVP has no platform renderer pages. The primary supported entrypoint is HTML:
@@ -201,9 +219,13 @@ The content origin adds a validator so an unchanged reload costs a single
 zero-body round trip.
 
 **ETag.** Every file and bundle 200 carries a strong `ETag` derived from
-immutable revision identity: `"{sha256(revision_id "\n" path)}"`. A revision is
-append-only, so `(revision_id, path)` permanently identifies the exact served
-bytes. The value is computed from the token payload alone (no R2 read).
+immutable revision identity plus any request-scoped HTML representation that
+rewrites the body or changes per-path headers. Non-HTML paths hash only
+`revision_id` and `path`. HTML paths append a representation suffix that
+distinguishes direct navigation vs trusted viewer iframe, noindex injection,
+script policy, and the current viewer resize reporter transform id. The value is
+computed from the token payload and fetch metadata alone (no R2 read), so a `304`
+cannot reuse a cached body from a different framing or script policy.
 
 **Conditional requests.** A request whose `If-None-Match` matches the ETag (or
 is `*`) returns `304 Not Modified` with no body, **before** any R2 read or
