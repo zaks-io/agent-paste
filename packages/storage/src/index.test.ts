@@ -132,6 +132,11 @@ describe("withScriptSrcHash", () => {
     expect(result).not.toContain("script-src 'none'");
     expect(result).toContain("style-src 'self' 'unsafe-inline'");
   });
+
+  it("adds script-src when the source policy omits it", () => {
+    const result = withScriptSrcHash("default-src 'none'; style-src 'unsafe-inline'", ["abc123+/="]);
+    expect(result).toBe("default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-abc123+/='");
+  });
 });
 
 describe("withScriptSrcNonce", () => {

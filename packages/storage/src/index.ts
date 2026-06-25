@@ -164,7 +164,11 @@ export function deriveScriptDisabledContentSecurityPolicy(baseCsp: string): stri
 export function withScriptSrcHash(csp: string, hashes: readonly string[]): string {
   const directives = parseContentSecurityPolicyDirectives(csp);
   directives.set("script-src", hashes.map((hash) => `'sha256-${hash}'`).join(" "));
-  return serializeContentSecurityPolicy(contentSecurityPolicyDirectiveOrder(csp), directives);
+  const order = contentSecurityPolicyDirectiveOrder(csp);
+  if (!order.includes("script-src")) {
+    order.push("script-src");
+  }
+  return serializeContentSecurityPolicy(order, directives);
 }
 
 /**
@@ -175,7 +179,11 @@ export function withScriptSrcHash(csp: string, hashes: readonly string[]): strin
 export function withScriptSrcNonce(csp: string, nonce: string): string {
   const directives = parseContentSecurityPolicyDirectives(csp);
   directives.set("script-src", `'nonce-${nonce}'`);
-  return serializeContentSecurityPolicy(contentSecurityPolicyDirectiveOrder(csp), directives);
+  const order = contentSecurityPolicyDirectiveOrder(csp);
+  if (!order.includes("script-src")) {
+    order.push("script-src");
+  }
+  return serializeContentSecurityPolicy(order, directives);
 }
 
 /**
