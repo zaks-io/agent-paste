@@ -1,32 +1,48 @@
 import { VIEWER_FRAME_HEIGHT_MESSAGE_TYPE } from "@agent-paste/contracts";
 
-const VIEWER_END_MARKER_ID = "__agp_viewer_end__";
+export const VIEWER_END_MARKER_ID = "__agp_viewer_end__";
+
+const VIEWER_END_MARKER_ATTR = `id="${VIEWER_END_MARKER_ID}"`;
 
 /**
- * Inline bootstrap injected into viewer-framed interactive HTML only. Reports
- * document height to the trusted app shell via postMessage so the parent can
- * size the sandboxed iframe and scroll the host page.
+ * Inline bootstrap injected into viewer-framed HTML. Reports document height to
+ * the trusted app shell via postMessage so the parent can size the sandboxed
+ * iframe and scroll the host page.
  */
 const VIEWER_RESIZE_REPORTER_SOURCE = `(function(){var T=${JSON.stringify(VIEWER_FRAME_HEIGHT_MESSAGE_TYPE)};var M=${JSON.stringify(VIEWER_END_MARKER_ID)};var last=0;function measure(){var end=document.getElementById(M);if(end){return Math.ceil(end.offsetTop+end.offsetHeight)}var b=document.body,d=document.documentElement;return Math.ceil(Math.max(b?b.scrollHeight:0,d.scrollHeight))}function post(){var h=measure();if(h<=0||h===last)return;last=h;if(window.parent!==window){window.parent.postMessage({type:T,height:h},"*")}}if(typeof ResizeObserver!=="undefined"){new ResizeObserver(post).observe(document.body||document.documentElement)}addEventListener("load",post);addEventListener("DOMContentLoaded",post);post();})();`;
 
 const VIEWER_END_MARKER = `<div id="${VIEWER_END_MARKER_ID}" aria-hidden="true" style="display:block;width:0;height:0;margin:0;padding:0;border:0"></div>`;
+const VIEWER_RESIZE_REPORTER_TAG = `<script>${VIEWER_RESIZE_REPORTER_SOURCE}</script>`;
 
-function viewerResizeReporterTag(nonce?: string): string {
-  if (nonce) {
-    return `<script nonce="${nonce}">${VIEWER_RESIZE_REPORTER_SOURCE}</script>`;
-  }
-  return `<script>${VIEWER_RESIZE_REPORTER_SOURCE}</script>`;
+let reporterScriptSha256Promise: Promise<string> | undefined;
+
+/** Base64 SHA-256 digest of the injected reporter source for CSP `script-src` hashes. */
+export async function viewerResizeReporterScriptSha256(): Promise<string> {
+  reporterScriptSha256Promise ??= crypto.subtle
+    .digest("SHA-256", new TextEncoder().encode(VIEWER_RESIZE_REPORTER_SOURCE))
+    .then((digest) => {
+      const bytes = new Uint8Array(digest);
+      let binary = "";
+      for (const byte of bytes) {
+        binary += String.fromCharCode(byte);
+      }
+      return btoa(binary);
+    });
+  return reporterScriptSha256Promise;
 }
 
-export function injectViewerResizeReporter(html: string, nonce?: string): string {
-  if (html.includes(VIEWER_FRAME_HEIGHT_MESSAGE_TYPE)) {
+function lastBodyCloseIndex(html: string): number {
+  const matches = [...html.matchAll(/<\/body>/gi)];
+  return matches.at(-1)?.index ?? -1;
+}
+
+export function injectViewerResizeReporter(html: string): string {
+  if (html.includes(VIEWER_END_MARKER_ATTR)) {
     return html;
   }
-  const reporterTag = viewerResizeReporterTag(nonce);
-  const bodyClose = /<\/body>/i.exec(html);
-  if (bodyClose) {
-    const index = bodyClose.index;
-    return `${html.slice(0, index)}${VIEWER_END_MARKER}${reporterTag}${html.slice(index)}`;
+  const bodyCloseIndex = lastBodyCloseIndex(html);
+  if (bodyCloseIndex !== -1) {
+    return `${html.slice(0, bodyCloseIndex)}${VIEWER_END_MARKER}${VIEWER_RESIZE_REPORTER_TAG}${html.slice(bodyCloseIndex)}`;
   }
-  return `${html}${VIEWER_END_MARKER}${reporterTag}`;
+  return `${html}${VIEWER_END_MARKER}${VIEWER_RESIZE_REPORTER_TAG}`;
 }

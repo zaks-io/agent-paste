@@ -7,6 +7,7 @@ import {
   SCRIPT_DISABLED_CONTENT_SECURITY_POLICY,
   servedContentForPath,
   withFrameAncestors,
+  withScriptSrcHash,
   withScriptSrcNonce,
 } from "./index";
 
@@ -121,6 +122,15 @@ describe("withFrameAncestors", () => {
   it("adds a frame-ancestors directive when the source policy omits it", () => {
     const result = withFrameAncestors("default-src 'none'; img-src data:", ["https://app.agent-paste.sh"]);
     expect(result).toBe("default-src 'none'; img-src data:; frame-ancestors https://app.agent-paste.sh");
+  });
+});
+
+describe("withScriptSrcHash", () => {
+  it("replaces script-src with hash sources", () => {
+    const result = withScriptSrcHash(SCRIPT_DISABLED_CONTENT_SECURITY_POLICY, ["abc123+/="]);
+    expect(result).toContain("script-src 'sha256-abc123+/='");
+    expect(result).not.toContain("script-src 'none'");
+    expect(result).toContain("style-src 'self' 'unsafe-inline'");
   });
 });
 

@@ -172,10 +172,10 @@ by the sandbox.
 When the token's script policy is disabled (`script_disabled: true` or a
 non-viewer HTML navigation), publisher scripts stay blocked. For viewer-framed
 HTML that is still script-disabled, the resize reporter is the sole allowed
-script: the content Worker derives a deterministic per-representation `nonce`,
-sets `script-src 'nonce-…'` on the response CSP, and injects the reporter with
-that matching `nonce` attribute. Interactive viewer-framed HTML (`script_disabled:
-false`) uses the normal interactive CSP and an unnonced inline reporter.
+script: the content Worker sets `script-src 'sha256-…'` to the reporter's
+static source hash and injects that inline script without a nonce. Interactive
+viewer-framed HTML (`script_disabled: false`) uses the normal interactive CSP
+and an inline reporter allowed by `unsafe-inline`.
 
 ## Render Modes
 

@@ -158,6 +158,16 @@ export function deriveScriptDisabledContentSecurityPolicy(baseCsp: string): stri
 }
 
 /**
+ * Replaces `script-src` with hash sources so known inline scripts (for example the
+ * viewer resize reporter) may run while publisher scripts stay blocked.
+ */
+export function withScriptSrcHash(csp: string, hashes: readonly string[]): string {
+  const directives = parseContentSecurityPolicyDirectives(csp);
+  directives.set("script-src", hashes.map((hash) => `'sha256-${hash}'`).join(" "));
+  return serializeContentSecurityPolicy(contentSecurityPolicyDirectiveOrder(csp), directives);
+}
+
+/**
  * Replaces `script-src` with a single nonce source so one trusted inline script
  * (for example the viewer resize reporter) may run while publisher scripts stay
  * blocked.

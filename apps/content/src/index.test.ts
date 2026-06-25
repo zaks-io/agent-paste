@@ -7,6 +7,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import { contentEtag } from "./etag.js";
 import { type Env, handleRequest, mountedRouteIds, nonContractRoutePaths, signContentToken } from "./index.js";
+import { viewerResizeReporterScriptSha256 } from "./viewer-resize.js";
 
 const workspaceId = "00000000-0000-4000-8000-000000000001";
 const artifactBytesEncryptionEnv = {
@@ -1298,7 +1299,7 @@ describe("CSP header per content type", () => {
     await expect(response.text()).resolves.toContain(VIEWER_FRAME_HEIGHT_MESSAGE_TYPE);
   });
 
-  it("injects the viewer resize reporter into viewer-framed script-disabled HTML with a nonce CSP", async () => {
+  it("injects the viewer resize reporter into viewer-framed script-disabled HTML with a hash CSP", async () => {
     const response = await fetchServedFile(
       "index.html",
       "<html><body><main style='height:2400px'>tall</main></body></html>",
@@ -1307,9 +1308,11 @@ describe("CSP header per content type", () => {
       { AGENT_PASTE_ENV: "production" },
     );
     const html = await response.text();
+    const hash = await viewerResizeReporterScriptSha256();
     expect(html).toContain(VIEWER_FRAME_HEIGHT_MESSAGE_TYPE);
-    expect(html).toMatch(/<script nonce="[0-9a-f]{32}">/);
-    expect(response.headers.get("content-security-policy")).toMatch(/script-src 'nonce-[0-9a-f]{32}'/);
+    expect(html).toContain("<script>");
+    expect(html).not.toMatch(/nonce="/);
+    expect(response.headers.get("content-security-policy")).toContain(`script-src 'sha256-${hash}'`);
     expect(response.headers.get("content-security-policy")).toContain("frame-ancestors https://app.agent-paste.sh");
   });
 

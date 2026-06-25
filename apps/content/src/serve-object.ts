@@ -11,14 +11,14 @@ import {
   plaintextByteLengthFromStoredObject,
   servedContentForPath,
   withFrameAncestors,
-  withScriptSrcNonce,
+  withScriptSrcHash,
 } from "@agent-paste/storage";
 import type { ContentTokenPayload } from "@agent-paste/tokens/content";
 import { BASELINE_SECURITY_HEADERS, getBoundResponders, writeArtifactEvent } from "@agent-paste/worker-runtime";
 import type { AppContext, Env, R2ObjectBody } from "./env.js";
 import { contentEtag, etagMatches } from "./etag.js";
 import { frameAncestorsForEnv } from "./frame-ancestors.js";
-import { injectViewerResizeReporter } from "./viewer-resize.js";
+import { injectViewerResizeReporter, viewerResizeReporterScriptSha256 } from "./viewer-resize.js";
 
 export const BUNDLE_FILENAME = "bundle.zip";
 const securityHeaders = { ...BASELINE_SECURITY_HEADERS, ...CONTENT_SECURITY_HEADERS };
@@ -112,13 +112,13 @@ export async function serveSignedObject(
     const trustedViewerFrame = isTrustedViewerFrameRequest(request, frameAncestors);
     const scriptDisabled = payload.script_disabled !== false || (isHtmlPath(path) && !trustedViewerFrame);
     const injectsResizeReporter = isHtmlPath(path) && trustedViewerFrame;
-    const resizeNonce = injectsResizeReporter
-      ? await viewerResizeNonce(payload.revision_id, path, representationKey, scriptDisabled)
+    const resizeReporterScriptHash = injectsResizeReporter
+      ? await resizeReporterScriptHashForPolicy(scriptDisabled)
       : undefined;
     return notModifiedResponse(
       context,
       payload,
-      responseHeadersForPath(path, 0, payload, etag, frameAncestors, request, resizeNonce),
+      responseHeadersForPath(path, 0, payload, etag, frameAncestors, request, resizeReporterScriptHash),
     );
   }
 
@@ -144,20 +144,19 @@ export async function serveSignedObject(
   const trustedViewerFrame = isTrustedViewerFrameRequest(request, frameAncestors);
   const scriptDisabled = payload.script_disabled !== false || (isHtmlPath(path) && !trustedViewerFrame);
   const injectsResizeReporter = isHtmlPath(path) && trustedViewerFrame;
-  const resizeNonce = injectsResizeReporter
-    ? await viewerResizeNonce(payload.revision_id, path, representationKey, scriptDisabled)
+  const resizeReporterScriptHash = injectsResizeReporter
+    ? await resizeReporterScriptHashForPolicy(scriptDisabled)
     : undefined;
   const bytes =
     served.bytes && (injectsNoindex || injectsResizeReporter)
       ? transformViewerHtmlBytes(served.bytes, {
           noindex: injectsNoindex,
           resizeReporter: injectsResizeReporter,
-          ...(resizeNonce ? { resizeNonce } : {}),
         })
       : served.bytes;
   const size = bytes ? bytes.byteLength : served.plaintextSize;
 
-  const headers = responseHeadersForPath(path, size, payload, etag, frameAncestors, request, resizeNonce);
+  const headers = responseHeadersForPath(path, size, payload, etag, frameAncestors, request, resizeReporterScriptHash);
   // A HEAD has no body to measure, so it reports the arithmetic plaintext size.
   // When HTML injection would grow the GET body, that size is wrong, so drop
   // content-length rather than advertise a length the GET would not match.
@@ -399,7 +398,7 @@ export function responseHeadersForPath(
   etag: string,
   frameAncestors: readonly string[] = [],
   request?: Request,
-  resizeNonce?: string,
+  resizeReporterScriptHash?: string,
 ): Headers {
   const trustedViewerFrame = isTrustedViewerFrameRequest(request, frameAncestors);
   const scriptDisabled = payload.script_disabled !== false || (isHtmlPath(path) && !trustedViewerFrame);
@@ -410,8 +409,8 @@ export function responseHeadersForPath(
   headers.set("content-length", String(size));
   headers.set("content-type", served.contentType);
   let csp = served.csp;
-  if (resizeNonce) {
-    csp = withScriptSrcNonce(csp, resizeNonce);
+  if (resizeReporterScriptHash) {
+    csp = withScriptSrcHash(csp, [resizeReporterScriptHash]);
   }
   // Inline content is rendered in the trusted viewer's sandboxed iframe; let the
   // app origin frame it via CSP and drop the origin-blind XFO that would re-block
@@ -503,14 +502,14 @@ function notModifiedResponse(context: AppContext, payload: ContentTokenPayload, 
 
 function transformViewerHtmlBytes(
   bytes: Uint8Array,
-  options: { noindex: boolean; resizeReporter: boolean; resizeNonce?: string },
+  options: { noindex: boolean; resizeReporter: boolean },
 ): Uint8Array {
   let html = new TextDecoder().decode(bytes);
   if (options.noindex) {
     html = injectNoindexMeta(html);
   }
   if (options.resizeReporter) {
-    html = injectViewerResizeReporter(html, options.resizeNonce);
+    html = injectViewerResizeReporter(html);
   }
   return new TextEncoder().encode(html);
 }
@@ -538,30 +537,18 @@ export function contentRepresentationKey(
   parts.push(trustedViewerFrame ? "viewer" : "direct");
   if (trustedViewerFrame) {
     parts.push("resize");
-    parts.push(scriptDisabled ? "script-none-nonce" : "script-on");
+    parts.push(scriptDisabled ? "script-none-hash" : "script-on");
   } else {
     parts.push(scriptDisabled ? "script-none" : "script-on");
   }
   return parts.join(":");
 }
 
-async function viewerResizeNonce(
-  revisionId: string,
-  path: string,
-  representationKey: string | undefined,
-  scriptDisabled: boolean,
-): Promise<string | undefined> {
-  if (!scriptDisabled || !representationKey) {
+async function resizeReporterScriptHashForPolicy(scriptDisabled: boolean): Promise<string | undefined> {
+  if (!scriptDisabled) {
     return undefined;
   }
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(`viewer-resize-nonce\n${revisionId}\n${path}\n${representationKey}`),
-  );
-  return Array.from(new Uint8Array(digest))
-    .slice(0, 16)
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+  return viewerResizeReporterScriptSha256();
 }
 
 export function injectNoindexMeta(html: string): string {
