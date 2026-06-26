@@ -27,6 +27,8 @@ export type MintAccessLinkBlobInput = {
   signingSecret: string;
 };
 
+type ParsedAccessLinkPayload = Omit<AccessLinkSignedPayload, "publicId">;
+
 async function hmacSha256Bytes(message: Uint8Array, secret: string): Promise<Uint8Array> {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -56,19 +58,19 @@ function packSignatureInput(input: {
   return buffer;
 }
 
-function parsePayloadBytes(bytes: Uint8Array): AccessLinkSignedPayload | null {
+function parsePayloadBytes(bytes: Uint8Array): ParsedAccessLinkPayload | null {
   if (bytes.length !== ACCESS_LINK_PAYLOAD_BYTE_LENGTH) {
     return null;
   }
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const version = bytes[0] ?? -1;
-  const kid = bytes[1] ?? -1;
-  if (version !== ACCESS_LINK_PAYLOAD_VERSION || kid < 1 || kid > 255) {
+  const version = bytes[0] as number;
+  const kid = bytes[1] as number;
+  if (version !== ACCESS_LINK_PAYLOAD_VERSION || kid < 1) {
     return null;
   }
   const exp = Number(view.getBigUint64(2, false));
   const scopes = view.getUint16(10, false);
-  return { version, kid, exp, scopes, publicId: "" };
+  return { version, kid, exp, scopes };
 }
 
 export async function mintAccessLinkBlob(input: MintAccessLinkBlobInput): Promise<string> {

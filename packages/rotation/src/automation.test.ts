@@ -53,6 +53,57 @@ describe("rotation automation plans", () => {
     expect(dropPlan.notes.some((note) => note.includes("rotation-agent@platform"))).toBe(true);
   });
 
+  it("maps profile bindings to target-specific workers and app directories", () => {
+    const profile = VERSIONED_SECRET_PROFILES["content-signing"];
+    expect(profileBindingsForTarget(profile, "preview")).toEqual([
+      { app: "api", worker: "agent-paste-api-preview" },
+      { app: "upload", worker: "agent-paste-upload-preview" },
+      { app: "content", worker: "agent-paste-content-preview" },
+      { app: "jobs", worker: "agent-paste-jobs-preview" },
+    ]);
+    expect(
+      buildRotationPlan({
+        profile,
+        target: "production",
+        step: "flip",
+        snapshot: { primaryBound: true, secondaryBound: true, signingKidLabel: "v1" },
+      }).actions,
+    ).toEqual([
+      {
+        type: "deploy-var",
+        worker: "agent-paste-api-production",
+        cwd: "apps/api",
+        envName: "production",
+        varName: "CONTENT_SIGNING_KID",
+        varValue: "v2",
+      },
+      {
+        type: "deploy-var",
+        worker: "agent-paste-upload-production",
+        cwd: "apps/upload",
+        envName: "production",
+        varName: "CONTENT_SIGNING_KID",
+        varValue: "v2",
+      },
+      {
+        type: "deploy-var",
+        worker: "agent-paste-content-production",
+        cwd: "apps/content",
+        envName: "production",
+        varName: "CONTENT_SIGNING_KID",
+        varValue: "v2",
+      },
+      {
+        type: "deploy-var",
+        worker: "agent-paste-jobs-production",
+        cwd: "apps/jobs",
+        envName: "production",
+        varName: "CONTENT_SIGNING_KID",
+        varValue: "v2",
+      },
+    ]);
+  });
+
   it("plans kid-1 drop (not promote-to-v1) for api-key pepper and artifact-byte encryption", () => {
     for (const profileId of ["api-key-pepper", "artifact-bytes-encryption"] as const) {
       const profile = VERSIONED_SECRET_PROFILES[profileId];
@@ -104,6 +155,36 @@ describe("rotation automation plans", () => {
     expect(snapshot.primaryBound).toBe(true);
     expect(snapshot.secondaryBound).toBe(true);
     expect(profileBindingsForTarget(profile, "preview")).toHaveLength(4);
+  });
+
+  it("builds a kid-2 simulated ring when only the secondary secret remains bound", () => {
+    const plan = buildRotationPlan({
+      profile: VERSIONED_SECRET_PROFILES["artifact-bytes-encryption"],
+      target: "preview",
+      step: "drain",
+      snapshot: { primaryBound: false, secondaryBound: true, signingKidLabel: "v2" },
+    });
+    expect(plan.stage).toBe("drained");
+    expect(plan.notes).toEqual(expect.arrayContaining(["Environment: preview", "Profile: artifact-bytes-encryption"]));
+  });
+
+  it("keeps stage state separate from secondary-bound secret listing", () => {
+    const plan = buildRotationPlan({
+      profile: VERSIONED_SECRET_PROFILES["upload-signing"],
+      target: "preview",
+      step: "stage",
+      snapshot: { primaryBound: true, secondaryBound: true, signingKidLabel: "v1" },
+      secondaryValuePlaceholder: "<upload-v2>",
+    });
+    expect(plan.stage).toBe("verify-old");
+    expect(plan.actions).toEqual([
+      {
+        type: "put",
+        worker: "agent-paste-upload-preview",
+        name: "UPLOAD_SIGNING_SECRET_V2",
+        valuePlaceholder: "<upload-v2>",
+      },
+    ]);
   });
 });
 

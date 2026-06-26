@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Clock } from "./clock.js";
 import { sign, verify } from "./codec.js";
+import { base64UrlEncode, hmac } from "./crypto.js";
 
 type Demo = { id: string; exp: number };
 
@@ -39,6 +40,17 @@ describe("verify returns null instead of throwing", () => {
   });
 
   it.each(["", "noseparator", "a.b.c", "%%%.%%%"])("rejects malformed token %j", async (token) => {
+    expect(await verify(token, SECRET, { isValid: isDemo, clock: fixedClock(1000) })).toBeNull();
+  });
+
+  it("rejects an otherwise valid token with extra segments", async () => {
+    const token = await sign({ id: "demo", exp: 2000 }, SECRET);
+    expect(await verify(`${token}.extra`, SECRET, { isValid: isDemo, clock: fixedClock(1000) })).toBeNull();
+  });
+
+  it("returns null for a correctly signed payload that is not JSON", async () => {
+    const encodedPayload = base64UrlEncode(new TextEncoder().encode("not json"));
+    const token = `${encodedPayload}.${await hmac(encodedPayload, SECRET)}`;
     expect(await verify(token, SECRET, { isValid: isDemo, clock: fixedClock(1000) })).toBeNull();
   });
 

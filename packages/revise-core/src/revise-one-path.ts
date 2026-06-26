@@ -157,6 +157,7 @@ async function reviseAttempt(
     base,
     path,
     file,
+    baseText: file.body,
     nextText,
     nextBytes,
     resultSha256,
@@ -171,16 +172,17 @@ async function buildPublishInput(input: {
   base: AgentView;
   path: string;
   file: ArtifactFileContent;
+  baseText: string;
   nextText: string;
   nextBytes: Uint8Array;
   resultSha256: string;
   idempotencyKey: IdempotencyKey;
   renderMode: RenderMode | undefined;
 }): Promise<PublishInput> {
-  const { base, path, file, nextText, nextBytes, resultSha256 } = input;
+  const { base, path, file, baseText, nextText, nextBytes, resultSha256 } = input;
   const contentType = contentTypeForPath(path);
   const diff = await diffWithSelfCheck({
-    baseText: file.body ?? "",
+    baseText,
     baseSha256: file.sha256,
     nextText,
     nextBytes,

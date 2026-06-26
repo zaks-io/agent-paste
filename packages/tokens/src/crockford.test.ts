@@ -14,7 +14,8 @@ describe("decodeCrockfordPublicId", () => {
     expect(decodeCrockfordPublicId("0123456789ABCDEFG")).toBeNull();
   });
 
-  it("rejects decodes that do not produce exactly ten bytes", () => {
-    expect(decodeCrockfordPublicId("0123456789ABCDE")).toBeNull();
+  it("rejects values with a valid id as only a prefix or suffix", () => {
+    expect(decodeCrockfordPublicId("0123456789ABCDEFX")).toBeNull();
+    expect(decodeCrockfordPublicId("X0123456789ABCDEF")).toBeNull();
   });
 });

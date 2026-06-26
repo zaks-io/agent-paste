@@ -38,6 +38,7 @@ describe("write allowance counter", () => {
     expect(blocked.decision.allowed).toBe(false);
     const replay = consumeCounterSlot(stored, 1, now, idempotencyKey);
     expect(replay.decision).toMatchObject({ allowed: true, consumed: 1, remaining: 0 });
+    expect(replay.next).toEqual({ day: "2026-06-02", consumed: 1, reservations: [idempotencyKey] });
   });
 
   it("releases a consumed reservation without double-refunding", () => {
@@ -45,9 +46,27 @@ describe("write allowance counter", () => {
     const stored = consumeCounterSlot(undefined, 1, now, idempotencyKey).next;
     const released = releaseCounterReservation(stored, idempotencyKey, now);
     expect(released).toMatchObject({ released: true });
+    expect(released.next).toEqual({ day: "2026-06-02", consumed: 0 });
     expect(readCounterState(released.next, 1, now)).toMatchObject({ consumed: 0, remaining: 1 });
     const again = releaseCounterReservation(released.next, idempotencyKey, now);
     expect(again.released).toBe(false);
     expect(readCounterState(again.next, 1, now)).toMatchObject({ consumed: 0, remaining: 1 });
+  });
+
+  it("releases only the matching reservation", () => {
+    const first = consumeCounterSlot(undefined, 3, now, "idem-one").next;
+    const second = consumeCounterSlot(first, 3, now, "idem-two").next;
+    const released = releaseCounterReservation(second, "idem-one", now);
+    expect(released).toMatchObject({ released: true });
+    expect(released.next).toEqual({ day: "2026-06-02", consumed: 1, reservations: ["idem-two"] });
+  });
+
+  it("does not refund a stale-day reservation", () => {
+    const stale = { day: "2026-06-01", consumed: 1, reservations: ["idem-one"] };
+    const released = releaseCounterReservation(stale, "idem-one", now);
+    expect(released).toMatchObject({
+      next: { day: "2026-06-02", consumed: 0 },
+      released: false,
+    });
   });
 });

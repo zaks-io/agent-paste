@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createFakeBillingProvider, createNoopBillingProvider } from "./provider.js";
 import { BILLING_RECONCILE_SWEEP_CAP, runBillingReconciliation } from "./reconcile.js";
 import * as sync from "./sync.js";
+import { localBillingRow, snapshot } from "./test-helpers/reconcile.js";
 import { createTransactionalSqlExecutor } from "./test-helpers/sql-executor.js";
 
 describe("runBillingReconciliation", () => {
@@ -35,8 +36,10 @@ describe("runBillingReconciliation", () => {
       workspace_id: `ws-${index}`,
       stripe_subscription_id: `sub-${index}`,
     }));
-    const executor = createTransactionalSqlExecutor(async (sql) => {
+    const limits: unknown[] = [];
+    const executor = createTransactionalSqlExecutor(async (sql, params) => {
       if (sql.includes("from workspace_billing") && sql.includes("stripe_subscription_id is not null")) {
+        limits.push(params?.[0]);
         return { rows: targets };
       }
       return { rows: [] };
@@ -49,6 +52,7 @@ describe("runBillingReconciliation", () => {
     });
     expect(result.cap_hit).toBe(true);
     expect(result.discovered).toBe(BILLING_RECONCILE_SWEEP_CAP);
+    expect(limits).toEqual([BILLING_RECONCILE_SWEEP_CAP + 1]);
   });
 
   it("skips targets when Stripe has no subscription snapshot", async () => {
@@ -68,30 +72,27 @@ describe("runBillingReconciliation", () => {
   });
 
   it("fetches remote snapshots outside the list sweep via getSubscription", async () => {
-    const snapshot = {
+    const remoteSnapshot = snapshot({
       workspaceId: "ws-fetch",
       stripeCustomerId: "cus_fetch",
       stripeSubscriptionId: "sub_fetch",
-      status: "active" as const,
-      currentPeriodEnd: null,
-      priceInterval: "month" as const,
-    };
-    const getSubscription = vi.fn(async (subscriptionId: string) => (subscriptionId === "sub_fetch" ? snapshot : null));
+    });
+    const getSubscription = vi.fn(async (subscriptionId: string) =>
+      subscriptionId === "sub_fetch" ? remoteSnapshot : null,
+    );
     const provider = {
       getSubscription,
       listReconciliationSubscriptions: vi.fn(async () => []),
     };
 
-    vi.spyOn(sync, "loadLocalBillingRow").mockResolvedValue({
-      workspace_id: "ws-fetch",
-      plan: "free",
-      plan_operator_override_at: null,
-      stripe_customer_id: "cus_fetch",
-      stripe_subscription_id: "sub_fetch",
-      subscription_status: "active",
-      current_period_end: null,
-      price_interval: "month",
-    });
+    vi.spyOn(sync, "loadLocalBillingRow").mockResolvedValue(
+      localBillingRow({
+        workspace_id: "ws-fetch",
+        plan: "free",
+        stripe_customer_id: "cus_fetch",
+        stripe_subscription_id: "sub_fetch",
+      }),
+    );
     vi.spyOn(sync, "applyBillingSnapshot").mockResolvedValue({
       applied: true,
       replayed: false,

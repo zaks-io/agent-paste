@@ -33,6 +33,15 @@ describe("PepperRing", () => {
     expect(ring.verifyKids).toEqual([1, 2]);
   });
 
+  it("requires V1 unless secondary is already the active kid", () => {
+    expect(() =>
+      PepperRing.fromEnv({
+        API_KEY_PEPPER_V2: "two",
+        API_KEY_PEPPER_CURRENT_KID: "v1",
+      }),
+    ).toThrow("pepper_ring_missing_env:API_KEY_PEPPER_V1");
+  });
+
   it("verifies admin token hash against any active pepper during overlap", async () => {
     const ring = PepperRing.single("pepper-v1", 1);
     const adminToken = "ap_admin_testtoken";

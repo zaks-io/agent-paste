@@ -7,7 +7,7 @@
 // for unchanged/context/deleted lines and emitting the diff's own raw bytes for added
 // lines, so even non-UTF-8 content round-trips bit-for-bit.
 
-const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/u;
+const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(?: .*)?$/u;
 const NO_NEWLINE_MARKER = "\\ No newline at end of file";
 
 export type ApplyConflictReason = "parse_error" | "base_hash_mismatch" | "apply_failed" | "result_hash_mismatch";
@@ -137,6 +137,22 @@ function parseHunkHeader(line: string): Omit<Hunk, "lines"> | null {
   };
 }
 
+function countHunkBodyLines(lines: DiffLine[]): Pick<Hunk, "oldLines" | "newLines"> {
+  let oldLines = 0;
+  let newLines = 0;
+  for (const line of lines) {
+    if (line.kind === "context") {
+      oldLines++;
+      newLines++;
+    } else if (line.kind === "delete") {
+      oldLines++;
+    } else if (line.kind === "add") {
+      newLines++;
+    }
+  }
+  return { oldLines, newLines };
+}
+
 function parseHunks(diffText: string): Hunk[] | null {
   const rawLines = diffText.split("\n");
   const hunks: Hunk[] = [];
@@ -166,6 +182,10 @@ function parseHunks(diffText: string): Hunk[] | null {
       }
       lines.push(diffLine);
       i++;
+    }
+    const counts = countHunkBodyLines(lines);
+    if (counts.oldLines !== head.oldLines || counts.newLines !== head.newLines) {
+      return null;
     }
     hunks.push({ ...head, lines });
   }
@@ -203,8 +223,8 @@ function applyHunk(base: Uint8Array, baseLines: BaseLine[], hunk: Hunk, cursor: 
   }
   let at = hunkStart;
   for (let idx = 0; idx < hunk.lines.length; idx++) {
-    const diffLine = hunk.lines[idx];
-    if (!diffLine || diffLine.kind === "no_newline") {
+    const diffLine = hunk.lines[idx] as DiffLine;
+    if (diffLine.kind === "no_newline") {
       continue;
     }
     if (diffLine.kind === "context" || diffLine.kind === "delete") {
