@@ -17,8 +17,9 @@ ENV PATH=/opt/agent-runner/node_modules/.bin:$PATH
 COPY agent-runner-package.json /opt/agent-runner/package.json
 COPY agent-runner-package-lock.json /opt/agent-runner/package-lock.json
 
+WORKDIR /opt/agent-runner
+
 RUN corepack enable \
-  && cd /opt/agent-runner \
   && npm ci --omit=dev --ignore-scripts \
   && node node_modules/@anthropic-ai/claude-code/install.cjs \
   && npm cache clean --force
