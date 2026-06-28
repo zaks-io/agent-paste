@@ -27,8 +27,30 @@ export function parseBearerToken(authorizationHeader: string | null): string | n
   if (!authorizationHeader) {
     return null;
   }
-  const match = /^Bearer\s+(\S+)\s*$/i.exec(authorizationHeader);
-  return match?.[1] ?? null;
+  const trimmed = authorizationHeader.trim();
+  if (!startsWithBearerScheme(trimmed)) {
+    return null;
+  }
+  const token = trimmed.slice("Bearer".length).trim();
+  return token.length > 0 && !hasAsciiWhitespace(token) ? token : null;
+}
+
+function startsWithBearerScheme(value: string): boolean {
+  if (value.length <= "Bearer".length || value.slice(0, "Bearer".length).toLowerCase() !== "bearer") {
+    return false;
+  }
+  const separator = value.charCodeAt("Bearer".length);
+  return separator === 32 || separator === 9;
+}
+
+function hasAsciiWhitespace(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code === 9 || code === 10 || code === 13 || code === 32) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function rejectMissingBearer(): McpAuthFailure {

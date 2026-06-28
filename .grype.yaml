@@ -1,8 +1,1 @@
-# esbuild <0.28.1 advisories. Neither code path is reachable here: the RCE is
-# in esbuild's Deno module (we never run esbuild under Deno) and the file read
-# requires the esbuild dev server on Windows. Remove both and bump esbuild to
-# >=0.28.1 once it clears minimumReleaseAge (~2026-06-15). Keep in sync with
-# pnpm-workspace.yaml auditConfig.ignoreGhsas and .trivyignore.
-ignore:
-  - vulnerability: GHSA-gv7w-rqvm-qjhr
-  - vulnerability: GHSA-g7r4-m6w7-qqqr
+ignore: []

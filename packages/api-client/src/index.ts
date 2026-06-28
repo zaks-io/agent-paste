@@ -22,6 +22,7 @@ import {
   type RevisionId,
   RevisionListResponse,
   RevokeApiKeyResponse,
+  trimTrailingSlashes,
   type UploadSessionId,
   UsagePolicy,
   WhoamiResponse,
@@ -315,7 +316,7 @@ function authFromEnv(): AgentPasteAuth | undefined {
 }
 
 function normalizeBaseUrl(url: string) {
-  return url.replace(/\/+$/, "");
+  return trimTrailingSlashes(url);
 }
 
 // The API base URL the CLI talks to, from AGENT_PASTE_API_URL or the production

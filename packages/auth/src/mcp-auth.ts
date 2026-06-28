@@ -1,4 +1,4 @@
-import { MCP_RESOURCE_INDICATOR } from "@agent-paste/contracts";
+import { MCP_RESOURCE_INDICATOR, trimTrailingSlashes } from "@agent-paste/contracts";
 import type { ApiActor } from "@agent-paste/db";
 import {
   fetchWorkOsUser,
@@ -28,8 +28,8 @@ function bearerToken(request: Request): string | null {
   if (!header) {
     return null;
   }
-  const match = /^Bearer\s+(\S+)\s*$/i.exec(header);
-  return match?.[1] ?? null;
+  const token = parseBearerHeaderValue(header);
+  return token && !hasAsciiWhitespace(token) ? token : null;
 }
 
 export function mcpVerifyOptions(env: McpAuthEnv): WorkOsVerificationOptions | null {
@@ -62,7 +62,34 @@ export function mcpVerifyOptions(env: McpAuthEnv): WorkOsVerificationOptions | n
 // MCP clients append the resource URL with or without a trailing slash, and
 // AuthKit stamps aud from the requested resource verbatim, so compare normalized.
 function normalizeMcpResource(value: string): string {
-  return value.replace(/\/+$/, "");
+  return trimTrailingSlashes(value);
+}
+
+function parseBearerHeaderValue(value: string): string | null {
+  const trimmed = value.trim();
+  if (!startsWithBearerScheme(trimmed)) {
+    return null;
+  }
+  const token = trimmed.slice("Bearer".length).trim();
+  return token.length > 0 ? token : null;
+}
+
+function startsWithBearerScheme(value: string): boolean {
+  if (value.length <= "Bearer".length || value.slice(0, "Bearer".length).toLowerCase() !== "bearer") {
+    return false;
+  }
+  const separator = value.charCodeAt("Bearer".length);
+  return separator === 32 || separator === 9;
+}
+
+function hasAsciiWhitespace(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code === 9 || code === 10 || code === 13 || code === 32) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function audienceMatchesMcpResource(aud: unknown, resource: string): boolean {

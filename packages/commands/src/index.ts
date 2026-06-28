@@ -322,7 +322,6 @@ function toIsoString(value: Date | string): string {
 }
 
 function defaultEventId(): string {
-  const webCrypto = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  const uuid = webCrypto?.randomUUID?.() ?? `${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
-  return `evt_${uuid.replaceAll("-", "")}`;
+  const webCrypto = (globalThis as unknown as { crypto: { randomUUID: () => string } }).crypto;
+  return `evt_${webCrypto.randomUUID().replaceAll("-", "")}`;
 }
