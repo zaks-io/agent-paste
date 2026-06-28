@@ -214,9 +214,15 @@ jobs:
       # advisory can't block unrelated PRs.
       - name: Attest OpenAPI specs (checkov)
         if: ${{ env.RUN_CODE == 'true' }}
-        uses: docker://bridgecrew/checkov:3.2.510@sha256:9d83070f8a9449e683c331bf1e3664138c0a895815a8c18ccd946efe36896020
-        with:
-          args: -d /github/workspace/packages/contracts/openapi --framework openapi --config-file /github/workspace/.checkov.yaml --quiet --compact
+        run: >
+          docker run --rm
+          -v "$PWD:/repo"
+          bridgecrew/checkov:3.2.510@sha256:9d83070f8a9449e683c331bf1e3664138c0a895815a8c18ccd946efe36896020
+          -d /repo/packages/contracts/openapi
+          --framework openapi
+          --config-file /repo/.checkov.yaml
+          --quiet
+          --compact
 
       - name: Coverage
         if: ${{ env.RUN_CODE == 'true' }}
