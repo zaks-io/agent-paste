@@ -1,4 +1,5 @@
 import { USAGE_POLICY as usagePolicy } from "@agent-paste/config";
+import { trimTrailingSlashes } from "@agent-paste/contracts";
 import { type SqlExecutor, withSqlQuerySource } from "@agent-paste/db";
 import { resolveAgentViewTokenSigner } from "@agent-paste/rotation";
 import { mintAgentViewUrl, verifyAgentViewToken } from "@agent-paste/tokens/agent-view";
@@ -16,7 +17,7 @@ export async function runEphemeralUrlScanner(
     requestedAt: string;
   },
 ): Promise<void> {
-  const apiBase = env.API_BASE_URL?.replace(/\/+$/, "");
+  const apiBase = env.API_BASE_URL ? trimTrailingSlashes(env.API_BASE_URL) : undefined;
   const signer = resolveAgentViewTokenSigner(env);
   if (!apiBase || !signer) {
     return;

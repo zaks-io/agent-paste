@@ -152,17 +152,7 @@ function enforceSemgrepPolicy() {
   });
 }
 
-const allowedDependencyFindings = [
-  {
-    vulnerabilityIds: ["GHSA-8988-4f7v-96qf", "CVE-2026-54285"],
-    packageName: "@opentelemetry/core",
-    version: "1.30.1",
-    paths: [".>lighthouse>@sentry/node>@opentelemetry/core"],
-    scannerTargets: ["pnpm-lock.yaml"],
-    reason:
-      "Remaining OpenTelemetry baggage advisory is isolated to Lighthouse's dev-only Sentry 9 dependency; the pnpm audit policy verifies the dependency path.",
-  },
-];
+const allowedDependencyFindings = [];
 
 let verifiedScannerSources = [];
 

@@ -62,9 +62,22 @@ jobs:
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
-      # Trusted publishing (OIDC) needs npm >= 11.5.1; Node 24 ships an older npm.
-      - name: Upgrade npm for trusted publishing
-        run: npm install -g npm@latest
+      # Trusted publishing (OIDC) needs npm >= 11.5.1. Fail explicitly if the
+      # selected Node image ever regresses below that floor instead of installing
+      # a mutable npm package in the release workflow.
+      - name: Verify npm trusted publishing support
+        run: |
+          set -euo pipefail
+          node -e '
+            const [actual, minimum] = process.argv.slice(1).map((value) => value.split(".").map(Number));
+            for (let index = 0; index < minimum.length; index += 1) {
+              if ((actual[index] ?? 0) > minimum[index]) process.exit(0);
+              if ((actual[index] ?? 0) < minimum[index]) {
+                console.error(`npm ${actual.join(".")} is below required ${minimum.join(".")}`);
+                process.exit(1);
+              }
+            }
+          ' "$(npm --version)" "11.5.1"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --strict-peer-dependencies

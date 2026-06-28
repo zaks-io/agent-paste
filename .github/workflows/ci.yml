@@ -208,24 +208,21 @@ jobs:
 
       # The OpenAPI specs are validated by the release security attestation
       # (`pnpm security:attest`), which otherwise only runs at deploy/release
-      # time. Gate the *deterministic* spec check here too so a contract change
-      # that trips checkov can never merge green and then break the production
-      # deploy (which happened once: a checkov-openapi failure skipped the deploy
-      # and froze prod). The advisory CVE scanners (trivy/grype/semgrep) stay out
-      # of PR CI so a fresh upstream advisory can't block unrelated PRs. checkov
-      # auto-discovers the repo-root .checkov.yaml; keep the pin in sync with
-      # .github/actions/setup-security-attestation-tools.
-      - name: Setup Python
-        if: ${{ env.RUN_CODE == 'true' }}
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
-        with:
-          python-version: "3.12"
-
+      # time. Gate the deterministic spec check here too so a contract change
+      # that trips checkov can never merge green and then break production
+      # deploy. The advisory CVE scanners stay out of PR CI so a fresh upstream
+      # advisory can't block unrelated PRs.
       - name: Attest OpenAPI specs (checkov)
         if: ${{ env.RUN_CODE == 'true' }}
-        run: |
-          python3 -m pip install --quiet "checkov==3.2.510"
-          checkov -d packages/contracts/openapi --framework openapi --quiet --compact
+        run: >
+          docker run --rm
+          -v "$PWD:/repo"
+          bridgecrew/checkov:3.2.510@sha256:9d83070f8a9449e683c331bf1e3664138c0a895815a8c18ccd946efe36896020
+          -d /repo/packages/contracts/openapi
+          --framework openapi
+          --config-file /repo/.checkov.yaml
+          --quiet
+          --compact
 
       - name: Coverage
         if: ${{ env.RUN_CODE == 'true' }}

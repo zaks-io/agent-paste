@@ -17,7 +17,7 @@
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@daytonaio/sdk": "0.187.0",
+    "@daytonaio/sdk": "0.191.0",
     "@openrouter/ai-sdk-provider": "^2.9.1",
     "ai": "^6.0.208",
     "ink": "^7.1.0",

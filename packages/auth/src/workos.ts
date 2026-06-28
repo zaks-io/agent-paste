@@ -243,8 +243,20 @@ function isVerificationDependencyError(error: unknown): boolean {
 }
 
 function parseBearerToken(value: string): string | null {
-  const match = value.match(/^Bearer\s+(.+)$/i);
-  return match?.[1] ?? null;
+  const trimmed = value.trim();
+  if (!startsWithBearerScheme(trimmed)) {
+    return null;
+  }
+  const token = trimmed.slice("Bearer".length).trimStart();
+  return token.length > 0 ? token : null;
+}
+
+function startsWithBearerScheme(value: string): boolean {
+  if (value.length <= "Bearer".length || value.slice(0, "Bearer".length).toLowerCase() !== "bearer") {
+    return false;
+  }
+  const separator = value.charCodeAt("Bearer".length);
+  return separator === 32 || separator === 9;
 }
 
 function remoteWorkOsJwks(options: WorkOsVerificationOptions): ReturnType<typeof createRemoteJWKSet> {

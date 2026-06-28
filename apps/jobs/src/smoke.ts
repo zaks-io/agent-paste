@@ -40,10 +40,28 @@ export function isNonProductionEnv(env: Env): boolean {
 
 export function authenticateSmokeHarness(request: Request, env: Env): boolean {
   const secret = env.SMOKE_HARNESS_SECRET;
-  const authorization = request.headers.get("authorization");
-  const match = authorization?.match(/^Bearer\s+(.+)$/i);
-  const token = match?.[1] ?? null;
+  const token = parseBearerToken(request.headers.get("authorization"));
   return Boolean(secret && token && constantTimeEqual(token, secret));
+}
+
+function parseBearerToken(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!startsWithBearerScheme(trimmed)) {
+    return null;
+  }
+  const token = trimmed.slice("Bearer".length).trimStart();
+  return token.length > 0 ? token : null;
+}
+
+function startsWithBearerScheme(value: string): boolean {
+  if (value.length <= "Bearer".length || value.slice(0, "Bearer".length).toLowerCase() !== "bearer") {
+    return false;
+  }
+  const separator = value.charCodeAt("Bearer".length);
+  return separator === 32 || separator === 9;
 }
 
 export async function runSmokeLifecycleCleanup(env: Env): Promise<SmokeLifecycleCleanupResult> {

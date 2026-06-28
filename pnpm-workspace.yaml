@@ -27,14 +27,6 @@ minimumReleaseAgeExclude:
   - vitest
   - wrangler
 
-auditConfig:
-  ignoreGhsas:
-    # esbuild <0.28.1 advisories (Deno-module-only RCE; Windows-only dev-server
-    # file read) — neither code path is reachable in this repo. Remove these and
-    # bump esbuild to >=0.28.1 once it clears minimumReleaseAge (~2026-06-15).
-    - GHSA-gv7w-rqvm-qjhr
-    - GHSA-g7r4-m6w7-qqqr
-
 nodeLinker: isolated
 
 patchedDependencies:

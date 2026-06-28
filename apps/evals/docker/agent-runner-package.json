@@ -1,0 +1,12 @@
+{
+  "name": "agent-paste-eval-agent-runner",
+  "version": "1.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "commonjs",
+  "dependencies": {
+    "@anthropic-ai/claude-code": "2.1.185",
+    "@earendil-works/pi-coding-agent": "0.79.9",
+    "@openai/codex": "0.141.0"
+  }
+}

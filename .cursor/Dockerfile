@@ -1,4 +1,4 @@
-FROM node:24-bookworm
+FROM node:24-bookworm@sha256:fdddfb3e688158251943d52eba361de991548f6814007acba4917ae6b512d6be
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
