@@ -18,6 +18,18 @@ stays fast and does not run the full bundle.
 
 - [x] Confirm the org-wide `SNYK_TOKEN` reaches this repo's Actions — proven on
       PR #217: Snyk Open Source tested 24 projects (clean) and Snyk Code ran.
+- [x] Pass the public GitHub remote URL to Snyk Open Source scans. Done
+      2026-07-04 for AP-403: `snyk test --all-projects` and the main-only
+      `snyk monitor --all-projects` step both set `--remote-repo-url` to this
+      public GitHub repo so Snyk classifies the scan against the public project
+      instead of consuming private-test quota. This does not replace the
+      dashboard-link follow-up below, which still needs verification after the
+      first post-merge `main` push.
+- [x] Patch the eval runner image's upstream shrinkwrapped `brace-expansion`
+      copy to `5.0.7`. Done 2026-07-04 for AP-403: the Dockerfile updates the
+      nested `@earendil-works/pi-coding-agent` install after `npm ci` and asserts
+      the installed version, because the package's own `npm-shrinkwrap.json`
+      otherwise forces `5.0.6`.
 - [x] Promote the local scanner bundle to a blocking attestation path:
       `gitleaks`, `pnpm audit`, Checkov OpenAPI, Trivy with dev deps, Syft SBOM,
       Grype, and Semgrep all write reports under `artifacts/security/` and fail

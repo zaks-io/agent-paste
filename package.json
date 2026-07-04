@@ -119,6 +119,7 @@
       "@opentelemetry/sdk-trace-base": "2.8.0",
       "@babel/core": "^7.29.7",
       "@cloudflare/vite-plugin>ws": "^8.21.0",
+      "brace-expansion": "5.0.7",
       "esbuild": "0.28.1",
       "jsdom>ws": "^8.21.0",
       "lighthouse>@sentry/node": "10.61.0",
