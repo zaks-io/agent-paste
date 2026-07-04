@@ -93,7 +93,7 @@ For repo-local skill selection:
   the recurring implementation queue loop across Linear, agents, PR checks, and
   review feedback.
 - Use
-  `.claude/skills/ziw-review/SKILL.md` for
+  `.claude/skills/ziw-code-review/SKILL.md` independent mode for
   the periodic sidecar review of newly landed `main` commits that should become
   queued fixes.
 

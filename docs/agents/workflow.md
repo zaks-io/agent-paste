@@ -80,7 +80,7 @@ Work moves through six stages plus one sidecar review loop.
 
 5. PR review and fix loop
 
-   Use `ziw-review` to review the PR against the Linear issue,
+   Use `ziw-code-review` in independent mode to review the PR against the Linear issue,
    acceptance criteria, security invariants, tests, and docs. If review finds
    actionable feedback, post it on the PR, move Linear to `Changes Requested`,
    and send the original worker thread back to the same branch and PR.
@@ -94,7 +94,7 @@ Work moves through six stages plus one sidecar review loop.
 
 7. Review-main sidecar loop
 
-   Use `ziw-review` for the periodic review
+   Use `ziw-code-review` in independent mode for the periodic review
    agent that checks `origin/main` for new commits, reviews only the newly
    landed range from a disposable worktree, and files actionable Linear issues
    for bugs, security regressions, or product-contract drift. Issues created by
@@ -123,7 +123,7 @@ For delegated implementation work:
 4. The worker opens a ready-for-review PR, links Linear, and moves the issue to
    `In Review`.
 5. The queue-moving loop checks out the PR in a clean local worktree and
-   reviews it with `ziw-review`, using the strongest available
+   reviews it with `ziw-code-review` in independent mode, using the strongest available
    review model and reasoning tier.
 6. Review findings are posted as normal GitHub PR review comments.
 7. If changes are needed, Linear moves to `Changes Requested`.

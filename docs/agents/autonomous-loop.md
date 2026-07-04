@@ -33,7 +33,7 @@ On each run:
    `Changes Requested`, and `Ready to Merge`.
 3. Check PR state for active work before starting new work.
 4. Include agent-ready issues filed by
-   `ziw-review` in the same implementation
+   `ziw-code-review` independent review in the same implementation
    queue as other `Todo` + `ready-for-agent` work.
 5. Select the next issue by milestone order, priority, dependency state, risk,
    and file/package contention.
