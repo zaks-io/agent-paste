@@ -89,8 +89,12 @@ jobs:
         run: pnpm install --frozen-lockfile --strict-peer-dependencies
 
       - name: Snyk Open Source test
-        run: pnpm dlx snyk@latest test --all-projects --severity-threshold=high
+        run: >-
+          pnpm dlx snyk@latest test --all-projects --severity-threshold=high
+          --remote-repo-url="https://github.com/${{ github.repository }}"
 
       - name: Snyk monitor main
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        run: pnpm dlx snyk@latest monitor --all-projects
+        run: >-
+          pnpm dlx snyk@latest monitor --all-projects
+          --remote-repo-url="https://github.com/${{ github.repository }}"
