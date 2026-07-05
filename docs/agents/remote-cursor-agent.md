@@ -79,7 +79,6 @@ Codex-style runtimes. Remote environments should preserve those links.
 - `.claude/skills/ziw-implement`
 - `.claude/skills/ziw-code-review`
 - `.claude/skills/ziw-orchestrate`
-- `.claude/skills/ziw-review`
 - `.claude/skills/ziw-pr`
 - `.claude/skills/ziw-triage`
 - `.claude/skills/ziw-to-issues`

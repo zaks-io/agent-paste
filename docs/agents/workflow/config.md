@@ -111,8 +111,7 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 - Authoritative deploy state: Cloudflare Workers via deploy workflows
 - Queue mutation authority: Agent Orchestrate only
 - Implement authority: Agent Implement (`ziw-implement`)
-- Review authority: Agent Review (`ziw-review` /
-  `ziw-code-review`)
+- Review authority: Agent Review (`ziw-code-review`, independent mode)
 - Merge authority: human / Agent Orchestrate when explicitly delegated; `main` ruleset
   (verified live 2026-06-01) requires 0 approvals and only the `Validate` check
   green, so solo merges use plain `gh pr merge --squash` (no `--admin`)
@@ -140,7 +139,7 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 - Review model policy: strongest available tier for auth, authorization,
   secrets, schemas, background jobs, cross-package contracts, destructive paths
 - Agent Orchestrate: `ziw-orchestrate`
-- Agent Review: `ziw-review` (PR + main drift)
+- Agent Review: `ziw-code-review` independent mode (PR + main drift)
 - Agent Implement: `ziw-implement`
 - Issue Triage: `ziw-triage`
 - Decompose spec/PRD/epic into tickets: `ziw-to-issues`
@@ -156,7 +155,7 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 - Non-required confidence checks: CI `Postgres smoke` while it burns in; hosted
   preview smoke when a PR is labeled `full-pr-preview` or requires deployed
   Worker evidence
-- Code review: `ziw-code-review` before PR; `ziw-review` for
+- Code review: `ziw-code-review` before PR and in independent mode for
   PR review
 - CodeRabbit: auto-review ENABLED (verified live in `.coderabbit.yaml` 2026-06-09:
   `reviews.auto_review.enabled: true`, `profile: assertive`, drafts reviewed,

@@ -56,7 +56,7 @@ step.
 ### Workflow
 
 Read `docs/agents/workflow/config.md` before using the `ziw-*` skills
-(`ziw-orchestrate`, `ziw-implement`, `ziw-review`, `ziw-code-review`, `ziw-pr`,
+(`ziw-orchestrate`, `ziw-implement`, `ziw-code-review`, `ziw-pr`,
 `ziw-triage`, `ziw-to-issues`, `ziw-setup`); it is
 the metadata index for commands, tracker states, and safety rules.
 Shared workflow docs live in `docs/agents/workflow.md`.
