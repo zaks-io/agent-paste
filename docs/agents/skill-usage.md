@@ -1,8 +1,10 @@
 # Skill Usage
 
-Use the smallest skill that matches the job. Repo-local skills are Claude-first:
-`.claude/skills` is the canonical source, and `.agents/skills` contains links
-to those Claude skill directories for Codex-style runtimes.
+Use the smallest skill that matches the job. Repo-local workflow skills are
+synced from upstream. In this checkout, `.agents/skills/ziw-*` are the tracked
+skill directories and `.claude/skills/ziw-*` are symlinks back to them. Do not
+hand-edit synced `ziw-*` skills here; record needed changes in AP-98 as
+config-gap metadata.
 
 | Task                                                           | Skill                           |
 | -------------------------------------------------------------- | ------------------------------- |
@@ -30,27 +32,31 @@ Run these side by side:
 ## Runtime Locations
 
 - Claude reads repo-local skills from `.claude/skills`.
-- Codex reads repo-local skills through `.agents/skills`, which links back to
-  `.claude/skills`.
+- Codex reads repo-local skills through `.agents/skills`.
+- The two runtime paths must resolve to the same files. In this checkout,
+  `.claude/skills/ziw-*` symlink to `.agents/skills/ziw-*`; if a runtime cannot
+  follow symlinks, read `.agents/skills/<name>` directly.
 - Cursor Background Agents should read this file, `.cursor/rules/agent-paste.mdc`,
   and `docs/agents/remote-cursor-agent.md`; they do not need personal global
   skills to follow this workflow.
 
 Do not create runtime-specific copies of the workflow logic. Update
-`docs/agents/workflow.md` and the canonical `.claude/skills` files first; keep
-`.agents/skills` as links.
+`docs/agents/workflow.md` first. Do not update synced `ziw-*` skills locally.
 
 ## Maintenance Guard
 
-When editing repo-local skills, keep `.claude/skills` canonical and
-`.agents/skills` as symlinks to it. Skill layout is validated by the central
-skills repository's CI, not by a local guard in `pnpm verify`.
+Do not edit synced `ziw-*` skills in this repo. They are refreshed from the
+upstream skills repository, and local edits will be overwritten. If a skill
+needs to change, log the requested upstream fix in AP-98 with category
+`config-gap`.
 
 ## Status Vocabulary
 
 Use the status meanings from `docs/agents/workflow.md`:
 
 - `Todo`
+- `Triage`
+- `Backlog`
 - `In Progress`
 - `Blocked`
 - `In Review`
@@ -58,6 +64,7 @@ Use the status meanings from `docs/agents/workflow.md`:
 - `Ready to Merge`
 - `Done`
 - `Canceled`
+- `Duplicate`
 
 When a runtime or Linear workspace lacks one of these states, use the closest
 configured state only after saying which mapping is being used.

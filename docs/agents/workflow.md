@@ -49,9 +49,10 @@ Work moves through six stages plus one sidecar review loop.
 
    Linear is the source of queued work. Use the `AP-` team and the
    `agent-paste Roadmap` milestones from `docs/agents/issue-tracker.md`.
-   Agent-ready tickets must be scoped to one PR, unblocked, and labeled
-   `ready-for-agent`. Cursor Background Agent work must also be labeled
-   `remote-cursor`.
+   Agent-ready tickets must be scoped to one PR and labeled `ready-for-agent`.
+   Startable tickets must also be unblocked, have a complete body, have no
+   active claim or open PR, and avoid active file-footprint collisions. Cursor
+   Background Agent work must also be labeled `remote-cursor`.
 
 2. Implementation
 
@@ -159,7 +160,9 @@ Use the configured Linear workflow state with these meanings:
 
 | State               | Meaning                                                                           |
 | ------------------- | --------------------------------------------------------------------------------- |
-| `Todo`              | Ready queue or backlog; do not claim unless labels and blockers allow it.         |
+| `Triage`            | Intake or repair queue. Shape and label it before promoting to `Todo`.            |
+| `Backlog`           | Parked or uncommitted work. Do not review or promote unless explicitly requested. |
+| `Todo`              | Ready queue; do not claim unless labels and blockers allow it.                    |
 | `In Progress`       | Someone is actively implementing. Do not claim unless assigned or delegated.      |
 | `Blocked`           | Cannot continue until the blocker is resolved.                                    |
 | `In Review`         | PR is open and ready for review.                                                  |
@@ -167,6 +170,7 @@ Use the configured Linear workflow state with these meanings:
 | `Ready to Merge`    | Required checks and review are clean.                                             |
 | `Done`              | Completed. Do not modify without a follow-up issue.                               |
 | `Canceled`          | Intentionally closed without completion.                                          |
+| `Duplicate`         | Terminal duplicate. Link the canonical issue before leaving it closed.            |
 
 If `Changes Requested` is not configured in Linear, leave the issue in
 `In Review`, add a comment identifying the requested changes, and ask the human

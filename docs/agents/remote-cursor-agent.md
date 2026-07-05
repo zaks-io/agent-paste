@@ -72,9 +72,10 @@ Operational notes from the Background Agents docs:
 
 ## Repo-Local Skills
 
-This repo is Claude-first for repo-local skills. Canonical skill files live
-under `.claude/skills`, and `.agents/skills` links to those directories for
-Codex-style runtimes. Remote environments should preserve those links.
+Repo-local workflow skills are synced from upstream. In this checkout,
+`.agents/skills/ziw-*` are tracked directories and `.claude/skills/ziw-*`
+symlink back to them. Remote environments should preserve those links and must
+not hand-edit synced `ziw-*` skills in this repo.
 
 - `.claude/skills/ziw-implement`
 - `.claude/skills/ziw-code-review`
@@ -85,9 +86,9 @@ Codex-style runtimes. Remote environments should preserve those links.
 - `.claude/skills/ziw-setup`
 - `.claude/skills/agent-paste-neon-postgres`
 
-The linked `.agents/skills/*` paths should resolve to the same skill files
-after clone. If a runtime cannot follow symlinks, read the matching
-`.claude/skills/*` path directly.
+The `.agents/skills/*` and `.claude/skills/*` paths should resolve to the same
+skill files after clone. If a runtime cannot follow symlinks, read the tracked
+`.agents/skills/<name>` path directly for `ziw-*` skills.
 
 Use `ziw-implement` for the implementation flow. Before opening a
 PR, run `ziw-code-review` as a read-only review pass. Let hosted CodeRabbit
