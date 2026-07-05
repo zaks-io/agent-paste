@@ -9,9 +9,10 @@ The queue is Linear team `AP`, project `agent-paste Roadmap`. Start in the
 earliest active milestone from `docs/agents/issue-tracker.md` unless the user
 names a different target.
 
-Agent-ready work must be:
+Startable implementation work must be:
 
 - labeled `ready-for-agent`
+- in `Todo`
 - unblocked
 - scoped to one PR
 - backed by enough acceptance criteria to verify completion
@@ -29,8 +30,8 @@ On each run:
 1. Read `AGENTS.md`, `docs/ops/project-status.md`,
    `docs/ops/status/phase-backlog.md`, `docs/agents/workflow.md`, and
    `docs/agents/issue-tracker.md`.
-2. List active Linear issues in `Todo`, `In Progress`, `Blocked`, `In Review`,
-   `Changes Requested`, and `Ready to Merge`.
+2. List current Linear issues in `Triage`, `Todo`, `In Progress`, `Blocked`,
+   `In Review`, `Changes Requested`, and `Ready to Merge`.
 3. Check PR state for active work before starting new work.
 4. Include agent-ready issues filed by
    `ziw-code-review` independent review in the same implementation
@@ -88,16 +89,19 @@ work.
 
 ## Linear State Contract
 
-| State               | Agent behavior                                                        |
-| ------------------- | --------------------------------------------------------------------- |
-| `Todo`              | Eligible only when labels, dependencies, and body detail are ready.   |
-| `In Progress`       | Active implementation. Do not take over without assignment.           |
-| `Blocked`           | Comment with the blocker; do not improvise around missing decisions.  |
-| `In Review`         | PR opened and ready for review.                                       |
-| `Changes Requested` | Review found actionable feedback; continue on the same branch and PR. |
-| `Ready to Merge`    | Review is clean and required checks pass.                             |
-| `Done`              | Complete. Do not modify without a follow-up issue.                    |
-| `Canceled`          | Closed intentionally. Do not modify.                                  |
+| State               | Agent behavior                                                          |
+| ------------------- | ----------------------------------------------------------------------- |
+| `Triage`            | Repair intake metadata and body before promoting to `Todo`.             |
+| `Backlog`           | Parked or uncommitted work; ignore unless Backlog review was requested. |
+| `Todo`              | Eligible only when labels, dependencies, and body detail are ready.     |
+| `In Progress`       | Active implementation. Do not take over without assignment.             |
+| `Blocked`           | Comment with the blocker; do not improvise around missing decisions.    |
+| `In Review`         | PR opened and ready for review.                                         |
+| `Changes Requested` | Review found actionable feedback; continue on the same branch and PR.   |
+| `Ready to Merge`    | Review is clean and required checks pass.                               |
+| `Done`              | Complete. Do not modify without a follow-up issue.                      |
+| `Canceled`          | Closed intentionally. Do not modify.                                    |
+| `Duplicate`         | Closed as duplicate. Follow the canonical issue.                        |
 
 ## Stop Conditions
 

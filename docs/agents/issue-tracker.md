@@ -59,7 +59,9 @@ Use these state meanings:
 
 | State               | Meaning                                                         |
 | ------------------- | --------------------------------------------------------------- |
-| `Todo`              | Ready queue or backlog.                                         |
+| `Triage`            | Intake or repair queue. Shape and label before promotion.       |
+| `Backlog`           | Parked or uncommitted work. Review only when explicitly asked.  |
+| `Todo`              | Ready queue.                                                    |
 | `In Progress`       | Active implementation.                                          |
 | `Blocked`           | Cannot continue until a blocker is resolved.                    |
 | `In Review`         | PR is open and ready for review.                                |
@@ -67,6 +69,7 @@ Use these state meanings:
 | `Ready to Merge`    | Required checks and review are clean.                           |
 | `Done`              | Completed.                                                      |
 | `Canceled`          | Closed without completion.                                      |
+| `Duplicate`         | Closed as duplicate of a canonical issue.                       |
 
 ## When a skill says "publish to the issue tracker"
 

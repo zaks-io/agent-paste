@@ -15,9 +15,26 @@ When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the 
 
 ## Execution Labels
 
-| Label           | Meaning                                                                                    |
-| --------------- | ------------------------------------------------------------------------------------------ |
-| `remote-cursor` | Eligible for Cursor Background Agent delegation after the issue is also `ready-for-agent`. |
+| Label           | Meaning                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------- |
+| `remote-cursor` | Approved for Cursor Background Agent. It is not readiness or startability without `ready-for-agent` + checks. |
+
+## Repo Route Labels
+
+| Label                 | Meaning                                               |
+| --------------------- | ----------------------------------------------------- |
+| `zaks-io/agent-paste` | Required repo-route label for issue-assigned AP work. |
+| `zaks-io/skills`      | Route label for upstream synced skill work.           |
+
+## Kind Labels
+
+Kind is single-select. Only `kind-slice` is dispatchable.
+
+| Label        | Meaning                                          |
+| ------------ | ------------------------------------------------ |
+| `kind-spec`  | Spec or PRD container. Do not dispatch.          |
+| `kind-epic`  | Workstream or parent container. Do not dispatch. |
+| `kind-slice` | One-PR implementation ticket.                    |
 
 ## Risk Labels
 
@@ -36,5 +53,11 @@ Use Linear's `Type` label group when it is available: `Bug`, `Feature`,
 The labels need to exist on the Linear AP team. Create any missing ones with
 the available Linear label creation tool on first use; cache the resolved ids
 per session.
+
+## Review Evidence Labels
+
+| Label                | Meaning                                                         |
+| -------------------- | --------------------------------------------------------------- |
+| `code-review-passed` | Current linked PR head passed the configured local review gate. |
 
 Edit the right-hand column to match whatever vocabulary you actually use.
