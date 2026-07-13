@@ -169,6 +169,12 @@ describe("credential expiry", () => {
     expect(isCredentialExpired(credential, new Date("2026-08-24T23:59:59.999Z"))).toBe(false);
     expect(isCredentialExpired(credential, new Date("2026-08-25T00:00:00.000Z"))).toBe(true);
   });
+
+  it("treats an unparseable expiry as expired instead of immortal", () => {
+    expect(isCredentialExpired({ ...credential, expires_at: "not-a-date" }, new Date("2026-08-25T00:00:00.000Z"))).toBe(
+      true,
+    );
+  });
 });
 
 function memoryEntry() {

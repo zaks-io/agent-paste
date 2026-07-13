@@ -8,7 +8,12 @@ function platformLockdownDenylistKey(scope: LockdownScope, targetId: string): st
   return scope === "workspace" ? `wsd:${targetId}` : `ad:${targetId}`;
 }
 
-/** True when another control still requires `ad:{artifactId}` after access-link lockdown lift. */
+/**
+ * True when any control still requires `ad:{artifactId}` after access-link lockdown lift.
+ * Re-checks the artifact's own lockdown state so an idempotent replay of a lift
+ * (or a lift racing a concurrent re-lock) cannot delete the denylist key while
+ * the DB records an active lockdown.
+ */
 export async function peekArtifactDenylistRetention(ctx: RepositoryCoreContext, artifactId: string): Promise<boolean> {
   if (!artifactId) {
     return false;
@@ -18,12 +23,20 @@ export async function peekArtifactDenylistRetention(ctx: RepositoryCoreContext, 
     if (!artifact || artifact.deleted_at || artifact.status !== "active") {
       return true;
     }
+    if (isArtifactAccessLinkLocked(artifact)) {
+      return true;
+    }
     const platformLockdown = await entities.platformLockdowns.findEffective("artifact", artifactId);
     return platformLockdown !== null;
   });
 }
 
-/** True when an access-link lockdown still requires `ad:{artifactId}` after a platform-lockdown lift. */
+/**
+ * True when any control still requires `ad:{artifactId}` after a platform-lockdown lift.
+ * Re-checks the current effective platform lockdown so an idempotent replay of a
+ * lift (or a lift racing a concurrent re-lock) cannot delete the denylist key
+ * while a lockdown is in force.
+ */
 export async function peekArtifactPlatformLockdownRetention(
   ctx: RepositoryCoreContext,
   artifactId: string,
@@ -36,7 +49,29 @@ export async function peekArtifactPlatformLockdownRetention(
     if (!artifact || artifact.deleted_at || artifact.status !== "active") {
       return true;
     }
-    return isArtifactAccessLinkLocked(artifact);
+    if (isArtifactAccessLinkLocked(artifact)) {
+      return true;
+    }
+    const platformLockdown = await entities.platformLockdowns.findEffective("artifact", artifactId);
+    return platformLockdown !== null;
+  });
+}
+
+/**
+ * True when an effective workspace platform lockdown still requires
+ * `wsd:{workspaceId}` — i.e. a replayed lift (or a lift racing a re-lock) must
+ * not delete the denylist key.
+ */
+export async function peekWorkspacePlatformLockdownRetention(
+  ctx: RepositoryCoreContext,
+  workspaceId: string,
+): Promise<boolean> {
+  if (!workspaceId) {
+    return false;
+  }
+  return ctx.uow.read(PLATFORM_SCOPE, async (entities) => {
+    const platformLockdown = await entities.platformLockdowns.findEffective("workspace", workspaceId);
+    return platformLockdown !== null;
   });
 }
 

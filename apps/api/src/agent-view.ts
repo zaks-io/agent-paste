@@ -40,6 +40,12 @@ function stripInternalAgentViewFields(
     render_mode: _internalRenderMode,
     ...publicFields
   } = data;
+  // Strip internal R2 object keys here too, so the early-return paths (missing
+  // signing secret, malformed ids) and non-string-path entries never leak them;
+  // the signing paths read the original `data.files`, not this copy.
+  if (Array.isArray(publicFields.files)) {
+    publicFields.files = publicFields.files.map(({ object_key: _internalObjectKey, ...publicFile }) => publicFile);
+  }
   return publicFields;
 }
 
@@ -90,10 +96,10 @@ async function signAgentViewFileEntries(
   }
   return Promise.all(
     files.map(async (file) => {
-      if (typeof file.path !== "string") {
-        return file;
-      }
       const { object_key: _internalObjectKey, ...publicFile } = file;
+      if (typeof file.path !== "string") {
+        return publicFile;
+      }
       return {
         ...publicFile,
         url: await signedContentUrl(env, artifactId, revisionId, file.path, expiresAt, contentAuth, {

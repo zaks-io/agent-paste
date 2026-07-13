@@ -91,4 +91,30 @@ describe("access link denylist invalidation", () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     await expect(repo.peekArtifactPlatformLockdownRetention("art_missing")).resolves.toBe(true);
   });
+
+  it("retains ad: on access-link-lockdown lift when the artifact is still locked (replay/re-lock race)", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const artifact = activeArtifact({ access_link_lockdown_at: "2026-01-02T00:00:00.000Z" });
+    repo.artifacts.set(artifact.id, artifact);
+    // A replayed lift (or a lift racing a re-lock) must not clear the denylist
+    // while the DB still records an active access-link lockdown.
+    await expect(repo.peekArtifactDenylistRetention("art_1")).resolves.toBe(true);
+  });
+
+  it("retains wsd: while a workspace platform lockdown is still effective", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    await repo.setLockdown({
+      actor: { type: "platform", id: "operator@example.com" },
+      idempotencyKey: "idem-workspace-lock",
+      scope: "workspace",
+      targetId: "workspace_1",
+      reasonCode: "abuse",
+    });
+    await expect(repo.peekWorkspacePlatformLockdownRetention("workspace_1")).resolves.toBe(true);
+  });
+
+  it("releases wsd: when no workspace platform lockdown remains", async () => {
+    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    await expect(repo.peekWorkspacePlatformLockdownRetention("workspace_1")).resolves.toBe(false);
+  });
 });

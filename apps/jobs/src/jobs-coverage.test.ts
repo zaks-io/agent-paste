@@ -93,6 +93,9 @@ describe("upload cleanup discovery", () => {
       if (sql.includes("upload_session_files")) {
         return { rows: [] };
       }
+      if (sql.trimStart().startsWith("update upload_sessions")) {
+        return { rows: [{ id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" }] };
+      }
       return { rows: [] };
     });
     const result = await runUploadCleanupDiscovery(executor, { send, sendBatch: vi.fn() }, "2026-05-20T00:00:00.000Z");
@@ -125,6 +128,9 @@ describe("upload cleanup discovery", () => {
             },
           ],
         };
+      }
+      if (sql.trimStart().startsWith("update upload_sessions")) {
+        return { rows: [{ id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" }] };
       }
       return { rows: [] };
     });
@@ -174,6 +180,9 @@ describe("upload cleanup discovery", () => {
       if (sql.includes("upload_session_files")) {
         return { rows: [] };
       }
+      if (sql.trimStart().startsWith("update upload_sessions")) {
+        return { rows: [{ id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" }] };
+      }
       return { rows: [] };
     });
 
@@ -187,12 +196,12 @@ describe("upload cleanup discovery", () => {
       },
       {
         filepath: "apps/jobs/src/discovery/upload-cleanup.ts",
-        functionName: "runUploadCleanupDiscovery.selectSessionFiles",
+        functionName: "expireUploadSession",
         namespace: "apps.jobs.src.discovery.upload-cleanup",
       },
       {
         filepath: "apps/jobs/src/discovery/upload-cleanup.ts",
-        functionName: "expireUploadSession",
+        functionName: "runUploadCleanupDiscovery.selectSessionFiles",
         namespace: "apps.jobs.src.discovery.upload-cleanup",
       },
     ]);

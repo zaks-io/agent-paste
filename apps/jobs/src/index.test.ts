@@ -82,37 +82,10 @@ describe("jobs worker", () => {
     errorSpy.mockRestore();
   });
 
-  it("leaves upload sessions pending when purge enqueue fails", async () => {
-    const send = vi.fn(async () => {
-      throw new Error("queue_unavailable");
-    });
-    const executor = createTransactionalSqlExecutor(async (sql: string) => {
-      if (sql.includes("upload_sessions") && sql.trimStart().startsWith("select")) {
-        return {
-          rows: [
-            {
-              id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-              workspace_id: workspaceId,
-              artifact_id: artifactId,
-              revision_id: revisionId,
-            },
-          ],
-        };
-      }
-      if (sql.includes("upload_session_files")) {
-        return { rows: [{ r2_key: "env/live/ws/a/file.txt" }] };
-      }
-      return { rows: [] };
-    });
-    await runScheduledJobs(
-      { scheduledTime: Date.now(), cron: CRON_UPLOAD_CLEANUP },
-      { DB: executor, BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() } },
-    );
-    expect(send).toHaveBeenCalled();
-    expect(executor.query).toHaveBeenCalled();
-  });
-
-  it("routes upload cleanup cron to session expiry and purge enqueue", async () => {
+  // The purge must be enqueued only AFTER this sweep wins the pending →
+  // expired transition; purging a session that a racing finalize just
+  // published would delete live revision bytes.
+  it("does not enqueue a purge when the session expiry transition is lost", async () => {
     const send = vi.fn(async () => ({}));
     const executor = createTransactionalSqlExecutor(async (sql: string) => {
       if (sql.includes("upload_sessions") && sql.trimStart().startsWith("select")) {
@@ -130,11 +103,49 @@ describe("jobs worker", () => {
       if (sql.includes("upload_session_files")) {
         return { rows: [{ r2_key: "env/live/ws/a/file.txt" }] };
       }
+      // The pending → expired update matched 0 rows: a finalize won the race.
       return { rows: [] };
     });
     await runScheduledJobs(
       { scheduledTime: Date.now(), cron: CRON_UPLOAD_CLEANUP },
       { DB: executor, BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() } },
+    );
+    expect(send).not.toHaveBeenCalled();
+    expect(executor.query).toHaveBeenCalled();
+  });
+
+  it("routes upload cleanup cron to session expiry and purge enqueue, expiring first", async () => {
+    const send = vi.fn(async () => ({}));
+    const calls: string[] = [];
+    const executor = createTransactionalSqlExecutor(async (sql: string) => {
+      if (sql.includes("upload_sessions") && sql.trimStart().startsWith("select")) {
+        return {
+          rows: [
+            {
+              id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+              workspace_id: workspaceId,
+              artifact_id: artifactId,
+              revision_id: revisionId,
+            },
+          ],
+        };
+      }
+      if (sql.includes("upload_session_files")) {
+        return { rows: [{ r2_key: "env/live/ws/a/file.txt" }] };
+      }
+      if (sql.trimStart().startsWith("update upload_sessions")) {
+        calls.push("expire");
+        return { rows: [{ id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" }] };
+      }
+      return { rows: [] };
+    });
+    const orderedSend = send.mockImplementation(async () => {
+      calls.push("enqueue");
+      return {};
+    });
+    await runScheduledJobs(
+      { scheduledTime: Date.now(), cron: CRON_UPLOAD_CLEANUP },
+      { DB: executor, BYTE_PURGE_QUEUE: { send: orderedSend, sendBatch: vi.fn() } },
     );
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -143,6 +154,7 @@ describe("jobs worker", () => {
         upload_session_id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
       }),
     );
+    expect(calls).toEqual(["expire", "enqueue"]);
   });
 
   it("runs hourly discovery sweeps", async () => {

@@ -116,15 +116,26 @@ async function revise(
   renderMode: RenderMode | undefined,
   computeNextText: (baseBody: string) => string,
 ): Promise<ReviseResult> {
-  const attempt = () => reviseAttempt(deps, artifactId, path, idempotencyKey, renderMode, computeNextText);
+  const attempt = (key: IdempotencyKey) => reviseAttempt(deps, artifactId, path, key, renderMode, computeNextText);
   try {
-    return await attempt();
+    return await attempt(idempotencyKey);
   } catch (error) {
     if (!isPatchConflict(error)) {
       throw error;
     }
-    return attempt();
+    return attempt(retryIdempotencyKey(idempotencyKey));
   }
+}
+
+// The server's upload-session create replays completed commands by key alone
+// (no request-body fingerprint), so a retry under the SAME key would get back
+// the stale first-attempt session — old base revision, old patch descriptor,
+// old signed sizes — and could never resolve the conflict it is retrying.
+// Derive a distinct-but-deterministic key so the retry is a fresh command yet
+// duplicate deliveries of the retry itself still replay.
+function retryIdempotencyKey(key: IdempotencyKey): IdempotencyKey {
+  const suffix = ":retry1";
+  return `${key.slice(0, 200 - suffix.length)}${suffix}` as IdempotencyKey;
 }
 
 async function reviseAttempt(

@@ -1,3 +1,4 @@
+import { DEFAULT_UPLOAD_SESSION_TTL_MS } from "../../policy.js";
 import type { LocalState } from "../local-state.js";
 import type { Entities } from "../ports.js";
 
@@ -17,10 +18,17 @@ export function localContentBlobs(state: LocalState): Entities["contentBlobs"] {
       );
     },
     async deleteUnreferenced(input) {
+      // Age floor mirroring the Postgres query: a blob touched within the last
+      // upload-session TTL may be referenced by an in-flight session create
+      // this reader cannot see yet.
+      const ageFloorMs = new Date(input.now).getTime() - DEFAULT_UPLOAD_SESSION_TTL_MS;
       const deleted = [];
       for (const [key, blob] of state.contentBlobs) {
         if (deleted.length >= input.limit) {
           break;
+        }
+        if (new Date(blob.updated_at).getTime() >= ageFloorMs) {
+          continue;
         }
         if (isBlobReferenced(state, blob, input.now)) {
           continue;

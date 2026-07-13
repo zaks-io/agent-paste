@@ -127,7 +127,14 @@ export function keyringStore(
 }
 
 export function isCredentialExpired(credential: Credential, now: Date = new Date()): boolean {
-  return credential.expires_at !== null && Date.parse(credential.expires_at) <= now.getTime();
+  if (credential.expires_at === null) {
+    return false;
+  }
+  const expiresAt = Date.parse(credential.expires_at);
+  // An unparseable timestamp must count as expired: NaN comparisons are false,
+  // which would otherwise make a corrupt store immortal and force opaque 401s
+  // instead of the clear expired-credential cleanup path.
+  return Number.isNaN(expiresAt) || expiresAt <= now.getTime();
 }
 
 export function configDir(): string {

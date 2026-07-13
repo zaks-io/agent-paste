@@ -193,11 +193,11 @@ describe("reviseOnePath", () => {
 
   it("retries once against the fresh base on a patch_conflict (TOCTOU)", async () => {
     const base = await fileContent("hello world");
-    let publishCalls = 0;
+    const publishKeys: string[] = [];
     const reader: RevisionReader = { readArtifact: async () => agentView(), readFile: async () => base };
-    const publish = async (_t: PublishTransport, _input: PublishInput) => {
-      publishCalls += 1;
-      if (publishCalls === 1) {
+    const publish = async (_t: PublishTransport, input: PublishInput) => {
+      publishKeys.push(input.idempotencyKey);
+      if (publishKeys.length === 1) {
         throw { code: "patch_conflict", message: "patch_conflict: index.html: base moved" };
       }
       return outcome();
@@ -209,7 +209,10 @@ describe("reviseOnePath", () => {
       idempotencyKey: "k1" as PublishInput["idempotencyKey"],
     });
     expect(result).toMatchObject({ ok: true, noop: false });
-    expect(publishCalls).toBe(2);
+    // The retry must use a DIFFERENT key: the server replays completed
+    // upload-session creates by key alone, so reusing the first attempt's key
+    // would fetch back the stale session against the old base.
+    expect(publishKeys).toEqual(["k1", "k1:retry1"]);
   });
 
   it("surfaces a stale edit as not_found after a TOCTOU re-read", async () => {

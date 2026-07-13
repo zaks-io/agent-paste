@@ -91,6 +91,18 @@ describe("formatRelativeTime", () => {
     expect(formatRelativeTime(t, Date.parse(t) + 1000)).toBe("just now");
   });
 
+  // Pin concrete units at each magnitude so the label can never drift one unit
+  // behind the actual age (e.g. a 2-hour-old timestamp reading "2 min. ago").
+  it("promotes the unit with the magnitude", () => {
+    const t = Date.parse("2026-01-15T09:30:00.000Z");
+    const seconds = 1000;
+    expect(formatRelativeTime(t, t + 30 * seconds)).toBe("30s ago");
+    expect(formatRelativeTime(t, t + 5 * 60 * seconds)).toBe("5m ago");
+    expect(formatRelativeTime(t, t + 2 * 3600 * seconds)).toBe("2h ago");
+    expect(formatRelativeTime(t, t + 3 * 86_400 * seconds)).toBe("3d ago");
+    expect(formatRelativeTime(t, t + 2 * 7 * 86_400 * seconds)).toBe("2w ago");
+  });
+
   it("returns an empty string for an unparseable value instead of throwing", () => {
     // Intl.RelativeTimeFormat throws RangeError on a NaN date; guard against it.
     expect(formatRelativeTime("not-a-date")).toBe("");

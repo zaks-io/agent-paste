@@ -1,11 +1,11 @@
 import {
-  type ArtifactBytesKeyRing,
   bytesFromReadableBody,
   decryptArtifactBytesWithKeyRing,
   encryptArtifactBytes,
   isArtifactBytesEncryptionMetadata,
   workspaceBlobObjectKeyFor,
 } from "./artifact-bytes-encryption.js";
+import type { ArtifactBytesSigningRing } from "./workspace-blob-bytes.js";
 
 export type WorkspaceBlobRef = {
   sha256: string;
@@ -30,7 +30,7 @@ export function destWorkspaceBlobKey(input: { workspaceId: string; sha256: strin
 
 export async function migrateWorkspaceBlobForReparent(input: {
   artifacts: R2Bucket;
-  ring: ArtifactBytesKeyRing;
+  ring: ArtifactBytesSigningRing;
   fromWorkspaceId: string;
   toWorkspaceId: string;
   blob: WorkspaceBlobRef;
@@ -51,21 +51,19 @@ export async function migrateWorkspaceBlobForReparent(input: {
     throw new Error("reparent_source_blob_not_encrypted");
   }
   const ciphertext = await bytesFromReadableBody(source.body);
-  const kid = Number.parseInt(source.customMetadata.enc_kid, 10);
-  const rootSecret = input.ring.secretForKid(kid);
-  if (!rootSecret) {
-    throw new Error("reparent_unknown_encryption_kid");
-  }
   const plaintext = await decryptArtifactBytesWithKeyRing({
     ciphertext,
     ring: input.ring,
     metadata: source.customMetadata,
     context: { kind: "blob", workspaceId: input.fromWorkspaceId, sha256: input.blob.sha256 },
   });
+  // Encrypt the destination copy under the ring's ACTIVE signing key, matching
+  // writeWorkspaceBlob. Reusing the source object's kid would mint brand-new
+  // objects under retired keys, extending old-key lifetime across every claim.
   const encrypted = await encryptArtifactBytes({
     plaintext,
-    rootSecret,
-    kid,
+    rootSecret: input.ring.signingSecret(),
+    kid: input.ring.signingKid,
     context: { kind: "blob", workspaceId: input.toWorkspaceId, sha256: input.blob.sha256 },
   });
   await input.artifacts.put(destKey, encrypted.ciphertext, { customMetadata: encrypted.customMetadata });
@@ -73,7 +71,7 @@ export async function migrateWorkspaceBlobForReparent(input: {
 
 export async function migrateWorkspaceBlobsForReparent(input: {
   artifacts: R2Bucket;
-  ring: ArtifactBytesKeyRing;
+  ring: ArtifactBytesSigningRing;
   fromWorkspaceId: string;
   toWorkspaceId: string;
   blobs: readonly WorkspaceBlobRef[];

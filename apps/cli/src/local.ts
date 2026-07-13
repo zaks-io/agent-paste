@@ -34,7 +34,7 @@ export async function walkLocalPath(inputPath: string): Promise<LocalFile[]> {
     throw new Error(`${inputPath} is neither a file nor a directory`);
   }
   const files: LocalFile[] = [];
-  await walkDirectory(root, root, files);
+  await walkDirectory(root, root, files, new Set([await fs.realpath(root)]));
   return files.sort((a, b) => a.path.localeCompare(b.path));
 }
 
@@ -94,15 +94,30 @@ function inferRenderMode(entrypoint: string): RenderMode {
   return mode;
 }
 
-async function walkDirectory(root: string, current: string, files: LocalFile[]) {
+async function walkDirectory(root: string, current: string, files: LocalFile[], visitedDirs: Set<string>) {
   const entries = await fs.readdir(current, { withFileTypes: true });
   for (const entry of entries) {
     if (isExcluded(entry.name)) {
       continue;
     }
     const absolutePath = path.join(current, entry.name);
-    if (entry.isDirectory()) {
-      await walkDirectory(root, absolutePath, files);
+    if (entry.isSymbolicLink()) {
+      // Follow symlinks the same way single-file publish does (fs.stat follows
+      // them), so a symlinked asset inside a directory isn't silently dropped.
+      // Broken links have no bytes to upload and are skipped; symlinked
+      // directories are cycle-guarded by realpath.
+      const target = await fs.stat(absolutePath).catch(() => null);
+      if (target?.isDirectory()) {
+        const real = await fs.realpath(absolutePath);
+        if (!visitedDirs.has(real)) {
+          visitedDirs.add(real);
+          await walkDirectory(root, absolutePath, files, visitedDirs);
+        }
+      } else if (target?.isFile()) {
+        files.push(await toLocalFile(absolutePath, path.relative(root, absolutePath).split(path.sep).join("/")));
+      }
+    } else if (entry.isDirectory()) {
+      await walkDirectory(root, absolutePath, files, visitedDirs);
     } else if (entry.isFile()) {
       files.push(await toLocalFile(absolutePath, path.relative(root, absolutePath).split(path.sep).join("/")));
     }

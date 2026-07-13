@@ -134,13 +134,20 @@ Handler behavior:
 
 ## Post-Commit Sequencing
 
-Deletion, Retention, Access Link Lockdown, Platform Lockdown, and Access Link revocation follow this order:
+Deletion, Access Link Lockdown, Platform Lockdown, and Access Link revocation follow this order:
 
 1. Commit the Postgres state change and Audit Event through `runCommand`.
 2. Write the KV denylist entry with retries.
 3. Enqueue byte purge when bytes must be removed.
 
 If KV denylist writes fail, do not enqueue purge. The next cron rediscovery is the recovery path.
+
+**Retention is the exception**: it runs the denylist write and purge enqueue
+_before_ committing the `retained` status flip, and skips the commit when
+either side effect fails. Retention's rediscovery selects `published`
+revisions, so the revision must stay `published` until the side effects have
+succeeded — commit-first would strand a retained revision whose denylist or
+purge never happened, with no sweep to repair it.
 
 ## System Actors
 

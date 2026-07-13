@@ -201,11 +201,12 @@ describe("AP-91 operator route modules", () => {
     expect(deleteKey).not.toHaveBeenCalled();
   });
 
-  it("does not run artifact retention checks when lifting a workspace lockdown", async () => {
+  it("uses the workspace (not artifact) retention peek when lifting a workspace lockdown", async () => {
     const deleteKey = vi.fn(async () => undefined);
     const db = {
       liftLockdown: vi.fn(async () => ({ lifted_at: "2026-01-01T00:00:00.000Z" })),
       peekArtifactPlatformLockdownRetention: vi.fn(async () => true),
+      peekWorkspacePlatformLockdownRetention: vi.fn(async () => false),
     };
 
     const response = await webAdminLiftLockdown(
@@ -218,7 +219,28 @@ describe("AP-91 operator route modules", () => {
 
     expect(response.status).toBe(200);
     expect(db.peekArtifactPlatformLockdownRetention).not.toHaveBeenCalled();
+    expect(db.peekWorkspacePlatformLockdownRetention).toHaveBeenCalledWith(workspaceId);
     expect(deleteKey).toHaveBeenCalledWith(`wsd:${workspaceId}`);
+  });
+
+  it("keeps the workspace denylist key on lift when a workspace lockdown remains (replay/re-lock race)", async () => {
+    const deleteKey = vi.fn(async () => undefined);
+    const db = {
+      liftLockdown: vi.fn(async () => ({ lifted_at: "2026-01-01T00:00:00.000Z" })),
+      peekWorkspacePlatformLockdownRetention: vi.fn(async () => true),
+    };
+
+    const response = await webAdminLiftLockdown(
+      contextFor({ env: { DENYLIST: { delete: deleteKey } } }),
+      operatorPrincipal(),
+      db as never,
+      guardFor(),
+      { scope: "workspace", targetId: workspaceId },
+    );
+
+    expect(response.status).toBe(200);
+    expect(db.peekWorkspacePlatformLockdownRetention).toHaveBeenCalledWith(workspaceId);
+    expect(deleteKey).not.toHaveBeenCalled();
   });
 });
 

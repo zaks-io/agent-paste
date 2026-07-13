@@ -31,6 +31,23 @@ describe("local publish helpers", () => {
     expect(files[0]).not.toHaveProperty("sha256");
   });
 
+  it("follows symlinked files and directories, skips broken links, and survives cycles", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-outside-"));
+    await fs.writeFile(path.join(root, "index.html"), "<h1>Hello</h1>");
+    await fs.writeFile(path.join(outside, "asset.css"), "body{}");
+    await fs.mkdir(path.join(outside, "deep"));
+    await fs.writeFile(path.join(outside, "deep", "note.txt"), "note");
+    await fs.symlink(path.join(outside, "asset.css"), path.join(root, "asset.css"));
+    await fs.symlink(path.join(outside, "deep"), path.join(root, "deep"));
+    await fs.symlink(path.join(root, "missing.txt"), path.join(root, "broken.txt"));
+    await fs.symlink(root, path.join(root, "self"));
+
+    const files = await walkLocalPath(root);
+
+    expect(files.map((file) => file.path)).toEqual(["asset.css", "deep/note.txt", "index.html"]);
+  });
+
   it("streams file bytes when computing sha256 for upload", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
     const filePath = path.join(root, "index.html");

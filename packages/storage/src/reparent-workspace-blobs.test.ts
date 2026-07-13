@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
-  type ArtifactBytesKeyRing,
+  decryptArtifactBytesWithKeyRing,
   encryptArtifactBytes,
   workspaceBlobObjectKeyFor,
 } from "./artifact-bytes-encryption.js";
 import { migrateWorkspaceBlobForReparent, migrateWorkspaceBlobsForReparent } from "./reparent-workspace-blobs.js";
+import type { ArtifactBytesSigningRing } from "./workspace-blob-bytes.js";
 
 const ROOT_SECRET = "test-artifact-bytes-root-secret-32chars";
+const ACTIVE_SECRET = "test-artifact-bytes-active-secret-32ch";
 const HELLO_SHA256 = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
 
 function memoryBucket() {
@@ -29,8 +31,14 @@ function memoryBucket() {
   };
 }
 
-function testRing(): ArtifactBytesKeyRing {
-  return { secretForKid: () => ROOT_SECRET };
+// kid 1 is the (retired) key the source objects were written with; kid 2 is
+// the ring's active signing key that migrated copies must be written under.
+function testRing(): ArtifactBytesSigningRing {
+  return {
+    secretForKid: (kid: number) => (kid === 1 ? ROOT_SECRET : kid === 2 ? ACTIVE_SECRET : undefined),
+    signingSecret: () => ACTIVE_SECRET,
+    signingKid: 2,
+  };
 }
 
 describe("migrateWorkspaceBlobForReparent", () => {
@@ -58,6 +66,17 @@ describe("migrateWorkspaceBlobForReparent", () => {
 
     expect(artifacts.objects.has(destKey)).toBe(true);
     expect(artifacts.objects.has(sourceKey)).toBe(true);
+    // The migrated copy is a NEW object: it must be encrypted under the ring's
+    // active signing key, not the retired kid the source was written with.
+    const dest = artifacts.objects.get(destKey);
+    expect(dest?.customMetadata?.enc_kid).toBe("2");
+    const plaintext = await decryptArtifactBytesWithKeyRing({
+      ciphertext: dest?.bytes ?? new Uint8Array(),
+      ring: testRing(),
+      metadata: dest?.customMetadata as Record<string, string>,
+      context: { kind: "blob", workspaceId: toWorkspaceId, sha256: HELLO_SHA256 },
+    });
+    expect(new TextDecoder().decode(plaintext)).toBe("hello");
   });
 
   it("skips migration when the destination object already exists", async () => {

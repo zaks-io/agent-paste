@@ -1,11 +1,13 @@
+// Each divisor is paired with the unit the value is in *after* dividing, so
+// crossing a threshold promotes the unit in the same step (7200s → 120 minutes
+// → 2 hours), never leaving the label one unit behind the magnitude.
 const UNITS: ReadonlyArray<readonly [number, Intl.RelativeTimeFormatUnit]> = [
-  [60, "seconds"],
   [60, "minutes"],
-  [24, "hours"],
-  [7, "days"],
-  [4.345, "weeks"],
-  [12, "months"],
-  [Number.POSITIVE_INFINITY, "years"],
+  [60, "hours"],
+  [24, "days"],
+  [7, "weeks"],
+  [4.345, "months"],
+  [12, "years"],
 ];
 
 export function formatRelativeTime(input: Date | string | number, now: number = Date.now()): string {

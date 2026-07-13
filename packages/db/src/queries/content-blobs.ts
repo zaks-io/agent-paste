@@ -118,6 +118,11 @@ export const contentBlobQueries = defineSqlQuerySourceMap(
             and us.status = 'pending'
             and us.expires_at > ${input.now}
         )
+        -- Age floor (one upload-session TTL past the last touch): the NOT
+        -- EXISTS checks see only committed rows, so a blob being reused by an
+        -- in-flight create-upload-session could otherwise be purged in the
+        -- window before that session commits.
+        and cb_inner.updated_at < ${input.now}::timestamptz - interval '24 hours'
         order by cb_inner.updated_at asc
         limit ${input.limit}
       )

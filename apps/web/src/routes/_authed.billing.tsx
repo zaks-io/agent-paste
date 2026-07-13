@@ -81,8 +81,20 @@ function useBillingReturn() {
     if (search.status === "success" && search.session_id) {
       void activateBillingReturnFn({ data: { sessionId: search.session_id } })
         .then((result) => {
-          queryClient.setQueryData(queryKeys.billing(), result);
-          push({ tone: "success", title: "You're on Pro", message: "Your subscription is active." });
+          // activateBillingReturnFn never rejects; failures come back as
+          // status.error / a null payload. Only toast success on real data —
+          // a failed activation next to "You're on Pro" would be a lie.
+          if (result.status.data) {
+            queryClient.setQueryData(queryKeys.billing(), result);
+            push({ tone: "success", title: "You're on Pro", message: "Your subscription is active." });
+          } else {
+            push({
+              tone: "error",
+              title: "Couldn't confirm your subscription",
+              message:
+                "Your payment may still have gone through. Refresh in a moment, or contact support if your plan doesn't update.",
+            });
+          }
         })
         .finally(() => {
           void queryClient.invalidateQueries({ queryKey: queryKeys.billing() });
