@@ -96,6 +96,10 @@ function useBillingReturn() {
           if (result.status.data) {
             queryClient.setQueryData(queryKeys.billing(), result);
             push({ tone: "success", title: "You're on Pro", message: "Your subscription is active." });
+            // Strip the return params only on success, so a failed activation
+            // keeps session_id and can be retried by refreshing (the error
+            // toast tells the user to do exactly that).
+            void clear();
           } else {
             activationFailed();
           }
@@ -103,7 +107,6 @@ function useBillingReturn() {
         .catch(activationFailed)
         .finally(() => {
           void queryClient.invalidateQueries({ queryKey: queryKeys.billing() });
-          void clear();
         });
       return;
     }

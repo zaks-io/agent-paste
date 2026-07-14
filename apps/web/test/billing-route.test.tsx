@@ -113,6 +113,31 @@ describe("billing route", () => {
     expect(h.navigate).toHaveBeenCalledWith({ to: "/billing", search: {}, replace: true });
   });
 
+  it("keeps the return params on a failed activation so a refresh can retry", async () => {
+    h.search = { status: "success", session_id: "cs_123" };
+    // Activation resolves with no data (failure shape): the error toast fires,
+    // billing is invalidated, but the session_id must survive for retry.
+    h.activateBillingReturnFn.mockResolvedValue({
+      status: { data: null, empty: true, error: { status: 502, code: "boom", message: "", requestId: "r" } },
+      invoices: { data: null, empty: true, error: null },
+    });
+    renderRoute();
+
+    await waitFor(() => expect(h.invalidateQueries).toHaveBeenCalled());
+    expect(await screen.findByText("Couldn't confirm your subscription")).toBeInTheDocument();
+    expect(h.navigate).not.toHaveBeenCalled();
+  });
+
+  it("keeps the return params when activation rejects at the transport", async () => {
+    h.search = { status: "success", session_id: "cs_123" };
+    h.activateBillingReturnFn.mockRejectedValue(new Error("network"));
+    renderRoute();
+
+    await waitFor(() => expect(h.invalidateQueries).toHaveBeenCalled());
+    expect(await screen.findByText("Couldn't confirm your subscription")).toBeInTheDocument();
+    expect(h.navigate).not.toHaveBeenCalled();
+  });
+
   it("clears the query params and skips activation on a cancelled return", async () => {
     h.search = { status: "cancelled" };
     h.loaderData = {

@@ -356,7 +356,7 @@ The CLI silently skips these on any folder upload:
 
 The exclusion list is not configurable. If you need one of these in the upload, build a folder without it.
 
-Symlinks inside a published folder are followed only when their target resolves **inside** that folder and is not itself an excluded path. A symlink pointing outside the folder, or an innocuously named symlink aliasing an excluded file (for example `data.json` → `../.env`), is skipped with a warning on stderr. This keeps directory publish from uploading bytes you did not select and keeps the exclusion list from being bypassed by symlink aliasing.
+Symlinks inside a published folder are followed only when their target resolves **inside** that folder and does not pass through an excluded path segment (so a link into `node_modules/`, `.git/`, or at `.env` is not followed). A symlink pointing outside the folder, or an innocuously named symlink aliasing an excluded file (for example `data.json` → `../.env`), is skipped with a warning on stderr. This keeps directory publish from uploading bytes you did not select and keeps the exclusion list from being bypassed by symlink aliasing.
 
 ## Idempotency
 
