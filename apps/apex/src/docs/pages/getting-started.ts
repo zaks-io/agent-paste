@@ -77,7 +77,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "A publish path can be a file or directory. Directory publish preserves relative paths, so an HTML entrypoint can load sibling CSS, JS, JSON, images, and fonts. Folder entrypoint inference is exactly `index.html`, `index.md`, `README.md`, then the only file in the folder. If a multi-file folder has none of those, publish fails; pass `--entrypoint <path>`. Folder uploads exclude `.git/`, `node_modules/`, `.DS_Store`, `.env`, and `.env.*`.",
+          text: "A publish path can be a file or directory. Directory publish preserves relative paths, so an HTML entrypoint can load sibling CSS, JS, JSON, images, and fonts. Folder entrypoint inference is exactly `index.html`, `index.md`, `README.md`, then the only file in the folder. If a multi-file folder has none of those, publish fails; pass `--entrypoint <path>`. Folder uploads exclude `.git/`, `node_modules/`, `.DS_Store`, `.env`, and `.env.*`, and follow symlinks only when the target stays inside the folder and is not an excluded path.",
         },
         {
           kind: "paragraph",

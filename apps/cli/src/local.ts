@@ -33,8 +33,9 @@ export async function walkLocalPath(inputPath: string): Promise<LocalFile[]> {
   if (!stat.isDirectory()) {
     throw new Error(`${inputPath} is neither a file nor a directory`);
   }
+  const realRoot = await fs.realpath(root);
   const files: LocalFile[] = [];
-  await walkDirectory(root, root, files, new Set([await fs.realpath(root)]));
+  await walkDirectory({ root, realRoot, current: root, files, visitedDirs: new Set([realRoot]) });
   return files.sort((a, b) => a.path.localeCompare(b.path));
 }
 
@@ -94,7 +95,16 @@ function inferRenderMode(entrypoint: string): RenderMode {
   return mode;
 }
 
-async function walkDirectory(root: string, current: string, files: LocalFile[], visitedDirs: Set<string>) {
+type WalkContext = {
+  root: string;
+  realRoot: string;
+  current: string;
+  files: LocalFile[];
+  visitedDirs: Set<string>;
+};
+
+async function walkDirectory(ctx: WalkContext) {
+  const { root, current, files } = ctx;
   const entries = await fs.readdir(current, { withFileTypes: true });
   for (const entry of entries) {
     if (isExcluded(entry.name)) {
@@ -102,26 +112,66 @@ async function walkDirectory(root: string, current: string, files: LocalFile[], 
     }
     const absolutePath = path.join(current, entry.name);
     if (entry.isSymbolicLink()) {
-      // Follow symlinks the same way single-file publish does (fs.stat follows
-      // them), so a symlinked asset inside a directory isn't silently dropped.
-      // Broken links have no bytes to upload and are skipped; symlinked
-      // directories are cycle-guarded by realpath.
-      const target = await fs.stat(absolutePath).catch(() => null);
-      if (target?.isDirectory()) {
-        const real = await fs.realpath(absolutePath);
-        if (!visitedDirs.has(real)) {
-          visitedDirs.add(real);
-          await walkDirectory(root, absolutePath, files, visitedDirs);
-        }
-      } else if (target?.isFile()) {
-        files.push(await toLocalFile(absolutePath, path.relative(root, absolutePath).split(path.sep).join("/")));
-      }
+      await walkSymlink(ctx, absolutePath);
     } else if (entry.isDirectory()) {
-      await walkDirectory(root, absolutePath, files, visitedDirs);
+      await walkDirectory({ ...ctx, current: absolutePath });
     } else if (entry.isFile()) {
       files.push(await toLocalFile(absolutePath, path.relative(root, absolutePath).split(path.sep).join("/")));
     }
   }
+}
+
+// Follow symlinks the same way single-file publish does (fs.stat follows them),
+// so an in-tree symlinked asset isn't silently dropped — but ONLY when the
+// resolved target stays inside the publish root AND is not something the
+// exclusion list suppresses. Following an outside-root link would upload bytes
+// the user never selected; following an in-root link whose target is excluded
+// (e.g. `config.json` -> `.env`) would let an innocuously named alias bypass the
+// non-configurable exclusion list. Both are skipped with a warning. Broken links
+// have no bytes and are skipped; symlinked directories are cycle-guarded by realpath.
+// Containment is checked here on the resolved realpath; the bytes are read later
+// in a separate pass, so a local process racing the link target between walk and
+// upload could still defeat the check — an inherent two-pass CLI limitation on the
+// user's own machine, not a boundary this tool can close.
+async function walkSymlink(ctx: WalkContext, absolutePath: string) {
+  const { root, realRoot, files, visitedDirs } = ctx;
+  const target = await fs.stat(absolutePath).catch(() => null);
+  if (!target?.isDirectory() && !target?.isFile()) {
+    return;
+  }
+  const real = await fs.realpath(absolutePath);
+  const rel = path.relative(root, absolutePath);
+  if (!isWithinRoot(real, realRoot)) {
+    warn(`agent-paste: skipping symlink ${rel} — its target resolves outside ${root}.`);
+    return;
+  }
+  if (resolvesToExcluded(real, realRoot)) {
+    warn(`agent-paste: skipping symlink ${rel} — its target is an excluded path.`);
+    return;
+  }
+  if (target.isDirectory()) {
+    if (!visitedDirs.has(real)) {
+      visitedDirs.add(real);
+      await walkDirectory({ ...ctx, current: absolutePath });
+    }
+    return;
+  }
+  files.push(await toLocalFile(absolutePath, rel.split(path.sep).join("/")));
+}
+
+function isWithinRoot(target: string, realRoot: string): boolean {
+  return target === realRoot || target.startsWith(realRoot + path.sep);
+}
+
+// True when the resolved in-root target passes through any excluded segment, so
+// an alias to `.env`, `.git/…`, `node_modules/…`, etc. cannot bypass exclusion.
+function resolvesToExcluded(real: string, realRoot: string): boolean {
+  const relative = path.relative(realRoot, real);
+  return relative.split(path.sep).some((segment) => segment.length > 0 && isExcluded(segment));
+}
+
+function warn(message: string) {
+  process.stderr.write(`${message}\n`);
 }
 
 async function toLocalFile(absolutePath: string, relativePath: string): Promise<LocalFile> {

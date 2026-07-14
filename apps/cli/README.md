@@ -356,6 +356,8 @@ The CLI excludes these from any folder upload and prints the excluded set to std
 
 The exclusion list is not configurable. If you need one of these in the upload, build a folder without it.
 
+Symlinks inside a published folder are followed only when their target resolves **inside** that folder and is not itself an excluded path. A symlink pointing outside the folder, or an innocuously named symlink aliasing an excluded file (for example `data.json` → `../.env`), is skipped with a warning on stderr. This keeps directory publish from uploading bytes you did not select and keeps the exclusion list from being bypassed by symlink aliasing.
+
 ## Idempotency
 
 The CLI generates an **idempotency key** per `publish` invocation and sends it on every mutating call (session create, finalize, publish), so a duplicated or replayed request within one invocation cannot double-apply on the server. The CLI does not retry failed requests itself; a failure exits nonzero (see exit codes below) and callers decide whether to re-run. An expired upload session exits cleanly; re-run `publish` to start over.
