@@ -347,7 +347,7 @@ the file first to get the exact base text.
 
 ## Excluded by default
 
-The CLI excludes these from any folder upload and prints the excluded set to stderr:
+The CLI silently skips these on any folder upload:
 
 - `.git/`
 - `.DS_Store`

@@ -48,7 +48,10 @@ export async function runUploadCleanupDiscovery(
       // finalize racing this sweep can still publish the revision from these
       // bytes; purging first (or purging when the guard lost) would delete a
       // just-published revision's files. Losing the purge on a later enqueue
-      // failure only leaks orphan bytes, which is the safer failure.
+      // failure only leaks orphan bytes, which is the safer failure — recovering
+      // those (a durable purge marker + recovery sweep for expired-but-unpurged
+      // sessions) is tracked separately; re-pending here would re-open the very
+      // live-byte-deletion race this ordering closes.
       const expired = await expireUploadSession(platformExecutor, session.id, now);
       if (!expired) {
         continue;

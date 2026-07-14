@@ -123,7 +123,7 @@ async function revise(
     if (!isPatchConflict(error)) {
       throw error;
     }
-    return attempt(retryIdempotencyKey(idempotencyKey));
+    return attempt(await retryIdempotencyKey(idempotencyKey));
   }
 }
 
@@ -133,9 +133,22 @@ async function revise(
 // old signed sizes — and could never resolve the conflict it is retrying.
 // Derive a distinct-but-deterministic key so the retry is a fresh command yet
 // duplicate deliveries of the retry itself still replay.
-function retryIdempotencyKey(key: IdempotencyKey): IdempotencyKey {
-  const suffix = ":retry1";
-  return `${key.slice(0, 200 - suffix.length)}${suffix}` as IdempotencyKey;
+const RETRY_KEY_SUFFIX = ":retry1";
+const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
+
+async function retryIdempotencyKey(key: IdempotencyKey): Promise<IdempotencyKey> {
+  // Common case: the key plus suffix fits, so append it verbatim — the full
+  // original key is preserved, guaranteeing distinct originals stay distinct.
+  if (key.length + RETRY_KEY_SUFFIX.length <= MAX_IDEMPOTENCY_KEY_LENGTH) {
+    return `${key}${RETRY_KEY_SUFFIX}` as IdempotencyKey;
+  }
+  // Pathologically long key: truncating alone could collide two distinct
+  // originals, so fold a bounded digest of the FULL key into the retry key to
+  // keep it collision-resistant while staying within the length limit.
+  const digest = (await sha256Hex(new TextEncoder().encode(key))).slice(0, 16);
+  const reserved = RETRY_KEY_SUFFIX.length + 1 + digest.length; // ".digest:retry1"
+  const head = key.slice(0, MAX_IDEMPOTENCY_KEY_LENGTH - reserved);
+  return `${head}.${digest}${RETRY_KEY_SUFFIX}` as IdempotencyKey;
 }
 
 async function reviseAttempt(

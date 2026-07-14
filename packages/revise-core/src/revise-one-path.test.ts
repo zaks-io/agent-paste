@@ -215,6 +215,55 @@ describe("reviseOnePath", () => {
     expect(publishKeys).toEqual(["k1", "k1:retry1"]);
   });
 
+  // Drive one patch-conflict retry and return the key the retry publishes under.
+  async function retryKeyFor(idempotencyKey: string): Promise<string> {
+    const base = await fileContent("hello world");
+    const publishKeys: string[] = [];
+    const reader: RevisionReader = { readArtifact: async () => agentView(), readFile: async () => base };
+    const publish = async (_t: PublishTransport, input: PublishInput) => {
+      publishKeys.push(input.idempotencyKey);
+      if (publishKeys.length === 1) {
+        throw { code: "patch_conflict", message: "patch_conflict" };
+      }
+      return outcome();
+    };
+    await reviseOnePath(deps(reader, publish), {
+      artifactId: "art_1",
+      path: "index.html",
+      edits: [{ oldString: "world", newString: "there" }],
+      idempotencyKey: idempotencyKey as PublishInput["idempotencyKey"],
+    });
+    const retryKey = publishKeys[1];
+    if (retryKey === undefined) {
+      throw new Error("retry did not publish");
+    }
+    return retryKey;
+  }
+
+  const MAX_KEY_LENGTH = 200;
+
+  it("appends the retry suffix verbatim when the key still fits", async () => {
+    // 193 + ":retry1" (7) == 200, the boundary that still appends without a digest.
+    const key = "a".repeat(MAX_KEY_LENGTH - ":retry1".length);
+    expect(await retryKeyFor(key)).toBe(`${key}:retry1`);
+  });
+
+  it("keeps derived retry keys within the length limit and collision-resistant for long keys", async () => {
+    // Two distinct max-length keys that share a prefix long enough that naive
+    // truncation would collapse them to the same retry key.
+    const keyA = `${"a".repeat(MAX_KEY_LENGTH - 1)}b`;
+    const keyB = `${"a".repeat(MAX_KEY_LENGTH - 1)}c`;
+    const retryA = await retryKeyFor(keyA);
+    const retryB = await retryKeyFor(keyB);
+
+    expect(retryA.length).toBeLessThanOrEqual(MAX_KEY_LENGTH);
+    expect(retryB.length).toBeLessThanOrEqual(MAX_KEY_LENGTH);
+    expect(retryA).not.toBe(retryB);
+    expect(retryA.endsWith(":retry1")).toBe(true);
+    // Only the allowed idempotency-key alphabet is used.
+    expect(retryA).toMatch(/^[A-Za-z0-9._:-]+$/);
+  });
+
   it("surfaces a stale edit as not_found after a TOCTOU re-read", async () => {
     let readCount = 0;
     const fresh = await fileContent("completely different");

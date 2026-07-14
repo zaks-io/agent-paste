@@ -142,8 +142,9 @@ entrypoint can load sibling assets), and infers the entrypoint as the first of
 exactly one; a multi-file folder with none of those fails and asks for
 `--entrypoint <path>`.
 
-The walk excludes a fixed, non-configurable set — `.git/`, `node_modules/`,
-`.DS_Store`, `.env`, and `.env.*` — and prints the excluded set to stderr.
+The walk silently skips a fixed, non-configurable set — `.git/`,
+`node_modules/`, `.DS_Store`, `.env`, and `.env.*`. (A skipped symlink, below,
+does warn on stderr; the fixed exclusion set does not.)
 
 Symlinks inside a published folder are followed **only** when the link's
 resolved real target stays inside the published root **and** does not pass

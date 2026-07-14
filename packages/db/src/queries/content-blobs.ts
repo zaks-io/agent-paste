@@ -1,4 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
+import { DEFAULT_UPLOAD_SESSION_TTL_MS } from "../policy.js";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { defineSqlQuerySourceMap } from "../postgres/query-source.js";
 import { contentBlobs } from "../schema.js";
@@ -78,6 +79,11 @@ export const contentBlobQueries = defineSqlQuerySourceMap(
     },
 
     async deleteUnreferenced(db: DrizzleDb, input: { now: string; limit: number }): Promise<ContentBlob[]> {
+      // Age floor derived from the shared upload-session TTL (same constant the
+      // in-memory path uses), so both backends stay aligned if the TTL changes.
+      // A blob touched within one TTL of `now` may be referenced by an in-flight
+      // create-upload-session the NOT EXISTS checks cannot see yet.
+      const ageFloor = new Date(new Date(input.now).getTime() - DEFAULT_UPLOAD_SESSION_TTL_MS).toISOString();
       const rows = await db.execute<{
         workspace_id: string;
         sha256: string;
@@ -118,11 +124,10 @@ export const contentBlobQueries = defineSqlQuerySourceMap(
             and us.status = 'pending'
             and us.expires_at > ${input.now}
         )
-        -- Age floor (one upload-session TTL past the last touch): the NOT
-        -- EXISTS checks see only committed rows, so a blob being reused by an
-        -- in-flight create-upload-session could otherwise be purged in the
-        -- window before that session commits.
-        and cb_inner.updated_at < ${input.now}::timestamptz - interval '24 hours'
+        -- Age floor (see ageFloor above): the NOT EXISTS checks see only
+        -- committed rows, so a blob reused by an in-flight create-upload-session
+        -- could otherwise be purged in the window before that session commits.
+        and cb_inner.updated_at < ${ageFloor}::timestamptz
         order by cb_inner.updated_at asc
         limit ${input.limit}
       )

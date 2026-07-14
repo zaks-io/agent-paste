@@ -9,12 +9,13 @@ function platformLockdownDenylistKey(scope: LockdownScope, targetId: string): st
 }
 
 /**
- * True when any control still requires `ad:{artifactId}` after access-link lockdown lift.
- * Re-checks the artifact's own lockdown state so an idempotent replay of a lift
- * (or a lift racing a concurrent re-lock) cannot delete the denylist key while
- * the DB records an active lockdown.
+ * True when any control still requires `ad:{artifactId}`. The key is shared by
+ * access-link lockdown and platform (artifact-scope) lockdown, so either lift
+ * path must retain it while the other control is still active. Re-reads current
+ * DB state so an idempotent replay of a lift (or a lift racing a concurrent
+ * re-lock) cannot delete the key while a lockdown is in force.
  */
-export async function peekArtifactDenylistRetention(ctx: RepositoryCoreContext, artifactId: string): Promise<boolean> {
+async function isArtifactDenylistKeyStillNeeded(ctx: RepositoryCoreContext, artifactId: string): Promise<boolean> {
   if (!artifactId) {
     return false;
   }
@@ -31,30 +32,17 @@ export async function peekArtifactDenylistRetention(ctx: RepositoryCoreContext, 
   });
 }
 
-/**
- * True when any control still requires `ad:{artifactId}` after a platform-lockdown lift.
- * Re-checks the current effective platform lockdown so an idempotent replay of a
- * lift (or a lift racing a concurrent re-lock) cannot delete the denylist key
- * while a lockdown is in force.
- */
-export async function peekArtifactPlatformLockdownRetention(
+/** Retention peek for the access-link-lockdown lift path (see shared helper). */
+export function peekArtifactDenylistRetention(ctx: RepositoryCoreContext, artifactId: string): Promise<boolean> {
+  return isArtifactDenylistKeyStillNeeded(ctx, artifactId);
+}
+
+/** Retention peek for the platform-lockdown (artifact-scope) lift path (see shared helper). */
+export function peekArtifactPlatformLockdownRetention(
   ctx: RepositoryCoreContext,
   artifactId: string,
 ): Promise<boolean> {
-  if (!artifactId) {
-    return false;
-  }
-  return ctx.uow.read(PLATFORM_SCOPE, async (entities) => {
-    const artifact = await entities.artifacts.findById(artifactId);
-    if (!artifact || artifact.deleted_at || artifact.status !== "active") {
-      return true;
-    }
-    if (isArtifactAccessLinkLocked(artifact)) {
-      return true;
-    }
-    const platformLockdown = await entities.platformLockdowns.findEffective("artifact", artifactId);
-    return platformLockdown !== null;
-  });
+  return isArtifactDenylistKeyStillNeeded(ctx, artifactId);
 }
 
 /**
