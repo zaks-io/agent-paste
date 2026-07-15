@@ -79,14 +79,34 @@ function useBillingReturn() {
     }
 
     if (search.status === "success" && search.session_id) {
+      const activationFailed = () =>
+        push({
+          tone: "error",
+          title: "Couldn't confirm your subscription",
+          message:
+            "Your payment may still have gone through. Refresh in a moment, or contact support if your plan doesn't update.",
+        });
       void activateBillingReturnFn({ data: { sessionId: search.session_id } })
         .then((result) => {
-          queryClient.setQueryData(queryKeys.billing(), result);
-          push({ tone: "success", title: "You're on Pro", message: "Your subscription is active." });
+          // The server fn's own fetch never rejects (failures return
+          // status.error / a null payload), but the RPC transport can still
+          // reject on a network/runtime error — handled by .catch below. Only
+          // toast success on real data; a failed activation next to "You're on
+          // Pro" would be a lie.
+          if (result.status.data) {
+            queryClient.setQueryData(queryKeys.billing(), result);
+            push({ tone: "success", title: "You're on Pro", message: "Your subscription is active." });
+            // Strip the return params only on success, so a failed activation
+            // keeps session_id and can be retried by refreshing (the error
+            // toast tells the user to do exactly that).
+            void clear();
+          } else {
+            activationFailed();
+          }
         })
+        .catch(activationFailed)
         .finally(() => {
           void queryClient.invalidateQueries({ queryKey: queryKeys.billing() });
-          void clear();
         });
       return;
     }

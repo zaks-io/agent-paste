@@ -83,7 +83,8 @@ export function AccessLinksTable({ rows, showArtifact = false, locked = false, o
     });
   }
 
-  const columnCount = showArtifact ? 6 : 5;
+  // Type, [Artifact], Pinned revision, Created, Expires, State, Actions.
+  const columnCount = showArtifact ? 7 : 6;
 
   return (
     <DataTable>

@@ -423,6 +423,7 @@ export type Repository = {
   }): Promise<{ access_link_id: string; revoked_at: string }>;
   peekArtifactDenylistRetention(artifactId: string): Promise<boolean>;
   peekArtifactPlatformLockdownRetention(artifactId: string): Promise<boolean>;
+  peekWorkspacePlatformLockdownRetention(workspaceId: string): Promise<boolean>;
   mintMemberAccessLink(input: {
     actor: ApiActor;
     accessLinkId: string;

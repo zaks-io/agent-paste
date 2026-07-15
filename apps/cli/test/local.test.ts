@@ -31,6 +31,54 @@ describe("local publish helpers", () => {
     expect(files[0]).not.toHaveProperty("sha256");
   });
 
+  it("follows in-root symlinked files and directories, skips broken links, and survives cycles", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
+    await fs.writeFile(path.join(root, "index.html"), "<h1>Hello</h1>");
+    // Real assets living inside the publish root, aliased through symlinks.
+    await fs.mkdir(path.join(root, "src"));
+    await fs.writeFile(path.join(root, "src", "asset.css"), "body{}");
+    await fs.mkdir(path.join(root, "src", "deep"));
+    await fs.writeFile(path.join(root, "src", "deep", "note.txt"), "note");
+    await fs.symlink(path.join(root, "src", "asset.css"), path.join(root, "asset.css"));
+    await fs.symlink(path.join(root, "src", "deep"), path.join(root, "deep"));
+    await fs.symlink(path.join(root, "missing.txt"), path.join(root, "broken.txt"));
+    await fs.symlink(root, path.join(root, "self"));
+
+    const files = await walkLocalPath(root);
+
+    expect(files.map((file) => file.path)).toEqual([
+      "asset.css",
+      "deep/note.txt",
+      "index.html",
+      "src/asset.css",
+      "src/deep/note.txt",
+    ]);
+  });
+
+  it("does not upload bytes outside the publish root through symlinks (AP-408)", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-outside-"));
+    await fs.writeFile(path.join(root, "index.html"), "<h1>Hello</h1>");
+    // A secret outside the selected folder, plus an innocuously named symlink
+    // that would bypass the .env exclusion list if the link were followed.
+    await fs.writeFile(path.join(outside, "secret.txt"), "top secret");
+    await fs.writeFile(path.join(root, ".env"), "TOKEN=abc");
+    await fs.mkdir(path.join(outside, "vendor"));
+    await fs.writeFile(path.join(outside, "vendor", "lib.js"), "x");
+    await fs.symlink(path.join(outside, "secret.txt"), path.join(root, "data.json"));
+    await fs.symlink(path.join(outside, "vendor"), path.join(root, "vendor"));
+    await fs.symlink(path.join(root, ".env"), path.join(root, "config.json"));
+
+    const warn = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const files = await walkLocalPath(root);
+
+    // Only the real in-root file is uploaded; every outside-root or
+    // exclusion-aliasing symlink is skipped.
+    expect(files.map((file) => file.path)).toEqual(["index.html"]);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it("streams file bytes when computing sha256 for upload", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
     const filePath = path.join(root, "index.html");

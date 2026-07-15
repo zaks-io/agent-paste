@@ -92,7 +92,7 @@ export const CLI_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Folder uploads exclude `.git/`, `.DS_Store`, `node_modules/`, `.env`, and `.env.*`.",
+          text: "Folder uploads exclude `.git/`, `.DS_Store`, `node_modules/`, `.env`, and `.env.*`. Symlinks are followed only when their target stays inside the published folder and is not an excluded path; links that resolve outside the folder or alias an excluded file are skipped with a warning, so publish never uploads bytes outside the folder you selected.",
         },
       ],
     },

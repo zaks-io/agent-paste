@@ -130,8 +130,12 @@ JSON fields:
 
 Path behavior:
   <path> may be a file or directory. Directory publish uploads every included
-  file except .git, node_modules, .DS_Store, and .env*; relative paths are
-  preserved, so the entrypoint can load sibling JS/CSS/JSON/assets. Entrypoint
+  file except .git, node_modules, .DS_Store, and .env*. Symlinks are followed
+  only when their target stays inside the published directory and is not an
+  excluded path; links resolving outside the folder (or aliasing an excluded
+  file) are skipped with a warning, so publish never uploads bytes you did not
+  select. Relative paths are preserved, so the entrypoint can load sibling
+  JS/CSS/JSON/assets. Entrypoint
   defaults to index.html, index.md, README.md, then the only file. If a
   multi-file directory has no inferred entrypoint, publish fails; pass
   --entrypoint <path>.

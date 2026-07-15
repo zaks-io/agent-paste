@@ -60,8 +60,14 @@ export async function clearPlatformLockdownDenylist(
   if (!targetId) {
     return;
   }
-  // `ad:{artifactId}` is shared with access-link lockdown; keep it if that control still needs it.
+  // `ad:{artifactId}` is shared with access-link lockdown; keep it if any
+  // control (including a re-locked platform lockdown seen by a replayed lift)
+  // still needs it. `wsd:{workspaceId}` likewise must survive a replayed lift
+  // that races an operator re-lock.
   if (scope === "artifact" && (await db.peekArtifactPlatformLockdownRetention(targetId))) {
+    return;
+  }
+  if (scope === "workspace" && (await db.peekWorkspacePlatformLockdownRetention(targetId))) {
     return;
   }
   const deleted = await deletePlatformLockdownDenylist(env, scope, targetId);

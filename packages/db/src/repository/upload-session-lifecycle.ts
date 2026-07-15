@@ -129,13 +129,12 @@ export async function createUploadSessionInEntities(
       });
       continue;
     }
-    const blob = file.sha256
-      ? await entities.contentBlobs.find({
-          workspaceId: input.actor.workspace_id,
-          sha256: file.sha256,
-          sizeBytes: file.size_bytes,
-        })
-      : null;
+    const blob = await resolveReusableBlob(entities, {
+      workspaceId: input.actor.workspace_id,
+      sha256: file.sha256,
+      sizeBytes: file.size_bytes,
+      now: input.now,
+    });
     storedFiles.push({
       workspace_id: input.actor.workspace_id,
       upload_session_id: session.id,
@@ -166,6 +165,30 @@ export async function createUploadSessionInEntities(
     occurredAt: input.now,
   });
   return toUploadSessionRecord(session, storedFiles);
+}
+
+// Find an existing content blob for a content-addressed file and, when found,
+// refresh its recency inside this transaction. The refresh keeps a reused blob
+// out of the GC's oldest-first window and makes a concurrent deleteUnreferenced
+// conflict with this write instead of silently purging bytes a just-created
+// session now references. Returns null for non-content-addressed (patch/revision)
+// files or a first-seen blob.
+async function resolveReusableBlob(
+  entities: Entities,
+  input: { workspaceId: string; sha256: string | undefined; sizeBytes: number; now: string },
+) {
+  if (!input.sha256) {
+    return null;
+  }
+  const blob = await entities.contentBlobs.find({
+    workspaceId: input.workspaceId,
+    sha256: input.sha256,
+    sizeBytes: input.sizeBytes,
+  });
+  if (blob) {
+    await entities.contentBlobs.upsert({ ...blob, updated_at: input.now });
+  }
+  return blob;
 }
 
 export async function readUploadSessionInEntities(

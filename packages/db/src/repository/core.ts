@@ -1,6 +1,7 @@
 import {
   peekArtifactDenylistRetention as peekArtifactDenylistRetentionCore,
   peekArtifactPlatformLockdownRetention as peekArtifactPlatformLockdownRetentionCore,
+  peekWorkspacePlatformLockdownRetention as peekWorkspacePlatformLockdownRetentionCore,
 } from "../access-link-invalidation.js";
 import type { UsagePolicyConfig } from "../policy.js";
 import type { AdminActor, ApiActor, ApiKeyActor, PlatformActor, RepositoryOptions, Workspace } from "../types.js";
@@ -410,6 +411,10 @@ export class RepositoryCore implements Repository {
 
   async peekArtifactPlatformLockdownRetention(artifactId: string) {
     return peekArtifactPlatformLockdownRetentionCore(this.ctx, artifactId);
+  }
+
+  async peekWorkspacePlatformLockdownRetention(workspaceId: string) {
+    return peekWorkspacePlatformLockdownRetentionCore(this.ctx, workspaceId);
   }
 
   async mintMemberAccessLink(input: {

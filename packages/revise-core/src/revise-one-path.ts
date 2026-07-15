@@ -116,15 +116,39 @@ async function revise(
   renderMode: RenderMode | undefined,
   computeNextText: (baseBody: string) => string,
 ): Promise<ReviseResult> {
-  const attempt = () => reviseAttempt(deps, artifactId, path, idempotencyKey, renderMode, computeNextText);
+  const attempt = (key: IdempotencyKey) => reviseAttempt(deps, artifactId, path, key, renderMode, computeNextText);
   try {
-    return await attempt();
+    return await attempt(idempotencyKey);
   } catch (error) {
     if (!isPatchConflict(error)) {
       throw error;
     }
-    return attempt();
+    return attempt(await retryIdempotencyKey(idempotencyKey));
   }
+}
+
+// The server's upload-session create replays completed commands by key alone
+// (no request-body fingerprint), so a retry under the SAME key would get back
+// the stale first-attempt session — old base revision, old patch descriptor,
+// old signed sizes — and could never resolve the conflict it is retrying.
+// Derive a distinct-but-deterministic key so the retry is a fresh command yet
+// duplicate deliveries of the retry itself still replay.
+const RETRY_KEY_SUFFIX = ":retry1";
+const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
+
+async function retryIdempotencyKey(key: IdempotencyKey): Promise<IdempotencyKey> {
+  // Common case: the key plus suffix fits, so append it verbatim — the full
+  // original key is preserved, guaranteeing distinct originals stay distinct.
+  if (key.length + RETRY_KEY_SUFFIX.length <= MAX_IDEMPOTENCY_KEY_LENGTH) {
+    return `${key}${RETRY_KEY_SUFFIX}` as IdempotencyKey;
+  }
+  // Pathologically long key: truncating alone could collide two distinct
+  // originals, so fold a bounded digest of the FULL key into the retry key to
+  // keep it collision-resistant while staying within the length limit.
+  const digest = (await sha256Hex(new TextEncoder().encode(key))).slice(0, 16);
+  const reserved = RETRY_KEY_SUFFIX.length + 1 + digest.length; // ".digest:retry1"
+  const head = key.slice(0, MAX_IDEMPOTENCY_KEY_LENGTH - reserved);
+  return `${head}.${digest}${RETRY_KEY_SUFFIX}` as IdempotencyKey;
 }
 
 async function reviseAttempt(

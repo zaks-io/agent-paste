@@ -1012,6 +1012,18 @@ describe("cli command dispatch", () => {
     expect(() => parseArgs(["publish", "--title"])).toThrow("Missing value for --title");
   });
 
+  it("keeps '=' characters inside inline flag values", () => {
+    expect(parseArgs(["publish", "--title=Q3: revenue = plan"]).flags.get("title")).toBe("Q3: revenue = plan");
+  });
+
+  it("honors inline boolean flag values and rejects non-boolean ones", () => {
+    expect(parseArgs(["whoami", "--json=true"]).global.json).toBe(true);
+    expect(parseArgs(["whoami", "--json=false"]).global.json).toBe(false);
+    expect(() => parseArgs(["whoami", "--json=yes"])).toThrow(
+      'Invalid value for --json: expected true or false, got "yes"',
+    );
+  });
+
   it("suppresses human output with --quiet", async () => {
     const stdout = mockStdout();
     const client = fakeClient({ whoami: vi.fn().mockResolvedValue({ ok: true }) });

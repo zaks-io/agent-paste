@@ -237,6 +237,9 @@ export type EphemeralPublishDeps = {
 
 export async function publishEphemeral(parsed: Parsed, deps: EphemeralPublishDeps = {}) {
   await noteEphemeralCredentialPrecedence();
+  // Validate the local input before provisioning: a typo'd path must not mint
+  // and orphan a server-side Ephemeral Workspace, API key, and claim token.
+  await walkLocalPath(requiredArg(parsed, 0, "path"));
   const claimCodeFlag = stringFlag(parsed, "claim-code")?.trim();
   const parsedClaimCode = claimCodeFlag ? ClaimCode.safeParse(claimCodeFlag) : undefined;
   const claimCode = parsedClaimCode?.success ? parsedClaimCode.data : undefined;

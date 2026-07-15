@@ -22,7 +22,15 @@ export function CreateAccessLinkPanel({ artifactId, revisions, latestRevisionId,
     (latestRevisionId && revisions.some((revision) => revision.revision_id === latestRevisionId)
       ? latestRevisionId
       : revisions[0]?.revision_id) ?? "";
-  const [revisionId, setRevisionId] = useState<string>(defaultRevisionId);
+  // Revisions load off the critical path, so they are usually [] on first
+  // render. Keep only the user's explicit choice in state and derive the
+  // effective value, so the default snaps in when the options arrive instead
+  // of leaving the select blank and the Create button dead.
+  const [selectedRevisionId, setSelectedRevisionId] = useState<string | null>(null);
+  const revisionId =
+    selectedRevisionId && revisions.some((revision) => revision.revision_id === selectedRevisionId)
+      ? selectedRevisionId
+      : defaultRevisionId;
 
   async function create(type: "share" | "revision", revision?: string) {
     if (pending || locked) return;
@@ -77,7 +85,7 @@ export function CreateAccessLinkPanel({ artifactId, revisions, latestRevisionId,
               aria-label="Revision to pin"
               value={revisionId}
               disabled={locked || revisions.length === 0 || pending !== null}
-              onChange={(event) => setRevisionId(event.target.value)}
+              onChange={(event) => setSelectedRevisionId(event.target.value)}
               className="h-[35px] min-w-0 flex-1 rounded-sm border border-rule-strong bg-background px-3 font-mono text-mono text-foreground focus:border-accent focus:outline-none disabled:cursor-not-allowed disabled:opacity-45"
             >
               {revisions.length === 0 ? (

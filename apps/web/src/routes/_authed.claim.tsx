@@ -68,6 +68,17 @@ function claimMutationData(claimToken: string, turnstileToken: string) {
   };
 }
 
+// Turnstile tokens are single-use: after any failed submit the held token is
+// already spent server-side, so re-submitting it can only ever fail
+// verification. Reset the widget to mint a fresh token for the retry.
+function resetTurnstile(siteKey: string | null, setTurnstileToken: (value: string | null) => void) {
+  if (!siteKey) {
+    return;
+  }
+  setTurnstileToken(null);
+  window.turnstile?.reset();
+}
+
 function ClaimPage() {
   const { turnstileSiteKey: siteKey, billing, usagePolicy } = Route.useLoaderData();
   const navigate = useNavigate();
@@ -148,11 +159,13 @@ function ClaimPage() {
           message: claimRedemptionErrorMessage(result.error),
           ...(result.error.requestId ? { requestId: result.error.requestId } : {}),
         });
+        resetTurnstile(siteKey, setTurnstileToken);
         return;
       }
       setSuccess({ artifactIds: result.data.artifact_ids });
     } catch {
       setError({ message: claimRedemptionErrorMessage({ code: "network_error", status: 0, message: "" }) });
+      resetTurnstile(siteKey, setTurnstileToken);
     } finally {
       setSubmitting(false);
     }

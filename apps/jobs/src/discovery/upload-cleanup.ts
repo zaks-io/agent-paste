@@ -44,6 +44,18 @@ export async function runUploadCleanupDiscovery(
   let enqueued = 0;
   for (const session of batch) {
     try {
+      // Win the pending → expired transition BEFORE enqueueing the purge. A
+      // finalize racing this sweep can still publish the revision from these
+      // bytes; purging first (or purging when the guard lost) would delete a
+      // just-published revision's files. Losing the purge on a later enqueue
+      // failure only leaks orphan bytes, which is the safer failure — recovering
+      // those (a durable purge marker + recovery sweep for expired-but-unpurged
+      // sessions) is tracked separately; re-pending here would re-open the very
+      // live-byte-deletion race this ordering closes.
+      const expired = await expireUploadSession(platformExecutor, session.id, now);
+      if (!expired) {
+        continue;
+      }
       const files = await withSource("runUploadCleanupDiscovery.selectSessionFiles", () =>
         platformExecutor.query<SessionFileRow>(
           `select r2_key, storage_kind
@@ -66,7 +78,6 @@ export async function runUploadCleanupDiscovery(
         await queue.send(message);
         enqueued += 1;
       }
-      await expireUploadSession(platformExecutor, session.id, now);
     } catch (error) {
       logOpError("cron.upload_cleanup.session_failed", {
         upload_session_id: session.id,
@@ -79,15 +90,18 @@ export async function runUploadCleanupDiscovery(
   return { discovered: batch.length, enqueued, cap_hit };
 }
 
-async function expireUploadSession(executor: SqlExecutor, sessionId: string, now: string): Promise<void> {
-  await withSource("expireUploadSession", () =>
-    executor.query(
+/** True when this sweep won the pending → expired transition. */
+async function expireUploadSession(executor: SqlExecutor, sessionId: string, now: string): Promise<boolean> {
+  const result = await withSource("expireUploadSession", () =>
+    executor.query<{ id: string }>(
       `update upload_sessions
      set status = 'expired'
-     where id = $1 and status = 'pending' and expires_at <= $2`,
+     where id = $1 and status = 'pending' and expires_at <= $2
+     returning id`,
       [sessionId, now],
     ),
   );
+  return result.rows.length > 0;
 }
 
 function withSource<T>(functionName: string, run: () => T): T {

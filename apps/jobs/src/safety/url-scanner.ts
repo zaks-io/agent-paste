@@ -52,7 +52,12 @@ async function submitUrlScan(input: {
         Authorization: `Bearer ${input.apiToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ url: input.url }),
+      // The scanned URL is a minted no-login capability link to the published
+      // content. The API's default visibility is Public, which would list the
+      // URL (with screenshot and DOM) in Cloudflare Radar's public recent-scan
+      // feed and search — publishing the capability to anyone. Unlisted keeps
+      // the report reachable only by scan ID.
+      body: JSON.stringify({ url: input.url, visibility: "Unlisted" }),
     },
   );
   if (!submit.ok) {

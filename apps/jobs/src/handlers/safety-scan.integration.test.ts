@@ -533,7 +533,11 @@ describe("handleSafetyScanBatch", () => {
     expect(submitCall).toBeDefined();
     const submitBody = JSON.parse(String((submitCall?.[1] as { body?: string } | undefined)?.body ?? "{}")) as {
       url?: string;
+      visibility?: string;
     };
+    // The submitted URL is a no-login capability link; a Public scan would
+    // publish it in Cloudflare Radar's recent-scan feed for anyone to open.
+    expect(submitBody.visibility).toBe("Unlisted");
     const publishedUrl = submitBody.url ?? "";
     expect(publishedUrl).not.toContain(`${artifactId}.${revisionId}`);
     const scanToken = decodeURIComponent(publishedUrl.split("/v1/public/agent-view/")[1] ?? "");

@@ -84,6 +84,21 @@ describe("cli ephemeral publish", () => {
     }
   });
 
+  it("does not provision when the local path is invalid, so no server objects are orphaned", async () => {
+    mockStdout();
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const provision = vi.fn().mockResolvedValue(provisionedCredentials());
+
+    await expect(
+      publishEphemeral(parsedPublishArgs("/nonexistent/agent-paste-typo-dir"), {
+        provision,
+        createPublishClient: () => fakePublishClient(),
+      }),
+    ).rejects.toThrow();
+
+    expect(provision).not.toHaveBeenCalled();
+  });
+
   it("never sends a client-chosen ttl_seconds on the create call", async () => {
     mockStdout();
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);

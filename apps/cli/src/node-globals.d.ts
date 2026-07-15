@@ -54,7 +54,8 @@ declare module "node:fs" {
     readdir(
       path: string,
       options: { withFileTypes: true },
-    ): Promise<Array<{ name: string; isDirectory(): boolean; isFile(): boolean }>>;
+    ): Promise<Array<{ name: string; isDirectory(): boolean; isFile(): boolean; isSymbolicLink(): boolean }>>;
+    realpath(path: string): Promise<string>;
     readFile(path: string): Promise<Uint8Array<ArrayBuffer>>;
     readFile(path: string, encoding: "utf8"): Promise<string>;
     writeFile(path: string, data: string | Uint8Array, options?: { mode?: number }): Promise<void>;

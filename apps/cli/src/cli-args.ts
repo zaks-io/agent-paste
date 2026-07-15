@@ -26,7 +26,11 @@ export function parseArgs(argv: string[]): Parsed {
         flags.set(raw.slice(3), false);
         continue;
       }
-      const [name, inlineValue] = raw.split("=", 2);
+      // Split on the first "=" only, so inline values may themselves contain
+      // "=" (e.g. --title="revenue = plan").
+      const eq = raw.indexOf("=");
+      const name = eq === -1 ? raw : raw.slice(0, eq);
+      const inlineValue = eq === -1 ? undefined : raw.slice(eq + 1);
       if (!name) {
         continue;
       }
@@ -91,15 +95,27 @@ export function stringFlag(parsed: Parsed, name: string) {
 }
 
 export function booleanFlag(parsed: Pick<Parsed, "flags">, name: string, fallback: boolean) {
-  const value = parsed.flags.get(name);
-  return typeof value === "boolean" ? value : fallback;
+  const value = coerceBooleanFlag(parsed, name);
+  return value === undefined ? fallback : value;
 }
 
 // Tri-state: --color forces rich, --no-color forces plain, absent (undefined)
 // defers to TTY/NO_COLOR/CI detection in resolveMode.
 export function optionalBooleanFlag(parsed: Pick<Parsed, "flags">, name: string): boolean | undefined {
+  return coerceBooleanFlag(parsed, name);
+}
+
+// Inline forms like --json=true must be honored, and anything else must fail
+// loudly: silently falling back to the default would flip explicitly stated
+// intent (e.g. --ephemeral=true degrading to an authenticated publish).
+function coerceBooleanFlag(parsed: Pick<Parsed, "flags">, name: string): boolean | undefined {
   const value = parsed.flags.get(name);
-  return typeof value === "boolean" ? value : undefined;
+  if (value === undefined || typeof value === "boolean") {
+    return value;
+  }
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new Error(`Invalid value for --${name}: expected true or false, got "${value}"`);
 }
 
 export function outputModeFor(global: GlobalFlags): OutputMode {

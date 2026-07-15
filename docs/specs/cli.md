@@ -133,6 +133,34 @@ no secrets and is written `0600`.
   `{ "error": { "code", "message", "docs?" } }` (no `schema_version` — it is an
   error envelope, not a result).
 
+## Directory publish (folder walk, exclusions, symlinks)
+
+`publish <path>` accepts a file or a directory. A directory publish walks the
+tree, preserves each file's path relative to the published root (so an HTML
+entrypoint can load sibling assets), and infers the entrypoint as the first of
+`index.html`, `index.md`, `README.md`, then the sole file when the folder holds
+exactly one; a multi-file folder with none of those fails and asks for
+`--entrypoint <path>`.
+
+The walk silently skips a fixed, non-configurable set — `.git/`,
+`node_modules/`, `.DS_Store`, `.env`, and `.env.*`. (A skipped symlink, below,
+does warn on stderr; the fixed exclusion set does not.)
+
+Symlinks inside a published folder are followed **only** when the link's
+resolved real target stays inside the published root **and** does not pass
+through an excluded segment. A link whose target resolves outside the folder, or
+an innocuously named link that aliases an excluded file (for example
+`config.json` → `../.env` or `data.json` → `.env`), is skipped with a stderr
+warning rather than uploaded. This keeps a folder publish from silently
+uploading bytes the caller did not select and keeps the exclusion list from
+being bypassed by symlink aliasing (AP-408). Broken links contribute no bytes
+and are skipped; symlinked directories are cycle-guarded by real path so a link
+loop cannot recurse forever. Single-file publish (`publish <file>`) follows the
+named path directly, since the caller selected it explicitly. Containment is
+checked on the resolved path at walk time; the bytes are read in a later pass,
+so a local process racing the link target between walk and upload is an inherent
+two-pass limitation on the user's own machine, not a boundary the CLI can close.
+
 ## Removed command names
 
 `make-public` was removed without an alias or deprecation window. Update agents,
