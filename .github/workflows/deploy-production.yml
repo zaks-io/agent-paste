@@ -72,6 +72,14 @@ jobs:
             exit 1
           fi
 
+      - name: Set release ID
+        id: release
+        run: |
+          set -euo pipefail
+          release_id="$(git rev-parse HEAD)"
+          echo "id=$release_id" >> "$GITHUB_OUTPUT"
+          echo "SENTRY_RELEASE=$release_id" >> "$GITHUB_ENV"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
 
@@ -143,3 +151,10 @@ jobs:
 
       - name: Smoke production (read-only, no credentials)
         run: pnpm smoke:prod:readonly
+
+      - name: Record Linear release
+        uses: linear/linear-release-action@c0cb8354a362c24c6d3e0948f37fd66d07588e3f # v0.14.5
+        with:
+          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+          version: ${{ steps.release.outputs.id }}
+          links: Deployment=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}

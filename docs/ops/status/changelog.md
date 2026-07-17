@@ -3,6 +3,16 @@
 Newest first. This is an operator-facing changelog for implemented project work;
 use `git log` for commit-level detail.
 
+## 2026-07-17
+
+### Linear production release tracking
+
+- Production deploys now set the full deployed commit SHA as the explicit
+  Sentry release name and the Linear release version.
+- After the read-only production smoke succeeds, the deploy workflow syncs the
+  release to the Agent Paste Linear team and links the Linear release to its
+  GitHub Actions run.
+
 ## 2026-06-15
 
 ### AP-139 production agent ergonomics and MCP recovery wording

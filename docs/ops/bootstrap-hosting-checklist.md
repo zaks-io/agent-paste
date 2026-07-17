@@ -133,6 +133,7 @@ Ownership: Isaac creates or copies `CLOUDFLARE_API_TOKEN` and `PRODUCTION_DATABA
 | `DATABASE_URL_MIGRATIONS_PRODUCTION`   | GitHub `Production` env (`deploy-production.yml` migrate step) | Neon console -> production branch -> Connection details -> Direct (NOT pooled), role `platform_admin`. Legacy name `PRODUCTION_DATABASE_URL` still works until rotated.                                                                                     |
 | `DATABASE_URL_RUNTIME_PRODUCTION`      | Operator / Hyperdrive maintenance only                         | Neon console -> production branch -> Direct, role `app_role`. Used when updating Hyperdrive; not stored in deploy workflows. See [`runbook-neon-database-roles.md`](./runbook-neon-database-roles.md).                                                      |
 | `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY` | GitHub `Production` env (`deploy-production.yml` smoke step)   | Long-lived publish/read API key provisioned for production smoke only (not the harness). Store in Bitwarden and mirror to GitHub.                                                                                                                           |
+| `LINEAR_ACCESS_KEY`                    | GitHub Actions (`deploy-production.yml` release step)          | Linear release pipeline access key scoped to the Agent Paste team. Store in Bitwarden and mirror it to the GitHub repository secret; successful production deploys record the deployed commit SHA as the Linear release version after smoke passes.         |
 | `TURBO_TOKEN`                          | Optional remote cache for trusted CI / deploy workflows        | `zaks-io` org secret when inherited, or repo secret if org inheritance is unavailable. PR validation falls back to local cache when absent; public external PR CI is intentionally disabled until a no-secret path exists.                                  |
 | `TURBO_TEAM`                           | Optional remote cache for trusted CI / deploy workflows        | `zaks-io` org var (`zaks-io`) when inherited, or repo variable if org inheritance is unavailable. PR validation falls back to local cache when absent; public external PR CI is intentionally disabled until a no-secret path exists.                       |
 | `TURBO_REMOTE_CACHE_SIGNATURE_KEY`     | All workflows (remote cache integrity)                         | Generate once: `openssl rand -hex 32`. Set as repo or org secret.                                                                                                                                                                                           |
@@ -144,6 +145,7 @@ Bitwarden entry checklist (one per row):
 - [ ] `agent-paste / infra / CLOUDFLARE_API_TOKEN`. **Isaac only** to create in Cloudflare and store in Bitwarden; **Codex can handle** GitHub storage after the value is available in the shell.
 - [ ] `agent-paste / infra / DATABASE_URL_MIGRATIONS_PRODUCTION` (production-branch direct URL, NOT pooled, role `platform_admin`). **Isaac only** to copy from Neon and store in Bitwarden unless a CLI/API credential is already available; **Codex can handle** GitHub storage after the value is available in the shell.
 - [ ] `agent-paste / infra / DATABASE_URL_RUNTIME_PRODUCTION` (`app_role`, for Hyperdrive only). **Isaac only** for Neon copy; update Hyperdrive configs after `0010_db_roles.sql` is applied.
+- [ ] `agent-paste / infra / LINEAR_ACCESS_KEY`. **Isaac only** to create in Linear and store in Bitwarden; **Codex can handle** repository-secret mirroring after the value is available in the shell.
 - [ ] `agent-paste / infra / TURBO_REMOTE_CACHE_SIGNATURE_KEY`. **Codex can handle** generation, GitHub storage, and verification; Isaac stores it in Bitwarden.
 
 `CLOUDFLARE_ACCOUNT_ID` and `TURBO_TEAM` are non-sensitive identifiers. They do not belong in Bitwarden, but production workflows still need them. Both are inherited from the `zaks-io` GitHub org; verify with `gh secret list --org zaks-io` and `gh variable list --org zaks-io` when the token has org Actions secret/variable permissions. A successful production deploy also proves they are available to the workflow.
@@ -156,6 +158,7 @@ After Bitwarden is populated, mirror the production secrets into GitHub:
 
 ```sh
 gh secret set CLOUDFLARE_API_TOKEN --repo zaks-io/agent-paste --body "$CLOUDFLARE_API_TOKEN"
+gh secret set LINEAR_ACCESS_KEY --repo zaks-io/agent-paste --body "$LINEAR_ACCESS_KEY"
 gh secret set TURBO_REMOTE_CACHE_SIGNATURE_KEY --repo zaks-io/agent-paste --body "$TURBO_REMOTE_CACHE_SIGNATURE_KEY"
 
 # Production-environment-scoped (NOT repo-scoped):
