@@ -95,6 +95,11 @@ Launch-readiness secret notes:
   `workflow_run` deploys come from a successful `main` run in this repository,
   checks out `refs/heads/main`, and refuses to deploy if the checked-out SHA
   differs from the CI head SHA.
+- Successful production deploys use the full deployed commit SHA as the shared
+  Sentry release name and Linear release version. The Linear release is recorded
+  only after the read-only production smoke passes and links back to the GitHub
+  Actions deployment run. `LINEAR_ACCESS_KEY` is a repository secret scoped to
+  the Agent Paste Linear release pipeline.
 - `CI`, `Security`, `CodeQL`, and Scorecard are green on current `main` at this
   refresh. Production deploys after the launch smoke hardening failed while the
   API Worker still carried forbidden `SMOKE_HARNESS_SECRET`; after Isaac deleted
@@ -104,6 +109,7 @@ Launch-readiness secret notes:
 - `TURBO_TOKEN`, `TURBO_TEAM`, `TURBO_REMOTE_CACHE_SIGNATURE_KEY`,
   `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`,
   `DATABASE_URL_MIGRATIONS_PRODUCTION` (or legacy `PRODUCTION_DATABASE_URL`),
+  `LINEAR_ACCESS_KEY`,
   `NEON_API_KEY`, `NEON_PROJECT_ID`, `CLOUDFLARE_WORKERS_SUBDOMAIN`,
   `PR_PREVIEW_SECRET_SEED`, the preview smoke harness secret, and
   `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY` are present or proven by successful
