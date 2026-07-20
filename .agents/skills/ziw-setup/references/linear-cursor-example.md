@@ -100,7 +100,9 @@ Last updated: 2026-06-01
   PR
 - Cap count policy: count each open PR once, add active previews that are not
   clearly linked to an already counted PR, then add unreturned Cursor
-  dispatches. Do not double-count a normal linked PR+preview
+  dispatches. Reconcile missing dispatches from repo-scoped active Linear claims
+  and dirty, baseline-unmerged, or uncertain non-default worktrees. Do not
+  double-count a normal linked PR, preview, claim, and worktree
 - Capacity drain policy: when the cap is full, review, merge, close, or escalate
   existing PRs/previews before assigning more Cursor work
 - Stuck-worker timeout: no branch/PR/agent-thread reply within <N> min -> direct
@@ -145,6 +147,9 @@ Last updated: 2026-06-01
 - Draft PR policy: Cursor opens a draft PR; orchestrator marks it ready-for-review
   after review is clean and required checks pass, then verifies non-draft
 - Ready-for-review owner: Agent Orchestrator
+- Local GitHub review submission actor policy: use the repo-configured local
+  agent GitHub identity for explicit `ziw-code-review --submit`; submit
+  `COMMENT` reviews only
 - Hosted bot review provider: CodeRabbit or Cursor Bugbot per repo/user
   preference; Cursor Bugbot is the natural alternative when Cursor PR review is
   installed and verified
