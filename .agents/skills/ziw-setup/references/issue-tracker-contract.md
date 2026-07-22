@@ -136,10 +136,11 @@ a tracker estimate field, estimate labels, a body heading, or no estimates.
   Stale labels on Done tickets are cleanup drift, not current work queue input.
 - Issue Triage should make current tickets agent-ready and keep tracker state
   aligned with external reality. Its default scope is the configured ready state,
-  usually `Todo`, plus active or PR-linked issues that need repair. It should
+  usually `Todo`, configured intake such as `Triage`, plus active or PR-linked
+  issues that need repair. It should
   not review Linear `Backlog` or equivalent out-of-work-queue states unless the
   user explicitly asks for Linear Backlog review.
-- During requested intake cleanup, Issue Triage may move complete issues from
+- During every normal triage run, Issue Triage may move complete issues from
   configured intake states such as `Triage` to the configured ready state,
   usually `Todo`. Encode blockers separately; dependency blockers do not prevent
   ready-state promotion. Do not promote Linear `Backlog` by default, but do
@@ -163,7 +164,7 @@ a tracker estimate field, estimate labels, a body heading, or no estimates.
 - If a repo uses an extra label such as `remote-worker` or `remote-cursor`,
   record it in `docs/agents/workflow/config.md`; it is not a shared default.
 - Labels are coordination signals. The issue tracker is the source of truth for
-  workflow state. Issue Triage owns requested ready-state promotion and verified
+  workflow state. Issue Triage owns configured intake-to-ready promotion and verified
   stale-state reconciliation, such as marking linked merged PR work `Done`; when
   it marks work `Done`, it also clears `ready-for-agent`. Agent Orchestrator owns
   active workflow state unless the user explicitly says
@@ -179,7 +180,7 @@ a tracker estimate field, estimate labels, a body heading, or no estimates.
   passed the configured code review gate for this ticket. Resolve it by the
   exact configured slug or ID, not by reconstructing a display name. Apply it
   only with adjacent review evidence that names the PR URL and reviewed head
-  SHA. Remove it when the PR head changes, blocking review findings appear, the
+  SHA and review-diff fingerprint. Remove it when that diff changes, blocking review findings appear, the
   linked PR changes, or the review evidence is missing or stale.
 - The configured code-host human-merge PR label means the PR is ready to merge
   except for required human merge authority. Apply it only to open non-draft PRs
