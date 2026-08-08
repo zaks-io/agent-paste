@@ -133,6 +133,22 @@ describe("withScriptSrcHash", () => {
     expect(result).toContain("style-src 'self' 'unsafe-inline'");
   });
 
+  it("retains only explicitly approved external script sources", () => {
+    const result = withScriptSrcHash(
+      SCRIPT_DISABLED_CONTENT_SECURITY_POLICY,
+      ["abc123+/="],
+      ["https://cdn.tailwindcss.com"],
+    );
+
+    const scriptSrc =
+      result
+        .split(";")
+        .find((directive) => directive.trim().startsWith("script-src"))
+        ?.trim() ?? "";
+    expect(scriptSrc).toBe("script-src 'sha256-abc123+/=' https://cdn.tailwindcss.com");
+    expect(scriptSrc).not.toContain("https://cdn.jsdelivr.net");
+  });
+
   it("adds script-src when the source policy omits it", () => {
     const result = withScriptSrcHash("default-src 'none'; style-src 'unsafe-inline'", ["abc123+/="]);
     expect(result).toBe("default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-abc123+/='");

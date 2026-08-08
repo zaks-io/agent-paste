@@ -85,15 +85,15 @@ sequenceDiagram
 
 ## Policy and abuse controls
 
-| Control                          | Ephemeral (unclaimed)                                        | After claim (`free`+)       |
-| -------------------------------- | ------------------------------------------------------------ | --------------------------- |
-| Daily new **Artifact** allowance | 20                                                           | 100 (`free`) / higher tiers |
-| **Auto Deletion**                | 24h cap                                                      | Platform default (30d+)     |
-| Indexing                         | `noindex` / `nofollow` on content + Agent View HTML          | Default                     |
-| Script execution                 | Script-disabled **Execution Policy** (`script-src 'none'`)   | CDN-allowlisted policy      |
-| Warning metadata                 | Built-in rules, dormant-script warning, optional Llama Guard | Built-in rules              |
-| URL Scanner signal               | Malicious verdict can trigger artifact **Platform Lockdown** | Not on default claimed path |
-| Abuse response                   | Operator **Platform Lockdown** (workspace or artifact scope) | Same                        |
+| Control                          | Ephemeral (unclaimed)                                                    | After claim (`free`+)       |
+| -------------------------------- | ------------------------------------------------------------------------ | --------------------------- |
+| Daily new **Artifact** allowance | 20                                                                       | 100 (`free`) / higher tiers |
+| **Auto Deletion**                | 24h cap                                                                  | Platform default (30d+)     |
+| Indexing                         | `noindex` / `nofollow` on content + Agent View HTML                      | Default                     |
+| Script execution                 | Script-restricted; trusted viewer permits only the approved Tailwind CDN | CDN-allowlisted policy      |
+| Warning metadata                 | Built-in rules, dormant-script warning, optional Llama Guard             | Built-in rules              |
+| URL Scanner signal               | Malicious verdict can trigger artifact **Platform Lockdown**             | Not on default claimed path |
+| Abuse response                   | Operator **Platform Lockdown** (workspace or artifact scope)             | Same                        |
 
 Provision rate limits dampen provision abuse. Reads stay gated only by the existing **Artifact
 Rate Limit** — not by publisher tier.

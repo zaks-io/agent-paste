@@ -96,7 +96,7 @@ _Avoid_: Personal account, user workspace
 
 <a id="ephemeral-workspace"></a>
 **Ephemeral Workspace**:
-A system-owned, unclaimed **Workspace** that an agent self-provisions with no **Workspace Member**, behind a short-lived, low-cap **Agent Credential**. It is an ordinary RLS-scoped tenant in its unclaimed state; promoted to a claimed **Workspace** by redeeming its **Claim Token**. Its content is served under a script-disabled **Execution Policy** while unclaimed; after claim, interactive HTML can execute only through the controlled **Artifact Viewer**.
+A system-owned, unclaimed **Workspace** that an agent self-provisions with no **Workspace Member**, behind a short-lived, low-cap **Agent Credential**. It is an ordinary RLS-scoped tenant in its unclaimed state; promoted to a claimed **Workspace** by redeeming its **Claim Token**. Its content is served under a script-restricted **Execution Policy** while unclaimed; trusted viewer frames may load the explicitly approved Tailwind CDN, while agent-authored scripts stay blocked. After claim, interactive HTML can execute only through the controlled **Artifact Viewer**.
 _Avoid_: Anonymous account, agent account, guest workspace
 
 <a id="ephemeral-publish"></a>

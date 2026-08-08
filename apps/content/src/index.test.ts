@@ -1312,8 +1312,12 @@ describe("CSP header per content type", () => {
     expect(html).toContain(VIEWER_FRAME_HEIGHT_MESSAGE_TYPE);
     expect(html).toContain("<script>");
     expect(html).not.toMatch(/nonce="/);
-    expect(response.headers.get("content-security-policy")).toContain(`script-src 'sha256-${hash}'`);
-    expect(response.headers.get("content-security-policy")).toContain("frame-ancestors https://app.agent-paste.sh");
+    const csp = response.headers.get("content-security-policy") ?? "";
+    const scriptSrc = csp.split(";").find((directive) => directive.trim().startsWith("script-src")) ?? "";
+    expect(scriptSrc).toContain(`script-src 'sha256-${hash}'`);
+    expect(scriptSrc).toContain("https://cdn.tailwindcss.com");
+    expect(scriptSrc).not.toContain("https://cdn.jsdelivr.net");
+    expect(csp).toContain("frame-ancestors https://app.agent-paste.sh");
   });
 
   it("does not 304 viewer-framed HTML against a direct-navigation cache validator", async () => {
