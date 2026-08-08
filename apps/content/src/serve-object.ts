@@ -10,6 +10,7 @@ import {
   parseWorkspaceBlobObjectKey,
   plaintextByteLengthFromStoredObject,
   servedContentForPath,
+  TAILWIND_CDN_SCRIPT_SOURCE,
   withFrameAncestors,
   withScriptSrcHash,
 } from "@agent-paste/storage";
@@ -414,7 +415,7 @@ export function responseHeadersForPath(
   headers.set("content-type", served.contentType);
   let csp = served.csp;
   if (resizeReporterScriptHash) {
-    csp = withScriptSrcHash(csp, [resizeReporterScriptHash]);
+    csp = withScriptSrcHash(csp, [resizeReporterScriptHash], [TAILWIND_CDN_SCRIPT_SOURCE]);
   }
   // Inline content is rendered in the trusted viewer's sandboxed iframe; let the
   // app origin frame it via CSP and drop the origin-blind XFO that would re-block

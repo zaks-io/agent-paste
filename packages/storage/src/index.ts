@@ -82,6 +82,8 @@ export const MIME_TYPES_BY_EXTENSION = {
 
 export const DEFAULT_MIME_TYPE = "application/octet-stream";
 
+export const TAILWIND_CDN_SCRIPT_SOURCE = "https://cdn.tailwindcss.com";
+
 /**
  * Extensions that are recognized (so they get a real Content-Type) but must never
  * render inline. PDFs can carry embedded JavaScript and are a common phishing /
@@ -92,7 +94,7 @@ const ATTACHMENT_EXTENSIONS = new Set<MimeExtension>([".pdf"]);
 
 export const BASE_CONTENT_SECURITY_POLICY = [
   "default-src 'none'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://esm.sh https://cdn.tailwindcss.com",
+  `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://esm.sh ${TAILWIND_CDN_SCRIPT_SOURCE}`,
   "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob:",
@@ -158,12 +160,17 @@ export function deriveScriptDisabledContentSecurityPolicy(baseCsp: string): stri
 }
 
 /**
- * Replaces `script-src` with hash sources so known inline scripts (for example the
- * viewer resize reporter) may run while publisher scripts stay blocked.
+ * Replaces `script-src` with hash sources plus any explicitly approved external
+ * sources so known inline scripts (for example the viewer resize reporter) may
+ * run without reopening the full publisher script policy.
  */
-export function withScriptSrcHash(csp: string, hashes: readonly string[]): string {
+export function withScriptSrcHash(
+  csp: string,
+  hashes: readonly string[],
+  externalSources: readonly string[] = [],
+): string {
   const directives = parseContentSecurityPolicyDirectives(csp);
-  directives.set("script-src", hashes.map((hash) => `'sha256-${hash}'`).join(" "));
+  directives.set("script-src", [...hashes.map((hash) => `'sha256-${hash}'`), ...externalSources].join(" "));
   const order = contentSecurityPolicyDirectiveOrder(csp);
   if (!order.includes("script-src")) {
     order.push("script-src");

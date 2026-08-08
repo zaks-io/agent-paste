@@ -170,12 +170,14 @@ parent accepts messages only from the iframe's `contentWindow` and only when
 by the sandbox.
 
 When the token's script policy is disabled (`script_disabled: true` or a
-non-viewer HTML navigation), publisher scripts stay blocked. For viewer-framed
-HTML that is still script-disabled, the resize reporter is the sole allowed
-script: the content Worker sets `script-src 'sha256-…'` to the reporter's
-static source hash and injects that inline script without a nonce. Interactive
-viewer-framed HTML (`script_disabled: false`) uses the normal interactive CSP
-and an inline reporter allowed by `unsafe-inline`.
+non-viewer HTML navigation), publisher scripts stay blocked. For a trusted
+viewer-framed HTML response that is still script-disabled, the content Worker
+allows the static resize reporter hash and the explicitly approved
+`https://cdn.tailwindcss.com` source. Other inline and external publisher
+scripts remain blocked. Direct `usercontent` navigations keep
+`script-src 'none'`. Interactive viewer-framed HTML (`script_disabled: false`)
+uses the normal interactive CSP and an inline reporter allowed by
+`unsafe-inline`.
 
 ## Render Modes
 
