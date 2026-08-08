@@ -35,11 +35,12 @@ WorkOS is **per deploy target**, not one project backing both preview and produc
 Each environment has:
 
 - **One dashboard AuthKit app** — browser sign-in for `app.{preview.}agent-paste.sh`. Public `WORKOS_CLIENT_ID` lives in `apps/api/wrangler.jsonc` and `apps/web/wrangler.jsonc` vars; the matching `WORKOS_API_KEY` is a Worker secret on `api` and `web`.
-- **One environment default OIDC client** (`WORKOS_CLI_AUDIENCE`) — stamps `aud` on User Management session tokens and CLI Connect tokens. Differs from `WORKOS_CLIENT_ID`. Set only on `api` (see `apps/api/wrangler.jsonc`).
+- **One User Management issuer client** — appears in the `WORKOS_ISSUER` path used to verify dashboard session tokens. It differs from `WORKOS_CLIENT_ID` and from the CLI OAuth client. Set only on `api` (see `apps/api/wrangler.jsonc`).
 - **One dedicated CLI Public OAuth (Connect) app** (production WorkOS env only today) — separate public `client_id` in `apps/cli/src/config.ts` (`client_01KSED1S5WMWBYCFWQZX2FHNED`). Tokens verify against the AuthKit domain JWKS (`/oauth2/jwks`), not `api.workos.com/sso/jwks/{client_id}`.
 
-Preview staging env default client: `client_01KSAGD5FCYJ13KSQ7SKVBDKNB`.  
-Production env default client: `client_01KSAGD5VSVFATV6ZY5CFGC6PJ`.
+Preview User Management issuer client: `client_01KSAGD5FCYJ13KSQ7SKVBDKNB`.
+Production User Management issuer client: `client_01KSAGD5VSVFATV6ZY5CFGC6PJ`.
+Production CLI OAuth client and `WORKOS_CLI_AUDIENCE`: `client_01KSED1S5WMWBYCFWQZX2FHNED`.
 
 Do not mix preview and production credentials across Workers. Preview and production must not share `WORKOS_API_KEY`, `WORKOS_COOKIE_PASSWORD`, or WorkOS environment keys.
 
@@ -95,7 +96,7 @@ active session.
 | `WORKOS_CLIENT_ID`    | `api`, `web`           | `client_01KSAJTF1EX1YZCCXJS9B0GJ46`                                        | `client_01KSED0F1X2MZ0WCKNNQR6FY2X`                                        |
 | `WORKOS_REDIRECT_URI` | `web`                  | `https://app.preview.agent-paste.sh/api/auth/callback`                     | `https://app.agent-paste.sh/api/auth/callback`                             |
 | `WORKOS_ISSUER`       | `api`                  | `https://api.workos.com/user_management/client_01KSAGD5FCYJ13KSQ7SKVBDKNB` | `https://api.workos.com/user_management/client_01KSAGD5VSVFATV6ZY5CFGC6PJ` |
-| `WORKOS_CLI_AUDIENCE` | `api`                  | `client_01KSAGD5FCYJ13KSQ7SKVBDKNB`                                        | `client_01KSAGD5VSVFATV6ZY5CFGC6PJ`                                        |
+| `WORKOS_CLI_AUDIENCE` | `api`                  | `client_01KSAGD5FCYJ13KSQ7SKVBDKNB`                                        | `client_01KSED1S5WMWBYCFWQZX2FHNED`                                        |
 | `WORKOS_CLI_JWKS_URL` | `api`, `upload`        | `https://courageous-milestone-75-staging.authkit.app/oauth2/jwks`          | `https://soulful-path-50.authkit.app/oauth2/jwks`                          |
 | `WORKOS_CLI_ISSUER`   | `api`, `upload`        | `https://courageous-milestone-75-staging.authkit.app`                      | `https://soulful-path-50.authkit.app`                                      |
 | `WORKOS_MCP_JWKS_URL` | `api`, `upload`, `mcp` | `https://courageous-milestone-75-staging.authkit.app/oauth2/jwks`          | `https://soulful-path-50.authkit.app/oauth2/jwks`                          |
@@ -161,12 +162,12 @@ Structured rejection reasons are logged as `workos_auth_reject` in `api` Worker 
 
 ### Dashboard loads sign-in but `/v1/web/*` returns 401 (`not_authenticated`)
 
-| Symptom                                         | Likely cause                                                             | Fix                                                                                                                                                                       |
-| ----------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| User appears signed in; dashboard API calls 401 | `WORKOS_ISSUER` points at AuthKit domain instead of User Management path | Set `WORKOS_ISSUER` to `https://api.workos.com/user_management/{WORKOS_CLI_AUDIENCE}` in `apps/api/wrangler.jsonc`; redeploy `api`. Check logs for `issuer_mismatch`.     |
-| Same, with `client_id_mismatch` in logs         | `requireClientIdClaim: true` or wrong audience expectation               | Dashboard path must use `requireClientIdClaim: false` (AuthKit session tokens carry no `client_id`/`azp`/`aud`). Already set in `dashboardVerifyOptions`; do not regress. |
-| Same, with `verify_threw` / JWKS errors         | Expired or wrong `WORKOS_API_KEY`, or JWKS fetch failure                 | Rotate or fix API key; confirm JWKS URL resolves: `https://api.workos.com/sso/jwks/{WORKOS_CLIENT_ID}`.                                                                   |
-| Same, with `user_fetch_failed`                  | API key cannot read User Management API                                  | Confirm key matches environment; check WorkOS dashboard key status.                                                                                                       |
+| Symptom                                         | Likely cause                                                             | Fix                                                                                                                                                                                                                                                          |
+| ----------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| User appears signed in; dashboard API calls 401 | `WORKOS_ISSUER` points at AuthKit domain instead of User Management path | Set `WORKOS_ISSUER` to the matching `https://api.workos.com/user_management/{env default client}` value in `apps/api/wrangler.jsonc`; do not substitute `WORKOS_CLI_AUDIENCE`. Redeploy `api` and check logs for `issuer_mismatch`.                          |
+| Same, with `client_id_mismatch` in logs         | `requireClientIdClaim: true` or wrong audience expectation               | Dashboard path must use `requireClientIdClaim: false`; this permits missing `client_id`/`azp` claims while still rejecting mismatched values. Already set in `dashboardVerifyOptions`; do not regress or use `WORKOS_CLI_AUDIENCE` for dashboard validation. |
+| Same, with `verify_threw` / JWKS errors         | Expired or wrong `WORKOS_API_KEY`, or JWKS fetch failure                 | Rotate or fix API key; confirm JWKS URL resolves: `https://api.workos.com/sso/jwks/{WORKOS_CLIENT_ID}`.                                                                                                                                                      |
+| Same, with `user_fetch_failed`                  | API key cannot read User Management API                                  | Confirm key matches environment; check WorkOS dashboard key status.                                                                                                                                                                                          |
 
 Historical note: production Issue A (2026-05) was `issuer_mismatch` because `WORKOS_ISSUER` used the `authkit.app` domain instead of the User Management issuer.
 
@@ -197,15 +198,15 @@ Historical note: production Issue A (2026-05) was `issuer_mismatch` because `WOR
 | Symptom                                                     | Likely cause                                                              | Fix                                                                                                                                  |
 | ----------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `verify_threw` with `JWKSNoMatchingKey` or signature errors | Wrong `WORKOS_CLIENT_ID` for JWKS URL, or key rotation at WorkOS          | Confirm `WORKOS_CLIENT_ID` matches dashboard AuthKit app; JWKS cache TTL is 1h in code — redeploy or wait after WorkOS key rotation. |
-| CLI login 401, `path: cli` in logs                          | Wrong `WORKOS_CLI_JWKS_URL` / `WORKOS_CLI_ISSUER` / `WORKOS_CLI_AUDIENCE` | Match vars to the AuthKit subdomain and env default client in `apps/api/wrangler.jsonc`.                                             |
+| CLI login 401, `path: cli` in logs                          | Wrong `WORKOS_CLI_JWKS_URL` / `WORKOS_CLI_ISSUER` / `WORKOS_CLI_AUDIENCE` | Match issuer/JWKS to the AuthKit environment and audience to the CLI OAuth application's `client_id` in `apps/cli/src/config.ts`.    |
 
 ### CLI login failures
 
-| Symptom                          | Likely cause                  | Fix                                                                                     |
-| -------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------- |
-| Browser opens but redirect fails | Loopback URI not registered   | Register `http://127.0.0.1:8975/callback` (exact) on production WorkOS env Connect app. |
-| Port in use                      | Default 8975 taken            | Set `AGENT_PASTE_LOGIN_PORT` to a registered port.                                      |
-| `agent-paste login` then API 401 | Preview CLI against wrong env | Override `AGENT_PASTE_WORKOS_BASE_URL` / client id for preview staging AuthKit domain.  |
+| Symptom                          | Likely cause                                                                 | Fix                                                                                                                                                                                    |
+| -------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Browser opens but redirect fails | Loopback URI not registered                                                  | Register `http://127.0.0.1:8975/callback` (exact) on production WorkOS env Connect app.                                                                                                |
+| Port in use                      | Default 8975 taken                                                           | Set `AGENT_PASTE_LOGIN_PORT` to a registered port.                                                                                                                                     |
+| `agent-paste login` then API 401 | `WORKOS_CLI_AUDIENCE` does not match the CLI OAuth application's `client_id` | Set `WORKOS_CLI_AUDIENCE` to the client id used by the CLI's Connect authorize/token requests; keep `WORKOS_CLI_ISSUER` and `WORKOS_CLI_JWKS_URL` on the matching AuthKit environment. |
 
 ### Operator and admin surfaces
 

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { authenticateWebIdentity, type Env } from "./index.js";
 
 const dashboardClientId = "client_dashboard";
-// The environment OIDC client stamped into a Connect token's `aud`.
+// WorkOS stamps the OAuth application's client_id into a Connect token's `aud`.
 const cliAudience = "client_env_audience";
 const subject = "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ";
 const apiBaseUrl = "https://workos.test";
@@ -69,8 +69,8 @@ async function cliTokenFixture() {
   const publicJwk = await exportJWK(publicKey);
   publicJwk.kid = "cli-key";
   publicJwk.alg = "RS256";
-  // Mirror a real WorkOS Connect access token: `aud` is the environment OIDC
-  // client, with no `client_id`/`azp` claim (unlike AuthKit dashboard tokens).
+  // Mirror a real WorkOS Connect access token: `aud` is the OAuth application's
+  // client_id, with no `client_id`/`azp` claim (unlike AuthKit dashboard tokens).
   const token = await new SignJWT({ sid: "sid_cli" })
     .setProtectedHeader({ alg: "RS256", kid: "cli-key" })
     .setIssuer(cliIssuer)
