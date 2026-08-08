@@ -44,7 +44,7 @@ Rotation goes through `scripts/rotate-versioned-secret.mjs` /
 | `WORKOS_API_KEY`                | api, web, mcp              | WorkOS server-side API credential. Same target WorkOS project; `bootstrap:* --with-web` writes it.                                        |
 | `WORKOS_CLIENT_ID`              | api, web                   | Also kept in Wrangler vars as non-secret deployment metadata/placeholders.                                                                |
 | `WORKOS_COOKIE_PASSWORD`        | web                        | WorkOS AuthKit sealed-session password.                                                                                                   |
-| `WORKOS_CLI_AUDIENCE`           | api                        | WorkOS User Management audience used to verify CLI/login and dashboard session issuer details.                                            |
+| `WORKOS_CLI_AUDIENCE`           | api                        | WorkOS Connect OAuth client audience used to verify CLI/login tokens.                                                                     |
 
 Launch-readiness secret notes:
 
