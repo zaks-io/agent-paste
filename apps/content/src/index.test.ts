@@ -1313,10 +1313,12 @@ describe("CSP header per content type", () => {
     expect(html).toContain("<script>");
     expect(html).not.toMatch(/nonce="/);
     const csp = response.headers.get("content-security-policy") ?? "";
-    const scriptSrc = csp.split(";").find((directive) => directive.trim().startsWith("script-src")) ?? "";
-    expect(scriptSrc).toContain(`script-src 'sha256-${hash}'`);
-    expect(scriptSrc).toContain("https://cdn.tailwindcss.com");
-    expect(scriptSrc).not.toContain("https://cdn.jsdelivr.net");
+    const scriptSrc =
+      csp
+        .split(";")
+        .find((directive) => directive.trim().startsWith("script-src"))
+        ?.trim() ?? "";
+    expect(scriptSrc).toBe(`script-src 'sha256-${hash}' https://cdn.tailwindcss.com`);
     expect(csp).toContain("frame-ancestors https://app.agent-paste.sh");
   });
 

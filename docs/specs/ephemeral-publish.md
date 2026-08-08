@@ -24,9 +24,11 @@ reports `"authenticated": false` and interactive auth is possible, run
 when the user explicitly asks for accountless publish. Ephemeral is not the
 `free` **Plan**; it is the unclaimed
 restricted tier. Use it for non-interactive text, markdown, images, and static
-HTML/CSS. In particular, interactive HTML/JavaScript work that needs script
-execution requires authenticated publish, because unclaimed ephemeral content is
-served under the script-disabled **Execution Policy**.
+HTML/CSS. In particular, interactive HTML/JavaScript work that needs
+agent-authored or publisher-authored script execution requires authenticated
+publish, because unclaimed ephemeral content is served under the script-restricted
+**Execution Policy**. The trusted viewer's platform-injected resize reporter and
+approved Tailwind CDN are controlled exceptions.
 
 ## Actors
 
@@ -156,13 +158,13 @@ Not adopted: Turnstile on the agent path (browser-only, blocks the hero use case
 
 ## Script Execution by Tier
 
-Executable JavaScript requires a claimed tenant and the controlled **Artifact Viewer** path, so the platform only runs agent code behind an auditable identity ([ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md)). The line is enforced at serve time by the **Execution Policy** and viewer-frame checks, not by inspecting HTML.
+Agent-authored or publisher-authored JavaScript requires a claimed tenant and the controlled **Artifact Viewer** path, so the platform only runs that untrusted code behind an auditable identity ([ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md)). Platform-injected viewer code, including the resize reporter, and the approved Tailwind CDN remain explicit unclaimed trusted-viewer exceptions. The line is enforced at serve time by the **Execution Policy** and viewer-frame checks, not by inspecting HTML.
 
-| Content                                                  | Ephemeral (unclaimed)                                                       | Claimed (`free`+)                                   |
-| -------------------------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------- |
-| markdown, text, JSON, images                             | renders                                                                     | renders                                             |
-| static HTML + CSS (no script)                            | renders                                                                     | renders                                             |
-| HTML with publisher `<script>` / inline handlers / `.js` | renders inert; only the approved Tailwind CDN may run in the trusted viewer | executes only inside the controlled Artifact Viewer |
+| Content                                                  | Ephemeral (unclaimed)                                                                                                | Claimed (`free`+)                                   |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| markdown, text, JSON, images                             | renders                                                                                                              | renders                                             |
+| static HTML + CSS (no script)                            | renders                                                                                                              | renders                                             |
+| HTML with publisher `<script>` / inline handlers / `.js` | renders inert; the trusted viewer permits the injected resize reporter and approved Tailwind CDN, not publisher code | executes only inside the controlled Artifact Viewer |
 
 - **Two Execution Policies.** Ephemeral content is served under a script-restricted policy, overriding the base CDN-allowlisted policy ([ADR 0030](../adr/0030-mvp-execution-policy-cdn-allowlisted-csp.md)) the same way the SVG case overrides it today ([ADR 0042](../adr/0042-strict-extension-based-served-content-type.md)). Direct content stays at `script-src 'none'`; trusted viewer-framed content permits only the injected resize reporter and the explicitly approved `https://cdn.tailwindcss.com` source. Other embedded and external publisher scripts fail closed.
 - **`content` stays DB-free.** The tier signal rides in the verified content-gateway token payload as a script-disabled bit set by `api` at mint time. `content` selects the CSP from the token with no lookup ([ADR 0028](../adr/0028-signed-url-tokens-for-content-gateway-authorization.md)); an absent or unverifiable bit defaults to script-disabled. Direct top-level `usercontent` HTML navigations are also forced script-disabled at request time.
@@ -186,7 +188,7 @@ Field-level shape lands in [`data-model.md`](./data-model.md) and the contracts 
 - A valid **Claim Token** redeemed by an authenticated **Workspace Member** reparents the surviving **Artifacts** into the member's Personal **Workspace** at the `free` cap set, marks the source **Ephemeral Workspace** consumed, and is single-use thereafter.
 - A **Claim Token** that is redeemed, expired, or absent from the public Access Link Signed URL grants no ownership.
 - Reads against an ephemeral **Artifact** are gated only by the existing **Artifact Rate Limit**, not by any per-publisher read cap.
-- An ephemeral **Artifact** containing publisher script renders inert: static markup and CSS display, and no publisher `<script>`, inline handler, or `.js` asset executes. The only exception is the explicitly approved Tailwind CDN in a trusted viewer iframe. The content-gateway token carries the script-disabled bit and `content` selects this script-restricted **Execution Policy** with no DB lookup. After the tenant is claimed, newly minted viewer tokens may omit the bit, but script executes only inside the controlled Artifact Viewer iframe; direct `usercontent` HTML remains inert.
+- An ephemeral **Artifact** containing publisher script renders inert: static markup and CSS display, and no publisher `<script>`, inline handler, or `.js` asset executes. The exceptions are the platform-injected resize reporter and explicitly approved Tailwind CDN in a trusted viewer iframe. The content-gateway token carries the script-disabled bit and `content` selects this script-restricted **Execution Policy** with no DB lookup. After the tenant is claimed, newly minted viewer tokens may omit the bit, but script executes only inside the controlled Artifact Viewer iframe; direct `usercontent` HTML remains inert.
 - Provision and claim emit **Audit Events**. A malicious Cloudflare URL Scanner
   verdict on ephemeral content can drive artifact-scoped **Platform Lockdown**;
   operator review can also drive **Platform Lockdown**.

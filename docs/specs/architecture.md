@@ -229,7 +229,7 @@ Controls:
 - Ephemeral Workspaces are ordinary RLS-scoped tenants with `claimed_at IS NULL`.
 - The provisioned credential is short-lived and low-cap.
 - The Claim Token is returned once and stored hashed.
-- Ephemeral content uses a script-restricted Execution Policy and `noindex`; only the approved Tailwind CDN is permitted in trusted viewer frames.
+- Ephemeral content uses a script-restricted Execution Policy and `noindex`; direct content is script-disabled, while trusted viewer frames permit the injected resize reporter and the approved Tailwind CDN.
 - Ephemeral Artifacts have the shortest Auto Deletion policy.
 - Claim promotes the content into a normal Workspace and emits Audit Events.
 
@@ -264,22 +264,22 @@ This system does not claim uploaded content is safe. The security model is that
 uploaded content is untrusted until isolated, scoped, expired, revoked, or locked
 down.
 
-| Control                                | What it protects                                                                                                                                                                  |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Worker split by boundary               | Limits which runtime can touch auth, metadata, bytes, queues, or long-lived connections.                                                                                          |
-| Private R2                             | Prevents storage URLs from becoming public access paths.                                                                                                                          |
-| Isolated Content Origin                | Keeps Untrusted Content off the dashboard and API origins.                                                                                                                        |
-| Signed content tokens                  | Scope reads to one Revision, path set, expiration, and execution policy.                                                                                                          |
-| Fragment Access Links                  | Keeps Access Link credential material out of server-side request paths and normal logs.                                                                                           |
-| Hashed credentials and Claim Tokens    | Stores verifier material, not bearer secrets.                                                                                                                                     |
-| Postgres RLS                           | Scopes tenant rows by Workspace inside database transactions.                                                                                                                     |
-| `runCommand`                           | Commits state changes with audit and idempotency records.                                                                                                                         |
-| Denylist keys                          | Allows revocation, Access Link Lockdown, and Platform Lockdown to cut off reads before byte purge completes.                                                                      |
-| Content CSP and MIME allowlist         | Reduces browser blast radius and prevents agent-claimed MIME types from deciding render behavior.                                                                                 |
-| Ephemeral script-restricted policy     | Prevents no-login content from running agent-authored script; trusted viewers may load the approved Tailwind CDN, and after claim interactivity runs through the Artifact Viewer. |
-| Rate limits and daily write allowances | Dampens abuse without gating legitimate reads for billing.                                                                                                                        |
-| Operator lockdown                      | Gives operators a platform-level response path for abuse and takedown.                                                                                                            |
-| Secret scanning and release provenance | Protects repository and CLI release hygiene. See [security-todo.md](../ops/security-todo.md).                                                                                     |
+| Control                                | What it protects                                                                                                                                                                                               |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Worker split by boundary               | Limits which runtime can touch auth, metadata, bytes, queues, or long-lived connections.                                                                                                                       |
+| Private R2                             | Prevents storage URLs from becoming public access paths.                                                                                                                                                       |
+| Isolated Content Origin                | Keeps Untrusted Content off the dashboard and API origins.                                                                                                                                                     |
+| Signed content tokens                  | Scope reads to one Revision, path set, expiration, and execution policy.                                                                                                                                       |
+| Fragment Access Links                  | Keeps Access Link credential material out of server-side request paths and normal logs.                                                                                                                        |
+| Hashed credentials and Claim Tokens    | Stores verifier material, not bearer secrets.                                                                                                                                                                  |
+| Postgres RLS                           | Scopes tenant rows by Workspace inside database transactions.                                                                                                                                                  |
+| `runCommand`                           | Commits state changes with audit and idempotency records.                                                                                                                                                      |
+| Denylist keys                          | Allows revocation, Access Link Lockdown, and Platform Lockdown to cut off reads before byte purge completes.                                                                                                   |
+| Content CSP and MIME allowlist         | Reduces browser blast radius and prevents agent-claimed MIME types from deciding render behavior.                                                                                                              |
+| Ephemeral script-restricted policy     | Prevents no-login content from running agent-authored script; trusted viewers may load the injected resize reporter and approved Tailwind CDN, and after claim interactivity runs through the Artifact Viewer. |
+| Rate limits and daily write allowances | Dampens abuse without gating legitimate reads for billing.                                                                                                                                                     |
+| Operator lockdown                      | Gives operators a platform-level response path for abuse and takedown.                                                                                                                                         |
+| Secret scanning and release provenance | Protects repository and CLI release hygiene. See [security-todo.md](../ops/security-todo.md).                                                                                                                  |
 
 Important limits:
 

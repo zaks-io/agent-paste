@@ -96,7 +96,7 @@ _Avoid_: Personal account, user workspace
 
 <a id="ephemeral-workspace"></a>
 **Ephemeral Workspace**:
-A system-owned, unclaimed **Workspace** that an agent self-provisions with no **Workspace Member**, behind a short-lived, low-cap **Agent Credential**. It is an ordinary RLS-scoped tenant in its unclaimed state; promoted to a claimed **Workspace** by redeeming its **Claim Token**. Its content is served under a script-restricted **Execution Policy** while unclaimed; trusted viewer frames may load the explicitly approved Tailwind CDN, while agent-authored scripts stay blocked. After claim, interactive HTML can execute only through the controlled **Artifact Viewer**.
+A system-owned, unclaimed **Workspace** that an agent self-provisions with no **Workspace Member**, behind a short-lived, low-cap **Agent Credential**. It is an ordinary RLS-scoped tenant in its unclaimed state; promoted to a claimed **Workspace** by redeeming its **Claim Token**. Its content is served under a script-restricted **Execution Policy** while unclaimed: direct content is script-disabled, while trusted viewer frames may load the platform-injected resize reporter and the explicitly approved Tailwind CDN; agent-authored scripts stay blocked. After claim, interactive HTML can execute only through the controlled **Artifact Viewer**.
 _Avoid_: Anonymous account, agent account, guest workspace
 
 <a id="ephemeral-publish"></a>
@@ -826,7 +826,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - **Agent View**, **Manifest**, and **Display Metadata** are not served as **Untrusted Content**
 - **Untrusted Content** is viewed under an **Execution Policy**
 - **Execution Policy** applies to all **Render Modes**
-- The MVP uses one fixed **Execution Policy** for all **Untrusted Content**, with one per-response tightening: SVG responses carry a stricter **Execution Policy** that blocks `<script>` execution
+- The MVP uses tier- and viewer-context-specific **Execution Policies** for **Untrusted Content**: direct unclaimed responses are script-disabled, trusted viewer frames permit the injected resize reporter and approved Tailwind CDN, claimed content uses the claimed policy, and SVG responses carry a stricter **Execution Policy** that blocks `<script>` execution
 - A **Served Content Type** is derived by `content` from the normalized file extension, not from any value the agent supplied at upload
 - A **Served Content Type** for `text/*` types includes `charset=utf-8`
 - Unrecognized file extensions resolve to **Served Content Type** `application/octet-stream` with `Content-Disposition: attachment`
@@ -1097,7 +1097,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Dev:** "Does **Execution Policy** only apply to HTML?"
 > **Domain expert:** "No — it applies to all **Render Modes** for **Untrusted Content**."
 > **Dev:** "Can an agent request a custom **Execution Policy**?"
-> **Domain expert:** "Not in the MVP — all **Untrusted Content** uses one fixed **Execution Policy**."
+> **Domain expert:** "Not in the MVP — agents cannot request a custom **Execution Policy**; the platform selects fixed policies by tenant tier and trusted viewer context."
 > **Dev:** "Can **Render Mode** be audio?"
 > **Domain expert:** "Yes — audio is a first-class **Render Mode**."
 > **Dev:** "Can **Render Mode** be video?"
