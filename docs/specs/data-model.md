@@ -294,7 +294,9 @@ Primary key `(workspace_id, actor_type, actor_id, operation, idempotency_key)`.
 
 Canonical helpers: revision-file and bundle keys in
 `packages/db/src/validation.ts`; workspace blob keys in
-`packages/storage/src/artifact-bytes-encryption.ts` (`workspaceBlobObjectKeyFor`).
+`packages/storage/src/artifact-bytes-encryption.ts` (`workspaceBlobObjectKeyFor`);
+content-capability manifest keys in
+`packages/tokens/src/content-capability.ts` (`contentCapabilityObjectKey`).
 Keys are ID-based; human titles and labels never appear in prefixes. Normalized file paths are
 untrusted input and follow the validation rules from
 [ADR 0021](../adr/0021-id-based-r2-object-key-layout.md).
@@ -304,6 +306,7 @@ untrusted input and follow the validation rules from
 | Revision file (`storage_kind = 'revision'`)     | `artifacts/{artifactId}/revisions/{revisionId}/files/{path}`                                  | Legacy artifact-scoped prefix used for upload PUT targets, `artifact_files.r2_key`, and byte purge of revision files. |
 | Derived bundle                                  | `env/{env}/workspaces/{workspaceId}/artifacts/{artifactId}/revisions/{revisionId}/bundle.zip` | Env-scoped; `{env}` comes from `storageEnvSegment(AGENT_PASTE_ENV)` (`live`, `preview`, or `dev`).                    |
 | Workspace shared blob (`storage_kind = 'blob'`) | `workspaces/{workspaceId}/blobs/sha256/{prefix}/{sha256}`                                     | `{prefix}` is the first two hex digits of the lowercase SHA-256 digest. Workspace-scoped deduplication.               |
+| Content capability manifest                     | `content-capabilities/v1/{32-lowercase-hex-id}.json`                                          | Signed viewer authorization and Revision path map. R2 lifecycle expires this prefix after 91 days.                    |
 
 Env-scoped purge prefixes for jobs and invalidation:
 

@@ -110,10 +110,17 @@
         {
           "pattern": "usercontent.agent-paste.sh",
           "custom_domain": true
+        },
+        {
+          // The suffix keeps this route away from app/api/etc. Custom Domains.
+          // The Worker accepts only {32 lowercase hex}-uc capability labels.
+          "pattern": "*-uc.agent-paste.sh/*",
+          "zone_name": "agent-paste.sh"
         }
       ],
       "vars": {
         "AGENT_PASTE_ENV": "production",
+        "CONTENT_CAPABILITY_DOMAIN": "agent-paste.sh",
         "CONTENT_SIGNING_KID": "v1",
         "DOCS_BASE_URL": ""
       },

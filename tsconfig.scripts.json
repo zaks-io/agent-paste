@@ -28,6 +28,8 @@
   "files": [
     "scripts/deploy.mjs",
     "scripts/deploy-pr-preview.mjs",
+    "scripts/ensure-content-capability-dns.mjs",
+    "scripts/lib/content-capability-dns.mjs",
     "scripts/lib/hyperdrive-branch-guard.mjs",
     "scripts/lib/load-env-files.mjs",
     "scripts/lib/local-env-secrets.mjs",

@@ -325,6 +325,7 @@
         "API_KEY_ENV": "production",
         "API_BASE_URL": "https://api.agent-paste.sh",
         "CONTENT_BASE_URL": "https://usercontent.agent-paste.sh",
+        "CONTENT_CAPABILITY_DOMAIN": "agent-paste.sh",
         // Stripe Checkout/Portal redirect targets (webBaseUrl in runtime.ts). Explicit
         // rather than relying on the production default in runtime.ts.
         "WEB_BASE_URL": "https://app.agent-paste.sh",

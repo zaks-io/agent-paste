@@ -10,6 +10,7 @@ import {
 const productionEnv = {
   AGENT_PASTE_ENV: "production" as const,
   CONTENT_BASE_URL: "https://usercontent.agent-paste.sh/v/example/index.html",
+  CONTENT_CAPABILITY_DOMAIN: "agent-paste.sh",
 };
 
 describe("Access Link security headers", () => {
@@ -24,12 +25,27 @@ describe("Access Link security headers", () => {
     expect(csp).toContain("style-src 'self'");
     expect(csp).toContain("connect-src 'self'");
     expect(csp).toContain("frame-src https://usercontent.agent-paste.sh");
+    expect(csp).toContain("https://*.agent-paste.sh");
     expect(csp).not.toContain("'unsafe-inline'");
     expect(csp).not.toContain("frame-src http: https:");
     expect(csp).toContain("frame-ancestors 'none'");
     expect(headers.get("referrer-policy")).toBe("no-referrer");
     expect(headers.get("x-content-type-options")).toBe("nosniff");
     expect(headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("keeps preview framing restricted to its configured legacy content origin", () => {
+    const headers = accessLinkViewerHeaders(
+      {
+        AGENT_PASTE_ENV: "preview",
+        CONTENT_BASE_URL: "https://agent-paste-content-preview.example.workers.dev",
+      },
+      nonce,
+    );
+    const csp = headers.get("content-security-policy") ?? "";
+
+    expect(csp).toContain("frame-src https://agent-paste-content-preview.example.workers.dev");
+    expect(csp).not.toContain("https://*.agent-paste.sh");
   });
 
   it("sets a tighter CSP for Access Link proxy responses", () => {
@@ -123,7 +139,18 @@ describe("Dashboard security headers", () => {
     expect(csp).toContain("https://cloudflareinsights.com");
     // The artifact viewer iframe loads from the content origin, so frame-src must allow it.
     expect(csp).toContain("frame-src https://challenges.cloudflare.com https://usercontent.agent-paste.sh");
+    expect(csp).toContain("https://*.agent-paste.sh");
     expect(response.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  it("fails loudly when the capability frame domain is malformed", () => {
+    expect(() =>
+      applyDashboardSecurityHeaders(
+        new Response("ok"),
+        { ...productionEnv, CONTENT_CAPABILITY_DOMAIN: "https://agent-paste.sh" },
+        nonce,
+      ),
+    ).toThrow(/CONTENT_CAPABILITY_DOMAIN/);
   });
 
   it("lets the access-link CSP win when layered after the dashboard headers", () => {

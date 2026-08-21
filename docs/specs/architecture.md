@@ -24,7 +24,7 @@ flowchart LR
   mcp["mcp<br/>mcp.agent-paste.sh<br/>OAuth MCP transport"]
   api["api<br/>api.agent-paste.sh<br/>control plane"]
   upload["upload<br/>upload.agent-paste.sh<br/>upload sessions and R2 writes"]
-  content["content<br/>usercontent.agent-paste.sh<br/>untrusted content reads"]
+  content["content<br/>capability content zone<br/>untrusted content reads"]
   stream["stream<br/>Live Updates SSE"]
   jobs["jobs<br/>queues, cron, sweeps"]
 
@@ -51,6 +51,7 @@ flowchart LR
   stream --> api
 
   api --> pg
+  api --> r2
   api --> kv
   api --> workos
   api --> stripe
@@ -68,16 +69,16 @@ flowchart LR
 
 ## Host Boundaries
 
-| Surface   | Owns                                                                                                                                      | Must not own                                                                                |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `apex`    | Marketing page, public docs, legal pages, install scripts, `/llms.txt`, `/agents.md`, product redirects.                                  | Authenticated state, cookies, WorkOS callbacks, product data.                               |
-| `web`     | Human dashboard, WorkOS session handling, Access Link viewer shell, claim and billing UI.                                                 | Postgres, R2, KV, queues, durable product writes. Durable work goes through `api`.          |
-| `api`     | Authenticated control plane, Artifact metadata, Access Link resolve, web routes, operator routes, billing, ephemeral provision and claim. | Direct file-byte serving.                                                                   |
-| `upload`  | Upload Sessions, signed upload-worker PUT URLs, validation, R2 writes, finalize orchestration.                                            | Unauthenticated content reads.                                                              |
-| `content` | Signed file and Bundle reads from private R2 on the isolated Content Origin.                                                              | Hyperdrive, Postgres, WorkOS sessions, cookies, product mutations.                          |
-| `jobs`    | Cron discovery, queue consumers, cleanup, bundle generation, warning replacement, billing reconciliation.                                 | Browser-facing routes.                                                                      |
-| `stream`  | Long-lived SSE fan-out for Live Updates through per-Artifact Durable Objects.                                                             | Postgres, R2, KV, secrets, Untrusted Content.                                               |
-| `mcp`     | OAuth-only Streamable HTTP MCP transport and fixed tool surface.                                                                          | Business writes, Postgres, R2. It verifies bearer shape and forwards to `api` and `upload`. |
+| Surface   | Owns                                                                                                                                                                  | Must not own                                                                                |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `apex`    | Marketing page, public docs, legal pages, install scripts, `/llms.txt`, `/agents.md`, product redirects.                                                              | Authenticated state, cookies, WorkOS callbacks, product data.                               |
+| `web`     | Human dashboard, WorkOS session handling, Access Link viewer shell, claim and billing UI.                                                                             | Postgres, R2, KV, queues, durable product writes. Durable work goes through `api`.          |
+| `api`     | Authenticated control plane, Artifact metadata, Access Link resolve, capability-manifest writes, web routes, operator routes, billing, ephemeral provision and claim. | Direct file-byte serving.                                                                   |
+| `upload`  | Upload Sessions, signed upload-worker PUT URLs, validation, R2 writes, finalize orchestration.                                                                        | Unauthenticated content reads.                                                              |
+| `content` | Signed file and Bundle reads from private R2 on the isolated Content Origin.                                                                                          | Hyperdrive, Postgres, WorkOS sessions, cookies, product mutations.                          |
+| `jobs`    | Cron discovery, queue consumers, cleanup, bundle generation, warning replacement, billing reconciliation.                                                             | Browser-facing routes.                                                                      |
+| `stream`  | Long-lived SSE fan-out for Live Updates through per-Artifact Durable Objects.                                                                                         | Postgres, R2, KV, secrets, Untrusted Content.                                               |
+| `mcp`     | OAuth-only Streamable HTTP MCP transport and fixed tool surface.                                                                                                      | Business writes, Postgres, R2. It verifies bearer shape and forwards to `api` and `upload`. |
 
 ## Publish Flow
 
@@ -138,7 +139,7 @@ flowchart TD
   viewer["Artifact Viewer<br/>reads fragment in browser"]
   resolve["api<br/>POST /v1/access-links/resolve"]
   manifest["resolved Artifact view<br/>manifest plus content URLs"]
-  content["content<br/>/v/{token}/{path}"]
+  content["content<br/>{32-lowercase-hex-id}-uc.agent-paste.sh/{path}<br/>or legacy /v/{token}/{path}"]
   r2["Private R2"]
   kv["KV denylist"]
 
@@ -167,6 +168,9 @@ Access Link rules:
 
 Content Origin rules:
 
+- `api` stores one R2 capability manifest per resolved viewer grant before
+  returning its hostname. The manifest holds the existing signed content token
+  and Revision path map.
 - `content` verifies signed content token parse, signature, expiration, scope,
   denylist state, and path membership.
 - `content` never reads Postgres and has no Hyperdrive binding.

@@ -105,6 +105,11 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: pnpm verify
 
+      - name: Provision content capability DNS
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: node scripts/ensure-content-capability-dns.mjs
+
       - name: Migrate production database
         env:
           DATABASE_URL_MIGRATIONS_PRODUCTION: ${{ secrets.DATABASE_URL_MIGRATIONS_PRODUCTION }}

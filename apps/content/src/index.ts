@@ -1,4 +1,11 @@
-import { getRequestId, type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
+import {
+  buildErrorBody,
+  getRequestId,
+  REQUEST_ID_HEADER,
+  type RequestIdVariables,
+  requestIdMiddleware,
+  resolveRequestId,
+} from "@agent-paste/auth";
 import { buildContentOpenApiDocument, routeContractById } from "@agent-paste/contracts";
 import { resolveContentTokenSigner } from "@agent-paste/rotation";
 import { CONTENT_SECURITY_HEADERS } from "@agent-paste/storage";
@@ -16,6 +23,7 @@ import {
 } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { Hono } from "hono";
+import { resolveContentCapabilityRequest } from "./content-capability.js";
 import type { AppContext, Env } from "./env.js";
 import {
   contentPath,
@@ -117,5 +125,38 @@ const worker = {
 export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
-  return await app.fetch(request, env);
+  try {
+    const capability = await resolveContentCapabilityRequest(request, env);
+    if (capability.kind === "request") {
+      return await app.fetch(capability.request, env);
+    }
+    if (capability.kind === "not_found") {
+      const notFoundUrl = new URL(request.url);
+      notFoundUrl.pathname = "/__content_capability_not_found__";
+      return await app.fetch(new Request(notFoundUrl, request), env);
+    }
+    return await app.fetch(request, env);
+  } catch (error) {
+    const requestId = resolveRequestId(request);
+    captureWorkerError({
+      component: "content",
+      event: "content.capability_resolution_error",
+      error,
+      environment: env.AGENT_PASTE_ENV,
+      request,
+      requestId,
+    });
+    return new Response(
+      JSON.stringify(buildErrorBody({ code: "internal_error", requestId, docsBaseUrl: env.DOCS_BASE_URL })),
+      {
+        status: 500,
+        headers: {
+          ...securityHeaders,
+          "cache-control": "no-store",
+          "content-type": "application/json; charset=utf-8",
+          [REQUEST_ID_HEADER]: requestId,
+        },
+      },
+    );
+  }
 }
