@@ -1,10 +1,16 @@
-import { USAGE_POLICY as usagePolicy } from "@agent-paste/config";
-import { bundleKeyFor, storageEnvSegment } from "@agent-paste/db";
-import { resolveAgentViewTokenSigner, resolveContentTokenSigner } from "@agent-paste/rotation";
+import { resolveAgentViewTokenSigner } from "@agent-paste/rotation";
 import { type AgentViewTokenPayload, mintAgentViewUrl } from "@agent-paste/tokens/agent-view";
-import { mintBundleUrl, mintContentUrl } from "@agent-paste/tokens/content";
+import { contentCapabilityUrl } from "./content-capability.js";
+import {
+  type ContentSigningAuth,
+  contentSigningSecret,
+  contentTokenExpiration,
+  signedBundleUrl,
+  signedContentCapabilityOrigin,
+  signedContentUrl,
+} from "./content-signing.js";
 import type { Env } from "./env.js";
-import { apiBaseUrl, contentBaseUrl, webBaseUrl } from "./runtime.js";
+import { apiBaseUrl, webBaseUrl } from "./runtime.js";
 
 export async function verifyAgentViewTokenForEnv(token: string, env: Env): Promise<AgentViewTokenPayload | null> {
   const signer = resolveAgentViewTokenSigner(env);
@@ -22,13 +28,6 @@ type AgentViewRecord = {
   ephemeral_tier?: unknown;
   bundle?: { status?: unknown; url?: unknown } & Record<string, unknown>;
   files?: Array<{ path?: unknown; url?: unknown; object_key?: unknown } & Record<string, unknown>>;
-};
-
-type ContentSigningAuth = {
-  accessLinkId?: string;
-  workspaceId?: string;
-  noindex?: boolean;
-  scriptDisabled?: boolean;
 };
 
 function stripInternalAgentViewFields(
@@ -90,6 +89,7 @@ async function signAgentViewFileEntries(
   files: AgentViewRecord["files"],
   expiresAt: string | undefined,
   contentAuth: ContentSigningAuth,
+  capabilityOrigin?: string,
 ): Promise<AgentViewRecord["files"]> {
   if (!Array.isArray(files)) {
     return files;
@@ -102,9 +102,11 @@ async function signAgentViewFileEntries(
       }
       return {
         ...publicFile,
-        url: await signedContentUrl(env, artifactId, revisionId, file.path, expiresAt, contentAuth, {
-          ...(typeof file.object_key === "string" ? { objectKey: file.object_key } : {}),
-        }),
+        url: capabilityOrigin
+          ? contentCapabilityUrl(capabilityOrigin, file.path)
+          : await signedContentUrl(env, artifactId, revisionId, file.path, expiresAt, contentAuth, {
+              ...(typeof file.object_key === "string" ? { objectKey: file.object_key } : {}),
+            }),
       };
     }),
   );
@@ -136,11 +138,15 @@ async function resolveRevisionContentUrl(
   storedRevisionContentUrl: unknown,
   expiresAt: string | undefined,
   contentAuth: ContentSigningAuth,
+  capabilityOrigin?: string,
 ): Promise<string | undefined> {
   const contentPath =
     entrypoint ??
     (typeof storedRevisionContentUrl === "string" ? entrypointPathFromContentUrl(storedRevisionContentUrl) : undefined);
   if (contentPath) {
+    if (capabilityOrigin) {
+      return contentCapabilityUrl(capabilityOrigin, contentPath);
+    }
     return signedContentUrl(env, artifactId, revisionId, contentPath, expiresAt, contentAuth, {
       paths: revisionFilePaths(contentPath, files),
       ...revisionFileObjectKeys(files),
@@ -200,6 +206,9 @@ export async function signAgentViewContentUrls(
       : {};
 
   if (!contentSigningSecret(env)) {
+    if (env.CONTENT_CAPABILITY_DOMAIN) {
+      throw new Error("CONTENT_CAPABILITY_DOMAIN requires a content signing secret.");
+    }
     return { ...publicFields, ...privateUrl, revision_content_url: existingRevisionContentUrl(data) };
   }
 
@@ -212,9 +221,20 @@ export async function signAgentViewContentUrls(
   const entrypoint = typeof data.entrypoint === "string" ? data.entrypoint : undefined;
   const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
   const contentAuth = buildContentSigningAuth(options, workspaceId, isEphemeralAgentView(data, options));
+  const contentPath =
+    entrypoint ??
+    (typeof data.revision_content_url === "string"
+      ? entrypointPathFromContentUrl(data.revision_content_url)
+      : undefined);
+  const capabilityOrigin = contentPath
+    ? await signedContentCapabilityOrigin(env, artifactId, revisionId, contentPath, expiresAt, contentAuth, {
+        paths: revisionFilePaths(contentPath, data.files),
+        ...revisionFileObjectKeys(data.files),
+      })
+    : undefined;
 
   const [files, bundle, revisionContentUrl] = await Promise.all([
-    signAgentViewFileEntries(env, artifactId, revisionId, data.files, expiresAt, contentAuth),
+    signAgentViewFileEntries(env, artifactId, revisionId, data.files, expiresAt, contentAuth, capabilityOrigin),
     signReadyAgentViewBundle(env, artifactId, revisionId, data.bundle, expiresAt, contentAuth),
     resolveRevisionContentUrl(
       env,
@@ -225,6 +245,7 @@ export async function signAgentViewContentUrls(
       data.revision_content_url,
       expiresAt,
       contentAuth,
+      capabilityOrigin,
     ),
   ]);
 
@@ -285,19 +306,31 @@ export async function signPublishResult(
           : { scriptDisabled: false as const }),
       }
     : undefined;
-  const revisionContentUrl = await signedContentUrl(
+  const contentOptions = fileObjectKeys
+    ? { paths: Object.keys(fileObjectKeys), objectKeys: fileObjectKeys }
+    : entrypointObjectKey
+      ? { paths: [entrypointPath], objectKey: entrypointObjectKey }
+      : { paths: null };
+  const capabilityOrigin = await signedContentCapabilityOrigin(
     env,
     data.artifact_id,
     data.revision_id,
     entrypointPath,
     expiresAt,
     contentAuth,
-    fileObjectKeys
-      ? { paths: Object.keys(fileObjectKeys), objectKeys: fileObjectKeys }
-      : entrypointObjectKey
-        ? { paths: [entrypointPath], objectKey: entrypointObjectKey }
-        : { paths: null },
+    contentOptions,
   );
+  const revisionContentUrl = capabilityOrigin
+    ? contentCapabilityUrl(capabilityOrigin, entrypointPath)
+    : await signedContentUrl(
+        env,
+        data.artifact_id,
+        data.revision_id,
+        entrypointPath,
+        expiresAt,
+        contentAuth,
+        contentOptions,
+      );
   return {
     ...rest,
     // The member viewer link (`/v/<id>`) is login-walled and member-only. Emit it only
@@ -372,96 +405,6 @@ function entrypointPathFromFallback(contentUrl: string): string {
   return path.includes("/") || path.includes(".") ? path : "index.html";
 }
 
-function contentSigningSecret(env: Env): string | undefined {
-  return resolveContentTokenSigner(env)?.signingSecret;
-}
-
 function agentViewSigningSecret(env: Env): string | undefined {
   return resolveAgentViewTokenSigner(env)?.signingSecret;
-}
-
-async function signedBundleUrl(
-  env: Env,
-  artifactId: string,
-  revisionId: string,
-  expiresAt?: string,
-  auth?: { accessLinkId?: string; workspaceId?: string; noindex?: boolean; scriptDisabled?: boolean },
-): Promise<string | undefined> {
-  const signingSecret = contentSigningSecret(env);
-  const workspaceId = auth?.workspaceId;
-  if (!signingSecret || !workspaceId) {
-    return undefined;
-  }
-  return mintBundleUrl({
-    baseUrl: contentBaseUrl(env),
-    secret: signingSecret,
-    payload: {
-      artifact_id: artifactId,
-      revision_id: revisionId,
-      workspace_id: workspaceId,
-      ...(auth.accessLinkId ? { access_link_id: auth.accessLinkId } : {}),
-      ...(auth.noindex ? { noindex: true } : {}),
-      ...(auth.scriptDisabled === true
-        ? { script_disabled: true }
-        : auth.scriptDisabled === false
-          ? { script_disabled: false }
-          : {}),
-      key_prefix: bundleKeyFor({
-        workspaceId,
-        artifactId,
-        revisionId,
-        storageEnv: storageEnvSegment(env.AGENT_PASTE_ENV),
-      }),
-      exp: contentTokenExpiration(expiresAt),
-    },
-  });
-}
-
-async function signedContentUrl(
-  env: Env,
-  artifactId: string,
-  revisionId: string,
-  path: string,
-  expiresAt?: string,
-  auth?: { accessLinkId?: string; workspaceId?: string; noindex?: boolean; scriptDisabled?: boolean },
-  options?: { paths?: string[] | null; objectKey?: string; objectKeys?: Record<string, string> },
-): Promise<string> {
-  const signingSecret = contentSigningSecret(env);
-  if (!signingSecret) {
-    return `${contentBaseUrl(env)}/v/${artifactId}.${revisionId}/${encodePath(path)}`;
-  }
-  const paths = options?.paths === null ? {} : { paths: options?.paths ?? [path] };
-  return mintContentUrl({
-    baseUrl: contentBaseUrl(env),
-    secret: signingSecret,
-    payload: {
-      artifact_id: artifactId,
-      revision_id: revisionId,
-      ...(auth?.workspaceId ? { workspace_id: auth.workspaceId } : {}),
-      ...(auth?.accessLinkId ? { access_link_id: auth.accessLinkId } : {}),
-      ...(auth?.noindex ? { noindex: true } : {}),
-      ...(auth?.scriptDisabled === true
-        ? { script_disabled: true }
-        : auth?.scriptDisabled === false
-          ? { script_disabled: false }
-          : {}),
-      ...paths,
-      ...(options?.objectKey ? { object_key: options.objectKey } : {}),
-      ...(options?.objectKeys ? { object_keys: options.objectKeys } : {}),
-      exp: contentTokenExpiration(expiresAt),
-    },
-    path,
-  });
-}
-
-function contentTokenExpiration(expiresAt: string | undefined): number {
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  const parsed = expiresAt ? Math.floor(new Date(expiresAt).getTime() / 1000) : Number.NaN;
-  // Pinned Artifacts are exempt from Auto Deletion, so a servable Artifact can carry a
-  // stored expires_at in the past; fall back to the default TTL instead of minting a dead token.
-  return Number.isFinite(parsed) && parsed > nowSeconds ? parsed : nowSeconds + usagePolicy.default_ttl_seconds;
-}
-
-function encodePath(path: string): string {
-  return path.split("/").map(encodeURIComponent).join("/");
 }

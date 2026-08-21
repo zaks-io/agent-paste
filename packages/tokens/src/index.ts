@@ -14,6 +14,16 @@ export {
   verifyContentToken,
 } from "./content.js";
 export {
+  type ContentCapabilityManifest,
+  contentCapabilityIdFromHostname,
+  contentCapabilityObjectKey,
+  isContentCapabilityHostname,
+  mintContentCapabilityId,
+  parseContentCapabilityDomain,
+  parseContentCapabilityManifest,
+  serializeContentCapabilityManifest,
+} from "./content-capability.js";
+export {
   isValidUploadPayload,
   mintUploadToken,
   mintUploadUrl,

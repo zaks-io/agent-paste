@@ -1,9 +1,9 @@
 # Content Rendering Spec
 
-The `content` Worker serves untrusted artifact files from `usercontent.agent-paste.sh`. It reads private R2 objects and a KV denylist. It has no Hyperdrive binding. The content origin is a byte delivery origin, not the product viewer: direct top-level `usercontent` navigations are always inert and unbranded.
+The `content` Worker serves untrusted artifact files from a capability-scoped origin on a dedicated registrable content zone. Until that zone is provisioned, legacy content continues to use `usercontent.agent-paste.sh`. The Worker reads private R2 objects and a KV denylist. It has no Hyperdrive binding. A content origin is a byte delivery origin, not the product viewer: direct top-level navigations are always inert and unbranded.
 
-Content URLs are delivery URLs for exact Revisions, not Access Links. A URL
-shaped `/v/{token}/{path}` never advances to a newer Revision after another
+Content URLs are delivery URLs for exact Revisions, not Access Links. A capability
+or legacy `/v/{token}/{path}` URL never advances to a newer Revision after another
 publish. Latest-moving public viewers start from an Access Link Signed URL
 minted from a Share Link, which opens the Artifact Viewer.
 Artifact URLs are authenticated workspace management URLs, not recipient handoff
@@ -11,18 +11,19 @@ URLs.
 
 ## URL Shape
 
-| Shape               | Meaning                                      |
-| ------------------- | -------------------------------------------- |
-| `/v/{token}/{path}` | File bytes for one signed artifact Revision. |
+| Shape                                                 | Meaning                                                           |
+| ----------------------------------------------------- | ----------------------------------------------------------------- |
+| `https://{capability-id}.{zone}/{path}`               | New file URL for one resolved viewer capability and one Revision. |
+| `https://usercontent.agent-paste.sh/v/{token}/{path}` | Legacy signed file URL, valid through its normal expiry.          |
+| `https://usercontent.agent-paste.sh/b/{token}`        | Signed bundle download; unchanged by capability origins.          |
 
-The token is an opaque signed content token minted during publish. Content tokens
-live in the URL path. Access Link Signed URLs use a separate
-`/al/{publicId}#{blob}` shape on the app origin and resolve to signed content
-tokens.
+The capability ID is 16 random bytes encoded as 32 lowercase hexadecimal characters. It identifies one resolved viewer grant, not merely a Revision. `api` writes `content-capabilities/v1/{id}.json` to R2 before returning the URL. That manifest contains the entrypoint and the opaque signed content token. The token carries the complete authorization and path scope but no longer travels on each browser request.
+
+When `CONTENT_CAPABILITY_DOMAIN` is absent, `api` continues to mint the legacy `/v/{token}/{path}` URL. Access Link Signed URLs keep their separate `/al/{publicId}#{blob}` shape on the app origin and resolve to a new capability for each resolved view once capability hosting is active.
 
 ## Token Checks
 
-For every request, `content` verifies:
+For every capability request, `content` first validates the hostname, loads a bounded versioned manifest from R2, and then performs the same checks as a legacy request:
 
 - Token parse and signature.
 - Token expiration.
@@ -32,7 +33,13 @@ For every request, `content` verifies:
 
 Authorization failures return `404 { "error": { "code": "not_found" } }`. Artifact read rate-limit failures return `429 { "error": { "code": "rate_limited_artifact" } }` with `Retry-After`.
 
-Internal logs may record the failure category and resolved ids, but must never record the token or full signed URL.
+Internal logs may record the failure category and resolved ids, but must never record the manifest token or full capability URL.
+
+## Directory URL Semantics
+
+Every file URL in one resolved Agent View shares the same capability origin. `/` maps to the manifest entrypoint. Any other path maps directly to the same Revision path allowlist. Browser-standard root-relative HTML, CSS `url(...)`, JavaScript imports, fonts, images, and generated paths therefore resolve without rewriting content.
+
+The hostname is authorization scope. Two Access Links to the same Revision receive different capabilities because their signed tokens carry different `access_link_id` values. Revoking one link deny-lists only that link's capabilities.
 
 ## Artifact Read Throttling
 
@@ -179,7 +186,7 @@ non-viewer HTML navigation), publisher scripts stay blocked. For a trusted
 viewer-framed HTML response that is still script-disabled, the content Worker
 allows the static resize reporter hash and the explicitly approved
 `https://cdn.tailwindcss.com` source. Other inline and external publisher
-scripts remain blocked. Direct `usercontent` navigations keep
+scripts remain blocked. Direct content-origin navigations keep
 `script-src 'none'`. Interactive viewer-framed HTML (`script_disabled: false`)
 uses the normal interactive CSP and an inline reporter allowed by
 `unsafe-inline`.
@@ -188,10 +195,10 @@ uses the normal interactive CSP and an inline reporter allowed by
 
 MVP has no platform renderer pages. The primary supported entrypoint is HTML:
 
-| Entrypoint               | Revision Content URL    | Notes                                                                  |
-| ------------------------ | ----------------------- | ---------------------------------------------------------------------- |
-| Single `.html` file      | `/v/{token}/{file}`     | Direct file response.                                                  |
-| Folder with `index.html` | `/v/{token}/index.html` | Direct file response; relative assets load from the same signed token. |
+| Entrypoint               | Revision Content URL             | Notes                                                            |
+| ------------------------ | -------------------------------- | ---------------------------------------------------------------- |
+| Single `.html` file      | `https://{id}.{zone}/{file}`     | Direct file response.                                            |
+| Folder with `index.html` | `https://{id}.{zone}/index.html` | Relative and root-relative assets load from the same capability. |
 
 Markdown and text files may be included as downloadable files. Dedicated Markdown/text renderers are future work.
 
@@ -206,7 +213,9 @@ path is listed in the token and the key is either the legacy revision object for
 `(artifact_id, revision_id, path)` or a workspace blob key whose workspace
 matches `workspace_id`. A single `object_key` token is valid for one listed path;
 multi-path tokens use `object_keys` so each path resolves to its own stored
-object.
+object. Capability manifests move these signed fields out of the browser URL; they do not change their meaning or expose them in Agent View.
+
+Capability manifests are plain JSON inside the already-private ARTIFACTS bucket. Their authorization payload remains HMAC-signed, and `content` verifies that signature before trusting any scope. R2 lifecycle expires the `content-capabilities/v1/` prefix after 91 days.
 
 Legacy revision files and bundles keep artifact-byte encryption AAD v1:
 `workspace_id`, `artifact_id`, `revision_id`, and path. Workspace shared blobs use
@@ -218,11 +227,11 @@ checks above.
 
 ## Caching
 
-Reloads of an unchanged artifact must not re-download bytes. Because a content
-token is a deterministic HMAC of its payload and `exp` is fixed from the
-artifact's `expires_at`, the signed URL is stable across reloads for the same
-`(artifact_id, revision_id, path)`, so the browser cache keys on it correctly.
-The content origin adds a validator so an unchanged reload costs a single
+Reloads of an unchanged artifact must not re-download bytes. A capability origin
+is stable for the lifetime of one resolved Agent View, and every path under it is
+stable. Resolving the viewer again may mint a new capability hostname. Legacy
+tokens remain deterministic for the same signed payload. Every response carries
+a validator, so an unchanged reload inside either URL shape costs a single
 zero-body round trip.
 
 **ETag.** Every file and bundle 200 carries a strong `ETag` derived from
@@ -260,8 +269,8 @@ rules for serving private, bearer-capped, revocable content:
   bandwidth-saving work.
 - **`no-store` for errors** — error bodies MUST NOT be cached at all.
 
-Stable public signed URLs are not immutable forever. They expire at or before
-artifact expiration. See ADR 0081.
+Capability and legacy signed URLs are not immutable forever. They expire at or
+before artifact expiration. See ADR 0081.
 
 There is no edge cache (`caches.default`). Caching decrypted bytes near the
 worker was considered and deferred — it would persist user plaintext in a shared

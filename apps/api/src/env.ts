@@ -26,8 +26,10 @@ export type R2Bucket = {
   list(options: { prefix?: string; cursor?: string; limit?: number }): Promise<R2Objects>;
   delete(keys: string | string[]): Promise<void>;
   // ADR 0090: the file-content read route decrypts a stored blob. This is
-  // the only read on api's R2 binding; every other api op lists or deletes.
+  // the only read on api's R2 binding; other api ops list, delete, or write
+  // ADR 0093 content-capability manifests.
   get(key: string): Promise<R2GetObjectBody | null>;
+  put?(key: string, value: string, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
 };
 
 export type KVNamespace = {
@@ -54,6 +56,7 @@ export type Env = {
   CONTENT_SIGNING_KID?: string;
   API_BASE_URL?: string;
   CONTENT_BASE_URL?: string;
+  CONTENT_CAPABILITY_DOMAIN?: string;
   WEB_BASE_URL?: string;
   CONTENT_SIGNING_SECRET?: string;
   ARTIFACT_BYTES_ENCRYPTION_KEY?: string;

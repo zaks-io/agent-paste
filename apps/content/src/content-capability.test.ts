@@ -1,0 +1,186 @@
+import {
+  seedEncryptedRevisionFile,
+  testArtifactBytesEncryptionEnv,
+} from "@agent-paste/storage/test-helpers/encrypted-artifact-fixture";
+import { mintContentToken } from "@agent-paste/tokens/content";
+import { contentCapabilityObjectKey, serializeContentCapabilityManifest } from "@agent-paste/tokens/content-capability";
+import { describe, expect, it, vi } from "vitest";
+import type { Env, R2ObjectBody } from "./env.js";
+import { handleRequest } from "./index.js";
+
+const workspaceId = "00000000-0000-4000-8000-000000000001";
+const capabilityId = "00112233445566778899aabbccddeeff";
+const capabilityDomain = "content.example.test";
+const capabilityOrigin = `https://${capabilityId}.${capabilityDomain}`;
+const viewerFrameHeaders = {
+  "sec-fetch-dest": "iframe",
+  "sec-fetch-mode": "navigate",
+  "sec-fetch-site": "cross-site",
+};
+
+async function capabilityFixture(input?: { accessLinkId?: string; expiresAt?: number; manifest?: string }) {
+  const paths = ["index.html", "page2.html", "assets/app.js"];
+  const token = await mintContentToken(
+    {
+      workspace_id: workspaceId,
+      artifact_id: "art_1",
+      revision_id: "rev_1",
+      ...(input?.accessLinkId ? { access_link_id: input.accessLinkId } : {}),
+      paths,
+      script_disabled: false,
+      exp: input?.expiresAt ?? Math.floor(Date.now() / 1000) + 60,
+    },
+    "secret",
+  );
+  const manifest =
+    input?.manifest ??
+    serializeContentCapabilityManifest({ version: 1, signed_token: token, entrypoint: "index.html" });
+  const files = await Promise.all([
+    seedEncryptedRevisionFile({
+      workspaceId,
+      artifactId: "art_1",
+      revisionId: "rev_1",
+      path: "index.html",
+      plaintext: '<a href="/page2.html">next</a><script src="/assets/app.js"></script>',
+    }),
+    seedEncryptedRevisionFile({
+      workspaceId,
+      artifactId: "art_1",
+      revisionId: "rev_1",
+      path: "page2.html",
+      plaintext: "<h1>page two</h1>",
+    }),
+    seedEncryptedRevisionFile({
+      workspaceId,
+      artifactId: "art_1",
+      revisionId: "rev_1",
+      path: "assets/app.js",
+      plaintext: "globalThis.loaded = true;",
+    }),
+  ]);
+  const objects = new Map<string, () => R2ObjectBody>();
+  const manifestBytes = new TextEncoder().encode(manifest);
+  objects.set(contentCapabilityObjectKey(capabilityId), () => ({
+    body: new Blob([manifestBytes]).stream(),
+    size: manifestBytes.byteLength,
+  }));
+  for (const file of files) {
+    objects.set(file.objectKey, () => ({
+      body: new Blob([file.body]).stream(),
+      size: file.body.byteLength,
+      customMetadata: file.customMetadata,
+    }));
+  }
+  const get = vi.fn(async (key: string) => objects.get(key)?.() ?? null);
+  const env: Env = {
+    CONTENT_SIGNING_SECRET: "secret",
+    CONTENT_CAPABILITY_DOMAIN: capabilityDomain,
+    AGENT_PASTE_ENV: "production",
+    ...testArtifactBytesEncryptionEnv,
+    DENYLIST: {
+      async get() {
+        return null;
+      },
+    },
+    ARTIFACT_RATE_LIMIT: {
+      async limit() {
+        return { success: true };
+      },
+    },
+    ARTIFACTS: { get },
+  };
+  return { env, get };
+}
+
+describe("content capability routing", () => {
+  it("serves the entrypoint at root and root-relative files from one capability origin", async () => {
+    const { env } = await capabilityFixture();
+
+    const entrypoint = await handleRequest(new Request(`${capabilityOrigin}/`, { headers: viewerFrameHeaders }), env);
+    const pageTwo = await handleRequest(
+      new Request(`${capabilityOrigin}/page2.html`, { headers: viewerFrameHeaders }),
+      env,
+    );
+    const script = await handleRequest(new Request(`${capabilityOrigin}/assets/app.js`), env);
+
+    expect(entrypoint.status).toBe(200);
+    await expect(entrypoint.text()).resolves.toContain('href="/page2.html"');
+    expect(pageTwo.status).toBe(200);
+    await expect(pageTwo.text()).resolves.toContain("page two");
+    expect(script.status).toBe(200);
+    await expect(script.text()).resolves.toContain("loaded");
+    expect(pageTwo.headers.get("content-security-policy")).toContain("frame-ancestors https://app.agent-paste.sh");
+  });
+
+  it("reuses the signed token denylist checks for selective Access Link revocation", async () => {
+    const { env, get } = await capabilityFixture({ accessLinkId: "al_1" });
+    env.DENYLIST = {
+      async get(key) {
+        return key === "ald:al_1" ? "1" : null;
+      },
+    };
+
+    const response = await handleRequest(new Request(`${capabilityOrigin}/index.html`), env);
+
+    expect(response.status).toBe(404);
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects expired capabilities before reading artifact bytes", async () => {
+    const { env, get } = await capabilityFixture({ expiresAt: Math.floor(Date.now() / 1000) - 1 });
+
+    const response = await handleRequest(new Request(`${capabilityOrigin}/index.html`), env);
+
+    expect(response.status).toBe(404);
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns the generic not-found boundary for malformed capability hosts and manifests", async () => {
+    const fixture = await capabilityFixture({ manifest: "not-json" });
+    const malformedManifest = await handleRequest(new Request(`${capabilityOrigin}/index.html`), fixture.env);
+    const malformedHost = await handleRequest(new Request(`https://invalid.${capabilityDomain}/healthz`), fixture.env);
+
+    expect(malformedManifest.status).toBe(404);
+    expect(malformedHost.status).toBe(404);
+    await expect(malformedHost.json()).resolves.toMatchObject({ error: { code: "not_found" } });
+  });
+
+  it("returns the standard internal-error envelope when manifest storage fails", async () => {
+    const { env } = await capabilityFixture();
+    env.ARTIFACTS = {
+      async get() {
+        throw new Error("manifest storage unavailable");
+      },
+    };
+
+    const response = await handleRequest(
+      new Request(`${capabilityOrigin}/index.html`, { headers: { "x-request-id": "capability-error-123" } }),
+      env,
+    );
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("x-request-id")).toBe("capability-error-123");
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "internal_error", request_id: "capability-error-123" },
+    });
+  });
+
+  it("keeps legacy signed URLs working when capability hosting is configured", async () => {
+    const { env } = await capabilityFixture();
+    const token = await mintContentToken(
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["page2.html"],
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+
+    const response = await handleRequest(new Request(`https://usercontent.example.test/v/${token}/page2.html`), env);
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toContain("page two");
+  });
+});

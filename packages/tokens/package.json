@@ -17,6 +17,10 @@
       "types": "./src/content.ts",
       "import": "./dist/content.js"
     },
+    "./content-capability": {
+      "types": "./src/content-capability.ts",
+      "import": "./dist/content-capability.js"
+    },
     "./agent-view": {
       "types": "./src/agent-view.ts",
       "import": "./dist/agent-view.js"
