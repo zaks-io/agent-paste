@@ -471,8 +471,7 @@ export function isTrustedViewerFrameRequest(request: Request | undefined, frameA
   if (mode && mode !== "navigate") {
     return false;
   }
-  const site = request.headers.get("sec-fetch-site")?.toLowerCase();
-  return !site || site === "same-site" || site === "same-origin";
+  return true;
 }
 
 // Every served file and bundle revalidates on every load (`no-cache`): paired

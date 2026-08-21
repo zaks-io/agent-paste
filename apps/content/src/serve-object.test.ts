@@ -230,6 +230,26 @@ describe("serve-object response headers", () => {
     expect(headers.get("x-frame-options")).toBeNull();
   });
 
+  it("keeps sandboxed follow-on iframe navigations frameable when fetch metadata is cross-site", () => {
+    const headers = responseHeadersForPath(
+      "page-2.html",
+      3,
+      basePayload({ script_disabled: false }),
+      ETAG,
+      ["https://app.agent-paste.sh"],
+      new Request("https://usercontent.agent-paste.sh/v/token/page-2.html", {
+        headers: {
+          "sec-fetch-dest": "iframe",
+          "sec-fetch-mode": "navigate",
+          "sec-fetch-site": "cross-site",
+        },
+      }),
+    );
+    expect(headers.get("content-security-policy")).toContain("frame-ancestors https://app.agent-paste.sh");
+    expect(headers.get("content-security-policy")).toContain("unsafe-eval");
+    expect(headers.get("x-frame-options")).toBeNull();
+  });
+
   it("supports multiple framing origins", () => {
     const headers = responseHeadersForPath(
       "index.html",
