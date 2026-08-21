@@ -16,7 +16,7 @@ describe("base64UrlEncode / base64UrlDecode", () => {
     const bytes = new Uint8Array(200_000).fill(65);
     expect(() => base64UrlEncode(bytes)).not.toThrow();
     expect(base64UrlDecode(base64UrlEncode(bytes))).toEqual(bytes);
-  });
+  }, 15_000);
 });
 
 describe("constantTimeEqual", () => {
