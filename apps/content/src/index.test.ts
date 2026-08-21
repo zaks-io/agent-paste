@@ -257,6 +257,21 @@ describe("content worker", () => {
     expect(response.headers.get("x-frame-options")).toBeNull();
   });
 
+  it("lets sandboxed cross-site iframe navigations continue within the production viewer", async () => {
+    const response = await fetchServedFile(
+      "index.html",
+      "<h1>ok</h1>",
+      { script_disabled: false },
+      { ...viewerFrameHeaders, "sec-fetch-site": "cross-site" },
+      { AGENT_PASTE_ENV: "production" },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-security-policy")).toContain("frame-ancestors https://app.agent-paste.sh");
+    expect(response.headers.get("content-security-policy")).toContain("unsafe-eval");
+    expect(response.headers.get("x-frame-options")).toBeNull();
+  });
+
   it("adds noindex headers and meta for ephemeral content tokens", async () => {
     const token = await signContentToken(
       {

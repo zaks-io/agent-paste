@@ -84,7 +84,12 @@ these are true:
 - Browser fetch metadata says this is an iframe navigation
   (`Sec-Fetch-Dest: iframe` or `frame`, with `Sec-Fetch-Mode: navigate` when
   present).
-- `Sec-Fetch-Site`, when present, is `same-site` or `same-origin`.
+
+`Sec-Fetch-Site` is not an authorization signal here. The sandbox deliberately
+omits `allow-same-origin`, so a link followed inside the artifact navigates from
+an opaque origin and browsers report the follow-on iframe request as
+`cross-site`. The response still limits the complete ancestor chain to the
+configured app origin with CSP `frame-ancestors`.
 
 Every other HTML document request, including a copied top-level
 `usercontent.agent-paste.sh/v/.../index.html` URL, receives the script-disabled
