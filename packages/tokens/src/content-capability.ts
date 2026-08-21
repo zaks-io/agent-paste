@@ -3,6 +3,7 @@ const CONTENT_CAPABILITY_ID_PATTERN = /^[a-f0-9]{32}$/;
 const CONTENT_CAPABILITY_DOMAIN_PATTERN =
   /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const MAX_CONTENT_CAPABILITY_DOMAIN_LENGTH = 220;
+const CONTENT_CAPABILITY_HOST_SUFFIX = "-uc";
 const CONTENT_CAPABILITY_PREFIX = "content-capabilities/v1";
 const MAX_CONTENT_CAPABILITY_TOKEN_LENGTH = 64 * 1024;
 const MAX_CONTENT_CAPABILITY_ENTRYPOINT_LENGTH = 4 * 1024;
@@ -40,7 +41,7 @@ export function parseContentCapabilityDomain(value: string): string {
 }
 
 export function contentCapabilityIdFromHostname(hostname: string, domain: string): string | null {
-  const suffix = `.${parseContentCapabilityDomain(domain)}`;
+  const suffix = `${CONTENT_CAPABILITY_HOST_SUFFIX}.${parseContentCapabilityDomain(domain)}`;
   const normalizedHostname = hostname.toLowerCase();
   if (!normalizedHostname.endsWith(suffix)) {
     return null;
@@ -50,7 +51,14 @@ export function contentCapabilityIdFromHostname(hostname: string, domain: string
 }
 
 export function isContentCapabilityHostname(hostname: string, domain: string): boolean {
-  return hostname.toLowerCase().endsWith(`.${parseContentCapabilityDomain(domain)}`);
+  return hostname.toLowerCase().endsWith(`${CONTENT_CAPABILITY_HOST_SUFFIX}.${parseContentCapabilityDomain(domain)}`);
+}
+
+export function contentCapabilityHostname(capabilityId: string, domain: string): string {
+  if (!isContentCapabilityId(capabilityId)) {
+    throw new Error("Invalid content capability ID.");
+  }
+  return `${capabilityId}${CONTENT_CAPABILITY_HOST_SUFFIX}.${parseContentCapabilityDomain(domain)}`;
 }
 
 export function serializeContentCapabilityManifest(manifest: ContentCapabilityManifest): string {

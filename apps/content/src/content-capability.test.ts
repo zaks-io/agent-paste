@@ -11,7 +11,7 @@ import { handleRequest } from "./index.js";
 const workspaceId = "00000000-0000-4000-8000-000000000001";
 const capabilityId = "00112233445566778899aabbccddeeff";
 const capabilityDomain = "content.example.test";
-const capabilityOrigin = `https://${capabilityId}.${capabilityDomain}`;
+const capabilityOrigin = `https://${capabilityId}-uc.${capabilityDomain}`;
 const viewerFrameHeaders = {
   "sec-fetch-dest": "iframe",
   "sec-fetch-mode": "navigate",
@@ -138,7 +138,10 @@ describe("content capability routing", () => {
   it("returns the generic not-found boundary for malformed capability hosts and manifests", async () => {
     const fixture = await capabilityFixture({ manifest: "not-json" });
     const malformedManifest = await handleRequest(new Request(`${capabilityOrigin}/index.html`), fixture.env);
-    const malformedHost = await handleRequest(new Request(`https://invalid.${capabilityDomain}/healthz`), fixture.env);
+    const malformedHost = await handleRequest(
+      new Request(`https://invalid-uc.${capabilityDomain}/healthz`),
+      fixture.env,
+    );
 
     expect(malformedManifest.status).toBe(404);
     expect(malformedHost.status).toBe(404);

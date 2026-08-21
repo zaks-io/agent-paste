@@ -4,6 +4,7 @@ export type WebEnv = {
   AGENT_PASTE_ENV: "dev" | "preview" | "production";
   API_BASE_URL: string;
   CONTENT_BASE_URL?: string;
+  CONTENT_CAPABILITY_DOMAIN?: string;
   STREAM_BASE_URL?: string;
   WEB_BASE_URL: string;
   WORKOS_CLIENT_ID: string;

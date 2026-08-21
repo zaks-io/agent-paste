@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  contentCapabilityHostname,
   contentCapabilityIdFromHostname,
   contentCapabilityObjectKey,
   isContentCapabilityHostname,
@@ -24,15 +25,19 @@ describe("content capabilities", () => {
     expect(() => contentCapabilityObjectKey("not-an-id")).toThrow(/Invalid/);
   });
 
-  it("validates canonical capability domains and extracts a single capability label", () => {
+  it("validates canonical capability domains and extracts one suffixed capability label", () => {
     expect(parseContentCapabilityDomain("content.example.test")).toBe("content.example.test");
-    expect(contentCapabilityIdFromHostname(`${capabilityId}.content.example.test`, "content.example.test")).toBe(
+    expect(contentCapabilityHostname(capabilityId, "content.example.test")).toBe(
+      `${capabilityId}-uc.content.example.test`,
+    );
+    expect(contentCapabilityIdFromHostname(`${capabilityId}-uc.content.example.test`, "content.example.test")).toBe(
       capabilityId,
     );
     expect(
-      contentCapabilityIdFromHostname(`prefix.${capabilityId}.content.example.test`, "content.example.test"),
+      contentCapabilityIdFromHostname(`prefix.${capabilityId}-uc.content.example.test`, "content.example.test"),
     ).toBeNull();
-    expect(isContentCapabilityHostname("invalid.content.example.test", "content.example.test")).toBe(true);
+    expect(isContentCapabilityHostname("invalid-uc.content.example.test", "content.example.test")).toBe(true);
+    expect(isContentCapabilityHostname("invalid.content.example.test", "content.example.test")).toBe(false);
     expect(isContentCapabilityHostname("content.example.test", "content.example.test")).toBe(false);
   });
 

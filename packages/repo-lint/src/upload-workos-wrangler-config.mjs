@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { readWranglerConfig } from "./wrangler-config.mjs";
 
 const PREVIEW_AUTHKIT = "https://courageous-milestone-75-staging.authkit.app";
 const PRODUCTION_AUTHKIT = "https://soulful-path-50.authkit.app";
@@ -55,13 +55,6 @@ function collectUploadApiAlignmentErrors(uploadConfig, apiConfig, envName, error
       );
     }
   }
-}
-
-function readWranglerConfig(absolutePath) {
-  const text = readFileSync(absolutePath, "utf8");
-  const withoutBlockComments = text.replace(/\/\*[\s\S]*?\*\//g, "");
-  const withoutLineComments = withoutBlockComments.replace(/^\s*\/\/.*$/gm, "");
-  return JSON.parse(withoutLineComments);
 }
 
 function main() {

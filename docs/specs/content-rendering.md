@@ -1,6 +1,6 @@
 # Content Rendering Spec
 
-The `content` Worker serves untrusted artifact files from a capability-scoped origin on a dedicated registrable content zone. Until that zone is provisioned, legacy content continues to use `usercontent.agent-paste.sh`. The Worker reads private R2 objects and a KV denylist. It has no Hyperdrive binding. A content origin is a byte delivery origin, not the product viewer: direct top-level navigations are always inert and unbranded.
+The `content` Worker serves untrusted artifact files from a capability-scoped `{id}-uc.agent-paste.sh` origin. Until production suffix routing is activated, legacy content continues to use `usercontent.agent-paste.sh`. The Worker reads private R2 objects and a KV denylist. It has no Hyperdrive binding. A content origin is a byte delivery origin, not the product viewer: direct top-level navigations are always inert and unbranded.
 
 Content URLs are delivery URLs for exact Revisions, not Access Links. A capability
 or legacy `/v/{token}/{path}` URL never advances to a newer Revision after another
@@ -13,13 +13,13 @@ URLs.
 
 | Shape                                                 | Meaning                                                           |
 | ----------------------------------------------------- | ----------------------------------------------------------------- |
-| `https://{capability-id}.{zone}/{path}`               | New file URL for one resolved viewer capability and one Revision. |
+| `https://{capability-id}-uc.agent-paste.sh/{path}`    | New file URL for one resolved viewer capability and one Revision. |
 | `https://usercontent.agent-paste.sh/v/{token}/{path}` | Legacy signed file URL, valid through its normal expiry.          |
 | `https://usercontent.agent-paste.sh/b/{token}`        | Signed bundle download; unchanged by capability origins.          |
 
 The capability ID is 16 random bytes encoded as 32 lowercase hexadecimal characters. It identifies one resolved viewer grant, not merely a Revision. `api` writes `content-capabilities/v1/{id}.json` to R2 before returning the URL. That manifest contains the entrypoint and the opaque signed content token. The token carries the complete authorization and path scope but no longer travels on each browser request.
 
-When `CONTENT_CAPABILITY_DOMAIN` is absent, `api` continues to mint the legacy `/v/{token}/{path}` URL. Access Link Signed URLs keep their separate `/al/{publicId}#{blob}` shape on the app origin and resolve to a new capability for each resolved view once capability hosting is active.
+Production sets `CONTENT_CAPABILITY_DOMAIN=agent-paste.sh` in `api`, `content`, and `web`. Preview leaves it absent and continues to mint the legacy `/v/{token}/{path}` URL because `{id}-uc.preview.agent-paste.sh` needs a deeper wildcard certificate. The app adds `https://*.agent-paste.sh` to `frame-src` in production so it can frame capability origins; the content Worker route and hostname parser remain restricted to `*-uc.agent-paste.sh`. Access Link Signed URLs keep their separate `/al/{publicId}#{blob}` shape on the app origin and resolve to a new capability for each resolved production view once capability hosting is active.
 
 ## Token Checks
 

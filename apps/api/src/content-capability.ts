@@ -1,5 +1,6 @@
 import { type ContentTokenPayload, mintContentToken } from "@agent-paste/tokens/content";
 import {
+  contentCapabilityHostname,
   contentCapabilityObjectKey,
   mintContentCapabilityId,
   parseContentCapabilityDomain,
@@ -35,7 +36,7 @@ export async function storeContentCapability(input: {
     }),
     { httpMetadata: { contentType: "application/json" } },
   );
-  return `https://${capabilityId}.${domain}`;
+  return `https://${contentCapabilityHostname(capabilityId, domain)}`;
 }
 
 export function contentCapabilityUrl(origin: string, path: string): string {

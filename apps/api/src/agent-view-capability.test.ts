@@ -1,5 +1,9 @@
 import { verifyContentToken } from "@agent-paste/tokens/content";
-import { contentCapabilityObjectKey, parseContentCapabilityManifest } from "@agent-paste/tokens/content-capability";
+import {
+  contentCapabilityIdFromHostname,
+  contentCapabilityObjectKey,
+  parseContentCapabilityManifest,
+} from "@agent-paste/tokens/content-capability";
 import { describe, expect, it } from "vitest";
 import { signAgentViewContentUrls, signPublishResult } from "./agent-view.js";
 import type { Env, R2Bucket } from "./env.js";
@@ -32,7 +36,7 @@ function capabilityEnv(): { env: Env; writes: Map<string, string> } {
 }
 
 function capabilityIdFromUrl(url: string): string {
-  return new URL(url).hostname.split(".")[0] ?? "";
+  return contentCapabilityIdFromHostname(new URL(url).hostname, "content.example.test") ?? "";
 }
 
 describe("agent view capability origins", () => {
@@ -56,6 +60,7 @@ describe("agent view capability origins", () => {
     )) as { revision_content_url: string; files: Array<{ url: string }> };
 
     const origin = new URL(signed.revision_content_url).origin;
+    expect(new URL(origin).hostname).toMatch(/^[a-f0-9]{32}-uc\.content\.example\.test$/);
     expect(signed.files.map((file) => new URL(file.url).origin)).toEqual([origin, origin, origin]);
     expect(new URL("/assets/app.js", signed.revision_content_url).origin).toBe(origin);
     expect(new URL("/fonts/site.woff2", signed.revision_content_url).origin).toBe(origin);

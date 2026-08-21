@@ -1,7 +1,8 @@
+import { parseContentCapabilityDomain } from "@agent-paste/tokens/content-capability";
 import { BASELINE_SECURITY_HEADERS } from "@agent-paste/worker-runtime";
 import type { WebEnv } from "./server/env";
 
-type AccessLinkSecurityEnv = Pick<WebEnv, "AGENT_PASTE_ENV" | "CONTENT_BASE_URL">;
+type AccessLinkSecurityEnv = Pick<WebEnv, "AGENT_PASTE_ENV" | "CONTENT_BASE_URL" | "CONTENT_CAPABILITY_DOMAIN">;
 
 // Enforcing CSP for the authenticated dashboard. script-src uses a per-request
 // nonce + 'strict-dynamic': TanStack Start stamps the nonce onto every script it
@@ -154,13 +155,12 @@ function viewerCsp(nonce: string, env?: AccessLinkSecurityEnv): string {
 
 function contentFrameSrc(env?: AccessLinkSecurityEnv): string {
   const configured = env?.CONTENT_BASE_URL ? originSource(env.CONTENT_BASE_URL) : null;
-  if (configured) {
-    return configured;
-  }
-  if (env?.AGENT_PASTE_ENV === "dev") {
-    return DEV_CONTENT_FRAME_SRC;
-  }
-  return DEFAULT_CONTENT_FRAME_SRC;
+  const legacySource =
+    configured ?? (env?.AGENT_PASTE_ENV === "dev" ? DEV_CONTENT_FRAME_SRC : DEFAULT_CONTENT_FRAME_SRC);
+  const capabilitySource = env?.CONTENT_CAPABILITY_DOMAIN
+    ? ` https://*.${parseContentCapabilityDomain(env.CONTENT_CAPABILITY_DOMAIN)}`
+    : "";
+  return `${legacySource}${capabilitySource}`;
 }
 
 function originSource(value: string): string | null {

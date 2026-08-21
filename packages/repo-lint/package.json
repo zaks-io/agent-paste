@@ -7,9 +7,11 @@
   "scripts": {
     "biome:lint": "biome lint ../../.github ../../docs ../../scripts ../../*.json ../../*.yaml ../../*.yml ../../*.md",
     "check": "pnpm lint",
-    "lint": "pnpm biome:lint && node src/monorepo-policy.mjs && node src/upload-workos-wrangler-config.mjs"
+    "lint": "pnpm biome:lint && node src/monorepo-policy.mjs && node src/upload-workos-wrangler-config.mjs && node src/content-capability-wrangler-config.mjs",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "@biomejs/biome": "catalog:"
+    "@biomejs/biome": "catalog:",
+    "vitest": "catalog:"
   }
 }

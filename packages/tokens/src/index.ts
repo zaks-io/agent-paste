@@ -15,6 +15,7 @@ export {
 } from "./content.js";
 export {
   type ContentCapabilityManifest,
+  contentCapabilityHostname,
   contentCapabilityIdFromHostname,
   contentCapabilityObjectKey,
   isContentCapabilityHostname,
