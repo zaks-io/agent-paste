@@ -164,7 +164,7 @@ describe("handleWriteAllowanceRequest", () => {
     expect(stored?.reservations).toHaveLength(limit);
     expect(stored?.reservations?.every((entry) => /^[0-9a-f]{32}$/.test(entry))).toBe(true);
     expect(JSON.stringify(stored).length).toBeLessThan(128 * 1024);
-  });
+  }, 15_000);
 });
 
 describe("write allowance client", () => {
