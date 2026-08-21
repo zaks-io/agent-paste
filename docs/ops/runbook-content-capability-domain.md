@@ -14,7 +14,7 @@ Preview intentionally keeps `CONTENT_CAPABILITY_DOMAIN` unset. Its natural hostn
 
 ## Cloudflare Provisioning
 
-1. Add a proxied wildcard `AAAA` DNS record named `*` in the `agent-paste.sh` zone with the placeholder target `100::`. The target is never reached because the Worker Route intercepts the request. Existing explicit DNS records remain more specific than the wildcard.
+1. Confirm `.github/workflows/deploy-production.yml` runs `scripts/ensure-content-capability-dns.mjs` before migrations and Worker deployment. The script idempotently creates a proxied wildcard `AAAA` DNS record named `*` in the `agent-paste.sh` zone with the placeholder target `100::`. It refuses to overwrite a conflicting wildcard. The target is never reached because the Worker Route intercepts the request, and existing explicit DNS records remain more specific than the wildcard.
 2. Confirm the active edge certificate contains both `agent-paste.sh` and `*.agent-paste.sh`.
 3. Confirm `apps/content/wrangler.jsonc` production contains:
 
