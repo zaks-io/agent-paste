@@ -33,7 +33,7 @@ For every capability request, `content` first validates the hostname, loads a bo
 
 Authorization failures return `404 { "error": { "code": "not_found" } }`. Artifact read rate-limit failures return `429 { "error": { "code": "rate_limited_artifact" } }` with `Retry-After`.
 
-Internal logs may record the failure category and resolved ids, but must never record the manifest token or full capability URL.
+Internal logs may record the failure category and non-bearer Artifact and Revision IDs. They must never record capability IDs, capability hosts or paths, manifest tokens, signed URLs, or complete capability URLs.
 
 ## Directory URL Semantics
 
@@ -195,10 +195,10 @@ uses the normal interactive CSP and an inline reporter allowed by
 
 MVP has no platform renderer pages. The primary supported entrypoint is HTML:
 
-| Entrypoint               | Revision Content URL             | Notes                                                            |
-| ------------------------ | -------------------------------- | ---------------------------------------------------------------- |
-| Single `.html` file      | `https://{id}.{zone}/{file}`     | Direct file response.                                            |
-| Folder with `index.html` | `https://{id}.{zone}/index.html` | Relative and root-relative assets load from the same capability. |
+| Entrypoint               | Revision Content URL                                         | Notes                                                            |
+| ------------------------ | ------------------------------------------------------------ | ---------------------------------------------------------------- |
+| Single `.html` file      | `https://{32-lowercase-hex-id}-uc.agent-paste.sh/{file}`     | Direct file response.                                            |
+| Folder with `index.html` | `https://{32-lowercase-hex-id}-uc.agent-paste.sh/index.html` | Relative and root-relative assets load from the same capability. |
 
 Markdown and text files may be included as downloadable files. Dedicated Markdown/text renderers are future work.
 

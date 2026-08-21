@@ -52,6 +52,16 @@ describe("content capabilities", () => {
     expect(() => parseContentCapabilityDomain(domain)).toThrow(/CONTENT_CAPABILITY_DOMAIN/);
   });
 
+  it("keeps generated capability hostnames within the 253-character DNS limit", () => {
+    const acceptedDomain = `${"a".repeat(61)}.${"b".repeat(61)}.${"c".repeat(61)}.${"d".repeat(31)}`;
+    const rejectedDomain = `${"a".repeat(61)}.${"b".repeat(61)}.${"c".repeat(61)}.${"d".repeat(32)}`;
+
+    expect(acceptedDomain).toHaveLength(217);
+    expect(contentCapabilityHostname(capabilityId, acceptedDomain)).toHaveLength(253);
+    expect(rejectedDomain).toHaveLength(218);
+    expect(() => parseContentCapabilityDomain(rejectedDomain)).toThrow(/CONTENT_CAPABILITY_DOMAIN/);
+  });
+
   it("round-trips strict versioned manifests", () => {
     const manifest = { version: 1 as const, signed_token: "payload.signature", entrypoint: "docs/index.html" };
     expect(parseContentCapabilityManifest(serializeContentCapabilityManifest(manifest))).toEqual(manifest);

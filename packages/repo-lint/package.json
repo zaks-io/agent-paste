@@ -10,6 +10,9 @@
     "lint": "pnpm biome:lint && node src/monorepo-policy.mjs && node src/upload-workos-wrangler-config.mjs && node src/content-capability-wrangler-config.mjs",
     "test": "vitest run"
   },
+  "dependencies": {
+    "jsonc-parser": "^3.3.1"
+  },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "vitest": "catalog:"

@@ -44,6 +44,28 @@ describe("content-capability-wrangler-config", () => {
       rmSync(tempRoot, { recursive: true, force: true });
     }
   });
+
+  it("rejects duplicate capability routes", () => {
+    const tempRoot = copyConfigs();
+    try {
+      const contentPath = join(tempRoot, "apps/content/wrangler.jsonc");
+      const content = readFileSync(contentPath, "utf8");
+      const capabilityRoute = `          "pattern": "*-uc.agent-paste.sh/*",
+          "zone_name": "agent-paste.sh"
+        }`;
+      writeFileSync(
+        contentPath,
+        content.replace(
+          capabilityRoute,
+          `${capabilityRoute},\n        {\n          "pattern": "*-uc.agent-paste.sh/*",\n          "zone_name": "agent-paste.sh"\n        }`,
+        ),
+      );
+
+      expect(validateContentCapabilityWranglerConfig(tempRoot).join("\n")).toContain("exactly one");
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
 });
 
 function copyConfigs() {

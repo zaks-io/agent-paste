@@ -139,7 +139,7 @@ flowchart TD
   viewer["Artifact Viewer<br/>reads fragment in browser"]
   resolve["api<br/>POST /v1/access-links/resolve"]
   manifest["resolved Artifact view<br/>manifest plus content URLs"]
-  content["content<br/>{capability-id}.{zone}/{path}<br/>or legacy /v/{token}/{path}"]
+  content["content<br/>{32-lowercase-hex-id}-uc.agent-paste.sh/{path}<br/>or legacy /v/{token}/{path}"]
   r2["Private R2"]
   kv["KV denylist"]
 

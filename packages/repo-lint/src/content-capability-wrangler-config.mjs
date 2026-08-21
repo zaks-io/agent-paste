@@ -32,10 +32,15 @@ export function validateContentCapabilityWranglerConfig(repoRoot) {
   }
 
   const productionRoutes = contentConfig.env?.production?.routes ?? [];
-  const capabilityRoute = productionRoutes.find((route) => route.pattern === CAPABILITY_ROUTE);
-  if (capabilityRoute?.zone_name !== CAPABILITY_DOMAIN || capabilityRoute.custom_domain === true) {
+  const capabilityRoutes = productionRoutes.filter((route) => route.pattern === CAPABILITY_ROUTE);
+  const [capabilityRoute] = capabilityRoutes;
+  if (
+    capabilityRoutes.length !== 1 ||
+    capabilityRoute?.zone_name !== CAPABILITY_DOMAIN ||
+    capabilityRoute.custom_domain === true
+  ) {
     errors.push(
-      `apps/content/wrangler.jsonc production must route ${CAPABILITY_ROUTE} through zone_name ${CAPABILITY_DOMAIN}`,
+      `apps/content/wrangler.jsonc production must contain exactly one ${CAPABILITY_ROUTE} route through zone_name ${CAPABILITY_DOMAIN}`,
     );
   }
   const unexpectedZoneRoutes = productionRoutes.filter(
