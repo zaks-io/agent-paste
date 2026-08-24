@@ -44,7 +44,9 @@ routinely did not.
    `connect-src` allow any `https:` source plus inline. Response hardening that
    does not restrict artifact behavior stays: `nosniff`, no-referrer,
    `x-robots-tag: noindex` for ephemeral, the denylist, rate limits, and the
-   generic 404. Abuse control is the denylist and the scan strategy, not CSP.
+   generic 404. The SVG-specific strict CSP is removed too; SVG receives the
+   same open artifact CSP as every other inline-served type. Abuse control is
+   the denylist and the scan strategy, not CSP.
 4. **Publish-time HTML normalization.** `integrity` and `crossorigin`
    attributes are stripped from `<script>` and `<link>` tags in uploaded HTML at
    finalize, and the strip is reported in the publish response's warnings.
@@ -57,10 +59,21 @@ routinely did not.
    a live early-alpha surface. The member console keeps artifact management and
    displays the capability link. Legacy `/v/{token}/{path}` and `/b/{token}`
    content URLs continue to expire naturally.
-6. **Lifecycle.** Ephemeral capabilities expire with their 24-hour Artifact TTL
-   and are cleaned by the existing expiry job plus the 91-day R2 manifest
-   lifecycle rule. Account publishes carry the standard Artifact TTL; pinning an
-   Artifact re-mints its manifest so the same URL stays live indefinitely.
+6. **Lifecycle follows the Artifact.** Unpinned capability tokens carry the
+   Artifact expiration. Pinned capability tokens carry `exp: null`, a signed
+   explicit no-expiration value accepted only by the content-token verifier;
+   the denylist remains the immediate revocation control. Pin and unpin rewrite
+   the existing manifest after their database transition without changing the
+   capability ID: pin writes `exp: null`, while unpin restores the Artifact's
+   finite expiration. Revise also overwrites that same manifest with the latest
+   Revision and current lifecycle state.
+
+   The broad 91-day R2 lifecycle rule for `content-capabilities/v1/` is removed
+   before durable capability links ship because it cannot distinguish pinned
+   manifests. Artifact expiration, revoke, and delete write the denylist first,
+   then delete the stored manifest through the existing retryable lifecycle
+   cleanup path. This makes a pinned URL durable beyond 91 idle days while an
+   expired ephemeral URL returns the generic 404 after its 24-hour Artifact TTL.
 
 ## Considered Options
 

@@ -40,6 +40,11 @@ are removed; publish strips `integrity`/`crossorigin` attributes. Serialized
 PRs: (1) ADR + backlog, (2) durable capability + api/content serving posture +
 spec updates, (3) delete `/al` + web viewer rewire, (4) publish-time HTML
 normalization, (5) shared publish-contract cutover + release + agent guidance.
+Step 2 also removes the SVG-specific CSP override, stores a signed `exp: null`
+token for pinned Artifacts, rewrites the same manifest on revise/pin/unpin, and
+extends retryable expiration/revoke/delete cleanup to remove manifests. Remove
+the broad 91-day capability-manifest lifecycle rule before activation because
+it would delete valid pinned links.
 Step 5 changes REST, CLI, and MCP publish results from `private_url` to the
 single `url`: update `runPublish`, MCP `shapePublishOutput`, contracts, CLI/MCP
 tests, protocol instructions, docs (including all four apex surfaces), and

@@ -217,6 +217,19 @@ object. Capability manifests move these signed fields out of the browser URL; th
 
 Capability manifests are plain JSON inside the already-private ARTIFACTS bucket. Their authorization payload remains HMAC-signed, and `content` verifies that signature before trusting any scope. R2 lifecycle expires the `content-capabilities/v1/` prefix after 91 days.
 
+[ADR 0094](../adr/0094-capability-url-is-the-artifact-link.md) changes this
+current per-view capability model when its serialized implementation lands. One
+manifest then belongs to the Artifact and is rewritten in place across revise,
+pin, and unpin. Pin writes a signed content token with explicit `exp: null`;
+unpin restores a finite Artifact expiration. The rollout removes the broad
+91-day manifest lifecycle rule and makes expiration, revoke, and delete remove
+the manifest through retryable lifecycle cleanup, so a pinned URL remains live
+beyond 91 idle days without changing its capability ID.
+
+The current SVG-specific strict CSP remains in force until the same ADR 0094
+serving-posture change lands. That change removes the SVG override and applies
+the fully open artifact CSP to SVG as well as the other inline-served types.
+
 Legacy revision files and bundles keep artifact-byte encryption AAD v1:
 `workspace_id`, `artifact_id`, `revision_id`, and path. Workspace shared blobs use
 AAD v2 bound to `workspace_id` and `sha256`, so the same encrypted blob can be

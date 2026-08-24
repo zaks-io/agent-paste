@@ -26,15 +26,21 @@ Preview intentionally keeps `CONTENT_CAPABILITY_DOMAIN` unset. Its natural hostn
    ```
 
 4. Confirm production `api`, `content`, and `web` set `CONTENT_CAPABILITY_DOMAIN` to `agent-paste.sh` and preview leaves it unset. Confirm the production app CSP includes `https://*.agent-paste.sh` in `frame-src`.
-5. Add the manifest lifecycle rule to the production bucket, preserving all existing lifecycle rules:
+5. Confirm the obsolete manifest lifecycle rule is absent. Durable capability
+   manifests share one prefix, and pinned manifests must survive beyond 91 idle
+   days:
 
    ```sh
-   pnpm exec wrangler r2 bucket lifecycle add agent-paste-artifacts-production \
-     expire-content-capabilities content-capabilities/v1/ --expire-days 91
+   pnpm exec wrangler r2 bucket lifecycle list agent-paste-artifacts-production
    ```
 
+   If `expire-content-capabilities` exists, remove it through the production
+   change workflow before enabling durable capability URLs. Artifact lifecycle
+   cleanup owns manifest deletion.
+
 6. Run the pre-production checks below.
-7. Deploy through the production workflow only after the wildcard DNS record and lifecycle rule exist.
+7. Deploy through the production workflow only after the wildcard DNS record
+   exists and the conflicting manifest lifecycle rule is absent.
 
 Cloudflare requires an active zone and a proxied DNS record before a Worker Route can receive the hostname. Custom Domains do not support wildcards, so do not replace the route with `custom_domain: true`.
 
