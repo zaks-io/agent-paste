@@ -1,6 +1,6 @@
 # The Capability URL Is the Artifact Link
 
-Status: Accepted. Supersedes the Share Link surface of [ADR 0086](./0086-private-first-publish-with-share-links.md), amends [ADR 0093](./0093-capability-scoped-content-origins.md), and retires the app-wrapped viewer decided in [ADR 0014](./0014-single-domain-with-hardened-content-subdomain.md).
+Status: Accepted, planned. Supersedes the Share Link surface of [ADR 0086](./0086-publish-is-content-only-private-first.md), amends [ADR 0093](./0093-capability-scoped-content-origins.md), and retires the app-wrapped viewer decided in [ADR 0014](./0014-single-domain-with-hardened-content-subdomain.md) when the serialized implementation lands. Until then, the current specifications and shipped contracts remain authoritative.
 
 Publishing returns exactly one URL, and that URL is the capability origin itself:
 
@@ -30,8 +30,11 @@ routinely did not.
 
 1. **Durable capability per Artifact.** A capability ID is minted once at first
    publish, stored on the Artifact, and its R2 manifest is repointed at each new
-   Revision. The link survives revisions; a revise updates the same URL. Revoke
-   deletes the manifest and mints a fresh capability on the next publish.
+   Revision. The ID is 16 cryptographically random bytes generated with
+   `crypto.getRandomValues`, independent of Artifact or Revision identifiers,
+   and encoded as all 32 lowercase hexadecimal characters. The link survives
+   revisions; a revise updates the same URL. Revoke deletes the manifest and
+   mints a fresh capability on the next publish.
 2. **Top-level serving with scripts enabled.** The content Worker serves
    capability-host requests as ordinary top-level documents. The fetch-metadata
    inert-copy mode and `frame-ancestors`/`x-frame-options` special-casing are

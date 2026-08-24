@@ -39,8 +39,12 @@ links, the viewer iframe/sandbox, and the ephemeral `script_disabled` override
 are removed; publish strips `integrity`/`crossorigin` attributes. Serialized
 PRs: (1) ADR + backlog, (2) durable capability + api/content serving posture +
 spec updates, (3) delete `/al` + web viewer rewire, (4) publish-time HTML
-normalization, (5) CLI contract bump + release + agent-guidance copy. Specs
-update with the PR that changes each behavior. AP-236 shipped in PR #356. AP-109, AP-174, AP-181,
+normalization, (5) shared publish-contract cutover + release + agent guidance.
+Step 5 changes REST, CLI, and MCP publish results from `private_url` to the
+single `url`: update `runPublish`, MCP `shapePublishOutput`, contracts, CLI/MCP
+tests, protocol instructions, docs (including all four apex surfaces), and
+preview/production deployment coverage; bump and release the CLI after merge.
+Specs update with the PR that changes each behavior. AP-236 shipped in PR #356. AP-109, AP-174, AP-181,
 and AP-242 are Done on `main`. Production deploys after launch were briefly
 blocked by a stale forbidden `SMOKE_HARNESS_SECRET` on
 `agent-paste-api-production`; Isaac deleted that Worker secret on 2026-06-07,
