@@ -24,7 +24,7 @@ flowchart LR
   mcp["mcp<br/>mcp.agent-paste.sh<br/>OAuth MCP transport"]
   api["api<br/>api.agent-paste.sh<br/>control plane"]
   upload["upload<br/>upload.agent-paste.sh<br/>upload sessions and R2 writes"]
-  content["content<br/>capability content zone<br/>untrusted content reads"]
+  content["content<br/>capability content zone<br/>top-level untrusted pages"]
   stream["stream<br/>Live Updates SSE"]
   jobs["jobs<br/>queues, cron, sweeps"]
 
@@ -75,7 +75,7 @@ flowchart LR
 | `web`     | Human dashboard, WorkOS session handling, Access Link viewer shell, claim and billing UI.                                                                             | Postgres, R2, KV, queues, durable product writes. Durable work goes through `api`.          |
 | `api`     | Authenticated control plane, Artifact metadata, Access Link resolve, capability-manifest writes, web routes, operator routes, billing, ephemeral provision and claim. | Direct file-byte serving.                                                                   |
 | `upload`  | Upload Sessions, signed upload-worker PUT URLs, validation, R2 writes, finalize orchestration.                                                                        | Unauthenticated content reads.                                                              |
-| `content` | Signed file and Bundle reads from private R2 on the isolated Content Origin.                                                                                          | Hyperdrive, Postgres, WorkOS sessions, cookies, product mutations.                          |
+| `content` | Top-level Artifact pages plus signed file and Bundle reads from private R2 on isolated capability origins.                                                            | Hyperdrive, Postgres, WorkOS sessions, cookies, product mutations.                          |
 | `jobs`    | Cron discovery, queue consumers, cleanup, bundle generation, warning replacement, billing reconciliation.                                                             | Browser-facing routes.                                                                      |
 | `stream`  | Long-lived SSE fan-out for Live Updates through per-Artifact Durable Objects.                                                                                         | Postgres, R2, KV, secrets, Untrusted Content.                                               |
 | `mcp`     | OAuth-only Streamable HTTP MCP transport and fixed tool surface.                                                                                                      | Business writes, Postgres, R2. It verifies bearer shape and forwards to `api` and `upload`. |
@@ -126,20 +126,20 @@ Key invariants:
 
 ## Read And Share Flow
 
-Default human handoff is the authenticated Private Link (`private_url`, the
-`/v/<artifactId>` clean viewer); publish is content-only and never creates
-unauthenticated access. Unlisted no-login handoff requires an explicit, separate
-`set-visibility unlisted` step that mints a revocable Share Link; its Access Link Signed URL
-opens the Artifact Viewer for the latest Published Revision. Direct signed
-content URLs are delivery URLs for one exact Revision.
+The durable capability origin is the Artifact's public handoff URL. It advances
+to the latest Published Revision when the Artifact is revised. The authenticated
+`/v/<artifactId>` Private Link remains a management surface. During the
+serialized rollout, existing Share Links and `/al` Access Link viewers remain
+available through legacy Revision URLs. They are removed in the next rollout
+step. Legacy signed content URLs remain delivery URLs for one exact Revision.
 
 ```mermaid
 flowchart TD
   link["Access Link Signed URL<br/>/al/{publicId}#{blob}"]
   viewer["Artifact Viewer<br/>reads fragment in browser"]
   resolve["api<br/>POST /v1/access-links/resolve"]
-  manifest["resolved Artifact view<br/>manifest plus content URLs"]
-  content["content<br/>{32-lowercase-hex-id}-uc.agent-paste.sh/{path}<br/>or legacy /v/{token}/{path}"]
+  manifest["resolved transitional Access Link view"]
+  content["content<br/>legacy /v/{token}/{path}"]
   r2["Private R2"]
   kv["KV denylist"]
 
@@ -168,9 +168,12 @@ Access Link rules:
 
 Content Origin rules:
 
-- `api` stores one R2 capability manifest per resolved viewer grant before
-  returning its hostname. The manifest holds the existing signed content token
-  and Revision path map.
+- `api` stores one R2 capability manifest per Artifact. The manifest holds the
+  signed content token and path map for the current Published Revision.
+- Revise, pin, and unpin rewrite that manifest without changing the hostname.
+  Pin uses signed `exp: null`; unpin restores the finite Artifact expiration.
+- Expiration, revoke, and delete remove the manifest through retryable lifecycle
+  cleanup after the denylist cut-off.
 - `content` verifies signed content token parse, signature, expiration, scope,
   denylist state, and path membership.
 - `content` never reads Postgres and has no Hyperdrive binding.
@@ -233,7 +236,7 @@ Controls:
 - Ephemeral Workspaces are ordinary RLS-scoped tenants with `claimed_at IS NULL`.
 - The provisioned credential is short-lived and low-cap.
 - The Claim Token is returned once and stored hashed.
-- Ephemeral content uses a script-restricted Execution Policy and `noindex`; direct content is script-disabled, while trusted viewer frames permit the injected resize reporter and the approved Tailwind CDN.
+- Ephemeral content executes like other capability content and carries `noindex`.
 - Ephemeral Artifacts have the shortest Auto Deletion policy.
 - Claim promotes the content into a normal Workspace and emits Audit Events.
 
@@ -268,22 +271,22 @@ This system does not claim uploaded content is safe. The security model is that
 uploaded content is untrusted until isolated, scoped, expired, revoked, or locked
 down.
 
-| Control                                | What it protects                                                                                                                                                                                               |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Worker split by boundary               | Limits which runtime can touch auth, metadata, bytes, queues, or long-lived connections.                                                                                                                       |
-| Private R2                             | Prevents storage URLs from becoming public access paths.                                                                                                                                                       |
-| Isolated Content Origin                | Keeps Untrusted Content off the dashboard and API origins.                                                                                                                                                     |
-| Signed content tokens                  | Scope reads to one Revision, path set, expiration, and execution policy.                                                                                                                                       |
-| Fragment Access Links                  | Keeps Access Link credential material out of server-side request paths and normal logs.                                                                                                                        |
-| Hashed credentials and Claim Tokens    | Stores verifier material, not bearer secrets.                                                                                                                                                                  |
-| Postgres RLS                           | Scopes tenant rows by Workspace inside database transactions.                                                                                                                                                  |
-| `runCommand`                           | Commits state changes with audit and idempotency records.                                                                                                                                                      |
-| Denylist keys                          | Allows revocation, Access Link Lockdown, and Platform Lockdown to cut off reads before byte purge completes.                                                                                                   |
-| Content CSP and MIME allowlist         | Reduces browser blast radius and prevents agent-claimed MIME types from deciding render behavior.                                                                                                              |
-| Ephemeral script-restricted policy     | Prevents no-login content from running agent-authored script; trusted viewers may load the injected resize reporter and approved Tailwind CDN, and after claim interactivity runs through the Artifact Viewer. |
-| Rate limits and daily write allowances | Dampens abuse without gating legitimate reads for billing.                                                                                                                                                     |
-| Operator lockdown                      | Gives operators a platform-level response path for abuse and takedown.                                                                                                                                         |
-| Secret scanning and release provenance | Protects repository and CLI release hygiene. See [security-todo.md](../ops/security-todo.md).                                                                                                                  |
+| Control                                | What it protects                                                                                             |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Worker split by boundary               | Limits which runtime can touch auth, metadata, bytes, queues, or long-lived connections.                     |
+| Private R2                             | Prevents storage URLs from becoming public access paths.                                                     |
+| Isolated Content Origin                | Keeps Untrusted Content off the dashboard and API origins.                                                   |
+| Signed content tokens                  | Scope reads to one Revision, path set, and expiration.                                                       |
+| Fragment Access Links                  | Keeps Access Link credential material out of server-side request paths and normal logs.                      |
+| Hashed credentials and Claim Tokens    | Stores verifier material, not bearer secrets.                                                                |
+| Postgres RLS                           | Scopes tenant rows by Workspace inside database transactions.                                                |
+| `runCommand`                           | Commits state changes with audit and idempotency records.                                                    |
+| Denylist keys                          | Allows revocation, Access Link Lockdown, and Platform Lockdown to cut off reads before byte purge completes. |
+| Content CSP and MIME allowlist         | Reduces browser blast radius and prevents agent-claimed MIME types from deciding render behavior.            |
+| Per-Artifact capability origin         | Isolates each executable Artifact behind an unguessable hostname with denylist and manifest revocation.      |
+| Rate limits and daily write allowances | Dampens abuse without gating legitimate reads for billing.                                                   |
+| Operator lockdown                      | Gives operators a platform-level response path for abuse and takedown.                                       |
+| Secret scanning and release provenance | Protects repository and CLI release hygiene. See [security-todo.md](../ops/security-todo.md).                |
 
 Important limits:
 
@@ -293,8 +296,9 @@ Important limits:
   as safe and are not the trust boundary.
 - File-bytes hash-reputation malware scanning through providers such as
   VirusTotal or MalwareBazaar is not part of the current shipped stack.
-- Claimed tenants can run richer content under the claimed Execution Policy. The
-  origin boundary, CSP, token scope, and revocation controls are the guardrails.
+- Artifact content can execute script regardless of tenant tier. The isolated
+  capability origin, open artifact CSP, token scope, rate limit, `noindex` for
+  ephemeral content, and revocation controls are the guardrails.
 - Artifacts are transient handoffs, not permanent storage.
 
 ## Data Ownership

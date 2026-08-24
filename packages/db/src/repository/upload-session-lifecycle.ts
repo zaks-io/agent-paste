@@ -416,6 +416,7 @@ async function ensureArtifactForFinalize(
   }
   const artifact: Artifact = {
     id: session.artifact_id,
+    capability_id: null,
     workspace_id: session.workspace_id,
     revision_id: null,
     status: "active",

@@ -10,6 +10,7 @@ type RecoveryRow = {
   id: string;
   workspace_id: string;
   revision_id: string;
+  capability_id: string | null;
   status: string;
 };
 
@@ -20,7 +21,7 @@ export async function runPurgeRecoveryDiscovery(executor: SqlExecutor, env: Env)
 
   const limit = AUTO_DELETION_SWEEP_CAP + 1;
   const rows = await withPlatformScope(executor).query<RecoveryRow>(
-    `select a.id, a.workspace_id, a.revision_id, a.status
+    `select a.id, a.workspace_id, a.revision_id, a.capability_id, a.status
      from artifacts a
      inner join revisions r on r.id = a.revision_id and r.artifact_id = a.id
      where a.status in ('deleted', 'expired')
@@ -40,6 +41,7 @@ export async function runPurgeRecoveryDiscovery(executor: SqlExecutor, env: Env)
         workspaceId: row.workspace_id,
         artifactId: row.id,
         revisionId: row.revision_id,
+        capabilityId: row.capability_id,
         reason: "deletion",
       });
       if (sideEffects.enqueued) {

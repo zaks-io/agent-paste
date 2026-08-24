@@ -63,7 +63,13 @@ describe("content capabilities", () => {
   });
 
   it("round-trips strict versioned manifests", () => {
-    const manifest = { version: 1 as const, signed_token: "payload.signature", entrypoint: "docs/index.html" };
+    const manifest = {
+      version: 1 as const,
+      signed_token: "payload.signature",
+      entrypoint: "docs/index.html",
+      revision_number: 2,
+      artifact_updated_at: "2026-08-24T00:00:00.000Z",
+    };
     expect(parseContentCapabilityManifest(serializeContentCapabilityManifest(manifest))).toEqual(manifest);
   });
 

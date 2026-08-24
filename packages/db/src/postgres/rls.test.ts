@@ -75,8 +75,12 @@ async function applyMigrations(client: PGlite) {
 const ws1Id = "11111111-1111-1111-1111-111111111111";
 const ws2Id = "22222222-2222-2222-2222-222222222222";
 
-async function platformQuery(executor: SqlExecutor, sql: string, params: SqlValue[] = []) {
-  return rlsExecutor(executor, { kind: "platform" }).query(sql, params);
+async function platformQuery<Row = Record<string, unknown>>(
+  executor: SqlExecutor,
+  sql: string,
+  params: SqlValue[] = [],
+) {
+  return rlsExecutor(executor, { kind: "platform" }).query<Row>(sql, params);
 }
 
 async function seedWorkspaces(executor: SqlExecutor) {
@@ -346,6 +350,27 @@ describe("postgres RLS runtime enforcement", () => {
 
   it("re-applies migrations idempotently", async () => {
     await expect(applyMigrations(client)).resolves.toBeUndefined();
+  });
+
+  it("backfills stable capability IDs for artifacts that were already published", async () => {
+    await platformQuery(executor, "update artifacts set capability_id = null where id in ($1, $2)", [
+      "art-ws1",
+      "art-ws2",
+    ]);
+
+    await applyMigrationFile(client, "0029_artifact_capability_id.sql");
+
+    const rows = await platformQuery<{ id: string; capability_id: string | null }>(
+      executor,
+      "select id, capability_id from artifacts where id in ($1, $2) order by id",
+      ["art-ws1", "art-ws2"],
+    );
+    expect(rows.rows).toHaveLength(2);
+    expect(rows.rows.map((row) => row.capability_id)).toEqual([
+      expect.stringMatching(/^[a-f0-9]{32}$/),
+      expect.stringMatching(/^[a-f0-9]{32}$/),
+    ]);
+    expect(new Set(rows.rows.map((row) => row.capability_id)).size).toBe(2);
   });
 
   it("re-applies migrations after anonymous agent-auth registration rows exist", async () => {

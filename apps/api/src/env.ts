@@ -20,6 +20,7 @@ export type R2ListedObject = { key: string };
 export type R2Objects = { objects: R2ListedObject[]; truncated: boolean; cursor?: string };
 export type R2GetObjectBody = {
   body: ReadableStream | ArrayBuffer | Uint8Array | string | null | undefined;
+  etag?: string;
   customMetadata?: Record<string, string>;
 };
 export type R2Bucket = {
@@ -29,7 +30,14 @@ export type R2Bucket = {
   // the only read on api's R2 binding; other api ops list, delete, or write
   // ADR 0093 content-capability manifests.
   get(key: string): Promise<R2GetObjectBody | null>;
-  put?(key: string, value: string, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
+  put?(
+    key: string,
+    value: string,
+    options?: {
+      httpMetadata?: { contentType?: string };
+      onlyIf?: { etagMatches?: string; etagDoesNotMatch?: string };
+    },
+  ): Promise<{ etag?: string } | null>;
 };
 
 export type KVNamespace = {

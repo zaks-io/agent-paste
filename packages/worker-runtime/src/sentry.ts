@@ -1,6 +1,6 @@
 import type { CloudflareOptions } from "@sentry/cloudflare";
 import { sanitizeSentryLog } from "./logging.js";
-import { sanitizeSentryEvent } from "./sentry-sanitize.js";
+import { sanitizeSentryEvent, sanitizeSentrySpan } from "./sentry-sanitize.js";
 
 export type SentryEnv = {
   SENTRY_DSN?: string;
@@ -25,7 +25,9 @@ export function sentryOptions(env: SentryEnv): CloudflareOptions {
     enabled,
     enableLogs: enabled,
     beforeSend: sanitizeSentryEvent,
-    beforeSendLog: sanitizeSentryLog,
+    beforeSendSpan: sanitizeSentrySpan,
+    beforeSendLog: (log) =>
+      log.attributes?.["sentry.trace.parent_span_id"] === undefined ? sanitizeSentryLog(log) : null,
     ...(enabled && tracesSampleRate !== undefined ? { tracesSampleRate } : {}),
   };
 }

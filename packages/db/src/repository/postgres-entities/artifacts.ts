@@ -11,6 +11,17 @@ export function postgresArtifacts(ctx: PostgresContext): Entities["artifacts"] {
     listFiltered: (workspaceId, status) => artifactQueries.listFiltered(drizzle, workspaceId, status),
     listWebPage: (input) => artifactQueries.listWebPage(drizzle, input),
     updateExpiry: (artifactId, expiresAt) => artifactQueries.updateExpiry(drizzle, artifactId, expiresAt),
+    setCapabilityIdIfMissing: (artifactId, candidate) =>
+      withSource("postgresArtifacts.setCapabilityIdIfMissing", async () => {
+        const result = await sql.query<{ capability_id: string }>(
+          `update artifacts
+           set capability_id = coalesce(capability_id, $2)
+           where id = $1
+           returning capability_id`,
+          [artifactId, candidate],
+        );
+        return result.rows[0]?.capability_id ?? null;
+      }),
     countPinned: (workspaceId) => artifactQueries.countPinned(drizzle, workspaceId),
     tryPinUnderCap: (workspaceId, artifactId, pinnedAt, updatedAt, cap) =>
       artifactQueries.tryPinUnderCap(drizzle, workspaceId, artifactId, pinnedAt, updatedAt, cap),

@@ -10,7 +10,6 @@ export type ContentSigningAuth = {
   accessLinkId?: string;
   workspaceId?: string;
   noindex?: boolean;
-  scriptDisabled?: boolean;
 };
 
 export type ContentSigningOptions = {
@@ -82,7 +81,15 @@ export async function signedContentCapabilityOrigin(
   expiresAt: string | undefined,
   auth: ContentSigningAuth | undefined,
   options: ContentSigningOptions,
+  capabilityId?: string,
+  state?: { revisionNumber: number; artifactUpdatedAt: string; persistent: boolean },
 ): Promise<string | undefined> {
+  if (!capabilityId) {
+    return undefined;
+  }
+  if (!state) {
+    throw new Error("A persisted capability requires revision state.");
+  }
   const signingSecret = contentSigningSecret(env);
   if (!signingSecret) {
     if (env.CONTENT_CAPABILITY_DOMAIN) {
@@ -93,11 +100,18 @@ export async function signedContentCapabilityOrigin(
   return storeContentCapability({
     env,
     signingSecret,
+    capabilityId,
     entrypoint,
-    payload: contentTokenPayload(artifactId, revisionId, expiresAt, auth, options),
+    revisionNumber: state.revisionNumber,
+    artifactUpdatedAt: state.artifactUpdatedAt,
+    payload: {
+      ...contentTokenPayload(artifactId, revisionId, expiresAt, auth, options),
+      exp: capabilityTokenExpiration(expiresAt, state.persistent),
+    },
   });
 }
 
+export function contentTokenExpiration(expiresAt: string | undefined): number;
 export function contentTokenExpiration(expiresAt: string | undefined): number {
   const nowSeconds = Math.floor(Date.now() / 1000);
   const parsed = expiresAt ? Math.floor(new Date(expiresAt).getTime() / 1000) : Number.NaN;
@@ -118,16 +132,18 @@ function contentTokenPayload(
     ...(auth?.workspaceId ? { workspace_id: auth.workspaceId } : {}),
     ...(auth?.accessLinkId ? { access_link_id: auth.accessLinkId } : {}),
     ...(auth?.noindex ? { noindex: true } : {}),
-    ...(auth?.scriptDisabled === true
-      ? { script_disabled: true }
-      : auth?.scriptDisabled === false
-        ? { script_disabled: false }
-        : {}),
     ...(Array.isArray(options.paths) ? { paths: options.paths } : {}),
     ...(options.objectKey ? { object_key: options.objectKey } : {}),
     ...(options.objectKeys ? { object_keys: options.objectKeys } : {}),
     exp: contentTokenExpiration(expiresAt),
   };
+}
+
+function capabilityTokenExpiration(expiresAt: string | undefined, persistent: boolean): number | null {
+  if (persistent) return null;
+  const parsed = expiresAt ? Math.floor(new Date(expiresAt).getTime() / 1000) : Number.NaN;
+  if (!Number.isFinite(parsed)) throw new Error("A non-pinned capability requires a valid artifact expiry.");
+  return parsed;
 }
 
 function encodePath(path: string): string {

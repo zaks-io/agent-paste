@@ -10,6 +10,28 @@ const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const envScopedPrefix = `env/live/workspaces/${workspaceId}/artifacts/${artifactId}/revisions/${revisionId}/`;
 
 describe("handleBytePurgeBatch", () => {
+  it("deletes the exact capability manifest with the artifact bytes", async () => {
+    const capabilityId = "00112233445566778899aabbccddeeff";
+    const capabilityKey = `content-capabilities/v1/${capabilityId}.json`;
+    const deleted: string[][] = [];
+    const env: Env = {
+      ARTIFACTS: {
+        async list() {
+          return { objects: [], truncated: false };
+        },
+        async delete(keys) {
+          deleted.push(keys);
+        },
+      },
+    };
+    const message = queueMessage({ prefixes: [`artifacts/${artifactId}/`], capabilityId });
+
+    await handleBytePurgeBatch([message], env);
+
+    expect(deleted).toContainEqual([capabilityKey]);
+    expect(message.ack).toHaveBeenCalled();
+  });
+
   it("deletes only prefixes scoped to the target artifact", async () => {
     const deleted: string[][] = [];
     const env: Env = {
@@ -228,7 +250,7 @@ describe("artifact bytes encrypt→store→read fidelity", () => {
   });
 });
 
-function queueMessage(overrides: { prefixes: string[] }): QueueMessage {
+function queueMessage(overrides: { prefixes: string[]; capabilityId?: string }): QueueMessage {
   return {
     body: {
       type: "byte.purge.v1",
@@ -236,6 +258,7 @@ function queueMessage(overrides: { prefixes: string[] }): QueueMessage {
       artifact_id: artifactId,
       revision_id: revisionId,
       upload_session_id: null,
+      capability_id: overrides.capabilityId ?? null,
       prefixes: overrides.prefixes,
       reason: "deletion",
     },

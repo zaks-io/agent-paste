@@ -12,18 +12,20 @@ The MVP is ready when these scenarios can be automated locally and in preview. E
 
 ## Public CLI
 
-| Scenario                                       | Expected Result                                                                                                                                                                                    |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No active CLI login                            | `agent-paste whoami` reports no active login locally; `publish` asks for `agent-paste login` or `--ephemeral` before network publish work.                                                         |
-| Valid CLI login                                | `agent-paste whoami` returns workspace, actor, and granted scopes without secret material.                                                                                                         |
-| Publish single HTML file                       | Creates one Artifact and one Revision, prints the authenticated Private Link (`private_url`, the `/v/<artifactId>` clean viewer) as `View`; JSON output includes diagnostic IDs and snapshot URLs. |
-| Publish folder with `index.html`               | Entrypoint is inferred and subresources load from signed content URLs.                                                                                                                             |
-| Publish folder without a resolvable entrypoint | CLI or upload validation fails; no active Artifact is created. Explicit or inferred entrypoints satisfy the contract.                                                                              |
-| Publish over file cap                          | Fails before finalize and records no active Artifact.                                                                                                                                              |
-| Retry same idempotency key                     | Returns the same durable identifiers without duplicate artifacts.                                                                                                                                  |
+| Scenario                                       | Expected Result                                                                                                                                                                                                                             |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No active CLI login                            | `agent-paste whoami` reports no active login locally; `publish` asks for `agent-paste login` or `--ephemeral` before network publish work.                                                                                                  |
+| Valid CLI login                                | `agent-paste whoami` returns workspace, actor, and granted scopes without secret material.                                                                                                                                                  |
+| Publish single HTML file                       | Creates one Artifact and one Revision, prints the authenticated Private Link (`private_url`, the `/v/<artifactId>` clean viewer) as `View`; JSON output includes diagnostic IDs and the transitional capability or exact-Revision fallback. |
+| Publish folder with `index.html`               | Entrypoint is inferred and subresources load from capability or legacy signed content URLs.                                                                                                                                                 |
+| Publish folder without a resolvable entrypoint | CLI or upload validation fails; no active Artifact is created. Explicit or inferred entrypoints satisfy the contract.                                                                                                                       |
+| Publish over file cap                          | Fails before finalize and records no active Artifact.                                                                                                                                                                                       |
+| Retry same idempotency key                     | Returns the same durable identifiers without duplicate artifacts.                                                                                                                                                                           |
 
-`revision_content_url` is the direct signed content URL for the published
-Revision. It is not an Access Link Signed URL or Live Update viewer.
+`revision_content_url` is transitional. Capability-routed environments return
+the durable per-Artifact entrypoint that resolves to later Published Revisions;
+preview and local fallback return the legacy signed exact-Revision URL. It is
+not an Access Link Signed URL or an automatic Live Update viewer.
 
 ## Upload
 
@@ -36,17 +38,17 @@ Revision. It is not an Access Link Signed URL or Live Update viewer.
 
 ## Reading
 
-| Scenario                    | Expected Result                                                                                        |
-| --------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Open Access Link Signed URL | Browser opens the Artifact Viewer through an explicitly minted Access Link Signed URL.                 |
-| Open `private_url`          | Authenticated Workspace Member can open the `/v/<artifactId>` clean viewer.                            |
-| Open content URL            | Browser receives raw HTML bytes from `usercontent.agent-paste.sh` with direct-page scripts disabled.   |
-| Load static asset           | Asset referenced by HTML loads from the same content origin when included in the artifact.             |
-| Fetch `agent_view_url`      | Returns Agent View JSON with full per-file signed URLs.                                                |
-| Fetch unknown path          | Returns generic `not_found`.                                                                           |
-| Expired signed token        | Returns generic `not_found`.                                                                           |
-| Deleted artifact token      | Returns generic `not_found` after denylist propagation.                                                |
-| Artifact read throttle      | Excess unauthenticated reads for one Artifact return HTTP 429 + `rate_limited_artifact` + Retry-After. |
+| Scenario                    | Expected Result                                                                                                      |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Open Access Link Signed URL | Browser opens the Artifact Viewer through an explicitly minted Access Link Signed URL.                               |
+| Open `private_url`          | Authenticated Workspace Member can open the `/v/<artifactId>` clean viewer.                                          |
+| Open content URL            | Production capability HTML uses the open Artifact CSP; preview/local legacy HTML keeps direct-page scripts disabled. |
+| Load static asset           | Asset referenced by HTML loads from the same content origin when included in the artifact.                           |
+| Fetch `agent_view_url`      | Returns exact-Revision Agent View JSON with full per-file signed URLs.                                               |
+| Fetch unknown path          | Returns generic `not_found`.                                                                                         |
+| Expired signed token        | Returns generic `not_found`.                                                                                         |
+| Deleted artifact token      | Returns generic `not_found` after denylist propagation.                                                              |
+| Artifact read throttle      | Excess unauthenticated reads for one Artifact return HTTP 429 + `rate_limited_artifact` + Retry-After.               |
 
 ## Retention
 

@@ -8,6 +8,7 @@ import {
 import type { Env } from "./env.js";
 
 const MAX_CONTENT_CAPABILITY_MANIFEST_SIZE = 72 * 1024;
+const capabilityRequests = new WeakSet<Request>();
 
 export type ContentCapabilityResolution =
   | { kind: "pass" }
@@ -44,6 +45,15 @@ export async function resolveContentCapabilityRequest(
   const encodedPath = url.pathname === "/" ? encodePath(manifest.entrypoint) : url.pathname.slice(1);
   url.pathname = `/v/${encodeURIComponent(manifest.signed_token)}/${encodedPath}`;
   return { kind: "request", request: new Request(url, request) };
+}
+
+export function markContentCapabilityRequest(request: Request): Request {
+  capabilityRequests.add(request);
+  return request;
+}
+
+export function isContentCapabilityRequest(request: Request): boolean {
+  return capabilityRequests.has(request);
 }
 
 function encodePath(path: string): string {

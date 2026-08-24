@@ -5,7 +5,13 @@ export function localArtifactUpdateMethods(
   state: LocalState,
 ): Pick<
   Entities["artifacts"],
-  "updateExpiry" | "updatePublished" | "updateTitle" | "updateStaging" | "markDeleted" | "setAccessLinkLockdown"
+  | "updateExpiry"
+  | "setCapabilityIdIfMissing"
+  | "updatePublished"
+  | "updateTitle"
+  | "updateStaging"
+  | "markDeleted"
+  | "setAccessLinkLockdown"
 > {
   return {
     async updateExpiry(artifactId, expiresAt) {
@@ -16,6 +22,14 @@ export function localArtifactUpdateMethods(
       artifact.expires_at = expiresAt;
       artifact.updated_at = new Date().toISOString();
       return { artifact_id: artifact.id, expires_at: artifact.expires_at };
+    },
+    async setCapabilityIdIfMissing(artifactId, candidate) {
+      const artifact = state.artifacts.get(artifactId);
+      if (!artifact) {
+        return null;
+      }
+      artifact.capability_id ??= candidate;
+      return artifact.capability_id;
     },
     async updatePublished(artifactId, input) {
       const artifact = state.artifacts.get(artifactId);

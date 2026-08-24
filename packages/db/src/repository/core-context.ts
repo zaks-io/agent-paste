@@ -53,6 +53,7 @@ export class RepositoryCoreContext {
   async webArtifactDetailFromArtifact(entities: Entities, artifact: Artifact, workspaceId: string) {
     const revisionId = artifact.revision_id;
     let viewer: { iframe_src: string; render_mode: Revision["render_mode"] } | null = null;
+    let capabilityView: ReturnType<typeof buildAgentView> | null = null;
     if (revisionId && artifact.status === "active") {
       const revision = await entities.revisions.findById(revisionId, workspaceId);
       if (revision && revision.status === "published") {
@@ -66,6 +67,7 @@ export class RepositoryCoreContext {
           revision,
           warnings,
         );
+        capabilityView = agentView;
         viewer = {
           iframe_src: agentView.revision_content_url,
           render_mode: revision.render_mode,
@@ -78,6 +80,7 @@ export class RepositoryCoreContext {
       file_count: artifact.file_count,
       size_bytes: artifact.size_bytes,
       viewer,
+      capability_view: capabilityView,
     };
   }
 }

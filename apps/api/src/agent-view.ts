@@ -19,8 +19,12 @@ export async function verifyAgentViewTokenForEnv(token: string, env: Env): Promi
 
 type AgentViewRecord = {
   workspace_id?: unknown;
+  capability_id?: unknown;
+  pinned_at?: unknown;
+  artifact_updated_at?: unknown;
   artifact_id?: unknown;
   revision_id?: unknown;
+  revision_number?: unknown;
   entrypoint?: unknown;
   render_mode?: unknown;
   expires_at?: unknown;
@@ -32,9 +36,22 @@ type AgentViewRecord = {
 
 function stripInternalAgentViewFields(
   data: AgentViewRecord,
-): Omit<AgentViewRecord, "workspace_id" | "revision_content_url" | "render_mode"> {
+): Omit<
+  AgentViewRecord,
+  | "workspace_id"
+  | "capability_id"
+  | "pinned_at"
+  | "artifact_updated_at"
+  | "revision_number"
+  | "revision_content_url"
+  | "render_mode"
+> {
   const {
     workspace_id: _internalWorkspaceId,
+    capability_id: _internalCapabilityId,
+    pinned_at: _internalPinnedAt,
+    artifact_updated_at: _internalArtifactUpdatedAt,
+    revision_number: _internalRevisionNumber,
     revision_content_url: _rawRevisionContentUrl,
     render_mode: _internalRenderMode,
     ...publicFields
@@ -73,11 +90,6 @@ function buildContentSigningAuth(
   }
   if (ephemeralTier) {
     contentAuth.noindex = true;
-    contentAuth.scriptDisabled = true;
-    return contentAuth;
-  }
-  if (workspaceId) {
-    contentAuth.scriptDisabled = false;
   }
   return contentAuth;
 }
@@ -89,7 +101,6 @@ async function signAgentViewFileEntries(
   files: AgentViewRecord["files"],
   expiresAt: string | undefined,
   contentAuth: ContentSigningAuth,
-  capabilityOrigin?: string,
 ): Promise<AgentViewRecord["files"]> {
   if (!Array.isArray(files)) {
     return files;
@@ -102,11 +113,9 @@ async function signAgentViewFileEntries(
       }
       return {
         ...publicFile,
-        url: capabilityOrigin
-          ? contentCapabilityUrl(capabilityOrigin, file.path)
-          : await signedContentUrl(env, artifactId, revisionId, file.path, expiresAt, contentAuth, {
-              ...(typeof file.object_key === "string" ? { objectKey: file.object_key } : {}),
-            }),
+        url: await signedContentUrl(env, artifactId, revisionId, file.path, expiresAt, contentAuth, {
+          ...(typeof file.object_key === "string" ? { objectKey: file.object_key } : {}),
+        }),
       };
     }),
   );
@@ -138,15 +147,11 @@ async function resolveRevisionContentUrl(
   storedRevisionContentUrl: unknown,
   expiresAt: string | undefined,
   contentAuth: ContentSigningAuth,
-  capabilityOrigin?: string,
 ): Promise<string | undefined> {
   const contentPath =
     entrypoint ??
     (typeof storedRevisionContentUrl === "string" ? entrypointPathFromContentUrl(storedRevisionContentUrl) : undefined);
   if (contentPath) {
-    if (capabilityOrigin) {
-      return contentCapabilityUrl(capabilityOrigin, contentPath);
-    }
     return signedContentUrl(env, artifactId, revisionId, contentPath, expiresAt, contentAuth, {
       paths: revisionFilePaths(contentPath, files),
       ...revisionFileObjectKeys(files),
@@ -187,7 +192,13 @@ function existingRevisionContentUrl(data: AgentViewRecord): string | undefined {
 export async function signAgentViewContentUrls(
   view: unknown,
   env: Env,
-  options?: { accessLinkId?: string; workspaceId?: string; ephemeralTier?: boolean; includePrivateUrl?: boolean },
+  options?: {
+    accessLinkId?: string;
+    workspaceId?: string;
+    ephemeralTier?: boolean;
+    includePrivateUrl?: boolean;
+    refreshCapabilityManifest?: boolean;
+  },
 ): Promise<unknown> {
   if (!view || typeof view !== "object") {
     return view;
@@ -226,15 +237,31 @@ export async function signAgentViewContentUrls(
     (typeof data.revision_content_url === "string"
       ? entrypointPathFromContentUrl(data.revision_content_url)
       : undefined);
-  const capabilityOrigin = contentPath
-    ? await signedContentCapabilityOrigin(env, artifactId, revisionId, contentPath, expiresAt, contentAuth, {
+  if (contentPath && options?.refreshCapabilityManifest) {
+    await signedContentCapabilityOrigin(
+      env,
+      artifactId,
+      revisionId,
+      contentPath,
+      expiresAt,
+      contentAuth,
+      {
         paths: revisionFilePaths(contentPath, data.files),
         ...revisionFileObjectKeys(data.files),
-      })
-    : undefined;
+      },
+      !options?.accessLinkId && typeof data.capability_id === "string" ? data.capability_id : undefined,
+      typeof data.revision_number === "number" && typeof data.artifact_updated_at === "string"
+        ? {
+            revisionNumber: data.revision_number,
+            artifactUpdatedAt: data.artifact_updated_at,
+            persistent: typeof data.pinned_at === "string",
+          }
+        : undefined,
+    );
+  }
 
   const [files, bundle, revisionContentUrl] = await Promise.all([
-    signAgentViewFileEntries(env, artifactId, revisionId, data.files, expiresAt, contentAuth, capabilityOrigin),
+    signAgentViewFileEntries(env, artifactId, revisionId, data.files, expiresAt, contentAuth),
     signReadyAgentViewBundle(env, artifactId, revisionId, data.bundle, expiresAt, contentAuth),
     resolveRevisionContentUrl(
       env,
@@ -245,7 +272,6 @@ export async function signAgentViewContentUrls(
       data.revision_content_url,
       expiresAt,
       contentAuth,
-      capabilityOrigin,
     ),
   ]);
 
@@ -274,6 +300,10 @@ export async function signPublishResult(
     agent_view_url?: unknown;
     entrypoint_object_key?: unknown;
     file_object_keys?: unknown;
+    capability_id?: unknown;
+    pinned_at?: unknown;
+    artifact_updated_at?: unknown;
+    revision_number?: unknown;
     expires_at?: unknown;
   };
   if (typeof data.artifact_id !== "string" || typeof data.revision_id !== "string") {
@@ -285,6 +315,10 @@ export async function signPublishResult(
     agent_view_url: rawAgentViewUrl,
     entrypoint_object_key: rawEntrypointObjectKey,
     file_object_keys: rawFileObjectKeys,
+    capability_id: rawCapabilityId,
+    pinned_at: rawPinnedAt,
+    artifact_updated_at: rawArtifactUpdatedAt,
+    revision_number: rawRevisionNumber,
     ephemeral_tier: _internalEphemeralTier,
     render_mode: _internalRenderMode,
     ...rest
@@ -301,9 +335,7 @@ export async function signPublishResult(
   const contentAuth = auth?.workspaceId
     ? {
         workspaceId: auth.workspaceId,
-        ...(auth.ephemeralTier
-          ? { noindex: true as const, scriptDisabled: true as const }
-          : { scriptDisabled: false as const }),
+        ...(auth.ephemeralTier ? { noindex: true as const } : {}),
       }
     : undefined;
   const contentOptions = fileObjectKeys
@@ -319,6 +351,14 @@ export async function signPublishResult(
     expiresAt,
     contentAuth,
     contentOptions,
+    typeof rawCapabilityId === "string" ? rawCapabilityId : undefined,
+    typeof rawRevisionNumber === "number" && typeof rawArtifactUpdatedAt === "string"
+      ? {
+          revisionNumber: rawRevisionNumber,
+          artifactUpdatedAt: rawArtifactUpdatedAt,
+          persistent: typeof rawPinnedAt === "string",
+        }
+      : undefined,
   );
   const revisionContentUrl = capabilityOrigin
     ? contentCapabilityUrl(capabilityOrigin, entrypointPath)

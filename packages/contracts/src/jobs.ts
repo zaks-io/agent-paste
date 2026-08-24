@@ -10,6 +10,11 @@ export const BytePurgeMessage = z.object({
   artifact_id: ArtifactId,
   revision_id: RevisionId.nullable(),
   upload_session_id: z.string().nullable(),
+  capability_id: z
+    .string()
+    .regex(/^[a-f0-9]{32}$/)
+    .nullable()
+    .optional(),
   prefixes: z.array(z.string().min(1)).min(1).max(100),
   reason: BytePurgeReason,
 });

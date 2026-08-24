@@ -16,6 +16,7 @@ import {
 } from "@agent-paste/storage";
 import type { ContentTokenPayload } from "@agent-paste/tokens/content";
 import { BASELINE_SECURITY_HEADERS, getBoundResponders, writeArtifactEvent } from "@agent-paste/worker-runtime";
+import { isContentCapabilityRequest } from "./content-capability.js";
 import type { AppContext, Env, R2ObjectBody } from "./env.js";
 import { contentEtag, etagMatches } from "./etag.js";
 import { frameAncestorsForEnv } from "./frame-ancestors.js";
@@ -97,14 +98,15 @@ export async function serveSignedObject(
 ): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
+  const capabilityRequest = isContentCapabilityRequest(request);
 
   const key = objectKeyForPayload(payload, path);
   if (!key) {
     return getBoundResponders(context).respondError("not_found");
   }
 
-  const frameAncestors = frameAncestorsForEnv(env);
-  const representationKey = contentRepresentationKey(path, payload, request, frameAncestors);
+  const frameAncestors = capabilityRequest ? [] : frameAncestorsForEnv(env);
+  const representationKey = contentRepresentationKey(path, payload, request, frameAncestors, capabilityRequest);
   const etag = await contentEtag(payload.revision_id, path, representationKey);
   // Only short-circuit when the 200 path would actually serve: a workspace-less
   // token 404s below (prepareEncryptedObjectResponse), so a conditional request
@@ -114,16 +116,26 @@ export async function serveSignedObject(
     // including the inline frame-ancestors relaxation, content-type,
     // cache-control) so the 304 cannot weaken them: RFC 9111 §4.3.4 lets a 304
     // replace the cached response's headers.
-    const trustedViewerFrame = isTrustedViewerFrameRequest(request, frameAncestors);
-    const scriptDisabled = payload.script_disabled !== false || (isHtmlPath(path) && !trustedViewerFrame);
-    const injectsResizeReporter = isHtmlPath(path) && trustedViewerFrame;
+    const trustedViewerFrame = !capabilityRequest && isTrustedViewerFrameRequest(request, frameAncestors);
+    const scriptDisabled =
+      !capabilityRequest && (payload.script_disabled !== false || (isHtmlPath(path) && !trustedViewerFrame));
+    const injectsResizeReporter = !capabilityRequest && isHtmlPath(path) && trustedViewerFrame;
     const resizeReporterScriptHash = injectsResizeReporter
       ? await resizeReporterScriptHashForPolicy(scriptDisabled)
       : undefined;
     return notModifiedResponse(
       context,
       payload,
-      responseHeadersForPath(path, 0, payload, etag, frameAncestors, request, resizeReporterScriptHash),
+      responseHeadersForPath(
+        path,
+        0,
+        payload,
+        etag,
+        frameAncestors,
+        request,
+        resizeReporterScriptHash,
+        capabilityRequest,
+      ),
     );
   }
 
@@ -146,9 +158,10 @@ export async function serveSignedObject(
   }
 
   const injectsNoindex = payload.noindex === true && isHtmlPath(path);
-  const trustedViewerFrame = isTrustedViewerFrameRequest(request, frameAncestors);
-  const scriptDisabled = payload.script_disabled !== false || (isHtmlPath(path) && !trustedViewerFrame);
-  const injectsResizeReporter = isHtmlPath(path) && trustedViewerFrame;
+  const trustedViewerFrame = !capabilityRequest && isTrustedViewerFrameRequest(request, frameAncestors);
+  const scriptDisabled =
+    !capabilityRequest && (payload.script_disabled !== false || (isHtmlPath(path) && !trustedViewerFrame));
+  const injectsResizeReporter = !capabilityRequest && isHtmlPath(path) && trustedViewerFrame;
   const resizeReporterScriptHash = injectsResizeReporter
     ? await resizeReporterScriptHashForPolicy(scriptDisabled)
     : undefined;
@@ -161,7 +174,16 @@ export async function serveSignedObject(
       : served.bytes;
   const size = bytes ? bytes.byteLength : served.plaintextSize;
 
-  const headers = responseHeadersForPath(path, size, payload, etag, frameAncestors, request, resizeReporterScriptHash);
+  const headers = responseHeadersForPath(
+    path,
+    size,
+    payload,
+    etag,
+    frameAncestors,
+    request,
+    resizeReporterScriptHash,
+    capabilityRequest,
+  );
   // A HEAD has no body to measure, so it reports the arithmetic plaintext size.
   // When HTML injection would grow the GET body, that size is wrong, so drop
   // content-length rather than advertise a length the GET would not match.
@@ -401,13 +423,17 @@ export function responseHeadersForPath(
   size: number,
   payload: ContentTokenPayload,
   etag: string,
-  frameAncestors: readonly string[] = [],
+  frameAncestorsOrRequest: readonly string[] | Request = [],
   request?: Request,
   resizeReporterScriptHash?: string,
+  capabilityRequest = false,
 ): Headers {
-  const trustedViewerFrame = isTrustedViewerFrameRequest(request, frameAncestors);
-  const scriptDisabled = payload.script_disabled !== false || (isHtmlPath(path) && !trustedViewerFrame);
-  const served = servedContentForPath(path, { scriptDisabled });
+  const frameAncestors = frameAncestorsOrRequest instanceof Request ? [] : frameAncestorsOrRequest;
+  request ??= frameAncestorsOrRequest instanceof Request ? frameAncestorsOrRequest : undefined;
+  const trustedViewerFrame = !capabilityRequest && isTrustedViewerFrameRequest(request, frameAncestors);
+  const scriptDisabled =
+    !capabilityRequest && (payload.script_disabled !== false || (isHtmlPath(path) && !trustedViewerFrame));
+  const served = servedContentForPath(path, { scriptDisabled, capability: capabilityRequest });
   const headers = new Headers(securityHeaders);
   headers.set("cache-control", CONTENT_CACHE_CONTROL);
   headers.set("etag", etag);
@@ -417,9 +443,6 @@ export function responseHeadersForPath(
   if (resizeReporterScriptHash) {
     csp = withScriptSrcHash(csp, [resizeReporterScriptHash], [TAILWIND_CDN_SCRIPT_SOURCE]);
   }
-  // Inline content is rendered in the trusted viewer's sandboxed iframe; let the
-  // app origin frame it via CSP and drop the origin-blind XFO that would re-block
-  // it. Attachments are downloads and stay frame-denied.
   if (served.disposition === "inline" && trustedViewerFrame) {
     headers.set("content-security-policy", withFrameAncestors(csp, frameAncestors));
     headers.delete("x-frame-options");
@@ -434,6 +457,14 @@ export function responseHeadersForPath(
   }
   applyOpaqueOriginCors(headers, request);
   return headers;
+}
+
+export function isTrustedViewerFrameRequest(request: Request | undefined, frameAncestors: readonly string[]): boolean {
+  if (!request || frameAncestors.length === 0) return false;
+  const destination = request.headers.get("sec-fetch-dest")?.toLowerCase();
+  if (destination !== "iframe" && destination !== "frame") return false;
+  const mode = request.headers.get("sec-fetch-mode")?.toLowerCase();
+  return !mode || mode === "navigate";
 }
 
 function applyOpaqueOriginCors(headers: Headers, request?: Request): void {
@@ -457,21 +488,6 @@ function appendVary(headers: Headers, value: string): void {
   if (!exists) {
     headers.set("vary", `${current}, ${value}`);
   }
-}
-
-export function isTrustedViewerFrameRequest(request: Request | undefined, frameAncestors: readonly string[]): boolean {
-  if (!request || frameAncestors.length === 0) {
-    return false;
-  }
-  const destination = request.headers.get("sec-fetch-dest")?.toLowerCase();
-  if (destination !== "iframe" && destination !== "frame") {
-    return false;
-  }
-  const mode = request.headers.get("sec-fetch-mode")?.toLowerCase();
-  if (mode && mode !== "navigate") {
-    return false;
-  }
-  return true;
 }
 
 // Every served file and bundle revalidates on every load (`no-cache`): paired
@@ -509,50 +525,36 @@ function transformViewerHtmlBytes(
   options: { noindex: boolean; resizeReporter: boolean },
 ): Uint8Array {
   let html = new TextDecoder().decode(bytes);
-  if (options.noindex) {
-    html = injectNoindexMeta(html);
-  }
-  if (options.resizeReporter) {
-    html = injectViewerResizeReporter(html);
-  }
+  if (options.noindex) html = injectNoindexMeta(html);
+  if (options.resizeReporter) html = injectViewerResizeReporter(html);
   return new TextEncoder().encode(html);
 }
 
-/**
- * Distinguishes HTML response variants that rewrite the body or change per-path
- * CSP (viewer iframe vs direct navigation, script policy, noindex injection).
- * Non-HTML paths omit a representation suffix so the validator stays revision-only.
- */
 export function contentRepresentationKey(
   path: string,
   payload: ContentTokenPayload,
-  request: Request | undefined,
-  frameAncestors: readonly string[],
+  request?: Request,
+  frameAncestors: readonly string[] = [],
+  capabilityRequest = false,
 ): string | undefined {
   if (!isHtmlPath(path)) {
     return undefined;
   }
+  if (capabilityRequest) {
+    return payload.noindex === true ? "capability:noindex" : "capability";
+  }
   const trustedViewerFrame = isTrustedViewerFrameRequest(request, frameAncestors);
   const scriptDisabled = payload.script_disabled !== false || !trustedViewerFrame;
   const parts: string[] = [];
-  if (payload.noindex === true) {
-    parts.push("noindex");
-  }
+  if (payload.noindex === true) parts.push("noindex");
   parts.push(trustedViewerFrame ? "viewer" : "direct");
-  if (trustedViewerFrame) {
-    parts.push(`resize-${VIEWER_RESIZE_REPORTER_TRANSFORM_ID}`);
-    parts.push(scriptDisabled ? "script-none-hash" : "script-on");
-  } else {
-    parts.push(scriptDisabled ? "script-none" : "script-on");
-  }
+  if (trustedViewerFrame) parts.push(`resize-${VIEWER_RESIZE_REPORTER_TRANSFORM_ID}`);
+  parts.push(scriptDisabled ? (trustedViewerFrame ? "script-none-hash" : "script-none") : "script-on");
   return parts.join(":");
 }
 
 async function resizeReporterScriptHashForPolicy(scriptDisabled: boolean): Promise<string | undefined> {
-  if (!scriptDisabled) {
-    return undefined;
-  }
-  return viewerResizeReporterScriptSha256();
+  return scriptDisabled ? viewerResizeReporterScriptSha256() : undefined;
 }
 
 export function injectNoindexMeta(html: string): string {

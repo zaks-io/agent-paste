@@ -70,6 +70,7 @@ export async function deleteMemberArtifactRoute(
         workspaceId: result.workspace_id,
         artifactId: result.artifact_id,
         revisionId: result.revision_id,
+        capabilityId: result.capability_id,
       },
       { isReplay },
     );

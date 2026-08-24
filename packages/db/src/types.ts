@@ -214,6 +214,7 @@ export type Revision = {
 
 export type Artifact = {
   id: string;
+  capability_id: string | null;
   workspace_id: string;
   revision_id: string | null;
   status: "active" | "deleted" | "expired";

@@ -12,13 +12,7 @@ const workspaceId = "00000000-0000-4000-8000-000000000001";
 const capabilityId = "00112233445566778899aabbccddeeff";
 const capabilityDomain = "content.example.test";
 const capabilityOrigin = `https://${capabilityId}-uc.${capabilityDomain}`;
-const viewerFrameHeaders = {
-  "sec-fetch-dest": "iframe",
-  "sec-fetch-mode": "navigate",
-  "sec-fetch-site": "cross-site",
-};
-
-async function capabilityFixture(input?: { accessLinkId?: string; expiresAt?: number; manifest?: string }) {
+async function capabilityFixture(input?: { accessLinkId?: string; expiresAt?: number | null; manifest?: string }) {
   const paths = ["index.html", "page2.html", "assets/app.js"];
   const token = await mintContentToken(
     {
@@ -28,13 +22,19 @@ async function capabilityFixture(input?: { accessLinkId?: string; expiresAt?: nu
       ...(input?.accessLinkId ? { access_link_id: input.accessLinkId } : {}),
       paths,
       script_disabled: false,
-      exp: input?.expiresAt ?? Math.floor(Date.now() / 1000) + 60,
+      exp: input && "expiresAt" in input ? (input.expiresAt ?? null) : Math.floor(Date.now() / 1000) + 60,
     },
     "secret",
   );
   const manifest =
     input?.manifest ??
-    serializeContentCapabilityManifest({ version: 1, signed_token: token, entrypoint: "index.html" });
+    serializeContentCapabilityManifest({
+      version: 1,
+      signed_token: token,
+      entrypoint: "index.html",
+      revision_number: 1,
+      artifact_updated_at: "2026-08-24T00:00:00.000Z",
+    });
   const files = await Promise.all([
     seedEncryptedRevisionFile({
       workspaceId,
@@ -96,20 +96,36 @@ describe("content capability routing", () => {
   it("serves the entrypoint at root and root-relative files from one capability origin", async () => {
     const { env } = await capabilityFixture();
 
-    const entrypoint = await handleRequest(new Request(`${capabilityOrigin}/`, { headers: viewerFrameHeaders }), env);
-    const pageTwo = await handleRequest(
-      new Request(`${capabilityOrigin}/page2.html`, { headers: viewerFrameHeaders }),
-      env,
-    );
+    const entrypoint = await handleRequest(new Request(`${capabilityOrigin}/`), env);
+    const pageTwo = await handleRequest(new Request(`${capabilityOrigin}/page2.html`), env);
     const script = await handleRequest(new Request(`${capabilityOrigin}/assets/app.js`), env);
 
     expect(entrypoint.status).toBe(200);
-    await expect(entrypoint.text()).resolves.toContain('href="/page2.html"');
+    const entrypointBody = await entrypoint.text();
+    expect(entrypointBody).toContain('href="/page2.html"');
     expect(pageTwo.status).toBe(200);
     await expect(pageTwo.text()).resolves.toContain("page two");
     expect(script.status).toBe(200);
     await expect(script.text()).resolves.toContain("loaded");
-    expect(pageTwo.headers.get("content-security-policy")).toContain("frame-ancestors https://app.agent-paste.sh");
+    expect(pageTwo.headers.get("content-security-policy")).toContain(
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
+    );
+    expect(entrypoint.headers.get("x-frame-options")).toBe("DENY");
+    expect(entrypointBody).not.toContain("agent-paste:viewer-height");
+  });
+
+  it("accepts non-expiring tokens only after capability-host resolution", async () => {
+    const { env } = await capabilityFixture({ expiresAt: null });
+    const capabilityResponse = await handleRequest(new Request(`${capabilityOrigin}/index.html`), env);
+    expect(capabilityResponse.status).toBe(200);
+
+    const manifestObject = await env.ARTIFACTS.get(contentCapabilityObjectKey(capabilityId));
+    const manifest = manifestObject?.body ? JSON.parse(await new Response(manifestObject.body).text()) : null;
+    const legacyResponse = await handleRequest(
+      new Request(`https://usercontent.example.test/v/${manifest?.signed_token ?? ""}/index.html`),
+      env,
+    );
+    expect(legacyResponse.status).toBe(404);
   });
 
   it("reuses the signed token denylist checks for selective Access Link revocation", async () => {

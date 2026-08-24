@@ -1,4 +1,5 @@
 import type { AgentViewLockdownState } from "@agent-paste/contracts";
+import { mintContentCapabilityId } from "@agent-paste/tokens/content-capability";
 import { buildAgentView, buildPublishResult } from "../../agent-view.js";
 import { isArtifactExpired } from "../../artifact-expiry.js";
 import { operationActorFromApiActor } from "../../created-by.js";
@@ -17,6 +18,7 @@ import {
   readUploadSessionStateInEntities,
   type UploadSessionState,
 } from "../upload-session-lifecycle.js";
+import { nextArtifactUpdatedAt } from "./artifact-workflow-helpers.js";
 
 export async function createUploadSession(
   ctx: RepositoryCoreContext,
@@ -263,7 +265,7 @@ async function executePublishWrites(
     fileCount: input.revision.file_count,
     sizeBytes: input.revision.size_bytes,
     expiresAt,
-    updatedAt: input.now,
+    updatedAt: nextArtifactUpdatedAt(input.artifact.updated_at, input.now),
   });
   const updatedArtifact = await entities.artifacts.findById(input.artifact.id, input.actor.workspace_id);
   if (!updatedArtifact) {
@@ -288,7 +290,18 @@ async function executePublishWrites(
   if (!publishedRevision) {
     repositoryError("revision_unpublished");
   }
-  return { updatedArtifact, publishedRevision };
+  return { updatedArtifact: await ensureArtifactCapabilityId(entities, updatedArtifact), publishedRevision };
+}
+
+async function ensureArtifactCapabilityId(entities: Entities, artifact: Artifact): Promise<Artifact> {
+  if (artifact.capability_id) {
+    return artifact;
+  }
+  const capabilityId = await entities.artifacts.setCapabilityIdIfMissing(artifact.id, mintContentCapabilityId());
+  if (!capabilityId) {
+    repositoryError("artifact_not_found");
+  }
+  return { ...artifact, capability_id: capabilityId };
 }
 
 export async function publishRevision(
@@ -319,12 +332,13 @@ export async function publishRevision(
       const { workspace, artifact, revision } = await loadActivePublishTargets(entities, ctx, publishInput);
       const publishState = ensureRevisionPublishable(revision);
       if (publishState === "published") {
+        const publishedArtifact = await ensureArtifactCapabilityId(entities, artifact);
         const publishMeta = {
           ephemeral_tier: isEphemeralWorkspace(workspace),
           ...(await publishFileObjectKeys(entities, artifact, revision)),
         };
         return buildPublishResult(
-          { ...artifact, revision_id: revision.id, entrypoint: revision.entrypoint },
+          { ...publishedArtifact, revision_id: revision.id, entrypoint: revision.entrypoint },
           revision,
           undefined,
           ctx.options,

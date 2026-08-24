@@ -19,6 +19,7 @@ export type ArtifactBytePurgeInput = {
   workspaceId: string;
   artifactId: string;
   revisionId: string;
+  capabilityId?: string | null;
   reason: BytePurgePayload["reason"];
   uploadSessionId?: string | null;
 };
@@ -56,7 +57,11 @@ export function enqueueArtifactBytePurge(
   return enqueueBytePurge(
     env,
     executor,
-    { ...input, prefixes: artifactPurgePrefixes(env, input.workspaceId, input.artifactId) },
+    {
+      ...input,
+      prefixes: artifactPurgePrefixes(env, input.workspaceId, input.artifactId),
+      ...(input.capabilityId !== undefined ? { capabilityId: input.capabilityId } : {}),
+    },
     hooks,
   );
 }

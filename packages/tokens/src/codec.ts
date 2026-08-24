@@ -17,7 +17,7 @@ export async function sign(payload: object, secret: string): Promise<string> {
  * never throws: a malformed token, bad signature, failed shape guard, or expired `exp` all return
  * `null`. Expiration is compared in whole seconds against the injected clock (default system).
  */
-export async function verify<T extends { exp: number }>(
+export async function verify<T extends { exp: number | null }>(
   token: string,
   secret: string,
   options: { isValid: (value: unknown) => value is T; clock?: Clock | undefined },
@@ -48,7 +48,7 @@ export async function verify<T extends { exp: number }>(
   }
 
   const nowSeconds = Math.floor((options.clock ?? systemClock).now() / 1000);
-  if (payload.exp < nowSeconds) {
+  if (payload.exp !== null && payload.exp < nowSeconds) {
     return null;
   }
 

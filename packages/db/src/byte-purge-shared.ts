@@ -73,6 +73,7 @@ export type BytePurgeEnqueueInput = {
   revisionId: string;
   reason: BytePurgePayload["reason"];
   prefixes: string[];
+  capabilityId?: string | null;
   uploadSessionId?: string | null;
 };
 
@@ -94,6 +95,7 @@ export async function enqueueBytePurge(
     artifact_id: input.artifactId,
     revision_id: input.revisionId,
     upload_session_id: input.uploadSessionId ?? null,
+    capability_id: input.capabilityId ?? null,
     prefixes: input.prefixes,
     reason: input.reason,
   });

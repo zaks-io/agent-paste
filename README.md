@@ -112,10 +112,9 @@ Two rules keep this path safe:
   carries the resolved Workspace, actor, and scopes instead. If signed in,
   publish normally; if a human is present, run `login` first and skip
   `--ephemeral`.
-- **No JavaScript.** Unclaimed ephemeral HTML is served under a script-disabled
-  policy. Static pages are fine; browser apps and interactive visualizations
-  need authenticated publish, which runs them inside the controlled Artifact
-  Viewer.
+- **JavaScript executes.** Unclaimed ephemeral HTML uses the same isolated
+  capability origin and open artifact CSP as claimed content. It still expires
+  after 24 hours, carries `noindex`, and has the lowest write caps.
 
 The npm package is [`@zaks-io/agent-paste`](./apps/cli/README.md). The installed
 command is `agent-paste`; examples use `npx @zaks-io/agent-paste ...` for

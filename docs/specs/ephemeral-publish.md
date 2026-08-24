@@ -13,7 +13,7 @@ An agent with no credential and no human in the loop can publish in one call and
 agent-paste publish ./sim --ephemeral
 ```
 
-The command provisions an **Ephemeral Workspace** behind the scenes, publishes the **Artifact**, and returns both a working **unlisted Share Link** (`unlisted_url`; a no-login, script-disabled URL the agent hands back at once) and a one-time **claim link** (`claim_url`; the **Claim Token** rides the URL hash only). Auto-creating the unlisted Share Link is the one exception to "publish is content-only and private": an accountless publish has no human in the loop to run a follow-up `set-visibility` call, so the server mints it at finalize. The trial is deliberately short-lived and tightly capped. When the agent's operator wants persistence, interactivity (executable HTML/JS), or higher write volume, they log in (free) and open the claim link to reparent the **Artifacts** into their **Personal Workspace** while marking the source **Ephemeral Workspace** consumed. There is no user-backed session before claim; the signed-in browser session that opens the claim link chooses the destination **Workspace**. Heavy publishers pay for the `pro` **Plan**. Reads are never gated beyond the existing **Artifact Rate Limit** - the audience is never the thing that is throttled.
+The command provisions an **Ephemeral Workspace** behind the scenes, publishes the **Artifact**, and returns both a working **unlisted Share Link** (`unlisted_url`; a no-login URL the agent hands back at once) and a one-time **claim link** (`claim_url`; the **Claim Token** rides the URL hash only). Auto-creating the unlisted Share Link is the one exception to "publish is content-only and private": an accountless publish has no human in the loop to run a follow-up `set-visibility` call, so the server mints it at finalize. The trial is deliberately short-lived and tightly capped. When the agent's operator wants persistence or higher write volume, they log in (free) and open the claim link to reparent the **Artifacts** into their **Personal Workspace** while marking the source **Ephemeral Workspace** consumed. There is no user-backed session before claim; the signed-in browser session that opens the claim link chooses the destination **Workspace**. Heavy publishers pay for the `pro` **Plan**. Reads are never gated beyond the existing **Artifact Rate Limit**. The audience is never the thing that is throttled.
 
 Selection rule for agents: check for authenticated publish before choosing
 Ephemeral Publish. Run `agent-paste whoami --json`; it exits `0` whether or not
@@ -23,12 +23,10 @@ reports `"authenticated": false` and interactive auth is possible, run
 `agent-paste login` first. Use `--ephemeral` only when no login is available, or
 when the user explicitly asks for accountless publish. Ephemeral is not the
 `free` **Plan**; it is the unclaimed
-restricted tier. Use it for non-interactive text, markdown, images, and static
-HTML/CSS. In particular, interactive HTML/JavaScript work that needs
-agent-authored or publisher-authored script execution requires authenticated
-publish, because unclaimed ephemeral content is served under the script-restricted
-**Execution Policy**. The trusted viewer's platform-injected resize reporter and
-approved Tailwind CDN are controlled exceptions.
+restricted tier. It may contain interactive HTML and JavaScript. Ephemeral
+content uses the same open artifact CSP as claimed content, but keeps the
+shortest Auto Deletion window, `noindex`, tighter write caps, advisory scanning,
+and immediate denylist revocation.
 
 ## Actors
 
@@ -148,7 +146,7 @@ Reads are gated only by the existing **Artifact Rate Limit** abuse ceiling ([ADR
 
 Ordered by priority; each is invisible to honest agents or felt only at volume.
 
-1. **Isolated Content Origin + Execution Policy** - already in place ([ADR 0030](../adr/0030-mvp-execution-policy-cdn-allowlisted-csp.md), [ADR 0001](../adr/0001-private-artifact-storage-behind-controlled-origin.md)). Architectural prerequisite.
+1. **Isolated capability origin + revocation** - every Artifact executes on its own unguessable hostname, with denylist and manifest deletion as the immediate cut-off ([ADR 0094](../adr/0094-capability-url-is-the-artifact-link.md), [ADR 0001](../adr/0001-private-artifact-storage-behind-controlled-origin.md)). Architectural prerequisite.
 2. **Shortest ephemeral Auto Deletion** - caps content dwell time; primary lever against phishing/malware/SEO value.
 3. **Provision write dampening plus hard global gate.** Native `[[ratelimits]]` bindings remain as an outer layer for per-source dampening and obvious regional bursts ([ADR 0064](../adr/0064-native-ratelimit-bindings-for-authenticated-counters.md)). They are not the load-bearing global cost-control guarantee. The authoritative aggregate ceiling is the API Worker's single named Durable Object gate; it fails closed before any **Ephemeral Workspace**, credential, or **Claim Token** is created. Allowed provision attempts then pay a short server-side wait (`EPHEMERAL_PROVISION_DELAY_MS`, default 200ms) before DB provisioning so abuse spends wall time instead of Agent Paste CPU.
 4. **`noindex`/`nofollow`** on ephemeral content.
@@ -156,19 +154,14 @@ Ordered by priority; each is invisible to honest agents or felt only at volume.
 
 Not adopted: Turnstile on the agent path (browser-only, blocks the hero use case), proof-of-work on the provision path (wastes honest-agent CPU and is not the real ceiling), Cloudflare Bot Management score / JA3 / JA4 (Enterprise-only), WAF Content Scanning (Enterprise + files-only), and file-bytes hash-reputation malware scanning such as VirusTotal or MalwareBazaar provider checks. Turnstile is used only on the human claim/upgrade surfaces.
 
-## Script Execution by Tier
+## Script Execution
 
-Agent-authored or publisher-authored JavaScript requires a claimed tenant and the controlled **Artifact Viewer** path, so the platform only runs that untrusted code behind an auditable identity ([ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md)). Platform-injected viewer code, including the resize reporter, and the approved Tailwind CDN remain explicit unclaimed trusted-viewer exceptions. The line is enforced at serve time by the **Execution Policy** and viewer-frame checks, not by inspecting HTML.
-
-| Content                                                  | Ephemeral (unclaimed)                                                                                                | Claimed (`free`+)                                   |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| markdown, text, JSON, images                             | renders                                                                                                              | renders                                             |
-| static HTML + CSS (no script)                            | renders                                                                                                              | renders                                             |
-| HTML with publisher `<script>` / inline handlers / `.js` | renders inert; the trusted viewer permits the injected resize reporter and approved Tailwind CDN, not publisher code | executes only inside the controlled Artifact Viewer |
-
-- **Two Execution Policies.** Ephemeral content is served under a script-restricted policy, overriding the base CDN-allowlisted policy ([ADR 0030](../adr/0030-mvp-execution-policy-cdn-allowlisted-csp.md)) the same way the SVG case overrides it today ([ADR 0042](../adr/0042-strict-extension-based-served-content-type.md)). Direct content stays at `script-src 'none'`; trusted viewer-framed content permits only the injected resize reporter and the explicitly approved `https://cdn.tailwindcss.com` source. Other embedded and external publisher scripts fail closed.
-- **`content` stays DB-free.** The tier signal rides in the verified content-gateway token payload as a script-disabled bit set by `api` at mint time. `content` selects the CSP from the token with no lookup ([ADR 0028](../adr/0028-signed-url-tokens-for-content-gateway-authorization.md)); an absent or unverifiable bit defaults to script-disabled. Direct top-level `usercontent` HTML navigations are also forced script-disabled at request time.
-- **Claiming enables viewer execution.** Promotion to a claimed **Workspace** mints subsequent viewer content-gateway tokens without the script-disabled bit, and the `content` Worker only serves the interactive policy for trusted Artifact Viewer iframe navigations. Direct `usercontent` HTML remains inert raw byte delivery.
+Agent-authored and publisher-authored JavaScript executes for both ephemeral and
+claimed Artifacts on the isolated capability origin. The `content` Worker does
+not inspect the tenant tier and content tokens carry no execution-policy bit.
+Every inline-served file type receives the open artifact CSP defined in
+[`content-rendering.md`](./content-rendering.md). Claim changes ownership,
+retention, and write caps; it does not change whether content can execute.
 
 ## Data-Model Deltas
 
@@ -188,7 +181,10 @@ Field-level shape lands in [`data-model.md`](./data-model.md) and the contracts 
 - A valid **Claim Token** redeemed by an authenticated **Workspace Member** reparents the surviving **Artifacts** into the member's Personal **Workspace** at the `free` cap set, marks the source **Ephemeral Workspace** consumed, and is single-use thereafter.
 - A **Claim Token** that is redeemed, expired, or absent from the public Access Link Signed URL grants no ownership.
 - Reads against an ephemeral **Artifact** are gated only by the existing **Artifact Rate Limit**, not by any per-publisher read cap.
-- An ephemeral **Artifact** containing publisher script renders inert: static markup and CSS display, and no publisher `<script>`, inline handler, or `.js` asset executes. The exceptions are the platform-injected resize reporter and explicitly approved Tailwind CDN in a trusted viewer iframe. The content-gateway token carries the script-disabled bit and `content` selects this script-restricted **Execution Policy** with no DB lookup. After the tenant is claimed, newly minted viewer tokens may omit the bit, but script executes only inside the controlled Artifact Viewer iframe; direct `usercontent` HTML remains inert.
+- An ephemeral **Artifact** containing publisher script executes on its isolated
+  capability origin under the same open artifact CSP as claimed content. It
+  retains `noindex`, the 24-hour Auto Deletion policy, ephemeral write caps,
+  advisory scanning, and denylist revocation.
 - Provision and claim emit **Audit Events**. A malicious Cloudflare URL Scanner
   verdict on ephemeral content can drive artifact-scoped **Platform Lockdown**;
   operator review can also drive **Platform Lockdown**.

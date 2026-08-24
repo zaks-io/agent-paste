@@ -25,7 +25,7 @@ Preview intentionally keeps `CONTENT_CAPABILITY_DOMAIN` unset. Its natural hostn
    }
    ```
 
-4. Confirm production `api`, `content`, and `web` set `CONTENT_CAPABILITY_DOMAIN` to `agent-paste.sh` and preview leaves it unset. Confirm the production app CSP includes `https://*.agent-paste.sh` in `frame-src`.
+4. Confirm production `api`, `content`, and `web` set `CONTENT_CAPABILITY_DOMAIN` to `agent-paste.sh` and preview leaves it unset.
 5. Confirm the obsolete manifest lifecycle rule is absent. Durable capability
    manifests share one prefix, and pinned manifests must survive beyond 91 idle
    days:
@@ -56,11 +56,18 @@ Preview continues to exercise legacy signed content URLs. The capability-host ch
 ## Production Verification
 
 - Publish a directory containing `index.html`, `/page2.html`, `/assets/app.js`, CSS `url(/fonts/site.woff2)`, and `import("/assets/chunk.js")`.
-- Confirm the returned `revision_content_url` hostname matches `{32 lowercase hexadecimal characters}-uc.agent-paste.sh`.
+- Confirm the returned capability URL hostname matches `{32 lowercase hexadecimal characters}-uc.agent-paste.sh`.
 - Confirm all file URLs share that origin and contain no `/v/` token.
-- Open the Artifact Viewer and follow the root-relative page link.
-- Confirm the script, CSS, font, and module requests all return 200 from the same origin.
-- Revoke the Access Link and confirm its capability returns the generic 404 while a separately minted link for the same Revision still works.
-- Confirm a copied top-level capability URL remains inert and non-frameable.
+- Open the capability URL top-level and follow the root-relative page link.
+- Confirm inline and external HTTPS scripts execute, and the CSS, font, fetch,
+  media, and module requests return successfully under the open artifact CSP.
+- Revise the Artifact and confirm the same capability URL serves the new
+  Revision.
+- Pin the Artifact and confirm the same URL remains valid beyond its stored
+  finite expiration. Unpin it and confirm that finite expiration is restored.
+- Expire or delete the Artifact and confirm its capability returns the generic
+  404 after retryable lifecycle cleanup removes the manifest.
 - Confirm a legacy `/v/{token}/{path}` URL still works.
-- Record the immutable deploy run, the capability hostname shape without the full bearer URL, the successful same-origin asset requests, and the selective revocation result in AP-418.
+- Record the immutable deploy run, the capability hostname shape without the
+  full bearer URL, the same-origin asset requests, the revise-in-place result,
+  and the lifecycle cut-off result in AP-418.

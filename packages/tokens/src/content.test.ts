@@ -11,6 +11,10 @@ describe("isValidContentTokenPayload", () => {
     expect(isValidContentTokenPayload(base)).toBe(true);
   });
 
+  it("accepts the signed no-expiration value used by pinned capabilities", () => {
+    expect(isValidContentTokenPayload({ ...base, exp: null })).toBe(true);
+  });
+
   it("accepts optional workspace_id, access_link_id, key_prefix, paths, object keys, noindex, and script_disabled", () => {
     expect(
       isValidContentTokenPayload({
@@ -54,6 +58,12 @@ describe("mint + verify", () => {
   it("rejects an expired token", async () => {
     const token = await mintContentToken({ ...base, exp: 1000 }, SECRET);
     expect(await verifyContentToken(token, SECRET, fixedClock(1001))).toBeNull();
+  });
+
+  it("keeps a signed no-expiration token valid", async () => {
+    const payload = { ...base, exp: null };
+    const token = await mintContentToken(payload, SECRET);
+    expect(await verifyContentToken(token, SECRET, fixedClock(4_000_000_000))).toEqual(payload);
   });
 });
 

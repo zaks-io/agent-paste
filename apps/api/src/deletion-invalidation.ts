@@ -31,6 +31,7 @@ export type PostCommitArtifactDeletionInput = {
   workspaceId: string;
   artifactId: string;
   revisionId: string | null;
+  capabilityId?: string | null;
 };
 
 export type PostCommitArtifactDeletionResult = {
@@ -131,6 +132,7 @@ export async function runPostCommitArtifactDeletionInvalidation(
       workspaceId: input.workspaceId,
       artifactId: input.artifactId,
       revisionId: input.revisionId,
+      ...(input.capabilityId !== undefined ? { capabilityId: input.capabilityId } : {}),
       reason: "deletion",
     },
     options.hooks,

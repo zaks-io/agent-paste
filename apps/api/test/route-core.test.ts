@@ -179,7 +179,7 @@ describe("AP-91 shared API route helpers", () => {
     expect(workos).toMatchObject({ ok: true, principal: { identity } });
   });
 
-  it("sets noindex and script_disabled on signed content URLs when the agent view is ephemeral tier", async () => {
+  it("sets noindex without disabling scripts when the agent view is ephemeral tier", async () => {
     const signed = (await signAgentViewContentUrls(
       {
         workspace_id: workspaceId,
@@ -198,10 +198,10 @@ describe("AP-91 shared API route helpers", () => {
     const { verifyContentToken } = await import("@agent-paste/tokens/content");
     const payload = await verifyContentToken(token, "content-secret");
     expect(payload?.noindex).toBe(true);
-    expect(payload?.script_disabled).toBe(true);
+    expect(payload?.script_disabled).toBeUndefined();
   });
 
-  it("sets script_disabled false on signed content URLs for claimed tenants", async () => {
+  it("omits the retired script_disabled bit for claimed tenants", async () => {
     const signed = (await signAgentViewContentUrls(
       {
         workspace_id: workspaceId,
@@ -218,7 +218,7 @@ describe("AP-91 shared API route helpers", () => {
     const token = decodeURIComponent(signed.revision_content_url.split("/v/")[1]?.split("/")[0] ?? "");
     const { verifyContentToken } = await import("@agent-paste/tokens/content");
     const payload = await verifyContentToken(token, "content-secret");
-    expect(payload?.script_disabled).toBe(false);
+    expect(payload?.script_disabled).toBeUndefined();
   });
 
   it("signs Agent View content URLs without leaking internal workspace fields", async () => {

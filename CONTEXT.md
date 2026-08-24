@@ -71,7 +71,7 @@ _Avoid_: Historical share link, frozen artifact link
 
 <a id="revision-content-url"></a>
 **Revision Content URL**:
-A direct signed **Content Origin** URL shaped `https://usercontent.agent-paste.sh/v/{token}/{path}` for one file path in one **Revision**. Publish surfaces return it as `revision_content_url`. It expires with its signed token and never receives a **Live Update**.
+A transitional publish-response field named `revision_content_url`. In capability-routed environments, it is the durable **Artifact** entrypoint shaped `https://{capability-id}-uc.agent-paste.sh/{path}`; the URL stays stable and resolves to later Published Revisions after publish. Preview and local environments without capability routing return the legacy signed **Content Origin** URL shaped `https://usercontent.agent-paste.sh/v/{token}/{path}` for one file path in one **Revision**. Step 5 replaces this transitional field with the single `url` contract.
 _Avoid_: Share link, Artifact URL, permalink, live link
 
 <a id="bundle"></a>
@@ -96,7 +96,7 @@ _Avoid_: Personal account, user workspace
 
 <a id="ephemeral-workspace"></a>
 **Ephemeral Workspace**:
-A system-owned, unclaimed **Workspace** that an agent self-provisions with no **Workspace Member**, behind a short-lived, low-cap **Agent Credential**. It is an ordinary RLS-scoped tenant in its unclaimed state; promoted to a claimed **Workspace** by redeeming its **Claim Token**. Its content is served under a script-restricted **Execution Policy** while unclaimed: direct content is script-disabled, while trusted viewer frames may load the platform-injected resize reporter and the explicitly approved Tailwind CDN; agent-authored scripts stay blocked. After claim, interactive HTML can execute only through the controlled **Artifact Viewer**.
+A system-owned, unclaimed **Workspace** that an agent self-provisions with no **Workspace Member**, behind a short-lived, low-cap **Agent Credential**. It is an ordinary RLS-scoped tenant in its unclaimed state; promoted to a claimed **Workspace** by redeeming its **Claim Token**. Its content executes on the same isolated per-Artifact capability origin as claimed content. The unclaimed tier is constrained by the shortest **Auto Deletion**, `noindex`, low write caps, advisory scanning, and immediate denylist revocation.
 _Avoid_: Anonymous account, agent account, guest workspace
 
 <a id="ephemeral-publish"></a>
@@ -352,7 +352,7 @@ _Avoid_: Remote localStorage, app database, permanent storage
 
 <a id="private-link"></a>
 **Private Link**:
-The login-walled clean viewer (`/v/<artifactId>`) for a **Workspace Member**, returned by every **Publish** as `private_url`. No management chrome. It is **permanent and stable**: the URL is built only from the **Artifact** id with no token, signature, or **Expiration** baked in, and `add_revision` republishes into the same id, so the same link keeps working and live-updates to the latest **Published Revision** — it never changes when content is revised. It is **member-only and always private**: there is no public mode and **Publish** never grants unauthenticated access. It stops resolving only when the **Artifact** itself is gone (deleted or swept by **Auto Deletion**), which is a property of the **Artifact**'s lifetime, not the link. To hand the same content to someone without a login, the **Member** mints a separate, revocable **Share Link**.
+The login-walled clean viewer (`/v/<artifactId>`) for a **Workspace Member**, returned by every **Publish** as `private_url`. No management chrome. It is **permanent and stable**: the URL is built only from the **Artifact** id with no token, signature, or **Expiration** baked in, and `add_revision` republishes into the same id, so the same link keeps working and live-updates to the latest **Published Revision**; it never changes when content is revised. The Private Link itself is **member-only and always private**: it has no public mode and never grants unauthenticated access. During the serialized rollout, capability-routed REST/CLI JSON separately carries a no-login bearer under `revision_content_url`. It stops resolving only when the **Artifact** itself is gone (deleted or swept by **Auto Deletion**), which is a property of the **Artifact**'s lifetime, not the link. To create a managed no-login grant, the **Member** mints a separate, revocable **Share Link**.
 _Avoid_: Artifact URL, console link, /artifacts page, dashboard link, permalink (it is stable, but say "permanent member link" not "permalink", which we reserve against for public links)
 
 <a id="access-link"></a>
@@ -610,8 +610,8 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - A **Revision Link** can continue resolving to an older **Revision** after a newer **Revision** is published
 - A **Revision Link** can be revoked without deleting its **Revision**
 - **Retention** can make a **Revision Link** stop resolving without revoking it
-- The base REST/CLI **Publish Result** includes the **Artifact** id, **Revision** id, authenticated **Private Link** (`private_url`), direct signed **Revision Content URL**, public **Agent View** URL, expiration, and **Bundle Availability**
-- **Publish** is content-only and private-first on every surface (CLI, MCP, REST): it accepts no visibility input and returns exactly one link, the **Private Link** as `private_url`. There is no `share`/`--share` input and no `shared` output bit
+- The base REST/CLI **Publish Result** includes the **Artifact** id, **Revision** id, authenticated **Private Link** (`private_url`), transitional **Revision Content URL**, public **Agent View** URL, expiration, and **Bundle Availability**
+- **Publish** is content-only and private-first on every surface (CLI, MCP, REST): it accepts no visibility input, returns the **Private Link** as the human-facing `private_url`, and has no `share`/`--share` input or `shared` output bit. In capability-routed environments, the REST/CLI JSON result also carries a no-login bearer capability under the transitional `revision_content_url` field
 - A **Share Link** is created only by an explicit sharing step, never by **Publish**
 - MCP publish tools do not create a **Revision Link** unless the agent explicitly calls **Create Revision Link**
 - **Access Link Lockdown** blocks creating or resolving **Access Links**; **Publish** is content-only and never an **Access Link** operation
@@ -652,7 +652,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - An **Agent Credential** requires publish **Scope** to select a **Public Version**
 - An **Agent Credential** requires publish **Scope** to put a **Public Artifact** **Public Offline**
 - Moving a **Public Artifact** to a new **Public Version** does not change its **Public URL**, **Private Link**, or **Share Link**
-- The CLI and MCP **Publish Result** both surface one `private_url`; the CLI still carries the full **Publish Result** (IDs, `private_url`, exact **Revision Content URL**, **Agent View** URL, **Bundle** status) in its JSON for automation
+- The CLI and MCP **Publish Result** both surface one human-facing `private_url`; the CLI still carries the full **Publish Result** (IDs, `private_url`, transitional **Revision Content URL**, **Agent View** URL, **Bundle** status) in its JSON for automation
 - A **Publish Result** includes separate human-view links and agent-view links
 - A **Publish Result** includes **Bundle Availability** even when the **Bundle** is not ready
 - A **Workspace** has exactly one **Usage Policy**
@@ -826,11 +826,11 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - **Agent View**, **Manifest**, and **Display Metadata** are not served as **Untrusted Content**
 - **Untrusted Content** is viewed under an **Execution Policy**
 - **Execution Policy** applies to all **Render Modes**
-- The MVP uses tier- and viewer-context-specific **Execution Policies** for **Untrusted Content**: direct unclaimed responses are script-disabled, trusted viewer frames permit the injected resize reporter and approved Tailwind CDN, claimed content uses the claimed policy, and SVG responses carry a stricter **Execution Policy** that blocks `<script>` execution
+- The MVP uses one open artifact **Execution Policy** for inline-served **Untrusted Content** on isolated per-Artifact capability origins. Scripts, styles, fonts, images, media, and connections may use HTTPS sources, and inline scripts/styles may execute
 - A **Served Content Type** is derived by `content` from the normalized file extension, not from any value the agent supplied at upload
 - A **Served Content Type** for `text/*` types includes `charset=utf-8`
 - Unrecognized file extensions resolve to **Served Content Type** `application/octet-stream` with `Content-Disposition: attachment`
-- SVG files resolve to **Served Content Type** `image/svg+xml` and carry the tightened SVG **Execution Policy**
+- SVG files resolve to **Served Content Type** `image/svg+xml` and carry the same open artifact **Execution Policy** as other inline-served content
 - Renderer pages served by `content` declare their own **Served Content Type** and are not routed through the allowlist
 - A **Served Content Type** is platform-controlled; **Workspace** settings and agent-provided values cannot change it
 - **Publish** returns a **Publish Result**
@@ -1013,11 +1013,11 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Dev:** "Do **Unpublished Artifacts** count against creation limits?"
 > **Domain expert:** "Yes — **Usage Policy** controls their creation too."
 > **Dev:** "What is the simplest way for an agent to share a folder?"
-> **Domain expert:** "Two steps. **Publish** the folder — it is content-only and private, and returns the **Private Link** as `private_url`. Then, only if the user wants an unlisted no-login link, run the explicit sharing step. That mints or reuses the **Artifact**'s one **Share Link** and returns its **Access Link Signed URL**."
+> **Domain expert:** "The default human handoff is still two steps. **Publish** the folder and return the **Private Link** as `private_url`. Then, if the user wants a managed unlisted link, run the explicit sharing step. During the rollout, capability-routed REST/CLI JSON also includes a no-login bearer under `revision_content_url`, but it is not a **Share Link**."
 > **Dev:** "What does an agent get back after **Publish**?"
-> **Domain expert:** "One `private_url` — the login-walled `/v/<artifactId>` viewer. The CLI also carries the full **Publish Result** in its JSON — IDs, `private_url`, direct **Revision Content URL**, **Agent View** URL, **Bundle** status, and any **Safety Warnings** — for automation. There is no `shared` bit and no `share` input."
+> **Domain expert:** "One human-facing `private_url`: the login-walled `/v/<artifactId>` viewer. The CLI also carries the full **Publish Result** in its JSON for automation, including IDs, `private_url`, transitional **Revision Content URL**, **Agent View** URL, **Bundle** status, and any **Safety Warnings**. In capability-routed environments, that transitional content URL is a no-login bearer. There is no `shared` bit and no `share` input."
 > **Dev:** "Does **Publish** make an **Artifact** shareable by default?"
-> **Domain expert:** "No — **Publish** is content-only and private on every surface; nothing is reachable without login. Unlisted sharing is a separate explicit step, and `private_url` is always the authenticated **Private Link**."
+> **Domain expert:** "**Publish** never creates a **Share Link**, and `private_url` is always the authenticated **Private Link**. During the rollout, capability-routed REST/CLI JSON also contains a no-login bearer as `revision_content_url`; managed unlisted sharing remains a separate explicit step."
 > **Dev:** "What if the **Share Link** cannot be created during the sharing step?"
 > **Domain expert:** "The sharing step fails without touching the **Published Revision** or its **Private Link**."
 > **Dev:** "Can a **Share Link** be pinned to the current **Published Revision**?"
@@ -1027,7 +1027,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Dev:** "Can an agent create a **Share Link** while **Access Link Lockdown** is active?"
 > **Domain expert:** "No — lockdown prevents creating new **Access Links**."
 > **Dev:** "Does **Publish** create a pinned link for the exact **Revision**?"
-> **Domain expert:** "No — **Publish** returns only the latest-following **Private Link**. For an unlisted latest-moving link an agent runs the sharing step to mint the **Share Link**; for a pinned URL of the exact **Revision** it calls **Create Revision Link**."
+> **Domain expert:** "No. **Publish** does not create a **Revision Link**. It returns the latest-following **Private Link** and, in capability-routed REST/CLI JSON during the rollout, the latest-following capability bearer. For a pinned URL of the exact **Revision**, call **Create Revision Link**."
 > **Dev:** "Can an agent create another **Revision Link** for the same **Revision**?"
 > **Domain expert:** "Yes — additional **Revision Links** can be created for separate audiences."
 > **Dev:** "Can an agent create an additional **Revision Link** during **Access Link Lockdown**?"
@@ -1097,7 +1097,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Dev:** "Does **Execution Policy** only apply to HTML?"
 > **Domain expert:** "No — it applies to all **Render Modes** for **Untrusted Content**."
 > **Dev:** "Can an agent request a custom **Execution Policy**?"
-> **Domain expert:** "Not in the MVP — agents cannot request a custom **Execution Policy**; the platform selects fixed policies by tenant tier and trusted viewer context."
+> **Domain expert:** "Not in the MVP. Agents cannot request a custom **Execution Policy**; the platform uses one open policy on isolated per-Artifact capability origins."
 > **Dev:** "Can **Render Mode** be audio?"
 > **Domain expert:** "Yes — audio is a first-class **Render Mode**."
 > **Dev:** "Can **Render Mode** be video?"

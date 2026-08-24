@@ -88,6 +88,7 @@ type WebArtifactDetail = WebArtifactRow & {
   file_count: number;
   size_bytes: number;
   viewer: { iframe_src: string; render_mode: string } | null;
+  capability_view: AgentView | null;
 };
 
 type WebApiKeyRow = ApiKeySummary & { revoked: boolean };
@@ -368,6 +369,7 @@ export type Repository = {
   ): Promise<{ data: ArtifactSummary[]; page_info: PageInfo }>;
   deleteMemberArtifact(input: { actor: ApiActor; idempotencyKey: string; artifactId: string; now?: Date }): Promise<{
     artifact_id: string;
+    capability_id: string | null;
     workspace_id: string;
     revision_id: string | null;
     deleted_at: string;
@@ -472,12 +474,13 @@ export type Repository = {
   }): Promise<CleanupResult>;
   listArtifacts(workspaceId?: string, status?: string): Promise<{ data: ArtifactSummary[]; page_info: PageInfo }>;
   getArtifactDetail(artifactId: string): Promise<ArtifactDetail | null>;
-  deleteArtifact(input: {
-    actor: AdminActor;
-    idempotencyKey: string;
-    artifactId: string;
-    now?: Date;
-  }): Promise<{ artifact_id: string; workspace_id: string; revision_id: string | null; deleted_at: string }>;
+  deleteArtifact(input: { actor: AdminActor; idempotencyKey: string; artifactId: string; now?: Date }): Promise<{
+    artifact_id: string;
+    capability_id: string | null;
+    workspace_id: string;
+    revision_id: string | null;
+    deleted_at: string;
+  }>;
   listOperationEvents(): Promise<{ data: OperationEvent[]; page_info: PageInfo }>;
   forceExpireArtifact(input: {
     artifactId: string;

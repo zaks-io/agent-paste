@@ -1,8 +1,21 @@
-import type { Breadcrumb, ErrorEvent } from "@sentry/cloudflare";
-import { isSensitiveKey, normalizeKey, pathFromUrl, sanitizeString } from "./logging.js";
+import type { Breadcrumb, CloudflareOptions, ErrorEvent } from "@sentry/cloudflare";
+import { contentCapabilityIdFromValue, isSensitiveKey, normalizeKey, pathFromUrl, sanitizeString } from "./logging.js";
+
+type SentrySpan = Parameters<NonNullable<CloudflareOptions["beforeSendSpan"]>>[0];
+type SentryTraceContext = NonNullable<NonNullable<ErrorEvent["contexts"]>["trace"]>;
+const TRACE_ID_PATTERN = /^[0-9a-f]{32}$/iu;
+const SPAN_ID_PATTERN = /^[0-9a-f]{16}$/iu;
+const TRACE_ID_PSEUDONYMS = new Map<string, string>();
+const MAX_TRACE_ID_PSEUDONYMS = 4096;
 
 export function sanitizeSentryEvent(event: ErrorEvent): ErrorEvent {
   const safe: ErrorEvent = { ...event };
+  const capabilityId =
+    typeof event.request?.url === "string" ? contentCapabilityIdFromValue(event.request.url) : undefined;
+  const capabilityRequest = capabilityId !== undefined;
+  if (event.transaction !== undefined) {
+    safe.transaction = capabilityRequest ? "[redacted_capability_request]" : sanitizeString(event.transaction);
+  }
   if (event.message !== undefined) {
     safe.message = sanitizeString(event.message);
   }
@@ -40,12 +53,79 @@ export function sanitizeSentryEvent(event: ErrorEvent): ErrorEvent {
     safe.breadcrumbs = event.breadcrumbs.map(sanitizeSentryBreadcrumb);
   }
   if (event.contexts) {
-    safe.contexts = sanitizeSentryRecord(event.contexts) as NonNullable<ErrorEvent["contexts"]>;
+    const contexts = sanitizeSentryRecord(event.contexts) as NonNullable<ErrorEvent["contexts"]>;
+    const trace = event.contexts.trace;
+    if (trace) {
+      contexts.trace = pseudonymizeTraceContext(contexts.trace, trace);
+    }
+    safe.contexts = contexts;
   }
   if (event.extra) {
     safe.extra = sanitizeSentryRecord(event.extra);
   }
+  if (event.tags) {
+    safe.tags = sanitizeSentryRecord(event.tags) as NonNullable<ErrorEvent["tags"]>;
+  }
+  if (event.spans) {
+    safe.spans = event.spans.map((span) => sanitizeSentrySpan(span, capabilityId));
+  }
   return safe;
+}
+
+export function sanitizeSentrySpan(span: SentrySpan, knownCapabilityId?: string): SentrySpan {
+  const capabilityId =
+    knownCapabilityId ??
+    (span.description !== undefined ? contentCapabilityIdFromValue(span.description) : undefined) ??
+    Object.values(span.data).reduce<string | undefined>(
+      (found, value) => found ?? (typeof value === "string" ? contentCapabilityIdFromValue(value) : undefined),
+      undefined,
+    );
+  const traceId = pseudonymizeTraceId(span.trace_id);
+  const profileId = span.profile_id ? pseudonymizeTraceId(span.profile_id) : undefined;
+  const segmentId = span.segment_id ? pseudonymizeTraceId(span.segment_id) : undefined;
+  if (capabilityId) {
+    return {
+      ...span,
+      trace_id: traceId,
+      ...(profileId ? { profile_id: profileId } : {}),
+      ...(segmentId ? { segment_id: segmentId } : {}),
+      description: "[redacted_capability_request]",
+      data: {},
+      links: [],
+    };
+  }
+  return {
+    ...span,
+    trace_id: traceId,
+    ...(profileId ? { profile_id: profileId } : {}),
+    ...(segmentId ? { segment_id: segmentId } : {}),
+    ...(span.description !== undefined ? { description: sanitizeString(span.description) } : {}),
+    data: sanitizeSentryRecord(span.data) as SentrySpan["data"],
+    ...(span.links ? { links: [] } : {}),
+  };
+}
+
+function pseudonymizeTraceId(traceId: string): string {
+  if (!TRACE_ID_PATTERN.test(traceId)) {
+    return sanitizeString(traceId);
+  }
+  const normalized = traceId.toLowerCase();
+  const existing = TRACE_ID_PSEUDONYMS.get(normalized);
+  if (existing) {
+    return existing;
+  }
+  if (TRACE_ID_PSEUDONYMS.size >= MAX_TRACE_ID_PSEUDONYMS) {
+    const oldest = TRACE_ID_PSEUDONYMS.keys().next().value;
+    if (oldest !== undefined) {
+      TRACE_ID_PSEUDONYMS.delete(oldest);
+    }
+  }
+  let replacement = crypto.randomUUID().replaceAll("-", "");
+  while (replacement === normalized) {
+    replacement = crypto.randomUUID().replaceAll("-", "");
+  }
+  TRACE_ID_PSEUDONYMS.set(normalized, replacement);
+  return replacement;
 }
 
 function sanitizeSentryRequest(request: NonNullable<ErrorEvent["request"]>): NonNullable<ErrorEvent["request"]> {
@@ -110,4 +190,21 @@ function sanitizeSentryValue(key: string, value: unknown, depth = 0): unknown {
     return Object.keys(record).length > 0 ? record : undefined;
   }
   return undefined;
+}
+
+function pseudonymizeTraceContext(
+  safeTrace: SentryTraceContext | undefined,
+  trace: SentryTraceContext,
+): SentryTraceContext {
+  const restored = { ...safeTrace };
+  if (typeof trace.trace_id === "string" && TRACE_ID_PATTERN.test(trace.trace_id)) {
+    restored.trace_id = pseudonymizeTraceId(trace.trace_id);
+  }
+  if (typeof trace.span_id === "string" && SPAN_ID_PATTERN.test(trace.span_id)) {
+    restored.span_id = trace.span_id;
+  }
+  if (typeof trace.parent_span_id === "string" && SPAN_ID_PATTERN.test(trace.parent_span_id)) {
+    restored.parent_span_id = trace.parent_span_id;
+  }
+  return restored as SentryTraceContext;
 }

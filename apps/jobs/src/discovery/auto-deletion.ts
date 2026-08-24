@@ -11,6 +11,7 @@ type AutoDeletionRow = {
   id: string;
   workspace_id: string;
   revision_id: string;
+  capability_id: string | null;
 };
 
 export async function runAutoDeletionDiscovery(executor: SqlExecutor, env: Env, now: string): Promise<SweepResult> {
@@ -21,7 +22,7 @@ export async function runAutoDeletionDiscovery(executor: SqlExecutor, env: Env, 
 
   const limit = AUTO_DELETION_SWEEP_CAP + 1;
   const rows = await withPlatformScope(executor).query<AutoDeletionRow>(
-    `select a.id, a.workspace_id, a.revision_id
+    `select a.id, a.workspace_id, a.revision_id, a.capability_id
      from artifacts a
      inner join revisions r on r.id = a.revision_id and r.artifact_id = a.id
      where a.status = 'active'
@@ -81,6 +82,7 @@ export async function runAutoDeletionDiscovery(executor: SqlExecutor, env: Env, 
         workspaceId: row.workspace_id,
         artifactId: row.id,
         revisionId: row.revision_id,
+        capabilityId: row.capability_id,
         reason: "deletion",
       });
       if (sideEffects.enqueued) {

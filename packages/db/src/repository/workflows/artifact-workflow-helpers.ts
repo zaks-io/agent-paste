@@ -12,6 +12,15 @@ type ArtifactAuditAction =
   | "artifact.pinned"
   | "artifact.unpinned";
 
+export function nextArtifactUpdatedAt(current: string, requested: string): string {
+  const currentMs = new Date(current).getTime();
+  const requestedMs = new Date(requested).getTime();
+  if (!Number.isFinite(currentMs) || !Number.isFinite(requestedMs)) {
+    throw new Error("artifact_updated_at_invalid");
+  }
+  return new Date(Math.max(requestedMs, currentMs + 1)).toISOString();
+}
+
 export async function mustActiveArtifact(
   entities: Entities,
   input: { artifactId: string; workspaceId?: string; requirePublishedRevision?: boolean },
@@ -47,6 +56,7 @@ export async function insertArtifactAuditEvent(
 export function toDeletedArtifactResult(artifact: Artifact, deletedAt: string) {
   return {
     artifact_id: artifact.id,
+    capability_id: artifact.capability_id,
     workspace_id: artifact.workspace_id,
     revision_id: artifact.revision_id,
     deleted_at: deletedAt,

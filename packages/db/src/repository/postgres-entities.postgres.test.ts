@@ -85,6 +85,7 @@ function artifactRow(input: {
     id: input.id,
     workspace_id: input.workspaceId,
     revision_id: null,
+    capability_id: null,
     status: input.status,
     title: "demo",
     entrypoint: "index.html",
@@ -262,6 +263,28 @@ describe("postgresEntities PGlite coverage", () => {
   }, 60_000);
 
   describe.sequential("artifact cleanup SQL", () => {
+    it("persists the first capability ID and preserves it on later attempts", async () => {
+      const targetId = createId("art");
+      const firstCandidate = "00112233445566778899aabbccddeeff";
+      const secondCandidate = "ffeeddccbbaa99887766554433221100";
+
+      await fixture.uow.read({ kind: "workspace", workspaceId }, async (entities) => {
+        await entities.artifacts.insert(
+          artifactRow({ id: targetId, workspaceId, status: "active", expiresAt: future }),
+        );
+
+        await expect(entities.artifacts.setCapabilityIdIfMissing(targetId, firstCandidate)).resolves.toBe(
+          firstCandidate,
+        );
+        await expect(entities.artifacts.setCapabilityIdIfMissing(targetId, secondCandidate)).resolves.toBe(
+          firstCandidate,
+        );
+        await expect(entities.artifacts.findById(targetId, workspaceId)).resolves.toMatchObject({
+          capability_id: firstCandidate,
+        });
+      });
+    });
+
     it("markDeleted sets deleted status fields on the targeted artifact", async () => {
       const targetId = createId("art");
       const deletedAt = "2026-06-05T13:00:00.000Z";

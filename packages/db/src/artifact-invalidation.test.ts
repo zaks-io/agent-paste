@@ -80,6 +80,21 @@ describe("artifact invalidation", () => {
     expect(bundleKey.startsWith(envScopedPrefix)).toBe(true);
   });
 
+  it("carries the capability ID into the retryable purge message", async () => {
+    const send = vi.fn(async () => ({}));
+    const query = vi.fn(async () => ({ rows: [{ id: revisionId }] }));
+    const executor = { query, transaction: vi.fn(async (run) => run({ query, transaction: vi.fn() })) };
+    const capabilityId = "00112233445566778899aabbccddeeff";
+    await enqueueArtifactBytePurge({ BYTE_PURGE_QUEUE: { send } }, executor, {
+      workspaceId,
+      artifactId,
+      revisionId,
+      capabilityId,
+      reason: "deletion",
+    });
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ capability_id: capabilityId }));
+  });
+
   it("runs denylist before enqueue in applyArtifactPurgeSideEffects", async () => {
     const order: string[] = [];
     const send = vi.fn(async () => {
