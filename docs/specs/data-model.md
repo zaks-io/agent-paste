@@ -315,12 +315,14 @@ Env-scoped purge prefixes for jobs and invalidation:
 - Artifact scope: `env/{env}/workspaces/{workspaceId}/artifacts/{artifactId}/`
 - Revision scope: `env/{env}/workspaces/{workspaceId}/artifacts/{artifactId}/revisions/{revisionId}/`
 
-Deletion and retention enqueue the exact capability manifest key, the legacy
-revision-file prefix, and the env-scoped artifact prefix so the bearer manifest,
-bundles, and files are purged together. Upload cleanup purges the session's
-legacy revision-file keys only because no published capability or bundle exists
-yet. No broad R2 lifecycle rule applies to the capability-manifest prefix. See
-[`jobs.md`](./jobs.md#byte-purge).
+Artifact expiration, revocation, and deletion enqueue the exact capability
+manifest key, the legacy revision-file prefix, and the env-scoped Artifact
+prefix so the bearer manifest, bundles, and files are purged together. Ordinary
+Revision retention purges only that Revision's legacy file prefix and env-scoped
+Revision prefix; the active Artifact manifest remains in place. Upload cleanup
+purges the session's legacy revision-file keys only because no published
+capability or bundle exists yet. No broad R2 lifecycle rule applies to the
+capability-manifest prefix. See [`jobs.md`](./jobs.md#byte-purge).
 
 ## KV Denylist
 

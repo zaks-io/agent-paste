@@ -37,7 +37,7 @@ export type R2Bucket = {
       httpMetadata?: { contentType?: string };
       onlyIf?: { etagMatches?: string; etagDoesNotMatch?: string };
     },
-  ): Promise<unknown | null>;
+  ): Promise<{ etag?: string } | null>;
 };
 
 export type KVNamespace = {

@@ -276,7 +276,7 @@ down.
 | Worker split by boundary               | Limits which runtime can touch auth, metadata, bytes, queues, or long-lived connections.                     |
 | Private R2                             | Prevents storage URLs from becoming public access paths.                                                     |
 | Isolated Content Origin                | Keeps Untrusted Content off the dashboard and API origins.                                                   |
-| Signed content tokens                  | Scope reads to one Revision, path set, expiration, and execution policy.                                     |
+| Signed content tokens                  | Scope reads to one Revision, path set, and expiration.                                                       |
 | Fragment Access Links                  | Keeps Access Link credential material out of server-side request paths and normal logs.                      |
 | Hashed credentials and Claim Tokens    | Stores verifier material, not bearer secrets.                                                                |
 | Postgres RLS                           | Scopes tenant rows by Workspace inside database transactions.                                                |

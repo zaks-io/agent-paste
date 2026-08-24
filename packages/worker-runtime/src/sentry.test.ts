@@ -264,6 +264,45 @@ describe("sentryOptions", () => {
     expect(JSON.stringify({ event, span })).not.toContain("00112233445566778899aabbccddeeff");
   });
 
+  it("does not classify ordinary 32-character IDs as capability requests", () => {
+    const options = sentryOptions({
+      SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1",
+      SENTRY_TRACES_SAMPLE_RATE: "1",
+    });
+    const event = options.beforeSend?.(
+      {
+        type: undefined,
+        request: {
+          method: "GET",
+          url: "https://api.test/traces/00112233445566778899aabbccddeeff",
+        },
+        transaction: "GET /traces/:traceId",
+      },
+      {},
+    );
+    const span = options.beforeSendSpan?.({
+      data: {
+        diagnostic: "keep me",
+        trace_reference: "00112233445566778899aabbccddeeff",
+      },
+      description: "trace 00112233445566778899aabbccddeeff",
+      op: "task",
+      span_id: "ffeeddccbbaa9988",
+      start_timestamp: 1,
+      trace_id: "00112233445566778899aabbccddeeff",
+    });
+
+    expect(event?.transaction).toBe("GET /traces/:traceId");
+    expect(span).toMatchObject({
+      data: {
+        diagnostic: "keep me",
+        trace_reference: "[redacted_capability_id]",
+      },
+      description: "trace [redacted_capability_id]",
+      op: "task",
+    });
+  });
+
   it("adds a configured tracing sample rate only when Sentry is enabled", () => {
     expect(
       sentryOptions({

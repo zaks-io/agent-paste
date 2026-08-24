@@ -1097,7 +1097,7 @@ _Avoid_: tenant filter, RLS shim, scoped map
 > **Dev:** "Does **Execution Policy** only apply to HTML?"
 > **Domain expert:** "No — it applies to all **Render Modes** for **Untrusted Content**."
 > **Dev:** "Can an agent request a custom **Execution Policy**?"
-> **Domain expert:** "Not in the MVP — agents cannot request a custom **Execution Policy**; the platform selects fixed policies by tenant tier and trusted viewer context."
+> **Domain expert:** "Not in the MVP. Agents cannot request a custom **Execution Policy**; the platform uses one open policy on isolated per-Artifact capability origins."
 > **Dev:** "Can **Render Mode** be audio?"
 > **Domain expert:** "Yes — audio is a first-class **Render Mode**."
 > **Dev:** "Can **Render Mode** be video?"

@@ -101,7 +101,11 @@ frames, plugins, base URL changes, form submissions, and framing ancestors.
 
 ## Base Security Headers
 
-Every untrusted-content response carries the CSP above plus these baseline headers:
+Every untrusted-content response carries these platform-controlled baseline
+headers. Capability-host responses pair them with the open CSP above. Legacy
+`/v/{token}/{path}` responses instead retain their per-path legacy CSP; trusted
+viewer-framed HTML omits `X-Frame-Options: DENY` after opening `frame-ancestors`
+to the configured dashboard origins.
 
 ```text
 Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
@@ -168,9 +172,11 @@ inside either URL shape costs a single zero-body round trip.
 
 **ETag.** Every file and bundle 200 carries a strong `ETag` derived from
 immutable revision identity plus the request-scoped HTML representation.
-Non-HTML paths hash only `revision_id` and `path`. HTML paths append a
-representation suffix for `noindex` injection. The value is computed from the
-token payload alone, with no R2 read.
+Non-HTML paths hash only `revision_id` and `path`. Capability-host HTML appends
+its `noindex` representation state. Legacy `/v` HTML appends `noindex`, the
+trusted-viewer versus direct-navigation mode, the resize-reporter transform
+version for trusted viewer frames, and the effective script mode. The value is
+computed from the token payload and request context, with no R2 read.
 
 **Conditional requests.** A request whose `If-None-Match` matches the ETag (or
 is `*`) returns `304 Not Modified` with no body, **before** any R2 read or

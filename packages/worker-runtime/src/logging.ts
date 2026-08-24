@@ -55,7 +55,6 @@ const JSON_SECRET_ASSIGNMENT_PATTERN =
 const URL_PATTERN = /https?:\/\/[^\s"'<>]+/giu;
 const CONTENT_CAPABILITY_HOSTNAME_PATTERN = /[0-9a-f]{32}-uc(?:\.[a-z0-9-]+)+/iu;
 const CONTENT_CAPABILITY_HOSTNAME_GLOBAL_PATTERN = /[0-9a-f]{32}-uc(?:\.[a-z0-9-]+)+/giu;
-const CONTENT_CAPABILITY_ID_PATTERN = /\b[0-9a-f]{32}\b/iu;
 const CONTENT_CAPABILITY_ID_GLOBAL_PATTERN = /\b[0-9a-f]{32}\b/giu;
 
 export function emitWorkerLog(input: WorkerLogInput): void {
@@ -241,7 +240,8 @@ export function containsContentCapabilityId(value: string): boolean {
 }
 
 export function contentCapabilityIdFromValue(value: string): string | undefined {
-  return value.match(CONTENT_CAPABILITY_ID_PATTERN)?.[0]?.toLowerCase();
+  const hostname = value.match(CONTENT_CAPABILITY_HOSTNAME_PATTERN)?.[0];
+  return hostname?.slice(0, 32).toLowerCase();
 }
 
 export function pathFromUrl(raw: string): string {

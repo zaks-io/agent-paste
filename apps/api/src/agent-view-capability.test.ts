@@ -190,6 +190,101 @@ describe("agent view capability origins", () => {
     expect(payload?.revision_id).toBe("rev_2");
   });
 
+  it("retries a conditional manifest conflict against the latest stored state", async () => {
+    const { env, writes } = capabilityEnv();
+    const bucket = env.ARTIFACTS;
+    if (!bucket?.put) throw new Error("test bucket requires put");
+    const originalPut = bucket.put.bind(bucket);
+    let putAttempts = 0;
+    bucket.put = async (key, value, options) => {
+      putAttempts += 1;
+      if (putAttempts === 1) {
+        writes.set(
+          key,
+          JSON.stringify({
+            version: 1,
+            signed_token: "competing-token",
+            entrypoint: "index.html",
+            revision_number: 1,
+            artifact_updated_at: "2026-08-24T00:00:00.000Z",
+          }),
+        );
+        return null;
+      }
+      return originalPut(key, value, options);
+    };
+
+    await signAgentViewContentUrls(
+      {
+        workspace_id: workspaceId,
+        capability_id: capabilityId,
+        artifact_id: "art_1",
+        revision_id: "rev_2",
+        revision_number: 2,
+        artifact_updated_at: "2026-08-24T00:01:00.000Z",
+        entrypoint: "index.html",
+        expires_at: "2030-01-01T00:00:00.000Z",
+        files: [{ path: "index.html" }],
+      },
+      env,
+      { workspaceId },
+    );
+
+    expect(putAttempts).toBe(2);
+    const manifest = parseContentCapabilityManifest(writes.get(contentCapabilityObjectKey(capabilityId)) ?? "");
+    expect(manifest?.revision_number).toBe(2);
+  });
+
+  it("fails loudly after repeated conditional manifest conflicts", async () => {
+    const { env } = capabilityEnv();
+    const bucket = env.ARTIFACTS;
+    if (!bucket) throw new Error("test bucket missing");
+    let putAttempts = 0;
+    bucket.put = async () => {
+      putAttempts += 1;
+      return null;
+    };
+
+    await expect(
+      signAgentViewContentUrls(
+        {
+          workspace_id: workspaceId,
+          capability_id: capabilityId,
+          artifact_id: "art_1",
+          revision_id: "rev_1",
+          revision_number: 1,
+          artifact_updated_at: "2026-08-24T00:00:00.000Z",
+          entrypoint: "index.html",
+          expires_at: "2030-01-01T00:00:00.000Z",
+          files: [{ path: "index.html" }],
+        },
+        env,
+        { workspaceId },
+      ),
+    ).rejects.toThrow(/lost repeated conditional write races/);
+    expect(putAttempts).toBe(5);
+  });
+
+  it("rejects a persisted capability without revision state", async () => {
+    const { env } = capabilityEnv();
+
+    await expect(
+      signAgentViewContentUrls(
+        {
+          workspace_id: workspaceId,
+          capability_id: capabilityId,
+          artifact_id: "art_1",
+          revision_id: "rev_1",
+          entrypoint: "index.html",
+          expires_at: "2030-01-01T00:00:00.000Z",
+          files: [{ path: "index.html" }],
+        },
+        env,
+        { workspaceId },
+      ),
+    ).rejects.toThrow(/persisted capability requires revision state/);
+  });
+
   it("rewrites the same manifest between pinned and expiring lifecycle states", async () => {
     const { env, writes } = capabilityEnv();
     const baseView = {
