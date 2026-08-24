@@ -8,6 +8,7 @@ export const artifactQueries = defineSqlQuerySourceMap("packages/db/src/queries/
   async insert(db: DrizzleDb, row: Artifact) {
     await db.insert(artifacts).values({
       id: row.id,
+      capabilityId: row.capability_id,
       workspaceId: row.workspace_id,
       revisionId: row.revision_id,
       status: row.status,
@@ -256,6 +257,7 @@ export const artifactFileQueries = defineSqlQuerySourceMap(
 function mapArtifact(row: typeof artifacts.$inferSelect): Artifact {
   return {
     id: row.id,
+    capability_id: row.capabilityId,
     workspace_id: row.workspaceId,
     revision_id: row.revisionId ?? null,
     status: row.status as Artifact["status"],

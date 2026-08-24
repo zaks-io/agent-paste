@@ -107,63 +107,58 @@ export const BASE_CONTENT_SECURITY_POLICY = [
   "frame-ancestors 'none'",
 ].join("; ");
 
+export const CAPABILITY_CONTENT_SECURITY_POLICY = [
+  "default-src 'none'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
+  "style-src 'self' 'unsafe-inline' https:",
+  "font-src 'self' data: https:",
+  "img-src 'self' data: blob: https:",
+  "connect-src 'self' https:",
+  "media-src 'self' blob: https:",
+  "frame-src 'none'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+].join("; ");
+
 function parseContentSecurityPolicyDirectives(csp: string): Map<string, string> {
   const directives = new Map<string, string>();
   for (const segment of csp.split(";")) {
     const trimmed = segment.trim();
-    if (!trimmed) {
-      continue;
-    }
+    if (!trimmed) continue;
     const spaceIndex = trimmed.search(/\s/u);
-    if (spaceIndex === -1) {
-      directives.set(trimmed, "");
-      continue;
-    }
-    directives.set(trimmed.slice(0, spaceIndex), trimmed.slice(spaceIndex + 1).trim());
+    directives.set(
+      spaceIndex === -1 ? trimmed : trimmed.slice(0, spaceIndex),
+      spaceIndex === -1 ? "" : trimmed.slice(spaceIndex + 1).trim(),
+    );
   }
   return directives;
 }
 
 function contentSecurityPolicyDirectiveOrder(csp: string): string[] {
-  const order: string[] = [];
-  for (const segment of csp.split(";")) {
-    const trimmed = segment.trim();
-    if (!trimmed) {
-      continue;
-    }
-    const name = trimmed.split(/\s+/u)[0];
-    if (name) {
-      order.push(name);
-    }
-  }
-  return order;
+  return csp
+    .split(";")
+    .map((segment) => segment.trim().split(/\s+/u)[0])
+    .filter((name): name is string => Boolean(name));
 }
 
 function serializeContentSecurityPolicy(order: string[], directives: Map<string, string>): string {
   return order
     .map((name) => {
       const value = directives.get(name);
-      if (value === undefined) {
-        return null;
-      }
-      return value.length > 0 ? `${name} ${value}` : name;
+      return value === undefined ? null : value.length > 0 ? `${name} ${value}` : name;
     })
     .filter((segment): segment is string => segment !== null)
     .join("; ");
 }
 
-/** Derives the ephemeral script-disabled policy from the base policy by disabling script execution only. */
 export function deriveScriptDisabledContentSecurityPolicy(baseCsp: string): string {
   const directives = parseContentSecurityPolicyDirectives(baseCsp);
   directives.set("script-src", "'none'");
   return serializeContentSecurityPolicy(contentSecurityPolicyDirectiveOrder(baseCsp), directives);
 }
 
-/**
- * Replaces `script-src` with hash sources plus any explicitly approved external
- * sources so known inline scripts (for example the viewer resize reporter) may
- * run without reopening the full publisher script policy.
- */
 export function withScriptSrcHash(
   csp: string,
   hashes: readonly string[],
@@ -172,48 +167,28 @@ export function withScriptSrcHash(
   const directives = parseContentSecurityPolicyDirectives(csp);
   directives.set("script-src", [...hashes.map((hash) => `'sha256-${hash}'`), ...externalSources].join(" "));
   const order = contentSecurityPolicyDirectiveOrder(csp);
-  if (!order.includes("script-src")) {
-    order.push("script-src");
-  }
+  if (!order.includes("script-src")) order.push("script-src");
   return serializeContentSecurityPolicy(order, directives);
 }
 
-/**
- * Replaces `script-src` with a single nonce source so one trusted inline script
- * (for example the viewer resize reporter) may run while publisher scripts stay
- * blocked.
- */
 export function withScriptSrcNonce(csp: string, nonce: string): string {
   const directives = parseContentSecurityPolicyDirectives(csp);
   directives.set("script-src", `'nonce-${nonce}'`);
   const order = contentSecurityPolicyDirectiveOrder(csp);
-  if (!order.includes("script-src")) {
-    order.push("script-src");
-  }
+  if (!order.includes("script-src")) order.push("script-src");
   return serializeContentSecurityPolicy(order, directives);
 }
 
-/**
- * Rewrites the `frame-ancestors` directive so the trusted app origin(s) may frame
- * this otherwise-locked content. The served HTML is still sandboxed by the viewer
- * (`sandbox="allow-scripts"`, no `allow-same-origin`); this only relaxes which page
- * may host that sandbox. An empty list restores `frame-ancestors 'none'`.
- */
 export function withFrameAncestors(csp: string, ancestors: readonly string[]): string {
   const directives = parseContentSecurityPolicyDirectives(csp);
   directives.set("frame-ancestors", ancestors.length > 0 ? ancestors.join(" ") : "'none'");
-  // Always emit the directive: callers that relax framing also drop X-Frame-Options,
-  // so an absent frame-ancestors would otherwise leave the content frameable by all.
   const order = contentSecurityPolicyDirectiveOrder(csp);
-  if (!order.includes("frame-ancestors")) {
-    order.push("frame-ancestors");
-  }
+  if (!order.includes("frame-ancestors")) order.push("frame-ancestors");
   return serializeContentSecurityPolicy(order, directives);
 }
 
 export const SCRIPT_DISABLED_CONTENT_SECURITY_POLICY =
   deriveScriptDisabledContentSecurityPolicy(BASE_CONTENT_SECURITY_POLICY);
-
 export const SVG_CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; img-src data:";
 
 export const CONTENT_SECURITY_HEADERS = {
@@ -243,18 +218,24 @@ export function contentTypeForPath(path: string): string {
   return DEFAULT_MIME_TYPE;
 }
 
-export function servedContentForPath(path: string, options?: { scriptDisabled?: boolean }): ServedContent {
+export function servedContentForPath(
+  path: string,
+  options?: { scriptDisabled?: boolean; capability?: boolean },
+): ServedContent {
   const extension = path.match(/\.[^./\\]+$/u)?.[0]?.toLowerCase();
   const contentType = contentTypeForPath(path);
-  const scriptDisabled = options?.scriptDisabled === true;
-  const baseCsp = scriptDisabled ? SCRIPT_DISABLED_CONTENT_SECURITY_POLICY : BASE_CONTENT_SECURITY_POLICY;
+  const baseCsp = options?.capability
+    ? CAPABILITY_CONTENT_SECURITY_POLICY
+    : options?.scriptDisabled
+      ? SCRIPT_DISABLED_CONTENT_SECURITY_POLICY
+      : BASE_CONTENT_SECURITY_POLICY;
   if (contentType === DEFAULT_MIME_TYPE) {
     return { contentType, disposition: "attachment", csp: baseCsp };
   }
   if (extension !== undefined && ATTACHMENT_EXTENSIONS.has(extension as MimeExtension)) {
     return { contentType, disposition: "attachment", csp: baseCsp };
   }
-  if (extension === ".svg") {
+  if (extension === ".svg" && !options?.capability) {
     return { contentType, disposition: "inline", csp: SVG_CONTENT_SECURITY_POLICY };
   }
   return { contentType, disposition: "inline", csp: baseCsp };

@@ -39,6 +39,7 @@ export function buildAgentView(
   files: StoredFile[],
   contentBaseUrl: string,
   revision: {
+    revision_number: number | null;
     render_mode: RenderMode;
     bundle_status: BundleStatus;
     bundle_status_updated_at: string | null;
@@ -51,8 +52,12 @@ export function buildAgentView(
   const prefix = `${base}/v/${artifact.id}.${revisionId}`;
   return {
     workspace_id: artifact.workspace_id,
+    capability_id: artifact.capability_id,
+    pinned_at: artifact.pinned_at,
+    artifact_updated_at: artifact.updated_at,
     artifact_id: artifact.id,
     revision_id: revisionId,
+    revision_number: revision.revision_number,
     title: artifact.title,
     created_at: artifact.created_at,
     expires_at: artifact.expires_at,
@@ -112,6 +117,7 @@ export function buildPublishResult(
   artifact: Artifact,
   revision: {
     id: string;
+    revision_number: number | null;
     render_mode: RenderMode;
     bundle_status: BundleStatus;
     bundle_status_updated_at: string | null;
@@ -127,7 +133,11 @@ export function buildPublishResult(
   const revisionContentUrl = `${contentBaseUrl}/v/${artifact.id}.${revision.id}/${encodePath(artifact.entrypoint)}`;
   const result = {
     artifact_id: artifact.id,
+    capability_id: artifact.capability_id,
+    pinned_at: artifact.pinned_at,
+    artifact_updated_at: artifact.updated_at,
     revision_id: revision.id,
+    revision_number: revision.revision_number,
     render_mode: revision.render_mode,
     title: artifact.title,
     private_url: `${webBaseUrl}/v/${encodeURIComponent(artifact.id)}`,

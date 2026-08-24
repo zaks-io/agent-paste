@@ -23,7 +23,11 @@ import {
 } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { Hono } from "hono";
-import { resolveContentCapabilityRequest } from "./content-capability.js";
+import {
+  isContentCapabilityRequest,
+  markContentCapabilityRequest,
+  resolveContentCapabilityRequest,
+} from "./content-capability.js";
 import type { AppContext, Env } from "./env.js";
 import {
   contentPath,
@@ -67,7 +71,11 @@ const contentRegistrar = createRegistrar({
       const token = contentTokenFromRequest(appContext);
       const signer = resolveContentTokenSigner(env);
       const payload = signer ? await signer.verify(token) : null;
-      if (!payload || !isAllowedPath(path, payload, env.AGENT_PASTE_ENV)) {
+      if (
+        !payload ||
+        (payload.exp === null && !isContentCapabilityRequest(context.req.raw)) ||
+        !isAllowedPath(path, payload, env.AGENT_PASTE_ENV)
+      ) {
         return { ok: false, code: "not_found" };
       }
       if (await isDenylisted(context.env as Env, payload)) {
@@ -128,7 +136,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
   try {
     const capability = await resolveContentCapabilityRequest(request, env);
     if (capability.kind === "request") {
-      return await app.fetch(capability.request, env);
+      return await app.fetch(markContentCapabilityRequest(capability.request), env);
     }
     if (capability.kind === "not_found") {
       const notFoundUrl = new URL(request.url);

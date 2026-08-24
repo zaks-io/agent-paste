@@ -1,32 +1,32 @@
 # Content Rendering Spec
 
-The `content` Worker serves untrusted artifact files from a capability-scoped `{id}-uc.agent-paste.sh` origin. Until production suffix routing is activated, legacy content continues to use `usercontent.agent-paste.sh`. The Worker reads private R2 objects and a KV denylist. It has no Hyperdrive binding. A content origin is a byte delivery origin, not the product viewer: direct top-level navigations are always inert and unbranded.
+The `content` Worker serves untrusted artifact files from a capability-scoped `{id}-uc.agent-paste.sh` origin. Until production suffix routing is activated, legacy content continues to use `usercontent.agent-paste.sh`. The Worker reads private R2 objects and a KV denylist. It has no Hyperdrive binding. A capability origin is the Artifact's top-level page and scripts are enabled.
 
-Content URLs are delivery URLs for exact Revisions, not Access Links. A capability
-or legacy `/v/{token}/{path}` URL never advances to a newer Revision after another
-publish. Latest-moving public viewers start from an Access Link Signed URL
-minted from a Share Link, which opens the Artifact Viewer.
-Artifact URLs are authenticated workspace management URLs, not recipient handoff
-URLs.
+One capability URL belongs to an Artifact and advances to its latest Published
+Revision. Revising the Artifact rewrites its manifest without changing the
+hostname. Legacy `/v/{token}/{path}` URLs remain fixed to one Revision and
+expire naturally. Artifact `/v/{artifactId}` URLs remain authenticated workspace
+management URLs.
 
 ## URL Shape
 
-| Shape                                                 | Meaning                                                           |
-| ----------------------------------------------------- | ----------------------------------------------------------------- |
-| `https://{capability-id}-uc.agent-paste.sh/{path}`    | New file URL for one resolved viewer capability and one Revision. |
-| `https://usercontent.agent-paste.sh/v/{token}/{path}` | Legacy signed file URL, valid through its normal expiry.          |
-| `https://usercontent.agent-paste.sh/b/{token}`        | Signed bundle download; unchanged by capability origins.          |
+| Shape                                                 | Meaning                                                  |
+| ----------------------------------------------------- | -------------------------------------------------------- |
+| `https://{capability-id}-uc.agent-paste.sh/{path}`    | Durable Artifact URL and its same-origin files.          |
+| `https://usercontent.agent-paste.sh/v/{token}/{path}` | Legacy signed file URL, valid through its normal expiry. |
+| `https://usercontent.agent-paste.sh/b/{token}`        | Signed bundle download; unchanged by capability origins. |
 
-The capability ID is 16 random bytes encoded as 32 lowercase hexadecimal characters. It identifies one resolved viewer grant, not merely a Revision. `api` writes `content-capabilities/v1/{id}.json` to R2 before returning the URL. That manifest contains the entrypoint and the opaque signed content token. The token carries the complete authorization and path scope but no longer travels on each browser request.
+The capability ID is 16 cryptographically random bytes encoded as 32 lowercase hexadecimal characters. It is minted once at the Artifact's first publish and stored in `artifacts.capability_id`; the introducing migration backfills IDs for existing published Artifacts. `api` writes `content-capabilities/v1/{id}.json` to R2 before returning the URL. That manifest contains the entrypoint, the opaque signed content token for the current Published Revision, the Revision number, and the Artifact update timestamp. Conditional R2 writes compare those last two fields so a stale publish replay or slower concurrent write cannot roll the manifest backward. The token carries the complete authorization and path scope but does not travel on each browser request.
 
-Production sets `CONTENT_CAPABILITY_DOMAIN=agent-paste.sh` in `api`, `content`, and `web`. Preview leaves it absent and continues to mint the legacy `/v/{token}/{path}` URL because `{id}-uc.preview.agent-paste.sh` needs a deeper wildcard certificate. The app adds `https://*.agent-paste.sh` to `frame-src` in production so it can frame capability origins; the content Worker route and hostname parser remain restricted to `*-uc.agent-paste.sh`. Access Link Signed URLs keep their separate `/al/{publicId}#{blob}` shape on the app origin and resolve to a new capability for each resolved production view once capability hosting is active.
+Production sets `CONTENT_CAPABILITY_DOMAIN=agent-paste.sh` in `api`, `content`, and `web`. Preview leaves it absent and continues to mint the legacy `/v/{token}/{path}` URL because `{id}-uc.preview.agent-paste.sh` needs a deeper wildcard certificate. The content Worker route and hostname parser remain restricted to `*-uc.agent-paste.sh`. During the serialized rollout, existing Access Links retain their `/al/{publicId}#{blob}` shape and resolve through legacy Revision URLs. The `/al` surface is removed in the next rollout step.
 
 ## Token Checks
 
 For every capability request, `content` first validates the hostname, loads a bounded versioned manifest from R2, and then performs the same checks as a legacy request:
 
 - Token parse and signature.
-- Token expiration.
+- Token expiration. An explicit signed `exp: null` is accepted only for the
+  durable manifest of a pinned Artifact.
 - Token scope.
 - KV denylist keys for artifact and revision when present.
 - Requested path is within the signed revision.
@@ -37,9 +37,11 @@ Internal logs may record the failure category and non-bearer Artifact and Revisi
 
 ## Directory URL Semantics
 
-Every file URL in one resolved Agent View shares the same capability origin. `/` maps to the manifest entrypoint. Any other path maps directly to the same Revision path allowlist. Browser-standard root-relative HTML, CSS `url(...)`, JavaScript imports, fonts, images, and generated paths therefore resolve without rewriting content.
+Every file URL in an Artifact shares the same capability origin. `/` maps to the manifest entrypoint. Any other path maps directly to the current Revision path allowlist. Browser-standard root-relative HTML, CSS `url(...)`, JavaScript imports, fonts, images, and generated paths therefore resolve without rewriting content.
 
-The hostname is authorization scope. Two Access Links to the same Revision receive different capabilities because their signed tokens carry different `access_link_id` values. Revoking one link deny-lists only that link's capabilities.
+The hostname is the bearer capability and the authorization scope. Revising,
+pinning, or unpinning rewrites the manifest in place. Revocation deletes the
+manifest and the next publish mints a new capability ID.
 
 ## Artifact Read Throttling
 
@@ -66,7 +68,7 @@ beyond what a valid signed token already proves.
 | `.jpg`, `.jpeg`    | `image/jpeg`                            |
 | `.gif`             | `image/gif`                             |
 | `.webp`            | `image/webp`                            |
-| `.svg`             | `image/svg+xml` plus SVG-specific CSP   |
+| `.svg`             | `image/svg+xml`                         |
 | `.ico`             | `image/x-icon`                          |
 | `.woff`            | `font/woff`                             |
 | `.woff2`           | `font/woff2`                            |
@@ -82,43 +84,24 @@ Unknown extensions are served as `application/octet-stream` with `Content-Dispos
 
 ## Execution Policy
 
-Content tokens carry `script_disabled`, but the response still fails closed at
-request time. A response may use the interactive script policy only when all of
-these are true:
-
-- The token explicitly has `script_disabled: false`.
-- The current environment has a trusted app viewer origin.
-- Browser fetch metadata says this is an iframe navigation
-  (`Sec-Fetch-Dest: iframe` or `frame`, with `Sec-Fetch-Mode: navigate` when
-  present).
-
-`Sec-Fetch-Site` is not an authorization signal here. The sandbox deliberately
-omits `allow-same-origin`, so a link followed inside the artifact navigates from
-an opaque origin and browsers report the follow-on iframe request as
-`cross-site`. The response still limits the complete ancestor chain to the
-configured app origin with CSP `frame-ancestors`.
-
-Every other HTML document request, including a copied top-level
-`usercontent.agent-paste.sh/v/.../index.html` URL, receives the script-disabled
-CSP:
+Capability content is served as an ordinary top-level page with scripts enabled.
+The response does not switch policy based on tenant tier, fetch metadata, or
+iframe ancestry. All inline-served file types, including SVG, receive the same
+artifact CSP:
 
 ```text
-Content-Security-Policy: default-src 'none'; script-src 'none'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; img-src 'self' data: blob: https:; connect-src 'self' https:; media-src 'self' blob: https:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
 ```
 
-This means `usercontent` can still serve raw HTML/CSS/JS/image bytes for one
-Revision, but a browser only executes an HTML Artifact as an interactive page
-inside the controlled Artifact Viewer iframe on the app origin.
+During the serialized rollout, legacy `/v/{token}/{path}` requests retain the existing dashboard iframe CSP, frame-ancestor allowance, script-disable behavior, and resize reporter until the viewer is removed. The open policy above is selected only after the Worker has resolved a capability hostname; a caller cannot opt into it with a request header.
 
-When the interactive policy is selected, `script-src` allows only `'self'`,
-inline/eval execution, and these CDN origins: `https://cdn.jsdelivr.net`,
-`https://unpkg.com`, `https://cdnjs.cloudflare.com`, `https://esm.sh`, and
-`https://cdn.tailwindcss.com`.
+The policy permits any HTTPS source for scripts, styles, fonts, images, media,
+and fetch connections, plus inline script and style execution. It still blocks
+frames, plugins, base URL changes, form submissions, and framing ancestors.
 
 ## Base Security Headers
 
-Every untrusted-content response carries a CSP selected by the execution policy
-above, plus these baseline headers:
+Every untrusted-content response carries the CSP above plus these baseline headers:
 
 ```text
 Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
@@ -130,66 +113,9 @@ Cross-Origin-Resource-Policy: cross-origin
 Cross-Origin-Opener-Policy: same-origin
 ```
 
-SVG responses override CSP with:
-
-```text
-Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src data:
-```
-
-### Sandboxed asset fetches
-
-The Artifact Viewer iframe is sandboxed without `allow-same-origin`, so browser
-scripts inside it have an opaque origin serialized as `Origin: null`. Signed
-content file `200`/`304` responses echo `Access-Control-Allow-Origin: null`
-only for that exact request origin and add `Vary: Origin`. They do not set
-credentialed CORS headers, do not echo ordinary web origins, and still require
-the requested path to be listed in the signed content token. This lets an
-uploaded `index.html` fetch sibling uploaded assets such as `data/latest.json`
-from the same signed Revision without opening a general cross-origin read
-policy.
-
-### Framing the viewer
-
-The dashboard and Artifact Viewer render artifact content in a sandboxed iframe
-(`sandbox="allow-scripts allow-popups"`, never `allow-same-origin`; see [`web.md`](./web.md))
-hosted on the app origin, which is a separate hardened origin from this content subdomain
-(ADR 0014). To let that one trusted page host the sandbox while still refusing every other
-framer, **inline** content responses requested as viewer iframe navigations scope
-`frame-ancestors` to the app origin for the current environment and **omit**
-`X-Frame-Options` (its origin-blind `DENY` cannot allowlist a single origin, and
-`frame-ancestors` supersedes it in modern browsers):
-
-| `AGENT_PASTE_ENV` | `frame-ancestors`                       |
-| ----------------- | --------------------------------------- |
-| `production`      | `https://app.agent-paste.sh`            |
-| `preview`         | `https://app.preview.agent-paste.sh`    |
-| `dev`             | local web origins on `5173` and `18991` |
-| unset             | `'none'` (XFO `DENY` retained)          |
-
-This relaxation applies only to inline-served content requested as a trusted
-viewer iframe navigation. Direct `usercontent` navigations, bundle downloads,
-attachments, error envelopes, and non-content routes keep `frame-ancestors
-'none'` and `X-Frame-Options: DENY`.
-
-### Viewer iframe height handshake
-
-Trusted viewer iframe navigations for HTML inject a small inline resize reporter
-before `</body>` plus an end-marker element. The reporter posts
-`{ type: "agent-paste:viewer-height", height }` to the parent via `postMessage`
-so the app shell can size the sandboxed iframe and scroll the host page. The
-parent accepts messages only from the iframe's `contentWindow` and only when
-`event.origin` is the content URL origin or the opaque `"null"` origin produced
-by the sandbox.
-
-When the token's script policy is disabled (`script_disabled: true` or a
-non-viewer HTML navigation), publisher scripts stay blocked. For a trusted
-viewer-framed HTML response that is still script-disabled, the content Worker
-allows the static resize reporter hash and the explicitly approved
-`https://cdn.tailwindcss.com` source. Other inline and external publisher
-scripts remain blocked. Direct content-origin navigations keep
-`script-src 'none'`. Interactive viewer-framed HTML (`script_disabled: false`)
-uses the normal interactive CSP and an inline reporter allowed by
-`unsafe-inline`.
+The legacy `Origin: null` CORS response remains temporarily for existing
+sandboxed `/al` viewers during the serialized rollout. Capability pages and
+their assets are same-origin and do not depend on it.
 
 ## Render Modes
 
@@ -215,20 +141,14 @@ matches `workspace_id`. A single `object_key` token is valid for one listed path
 multi-path tokens use `object_keys` so each path resolves to its own stored
 object. Capability manifests move these signed fields out of the browser URL; they do not change their meaning or expose them in Agent View.
 
-Capability manifests are plain JSON inside the already-private ARTIFACTS bucket. Their authorization payload remains HMAC-signed, and `content` verifies that signature before trusting any scope. R2 lifecycle expires the `content-capabilities/v1/` prefix after 91 days.
-
-[ADR 0094](../adr/0094-capability-url-is-the-artifact-link.md) changes this
-current per-view capability model when its serialized implementation lands. One
-manifest then belongs to the Artifact and is rewritten in place across revise,
-pin, and unpin. Pin writes a signed content token with explicit `exp: null`;
-unpin restores a finite Artifact expiration. The rollout removes the broad
-91-day manifest lifecycle rule and makes expiration, revoke, and delete remove
-the manifest through retryable lifecycle cleanup, so a pinned URL remains live
-beyond 91 idle days without changing its capability ID.
-
-The current SVG-specific strict CSP remains in force until the same ADR 0094
-serving-posture change lands. That change removes the SVG override and applies
-the fully open artifact CSP to SVG as well as the other inline-served types.
+Capability manifests are plain JSON inside the already-private ARTIFACTS bucket.
+Their authorization payload remains HMAC-signed, and `content` verifies that
+signature before trusting any scope. One manifest belongs to the Artifact and is
+rewritten in place across revise, pin, and unpin. Pin writes a signed content
+token with explicit `exp: null`; unpin restores the Artifact's finite
+expiration. No broad R2 lifecycle rule applies to the capability prefix.
+Expiration, revoke, and delete write the denylist first and then remove the
+manifest through the retryable byte-purge queue.
 
 Legacy revision files and bundles keep artifact-byte encryption AAD v1:
 `workspace_id`, `artifact_id`, `revision_id`, and path. Workspace shared blobs use
@@ -241,20 +161,16 @@ checks above.
 ## Caching
 
 Reloads of an unchanged artifact must not re-download bytes. A capability origin
-is stable for the lifetime of one resolved Agent View, and every path under it is
-stable. Resolving the viewer again may mint a new capability hostname. Legacy
-tokens remain deterministic for the same signed payload. Every response carries
-a validator, so an unchanged reload inside either URL shape costs a single
-zero-body round trip.
+is stable for the lifetime of the Artifact, and every path under it points to
+the current manifest Revision. Legacy tokens remain deterministic for the same
+signed payload. Every response carries a validator, so an unchanged reload
+inside either URL shape costs a single zero-body round trip.
 
 **ETag.** Every file and bundle 200 carries a strong `ETag` derived from
-immutable revision identity plus any request-scoped HTML representation that
-rewrites the body or changes per-path headers. Non-HTML paths hash only
-`revision_id` and `path`. HTML paths append a representation suffix that
-distinguishes direct navigation vs trusted viewer iframe, noindex injection,
-script policy, and the current viewer resize reporter transform id. The value is
-computed from the token payload and fetch metadata alone (no R2 read), so a `304`
-cannot reuse a cached body from a different framing or script policy.
+immutable revision identity plus the request-scoped HTML representation.
+Non-HTML paths hash only `revision_id` and `path`. HTML paths append a
+representation suffix for `noindex` injection. The value is computed from the
+token payload alone, with no R2 read.
 
 **Conditional requests.** A request whose `If-None-Match` matches the ETag (or
 is `*`) returns `304 Not Modified` with no body, **before** any R2 read or
@@ -282,8 +198,10 @@ rules for serving private, bearer-capped, revocable content:
   bandwidth-saving work.
 - **`no-store` for errors** — error bodies MUST NOT be cached at all.
 
-Capability and legacy signed URLs are not immutable forever. They expire at or
-before artifact expiration. See ADR 0081.
+Unpinned capability tokens expire at the Artifact expiration, including when an
+unpin re-arms an expiration that is already past. Legacy signed file and Bundle
+URLs are always time-bounded. Pinned capability tokens use signed `exp: null` and remain valid
+until unpin, revoke, delete, or a later manifest rewrite. See ADR 0081 and ADR 0094.
 
 There is no edge cache (`caches.default`). Caching decrypted bytes near the
 worker was considered and deferred — it would persist user plaintext in a shared

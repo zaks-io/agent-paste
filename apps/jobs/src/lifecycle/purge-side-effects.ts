@@ -12,6 +12,7 @@ export async function applyArtifactPurgeSideEffects(
     workspaceId: string;
     artifactId: string;
     revisionId: string;
+    capabilityId?: string | null;
     reason: BytePurgeMessage["reason"];
     uploadSessionId?: string | null;
   },

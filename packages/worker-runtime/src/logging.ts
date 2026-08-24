@@ -42,6 +42,8 @@ const SENSITIVE_KEY_PARTS = [
   "credential",
   "idempotencykey",
   "idempotency_key",
+  "capabilityid",
+  "capability_id",
 ];
 
 const API_KEY_PATTERN = /ap_pk_[a-z0-9_:-]+/giu;
@@ -51,6 +53,10 @@ const SECRET_ASSIGNMENT_PATTERN =
 const JSON_SECRET_ASSIGNMENT_PATTERN =
   /"((?:content_signing_secret|upload_signing_secret|api_key_pepper_v1|smoke_harness_secret|access_link_blob|content_token|idempotency[-_]?key|signature|token|kid|expires))"\s*:\s*"(?:\\.|[^"\\])*"/giu;
 const URL_PATTERN = /https?:\/\/[^\s"'<>]+/giu;
+const CONTENT_CAPABILITY_HOSTNAME_PATTERN = /[0-9a-f]{32}-uc(?:\.[a-z0-9-]+)+/iu;
+const CONTENT_CAPABILITY_HOSTNAME_GLOBAL_PATTERN = /[0-9a-f]{32}-uc(?:\.[a-z0-9-]+)+/giu;
+const CONTENT_CAPABILITY_ID_PATTERN = /\b[0-9a-f]{32}\b/iu;
+const CONTENT_CAPABILITY_ID_GLOBAL_PATTERN = /\b[0-9a-f]{32}\b/giu;
 
 export function emitWorkerLog(input: WorkerLogInput): void {
   const attributes = workerLogAttributes(input);
@@ -220,13 +226,31 @@ export function sanitizeString(value: string): string {
     .replace(BEARER_PATTERN, "Bearer [redacted]")
     .replace(JSON_SECRET_ASSIGNMENT_PATTERN, '"$1":"[redacted]"')
     .replace(SECRET_ASSIGNMENT_PATTERN, "$1=[redacted]")
-    .replace(URL_PATTERN, (match) => `[url:${pathFromUrl(match)}]`);
+    .replace(URL_PATTERN, (match) => `[url:${pathFromUrl(match)}]`)
+    .replace(CONTENT_CAPABILITY_HOSTNAME_GLOBAL_PATTERN, "[redacted_capability_host]")
+    .replace(CONTENT_CAPABILITY_ID_GLOBAL_PATTERN, "[redacted_capability_id]");
   return redacted.length > 2048 ? `${redacted.slice(0, 2048)}...[truncated]` : redacted;
+}
+
+export function containsContentCapabilityHostname(value: string): boolean {
+  return CONTENT_CAPABILITY_HOSTNAME_PATTERN.test(value);
+}
+
+export function containsContentCapabilityId(value: string): boolean {
+  return contentCapabilityIdFromValue(value) !== undefined;
+}
+
+export function contentCapabilityIdFromValue(value: string): string | undefined {
+  return value.match(CONTENT_CAPABILITY_ID_PATTERN)?.[0]?.toLowerCase();
 }
 
 export function pathFromUrl(raw: string): string {
   try {
-    return redactSensitivePath(new URL(raw).pathname);
+    const url = new URL(raw);
+    if (containsContentCapabilityHostname(url.hostname)) {
+      return "/[redacted_capability_path]";
+    }
+    return redactSensitivePath(url.pathname);
   } catch {
     const queryStart = raw.search(/[?#]/u);
     return redactSensitivePath(queryStart >= 0 ? raw.slice(0, queryStart) : raw);

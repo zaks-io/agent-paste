@@ -113,34 +113,46 @@ export async function webArtifactDetail(
     if (!detail) {
       return respondError("not_found");
     }
-    if (detail.viewer) {
-      const view =
-        typeof db.getAgentView === "function"
-          ? await db.getAgentView({
-              actor,
-              artifactId: detail.id,
-              contentBaseUrl: contentBaseUrl(context.env),
-            })
-          : null;
-      const signed = (await signAgentViewContentUrls(
-        view ?? {
-          artifact_id: detail.id,
-          revision_id: detail.latest_revision_id,
-          entrypoint: detail.entrypoint,
-          // auto_delete_at is the artifact's expires_at, or null when pinned
-          // (pinned Artifacts get the default token TTL instead).
-          expires_at: detail.auto_delete_at,
-          revision_content_url: detail.viewer.iframe_src,
-        },
-        context.env,
-        { workspaceId: actor.workspace_id },
-      )) as { revision_content_url?: unknown };
-      const iframeSrc =
-        typeof signed.revision_content_url === "string" ? signed.revision_content_url : detail.viewer.iframe_src;
-      return respondJson({ ...detail, viewer: { ...detail.viewer, iframe_src: iframeSrc } });
-    }
-    return respondJson(detail);
+    return respondJson(await signedWebArtifactDetail(context, db, actor, detail));
   });
+}
+
+async function signedWebArtifactDetail(
+  context: AppContext,
+  db: Repository,
+  actor: ApiActor,
+  detail: Awaited<ReturnType<Repository["getWebArtifact"]>>,
+) {
+  if (!detail) {
+    return detail;
+  }
+  const { capability_view: capabilityView, ...publicDetail } = detail;
+  if (!detail.viewer) {
+    return publicDetail;
+  }
+  const view =
+    capabilityView ??
+    (typeof db.getAgentView === "function"
+      ? await db.getAgentView({
+          actor,
+          artifactId: detail.id,
+          contentBaseUrl: contentBaseUrl(context.env),
+        })
+      : null);
+  const signed = (await signAgentViewContentUrls(
+    view ?? {
+      artifact_id: detail.id,
+      revision_id: detail.latest_revision_id,
+      entrypoint: detail.entrypoint,
+      expires_at: detail.auto_delete_at,
+      revision_content_url: detail.viewer.iframe_src,
+    },
+    context.env,
+    { workspaceId: actor.workspace_id },
+  )) as { revision_content_url?: unknown };
+  const iframeSrc =
+    typeof signed.revision_content_url === "string" ? signed.revision_content_url : detail.viewer.iframe_src;
+  return { ...publicDetail, viewer: { ...detail.viewer, iframe_src: iframeSrc } };
 }
 
 export async function webPinArtifact(
@@ -156,7 +168,10 @@ export async function webPinArtifact(
     }
     const pinWebArtifact = db.pinWebArtifact.bind(db);
     const idempotencyKey = guard.idempotencyKey;
-    return runIdempotent(context, () => pinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" }));
+    return runIdempotent(context, async () => {
+      const detail = await pinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" });
+      return signedWebArtifactDetail(context, db, actor, detail);
+    });
   });
 }
 
@@ -173,9 +188,10 @@ export async function webUnpinArtifact(
     }
     const unpinWebArtifact = db.unpinWebArtifact.bind(db);
     const idempotencyKey = guard.idempotencyKey;
-    return runIdempotent(context, () =>
-      unpinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" }),
-    );
+    return runIdempotent(context, async () => {
+      const detail = await unpinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" });
+      return signedWebArtifactDetail(context, db, actor, detail);
+    });
   });
 }
 

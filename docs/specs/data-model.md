@@ -62,32 +62,34 @@ same scope vocabulary for API keys and Workspace Members.
 
 ### `artifacts`
 
-| Column                    | Type                                      | Notes                                                                                                                                                                                         |
-| ------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                      | `TEXT PRIMARY KEY`                        | `art_...`.                                                                                                                                                                                    |
-| `workspace_id`            | `UUID NOT NULL REFERENCES workspaces(id)` |                                                                                                                                                                                               |
-| `revision_id`             | `TEXT NULL`                               | `rev_...`; published-revision pointer only. `NULL` until the first publish; not globally unique.                                                                                              |
-| `status`                  | `TEXT NOT NULL`                           | `active`, `deleted`, or `expired`.                                                                                                                                                            |
-| `title`                   | `TEXT NOT NULL`                           | Plain text.                                                                                                                                                                                   |
-| `entrypoint`              | `TEXT NOT NULL`                           | Normalized file path.                                                                                                                                                                         |
-| `file_count`              | `INTEGER NOT NULL`                        |                                                                                                                                                                                               |
-| `size_bytes`              | `BIGINT NOT NULL`                         | Total uploaded bytes.                                                                                                                                                                         |
-| `expires_at`              | `TIMESTAMPTZ NOT NULL`                    | Required.                                                                                                                                                                                     |
-| `pinned_at`               | `TIMESTAMPTZ NULL`                        | Set while pinned; exempts from Auto Deletion.                                                                                                                                                 |
-| `access_link_lockdown_at` | `TIMESTAMPTZ NULL`                        | Non-null while Access Link minting is locked for this Artifact. Blocks new share/revision links and writes KV denylist `ad:{artifactId}` with reason `access_link_lockdown`. Cleared on lift. |
-| `created_by_type`         | `TEXT NOT NULL`                           | `api_key` or `member`.                                                                                                                                                                        |
-| `created_by_id`           | `TEXT NOT NULL`                           | Creator id for the stored type.                                                                                                                                                               |
-| `deleted_at`              | `TIMESTAMPTZ NULL`                        | Set for `deleted` and `expired`.                                                                                                                                                              |
-| `delete_reason`           | `TEXT NULL`                               | `admin_delete`, `expired`, or future reason.                                                                                                                                                  |
-| `created_at`              | `TIMESTAMPTZ NOT NULL`                    |                                                                                                                                                                                               |
-| `updated_at`              | `TIMESTAMPTZ NOT NULL`                    |                                                                                                                                                                                               |
+| Column                    | Type                                      | Notes                                                                                                                                                                                                                                    |
+| ------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                      | `TEXT PRIMARY KEY`                        | `art_...`.                                                                                                                                                                                                                               |
+| `workspace_id`            | `UUID NOT NULL REFERENCES workspaces(id)` |                                                                                                                                                                                                                                          |
+| `revision_id`             | `TEXT NULL`                               | `rev_...`; published-revision pointer only. `NULL` until the first publish; not globally unique.                                                                                                                                         |
+| `capability_id`           | `TEXT NULL UNIQUE`                        | 32 lowercase hexadecimal characters. Backfilled for existing published Artifacts, minted for later first publishes, and retained across revise, pin, and unpin. `NULL` before first publish and after revocation until the next publish. |
+| `status`                  | `TEXT NOT NULL`                           | `active`, `deleted`, or `expired`.                                                                                                                                                                                                       |
+| `title`                   | `TEXT NOT NULL`                           | Plain text.                                                                                                                                                                                                                              |
+| `entrypoint`              | `TEXT NOT NULL`                           | Normalized file path.                                                                                                                                                                                                                    |
+| `file_count`              | `INTEGER NOT NULL`                        |                                                                                                                                                                                                                                          |
+| `size_bytes`              | `BIGINT NOT NULL`                         | Total uploaded bytes.                                                                                                                                                                                                                    |
+| `expires_at`              | `TIMESTAMPTZ NOT NULL`                    | Required.                                                                                                                                                                                                                                |
+| `pinned_at`               | `TIMESTAMPTZ NULL`                        | Set while pinned; exempts from Auto Deletion.                                                                                                                                                                                            |
+| `access_link_lockdown_at` | `TIMESTAMPTZ NULL`                        | Non-null while Access Link minting is locked for this Artifact. Blocks new share/revision links and writes KV denylist `ad:{artifactId}` with reason `access_link_lockdown`. Cleared on lift.                                            |
+| `created_by_type`         | `TEXT NOT NULL`                           | `api_key` or `member`.                                                                                                                                                                                                                   |
+| `created_by_id`           | `TEXT NOT NULL`                           | Creator id for the stored type.                                                                                                                                                                                                          |
+| `deleted_at`              | `TIMESTAMPTZ NULL`                        | Set for `deleted` and `expired`.                                                                                                                                                                                                         |
+| `delete_reason`           | `TEXT NULL`                               | `admin_delete`, `expired`, or future reason.                                                                                                                                                                                             |
+| `created_at`              | `TIMESTAMPTZ NOT NULL`                    |                                                                                                                                                                                                                                          |
+| `updated_at`              | `TIMESTAMPTZ NOT NULL`                    |                                                                                                                                                                                                                                          |
 
 No artifact can be created without `expires_at`. While `pinned_at` is set, the
 stored `expires_at` is retained but not enforced: the Auto Deletion sweep skips
 the Artifact and reads (Agent Views, Access Links, dashboard viewer) do not
-treat it as expired even when `expires_at` is in the past. Content tokens for
-such an Artifact fall back to the default TTL instead of the stale expiry.
-Unpinning re-arms the stored `expires_at` as-is.
+treat it as expired even when `expires_at` is in the past. Its durable
+capability manifest carries a signed token with explicit `exp: null`.
+Unpinning re-arms the stored `expires_at` as-is and rewrites the same manifest
+with that finite expiration.
 
 ### `revisions`
 
@@ -306,16 +308,18 @@ untrusted input and follow the validation rules from
 | Revision file (`storage_kind = 'revision'`)     | `artifacts/{artifactId}/revisions/{revisionId}/files/{path}`                                  | Legacy artifact-scoped prefix used for upload PUT targets, `artifact_files.r2_key`, and byte purge of revision files. |
 | Derived bundle                                  | `env/{env}/workspaces/{workspaceId}/artifacts/{artifactId}/revisions/{revisionId}/bundle.zip` | Env-scoped; `{env}` comes from `storageEnvSegment(AGENT_PASTE_ENV)` (`live`, `preview`, or `dev`).                    |
 | Workspace shared blob (`storage_kind = 'blob'`) | `workspaces/{workspaceId}/blobs/sha256/{prefix}/{sha256}`                                     | `{prefix}` is the first two hex digits of the lowercase SHA-256 digest. Workspace-scoped deduplication.               |
-| Content capability manifest                     | `content-capabilities/v1/{32-lowercase-hex-id}.json`                                          | Signed viewer authorization and Revision path map. R2 lifecycle expires this prefix after 91 days.                    |
+| Content capability manifest                     | `content-capabilities/v1/{32-lowercase-hex-id}.json`                                          | One per published Artifact. Rewritten across revise/pin/unpin and deleted through retryable lifecycle cleanup.        |
 
 Env-scoped purge prefixes for jobs and invalidation:
 
 - Artifact scope: `env/{env}/workspaces/{workspaceId}/artifacts/{artifactId}/`
 - Revision scope: `env/{env}/workspaces/{workspaceId}/artifacts/{artifactId}/revisions/{revisionId}/`
 
-Deletion and retention enqueue both the legacy revision-file prefix and the
-env-scoped artifact prefix so bundles are purged with files. Upload cleanup
-purges the session's legacy revision-file keys only (no bundle exists yet). See
+Deletion and retention enqueue the exact capability manifest key, the legacy
+revision-file prefix, and the env-scoped artifact prefix so the bearer manifest,
+bundles, and files are purged together. Upload cleanup purges the session's
+legacy revision-file keys only because no published capability or bundle exists
+yet. No broad R2 lifecycle rule applies to the capability-manifest prefix. See
 [`jobs.md`](./jobs.md#byte-purge).
 
 ## KV Denylist
@@ -336,6 +340,7 @@ KV values do not contain token material.
 - `artifacts(workspace_id, created_at DESC)`
 - `artifacts(workspace_id, expires_at) WHERE status = 'active'`
 - `artifacts(workspace_id, id) UNIQUE`
+- `artifacts(capability_id) UNIQUE`
 - `revisions(workspace_id, artifact_id, id) UNIQUE`
 - `revisions(artifact_id, revision_number) UNIQUE WHERE revision_number IS NOT NULL`
 - `revisions(artifact_id) UNIQUE WHERE status = 'draft'`

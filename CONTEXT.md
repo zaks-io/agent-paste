@@ -96,7 +96,7 @@ _Avoid_: Personal account, user workspace
 
 <a id="ephemeral-workspace"></a>
 **Ephemeral Workspace**:
-A system-owned, unclaimed **Workspace** that an agent self-provisions with no **Workspace Member**, behind a short-lived, low-cap **Agent Credential**. It is an ordinary RLS-scoped tenant in its unclaimed state; promoted to a claimed **Workspace** by redeeming its **Claim Token**. Its content is served under a script-restricted **Execution Policy** while unclaimed: direct content is script-disabled, while trusted viewer frames may load the platform-injected resize reporter and the explicitly approved Tailwind CDN; agent-authored scripts stay blocked. After claim, interactive HTML can execute only through the controlled **Artifact Viewer**.
+A system-owned, unclaimed **Workspace** that an agent self-provisions with no **Workspace Member**, behind a short-lived, low-cap **Agent Credential**. It is an ordinary RLS-scoped tenant in its unclaimed state; promoted to a claimed **Workspace** by redeeming its **Claim Token**. Its content executes on the same isolated per-Artifact capability origin as claimed content. The unclaimed tier is constrained by the shortest **Auto Deletion**, `noindex`, low write caps, advisory scanning, and immediate denylist revocation.
 _Avoid_: Anonymous account, agent account, guest workspace
 
 <a id="ephemeral-publish"></a>
@@ -826,11 +826,11 @@ _Avoid_: tenant filter, RLS shim, scoped map
 - **Agent View**, **Manifest**, and **Display Metadata** are not served as **Untrusted Content**
 - **Untrusted Content** is viewed under an **Execution Policy**
 - **Execution Policy** applies to all **Render Modes**
-- The MVP uses tier- and viewer-context-specific **Execution Policies** for **Untrusted Content**: direct unclaimed responses are script-disabled, trusted viewer frames permit the injected resize reporter and approved Tailwind CDN, claimed content uses the claimed policy, and SVG responses carry a stricter **Execution Policy** that blocks `<script>` execution
+- The MVP uses one open artifact **Execution Policy** for inline-served **Untrusted Content** on isolated per-Artifact capability origins. Scripts, styles, fonts, images, media, and connections may use HTTPS sources, and inline scripts/styles may execute
 - A **Served Content Type** is derived by `content` from the normalized file extension, not from any value the agent supplied at upload
 - A **Served Content Type** for `text/*` types includes `charset=utf-8`
 - Unrecognized file extensions resolve to **Served Content Type** `application/octet-stream` with `Content-Disposition: attachment`
-- SVG files resolve to **Served Content Type** `image/svg+xml` and carry the tightened SVG **Execution Policy**
+- SVG files resolve to **Served Content Type** `image/svg+xml` and carry the same open artifact **Execution Policy** as other inline-served content
 - Renderer pages served by `content` declare their own **Served Content Type** and are not routed through the allowlist
 - A **Served Content Type** is platform-controlled; **Workspace** settings and agent-provided values cannot change it
 - **Publish** returns a **Publish Result**

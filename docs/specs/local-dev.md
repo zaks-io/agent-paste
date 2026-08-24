@@ -76,7 +76,7 @@ It starts the local harness, signs the CLI in through the mock WorkOS flow, runs
 returned `private_url`, fetches the JSON `revision_content_url` and
 `agent_view_url`, deletes the Artifact and verifies purge, then publishes
 `examples/local-harness/ephemeral-site` with `agent-paste publish --ephemeral`,
-checks ephemeral policy boundaries (noindex, script-disabled CSP, write
+checks ephemeral policy boundaries (noindex, open artifact CSP, write
 allowance, Claim Token isolation), and redeems the Claim Token through the local
 WorkOS stub into a member workspace.
 

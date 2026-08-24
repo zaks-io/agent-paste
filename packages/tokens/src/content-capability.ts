@@ -12,6 +12,8 @@ export type ContentCapabilityManifest = {
   version: 1;
   signed_token: string;
   entrypoint: string;
+  revision_number: number;
+  artifact_updated_at: string;
 };
 
 export function mintContentCapabilityId(randomBytes?: Uint8Array): string {
@@ -90,6 +92,10 @@ function isContentCapabilityManifest(value: unknown): value is ContentCapability
     typeof manifest.entrypoint === "string" &&
     manifest.entrypoint.length > 0 &&
     manifest.entrypoint.length <= MAX_CONTENT_CAPABILITY_ENTRYPOINT_LENGTH &&
-    !manifest.entrypoint.startsWith("/")
+    !manifest.entrypoint.startsWith("/") &&
+    Number.isSafeInteger(manifest.revision_number) &&
+    Number(manifest.revision_number) > 0 &&
+    typeof manifest.artifact_updated_at === "string" &&
+    Number.isFinite(Date.parse(manifest.artifact_updated_at))
   );
 }

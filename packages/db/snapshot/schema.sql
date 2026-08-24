@@ -110,6 +110,7 @@ CREATE TABLE "artifact_files" (
 
 CREATE TABLE "artifacts" (
 	"id" text PRIMARY KEY NOT NULL,
+	"capability_id" text,
 	"workspace_id" uuid NOT NULL,
 	"revision_id" text,
 	"status" text NOT NULL,
@@ -126,7 +127,8 @@ CREATE TABLE "artifacts" (
 	"delete_reason" text,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
-	CONSTRAINT "artifacts_created_by_type_check" CHECK ("artifacts"."created_by_type" in ('api_key', 'member'))
+	CONSTRAINT "artifacts_created_by_type_check" CHECK ("artifacts"."created_by_type" in ('api_key', 'member')),
+	CONSTRAINT "artifacts_capability_id_check" CHECK ("artifacts"."capability_id" is null or "artifacts"."capability_id" ~ '^[a-f0-9]{32}$')
 );
 
 CREATE TABLE "claim_tokens" (
@@ -377,6 +379,7 @@ CREATE INDEX "artifact_files_blob_idx" ON "artifact_files" USING btree ("workspa
 CREATE INDEX "artifacts_workspace_created_idx" ON "artifacts" USING btree ("workspace_id","created_at");
 CREATE INDEX "artifacts_active_expiry_idx" ON "artifacts" USING btree ("workspace_id","expires_at");
 CREATE UNIQUE INDEX "artifacts_workspace_id_unique" ON "artifacts" USING btree ("workspace_id","id");
+CREATE UNIQUE INDEX "artifacts_capability_id_unique" ON "artifacts" USING btree ("capability_id");
 CREATE INDEX "claim_tokens_workspace_idx" ON "claim_tokens" USING btree ("workspace_id");
 CREATE UNIQUE INDEX "claim_tokens_public_id_unique" ON "claim_tokens" USING btree ("public_id");
 CREATE UNIQUE INDEX "content_blobs_r2_key_unique" ON "content_blobs" USING btree ("r2_key");

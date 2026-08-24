@@ -131,6 +131,7 @@ export type Entities = {
     listFiltered(workspaceId?: string, status?: string): Promise<Artifact[]>;
     listWebPage(input: { workspaceId: string; limit: number; cursor?: WebArtifactCursor }): Promise<Artifact[]>;
     updateExpiry(artifactId: string, expiresAt: string): Promise<{ artifact_id: string; expires_at: string } | null>;
+    setCapabilityIdIfMissing(artifactId: string, candidate: string): Promise<string | null>;
     countPinned(workspaceId: string): Promise<number>;
     tryPinUnderCap(
       workspaceId: string,

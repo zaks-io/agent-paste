@@ -8,7 +8,7 @@ customer data.
 Scope:
 
 - Provision, CLI `publish --ephemeral`, claim redemption, content policy
-  (24h **Auto Deletion**, `noindex`, script-disabled serving), advisory warning
+  (24h **Auto Deletion**, `noindex`, isolated capability-origin serving), advisory warning
   metadata, Llama Guard/URL Scanner signals, and **Platform Lockdown**
 - Local and hosted smoke evidence (AP-110/AP-111)
 - Support responses for lost, expired, or redeemed **Claim Tokens**
@@ -29,17 +29,17 @@ Related docs:
 
 ## Availability snapshot
 
-| Layer                               | Status                  | How to confirm                                      |
-| ----------------------------------- | ----------------------- | --------------------------------------------------- |
-| API provision + claim routes        | Shipped                 | Provision probe and smokes (below)                  |
-| CLI `publish --ephemeral`           | Shipped (AP-107)        | `pnpm smoke:local` ephemeral section                |
-| Web claim UX                        | Shipped (AP-108)        | `/claim#…` redemption in browser                    |
-| Script-disabled + `noindex` serving | Shipped (AP-102/AP-104) | Content/agent-view policy assertions in smokes      |
-| Ephemeral advisory warning path     | Shipped (AP-104)        | `safety-scan` with `scanner_id=ephemeral_tier`      |
-| Local end-to-end smoke              | Shipped (AP-110)        | `pnpm smoke:local`                                  |
-| Hosted preview/PR smoke             | Shipped (AP-111)        | `pnpm smoke:preview:ephemeral`, PR preview workflow |
-| Hosted production smoke             | Operator-run (AP-111)   | `pnpm smoke:production:ephemeral` with approval     |
-| Claim/upgrade funnel polish         | Shipped (AP-109)        | Post-claim success UI and upgrade CTA               |
+| Layer                                 | Status                | How to confirm                                      |
+| ------------------------------------- | --------------------- | --------------------------------------------------- |
+| API provision + claim routes          | Shipped               | Provision probe and smokes (below)                  |
+| CLI `publish --ephemeral`             | Shipped (AP-107)      | `pnpm smoke:local` ephemeral section                |
+| Web claim UX                          | Shipped (AP-108)      | `/claim#…` redemption in browser                    |
+| Open artifact CSP + `noindex` serving | Shipped (ADR 0094)    | Content/agent-view policy assertions in smokes      |
+| Ephemeral advisory warning path       | Shipped (AP-104)      | `safety-scan` with `scanner_id=ephemeral_tier`      |
+| Local end-to-end smoke                | Shipped (AP-110)      | `pnpm smoke:local`                                  |
+| Hosted preview/PR smoke               | Shipped (AP-111)      | `pnpm smoke:preview:ephemeral`, PR preview workflow |
+| Hosted production smoke               | Operator-run (AP-111) | `pnpm smoke:production:ephemeral` with approval     |
+| Claim/upgrade funnel polish           | Shipped (AP-109)      | Post-claim success UI and upgrade CTA               |
 
 **User-facing end-to-end availability** requires hosted smokes to pass in the target
 environment (preview CI or an operator-approved production run). Implementation can be
@@ -63,7 +63,7 @@ sequenceDiagram
   Agent->>API: Publish revision (API Key)
   API->>Jobs: Enqueue safety-scan (scanner_id ephemeral_tier)
   Agent-->>Agent: Access Link Signed URL + claim URL (hash fragment)
-  Note over Content: Serves with script-disabled CSP, noindex
+  Note over Content: Serves on isolated capability origin with open CSP, noindex
   Member->>API: POST /v1/ephemeral/claim (WorkOS token + Claim Token)
   API-->>Member: Artifacts reparented to Personal Workspace
 ```
@@ -85,15 +85,15 @@ sequenceDiagram
 
 ## Policy and abuse controls
 
-| Control                          | Ephemeral (unclaimed)                                                                                                          | After claim (`free`+)       |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------- |
-| Daily new **Artifact** allowance | 20                                                                                                                             | 100 (`free`) / higher tiers |
-| **Auto Deletion**                | 24h cap                                                                                                                        | Platform default (30d+)     |
-| Indexing                         | `noindex` / `nofollow` on content + Agent View HTML                                                                            | Default                     |
-| Script execution                 | Direct navigation uses `script-src 'none'`; trusted viewer permits the injected resize reporter hash and approved Tailwind CDN | CDN-allowlisted policy      |
-| Warning metadata                 | Built-in rules, dormant-script warning, optional Llama Guard                                                                   | Built-in rules              |
-| URL Scanner signal               | Malicious verdict can trigger artifact **Platform Lockdown**                                                                   | Not on default claimed path |
-| Abuse response                   | Operator **Platform Lockdown** (workspace or artifact scope)                                                                   | Same                        |
+| Control                          | Ephemeral (unclaimed)                                        | After claim (`free`+)       |
+| -------------------------------- | ------------------------------------------------------------ | --------------------------- |
+| Daily new **Artifact** allowance | 20                                                           | 100 (`free`) / higher tiers |
+| **Auto Deletion**                | 24h cap                                                      | Platform default (30d+)     |
+| Indexing                         | `noindex` / `nofollow` on content + Agent View HTML          | Default                     |
+| Script execution                 | Open artifact CSP on an isolated capability origin           | Same                        |
+| Warning metadata                 | Built-in rules, dormant-script warning, optional Llama Guard | Built-in rules              |
+| URL Scanner signal               | Malicious verdict can trigger artifact **Platform Lockdown** | Not on default claimed path |
+| Abuse response                   | Operator **Platform Lockdown** (workspace or artifact scope) | Same                        |
 
 Provision rate limits dampen provision abuse. Reads stay gated only by the existing **Artifact
 Rate Limit** — not by publisher tier.
@@ -139,8 +139,8 @@ cleanup matters.
 Smokes assert, without logging secrets:
 
 - Provision → publish → **Agent View** / content fetch
-- `script-src 'none'` on content CSP, `x-robots-tag: noindex, nofollow`
-- Inline script in the fixture does not execute (title unchanged)
+- Open artifact `script-src` on the content CSP, `x-robots-tag: noindex, nofollow`
+- The script-tagged fixture is returned intact
 - **Claim Token** not present in `private_url`, `revision_content_url`, **Agent View** JSON/HTML, or stderr
 - Fresh ephemeral **usage-policy** daily allowance = 20
 - Claim redemption when WorkOS member auth is available (local smoke always; hosted optional)
@@ -159,7 +159,7 @@ curl -sSI "${VIEW_URL}" | rg -i 'content-security-policy|x-robots-tag'
 
 Expect:
 
-- `content-security-policy` containing `script-src 'none'`
+- `content-security-policy` containing `script-src 'self' 'unsafe-inline' 'unsafe-eval' https:`
 - `x-robots-tag: noindex, nofollow`
 
 For HTML **Agent View** in a browser or `curl -H 'accept: text/html'`:
@@ -184,11 +184,11 @@ from claim_tokens
 where workspace_id = '<workspace_id>';
 ```
 
-| Signal                                        | Ephemeral (unclaimed)  | Claimed                                                  |
-| --------------------------------------------- | ---------------------- | -------------------------------------------------------- |
-| `workspaces.claimed_at`                       | `NULL`                 | Timestamp set                                            |
-| **Agent View** JSON (`GET` public agent view) | `ephemeral_tier: true` | Field absent / false                                     |
-| Content CSP                                   | Script-disabled        | Normal CDN-allowlisted policy for new tokens after claim |
+| Signal                                        | Ephemeral (unclaimed)  | Claimed              |
+| --------------------------------------------- | ---------------------- | -------------------- |
+| `workspaces.claimed_at`                       | `NULL`                 | Timestamp set        |
+| **Agent View** JSON (`GET` public agent view) | `ephemeral_tier: true` | Field absent / false |
+| Content CSP                                   | Open artifact CSP      | Open artifact CSP    |
 
 Do not export `token_hash`, API key material, or signed URL query parameters into Linear,
 email, or this runbook.
@@ -208,7 +208,7 @@ email, or this runbook.
 1. **Confirm the target** — Collect `artifact_id`, public Access Link Signed URL, and report time. Do not ask
    the reporter for their **Claim Token**.
 2. **Assess tier** — Fetch public **Agent View** or content headers (above). Ephemeral content
-   should already be `noindex` and script-disabled.
+   should carry `noindex`; its scripts are allowed to execute on the isolated capability origin.
 3. **Check advisory signals** — Review Agent View **Safety Warnings**, queue logs, and any URL
    Scanner-triggered lockdown evidence. Treat warnings as hints, not proof of safety or harm.
 4. **Lock down** — Apply **Platform Lockdown** at artifact or workspace scope via operator APIs/UI.
@@ -244,10 +244,8 @@ agent-paste publish <path> --ephemeral [--title <text>] [--json]
   auth is possible, use `agent-paste login` first.
 - Ignores `AGENT_PASTE_API_KEY` and stored login credentials.
 - Not the Free Plan: ephemeral is the unclaimed restricted tier, with low caps,
-  `noindex`, 24h Auto Deletion, and script-disabled serving until claimed.
-- Suitable for non-interactive text, markdown, images, and static HTML/CSS.
-  Interactive HTML/JS, browser apps, and visualizations that need JavaScript
-  require authenticated publish.
+  `noindex`, and 24h Auto Deletion. Its isolated capability origin permits
+  interactive HTML and JavaScript.
 - Auto Deletion is one day for the unclaimed ephemeral Workspace. `--json` prints `artifact_id`, `private_url`,
   `revision_content_url`, `agent_view_url`, `claim_url`, and `claim_token` — support scripts must redact `claim_token`
   when logging.

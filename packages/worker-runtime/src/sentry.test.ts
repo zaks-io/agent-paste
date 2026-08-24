@@ -72,6 +72,17 @@ describe("sentryOptions", () => {
     });
   });
 
+  it("drops Sentry logs attached to caller-controlled trace context", () => {
+    const options = sentryOptions({ SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1" });
+    expect(
+      options.beforeSendLog?.({
+        level: "error",
+        message: "request failed",
+        attributes: { "sentry.trace.parent_span_id": "0011223344556677" },
+      }),
+    ).toBeNull();
+  });
+
   it("sanitizes Sentry error events before send", () => {
     const options = sentryOptions({ SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1" });
     const event = options.beforeSend?.(
@@ -146,6 +157,111 @@ describe("sentryOptions", () => {
     expect(JSON.stringify(event)).not.toContain("secret");
     expect(JSON.stringify(event)).not.toContain("ap_pk_prod");
     expect(JSON.stringify(event)).not.toContain("access-link-fragment");
+  });
+
+  it("redacts the complete path for capability-host requests", () => {
+    const options = sentryOptions({ SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1" });
+    const event = options.beforeSend?.(
+      {
+        type: undefined,
+        request: {
+          url: "https://00112233445566778899aabbccddeeff-uc.content.test/private/customer.html",
+          method: "GET",
+          headers: {
+            Host: "00112233445566778899aabbccddeeff-uc.content.test",
+            trace_id: "00112233445566778899aabbccddeeff",
+          },
+        },
+        contexts: {
+          trace: {
+            trace_id: "00112233445566778899aabbccddeeff",
+            span_id: "ffeeddccbbaa9988",
+          },
+        },
+        transaction: "GET /private/customer.html",
+      },
+      {},
+    );
+
+    expect(event).toMatchObject({
+      request: {
+        method: "GET",
+        url: "/[redacted_capability_path]",
+        headers: {
+          Host: "[redacted_capability_host]",
+          trace_id: "[redacted_capability_id]",
+        },
+      },
+      contexts: {
+        trace: {
+          trace_id: expect.stringMatching(/^[0-9a-f]{32}$/u),
+          span_id: "ffeeddccbbaa9988",
+        },
+      },
+      transaction: "[redacted_capability_request]",
+    });
+    expect(JSON.stringify(event)).not.toContain("00112233445566778899aabbccddeeff");
+    expect(JSON.stringify(event)).not.toContain("private/customer.html");
+  });
+
+  it("removes capability host and path attributes from spans", () => {
+    const options = sentryOptions({
+      SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1",
+      SENTRY_TRACES_SAMPLE_RATE: "1",
+    });
+    const span = options.beforeSendSpan?.({
+      data: {
+        "server.address": "00112233445566778899aabbccddeeff-uc.content.test",
+        "url.full": "https://00112233445566778899aabbccddeeff-uc.content.test/private/customer.html",
+        "url.path": "/private/customer.html",
+      },
+      description: "GET https://00112233445566778899aabbccddeeff-uc.content.test/private/customer.html",
+      op: "http.server",
+      span_id: "0123456789abcdef",
+      start_timestamp: 1,
+      trace_id: "00112233445566778899aabbccddeeff",
+    });
+
+    expect(span).toMatchObject({
+      data: {},
+      description: "[redacted_capability_request]",
+      op: "http.server",
+    });
+    expect(JSON.stringify(span)).not.toContain("00112233445566778899aabbccddeeff");
+    expect(JSON.stringify(span)).not.toContain("private/customer.html");
+    expect(span?.trace_id).toMatch(/^[0-9a-f]{32}$/u);
+  });
+
+  it("pseudonymizes caller-propagated trace IDs on non-capability routes", () => {
+    const options = sentryOptions({
+      SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1",
+      SENTRY_TRACES_SAMPLE_RATE: "1",
+    });
+    const event = options.beforeSend?.(
+      {
+        type: undefined,
+        request: { url: "https://content.test/healthz", method: "GET" },
+        contexts: {
+          trace: {
+            trace_id: "00112233445566778899aabbccddeeff",
+            span_id: "ffeeddccbbaa9988",
+          },
+        },
+      },
+      {},
+    );
+    const span = options.beforeSendSpan?.({
+      data: { "url.path": "/healthz" },
+      description: "GET /healthz",
+      op: "http.server",
+      span_id: "ffeeddccbbaa9988",
+      start_timestamp: 1,
+      trace_id: "00112233445566778899aabbccddeeff",
+    });
+
+    expect(event?.contexts?.trace?.trace_id).toMatch(/^[0-9a-f]{32}$/u);
+    expect(span?.trace_id).toBe(event?.contexts?.trace?.trace_id);
+    expect(JSON.stringify({ event, span })).not.toContain("00112233445566778899aabbccddeeff");
   });
 
   it("adds a configured tracing sample rate only when Sentry is enabled", () => {

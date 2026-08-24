@@ -426,6 +426,7 @@ export const artifacts = pgTable(
   "artifacts",
   {
     id: text("id").primaryKey(),
+    capabilityId: text("capability_id"),
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id, { onDelete: "restrict" }),
@@ -449,7 +450,12 @@ export const artifacts = pgTable(
     index("artifacts_workspace_created_idx").on(table.workspaceId, table.createdAt),
     index("artifacts_active_expiry_idx").on(table.workspaceId, table.expiresAt),
     uniqueIndex("artifacts_workspace_id_unique").on(table.workspaceId, table.id),
+    uniqueIndex("artifacts_capability_id_unique").on(table.capabilityId),
     check("artifacts_created_by_type_check", sql`${table.createdByType} in ('api_key', 'member')`),
+    check(
+      "artifacts_capability_id_check",
+      sql`${table.capabilityId} is null or ${table.capabilityId} ~ '^[a-f0-9]{32}$'`,
+    ),
   ],
 );
 

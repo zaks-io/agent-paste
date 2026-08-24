@@ -1167,7 +1167,19 @@ describe("LocalRepository", () => {
       revisionId: finalized.revision_id,
       now: "2026-01-01T00:00:02.000Z",
     });
-    expect(published).toMatchObject({ title: "demo", artifact_id: session.artifact_id });
+    expect(published).toMatchObject({
+      title: "demo",
+      artifact_id: session.artifact_id,
+      capability_id: expect.stringMatching(/^[a-f0-9]{32}$/),
+    });
+    const replayedPublish = await repo.publishRevision({
+      actor,
+      idempotencyKey: "idem-publish-retry",
+      artifactId: finalized.artifact_id,
+      revisionId: finalized.revision_id,
+      now: "2026-01-01T00:00:03.000Z",
+    });
+    expect(replayedPublish.capability_id).toBe(published.capability_id);
     expect(await repo.getArtifactDetail(session.artifact_id)).toMatchObject({
       title: "demo",
       files: [{ path: "index.html" }],
@@ -1396,10 +1408,14 @@ describe("LocalRepository", () => {
       actor: webActor,
       idempotencyKey: "idem-unpin",
       artifactId: published.artifact_id,
-      now: new Date("2026-01-03T00:00:00.000Z"),
+      now: new Date("2030-01-03T00:00:00.000Z"),
     });
     expect(unpinned).toMatchObject({ id: published.artifact_id, pinned: false });
     expect(unpinned.auto_delete_at).not.toBeNull();
+    expect(unpinned.capability_view).toMatchObject({
+      artifact_id: published.artifact_id,
+      expires_at: unpinned.auto_delete_at,
+    });
   });
 
   it("rejects pin and unpin for missing artifacts and other workspaces", async () => {

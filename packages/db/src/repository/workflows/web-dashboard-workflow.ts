@@ -13,7 +13,12 @@ import {
   toWebArtifactRow,
   toWebAuditRow,
 } from "../web-transforms.js";
-import { insertArtifactAuditEvent, mustActiveArtifact, readWebArtifactPage } from "./artifact-workflow-helpers.js";
+import {
+  insertArtifactAuditEvent,
+  mustActiveArtifact,
+  nextArtifactUpdatedAt,
+  readWebArtifactPage,
+} from "./artifact-workflow-helpers.js";
 
 function toWebSettings(workspace: Workspace, usagePolicy: UsagePolicyConfig, billingEnabled: boolean) {
   const bounds = autoDeletionBoundsForWorkspace(workspace, billingEnabled);
@@ -97,11 +102,12 @@ export async function pinWebArtifact(
         return ctx.webArtifactDetailFromArtifact(entities, artifact, member.workspace_id);
       }
       const workspace = await ctx.mustWorkspace(entities, member.workspace_id);
+      const updatedAt = nextArtifactUpdatedAt(artifact.updated_at, now);
       const pinResult = await entities.artifacts.tryPinUnderCap(
         member.workspace_id,
         artifact.id,
         now,
-        now,
+        updatedAt,
         ctx.usagePolicyFor(workspace).live_artifacts_cap,
       );
       if (pinResult === "cap_exceeded") {
@@ -150,7 +156,7 @@ export async function unpinWebArtifact(
       if (!artifact.pinned_at) {
         return ctx.webArtifactDetailFromArtifact(entities, artifact, member.workspace_id);
       }
-      await entities.artifacts.setPinnedAt(artifact.id, null, now);
+      await entities.artifacts.setPinnedAt(artifact.id, null, nextArtifactUpdatedAt(artifact.updated_at, now));
       await insertArtifactAuditEvent(entities, {
         actor: input.actor,
         action: "artifact.unpinned",

@@ -118,6 +118,7 @@ describe("worker logging", () => {
         api_key: "ap_pk_prod_secret",
         token: "secret",
         access_link_blob: "signed",
+        capability_id: "00112233445566778899aabbccddeeff",
         nested: { unsafe: true },
         safe: true,
         path: "/v/abc.def/index.html?token=secret",
@@ -137,6 +138,15 @@ describe("worker logging", () => {
     expect(pathFromUrl("https://content.test/b/payload.signature")).toBe("/b/[redacted_content_token]");
     expect(pathFromUrl("https://api.test/v1/public/agent-view/payload.signature")).toBe(
       "/v1/public/agent-view/[redacted_agent_view_token]",
+    );
+    expect(pathFromUrl("https://00112233445566778899aabbccddeeff-uc.content.test/private/customer.html")).toBe(
+      "/[redacted_capability_path]",
+    );
+    expect(sanitizeString("host=00112233445566778899aabbccddeeff-uc.content.test")).toBe(
+      "host=[redacted_capability_host]",
+    );
+    expect(sanitizeString("content-capabilities/v1/00112233445566778899aabbccddeeff.json")).toBe(
+      "content-capabilities/v1/[redacted_capability_id].json",
     );
   });
 

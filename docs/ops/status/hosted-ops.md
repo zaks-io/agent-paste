@@ -168,8 +168,8 @@ Operator playbook (support, abuse, Claim Token cases):
 [`runbook-ephemeral-publish.md`](../runbook-ephemeral-publish.md).
 
 `scripts/smoke-hosted-ephemeral.mjs` proves the deployed ephemeral chain end to end:
-provision, CLI `publish --ephemeral`, content and Agent View fetches,
-script-disabled CSP, `noindex`, and optional claim redemption.
+provision, CLI `publish --ephemeral`, content and Agent View fetches, open
+artifact CSP, `noindex`, and optional claim redemption.
 
 | Command                           | When to run                                                                                           |
 | --------------------------------- | ----------------------------------------------------------------------------------------------------- |

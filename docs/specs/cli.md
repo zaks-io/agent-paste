@@ -261,10 +261,10 @@ are ignored rather than blocking ephemeral publish.
 In `rich`/`plain` mode, the working no-login link is the primary handoff and the
 claim link is the upgrade path:
 
-- **Link** — the `unlisted_url`, a no-login, script-disabled Share Link the server
+- **Link** — the `unlisted_url`, a no-login Share Link the server
   auto-creates for an ephemeral publish. It works immediately for any recipient and
   is the `→ open` target.
-- **Claim** — the link to log in, keep, make interactive, and own the Artifact
+- **Claim** — the link to log in, keep, and own the Artifact
   (`claim_url`).
 
 The `private_url` (login-walled member viewer) is intentionally omitted from the

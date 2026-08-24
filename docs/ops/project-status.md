@@ -112,7 +112,7 @@ What stands today:
   only before enabling paid billing publicly.
 - **Ephemeral publish** — agent-first self-provision with short-lived low-cap
   keys, daily write allowance, Claim Token promotion, 24h cleanup, `noindex`,
-  script-disabled serving, and the post-claim free-to-pro upgrade CTA is
+  isolated capability-origin serving, and the post-claim free-to-pro upgrade CTA is
   implemented end-to-end with local + hosted smokes.
   Operators: [`runbook-ephemeral-publish.md`](./runbook-ephemeral-publish.md).
 - **Dashboard** — Access Link management (list/create/mint/revoke/lockdown) and a
@@ -230,8 +230,8 @@ unlisted` (CLI), which mints or reuses the one revocable Share Link and returns
 - File-bytes hash-reputation malware scanner: cancelled/removed. Llama Guard
   and Cloudflare URL Scanner still support the ephemeral advisory/abuse path
   when configured, alongside built-in warning metadata. Containment is the trust
-  model: script-disabled ephemeral serving, locked CSP on the Content Origin,
-  24h auto-deletion, `noindex`, signed access, revocation, and lockdown.
+  model: isolated capability origins, 24h auto-deletion, `noindex`, signed
+  access, revocation, and lockdown.
 - Security triage backlog: triage Snyk Code (SAST) HIGH findings and enable the
   org SAST entitlement (AP-160); Snyk Code stays advisory until then.
 

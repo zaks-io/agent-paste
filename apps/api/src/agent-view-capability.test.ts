@@ -9,19 +9,26 @@ import { signAgentViewContentUrls, signPublishResult } from "./agent-view.js";
 import type { Env, R2Bucket } from "./env.js";
 
 const workspaceId = "00000000-0000-4000-8000-000000000001";
+const capabilityId = "00112233445566778899aabbccddeeff";
 
 function capabilityEnv(): { env: Env; writes: Map<string, string> } {
   const writes = new Map<string, string>();
+  let etag = 0;
   const bucket: R2Bucket = {
     async list() {
       return { objects: [], truncated: false };
     },
     async delete() {},
-    async get() {
-      return null;
+    async get(key) {
+      const value = writes.get(key);
+      return value ? { body: value, etag: String(etag) } : null;
     },
-    async put(key, value) {
+    async put(key, value, options) {
+      if (options?.onlyIf?.etagMatches && options.onlyIf.etagMatches !== String(etag)) return null;
+      if (options?.onlyIf?.etagDoesNotMatch === "*" && writes.has(key)) return null;
       writes.set(key, value);
+      etag += 1;
+      return {};
     },
   };
   return {
@@ -40,13 +47,16 @@ function capabilityIdFromUrl(url: string): string {
 }
 
 describe("agent view capability origins", () => {
-  it("stores one Access Link-scoped manifest and gives every file the same origin", async () => {
+  it("stores one Artifact-scoped manifest and gives every file the same origin", async () => {
     const { env, writes } = capabilityEnv();
     const signed = (await signAgentViewContentUrls(
       {
         workspace_id: workspaceId,
+        capability_id: capabilityId,
         artifact_id: "art_1",
         revision_id: "rev_1",
+        revision_number: 1,
+        artifact_updated_at: "2026-08-24T00:00:00.000Z",
         entrypoint: "index.html",
         expires_at: "2030-01-01T00:00:00.000Z",
         files: [
@@ -56,17 +66,16 @@ describe("agent view capability origins", () => {
         ],
       },
       env,
-      { workspaceId, accessLinkId: "al_1" },
+      { workspaceId },
     )) as { revision_content_url: string; files: Array<{ url: string }> };
 
     const origin = new URL(signed.revision_content_url).origin;
-    expect(new URL(origin).hostname).toMatch(/^[a-f0-9]{32}-uc\.content\.example\.test$/);
+    expect(new URL(origin).hostname).toBe(`${capabilityId}-uc.content.example.test`);
     expect(signed.files.map((file) => new URL(file.url).origin)).toEqual([origin, origin, origin]);
     expect(new URL("/assets/app.js", signed.revision_content_url).origin).toBe(origin);
     expect(new URL("/fonts/site.woff2", signed.revision_content_url).origin).toBe(origin);
     expect(writes.size).toBe(1);
 
-    const capabilityId = capabilityIdFromUrl(signed.revision_content_url);
     const manifest = parseContentCapabilityManifest(writes.get(contentCapabilityObjectKey(capabilityId)) ?? "");
     expect(manifest?.entrypoint).toBe("index.html");
     const payload = await verifyContentToken(manifest?.signed_token ?? "", "content-secret");
@@ -74,9 +83,7 @@ describe("agent view capability origins", () => {
       workspace_id: workspaceId,
       artifact_id: "art_1",
       revision_id: "rev_1",
-      access_link_id: "al_1",
       paths: ["index.html", "assets/app.js", "fonts/site.woff2"],
-      script_disabled: false,
     });
   });
 
@@ -88,7 +95,10 @@ describe("agent view capability origins", () => {
     const signed = (await signPublishResult(
       {
         artifact_id: "art_1",
+        capability_id: capabilityId,
         revision_id: "rev_1",
+        revision_number: 1,
+        artifact_updated_at: "2026-08-24T00:00:00.000Z",
         revision_content_url: "https://legacy-content.example.test/v/old/index.html",
         file_object_keys: { "index.html": "workspaces/ws/blobs/index", ...fileObjectKeys },
         expires_at: "2030-01-01T00:00:00.000Z",
@@ -108,37 +118,132 @@ describe("agent view capability origins", () => {
     expect(Object.keys(payload?.object_keys ?? {})).toHaveLength(101);
   });
 
-  it("mints distinct capabilities for two Access Links to the same Revision", async () => {
+  it("rewrites the same Artifact capability for a new Revision", async () => {
     const { env, writes } = capabilityEnv();
     const view = {
       workspace_id: workspaceId,
+      capability_id: capabilityId,
       artifact_id: "art_1",
       revision_id: "rev_1",
+      revision_number: 1,
+      artifact_updated_at: "2026-08-24T00:00:00.000Z",
       entrypoint: "index.html",
+      expires_at: "2030-01-01T00:00:00.000Z",
       files: [{ path: "index.html" }],
     };
 
-    const first = (await signAgentViewContentUrls(view, env, {
-      workspaceId,
-      accessLinkId: "al_1",
-    })) as { revision_content_url: string };
-    const second = (await signAgentViewContentUrls(view, env, {
-      workspaceId,
-      accessLinkId: "al_2",
-    })) as { revision_content_url: string };
+    const first = (await signAgentViewContentUrls(view, env, { workspaceId })) as { revision_content_url: string };
+    const second = (await signAgentViewContentUrls(
+      {
+        ...view,
+        revision_id: "rev_2",
+        revision_number: 2,
+        artifact_updated_at: "2026-08-24T00:01:00.000Z",
+      },
+      env,
+      { workspaceId },
+    )) as {
+      revision_content_url: string;
+    };
 
-    expect(new URL(first.revision_content_url).origin).not.toBe(new URL(second.revision_content_url).origin);
-    const manifests = [...writes.values()].map((value) => parseContentCapabilityManifest(value));
-    const payloads = await Promise.all(
-      manifests.map((manifest) => verifyContentToken(manifest?.signed_token ?? "", "content-secret")),
+    expect(new URL(first.revision_content_url).origin).toBe(new URL(second.revision_content_url).origin);
+    expect(writes.size).toBe(1);
+    const manifest = parseContentCapabilityManifest(writes.get(contentCapabilityObjectKey(capabilityId)) ?? "");
+    const payload = await verifyContentToken(manifest?.signed_token ?? "", "content-secret");
+    expect(payload?.revision_id).toBe("rev_2");
+  });
+
+  it("does not let a stale publish replay roll a capability manifest backward", async () => {
+    const { env, writes } = capabilityEnv();
+    const base = {
+      workspace_id: workspaceId,
+      capability_id: capabilityId,
+      artifact_id: "art_1",
+      entrypoint: "index.html",
+      expires_at: "2030-01-01T00:00:00.000Z",
+      files: [{ path: "index.html" }],
+    };
+    await signAgentViewContentUrls(
+      {
+        ...base,
+        revision_id: "rev_2",
+        revision_number: 2,
+        artifact_updated_at: "2026-08-24T00:02:00.000Z",
+      },
+      env,
+      { workspaceId },
     );
-    expect(payloads.map((payload) => payload?.access_link_id).sort()).toEqual(["al_1", "al_2"]);
+    await signAgentViewContentUrls(
+      {
+        ...base,
+        revision_id: "rev_1",
+        revision_number: 1,
+        artifact_updated_at: "2026-08-24T00:01:00.000Z",
+      },
+      env,
+      { workspaceId },
+    );
+
+    const manifest = parseContentCapabilityManifest(writes.get(contentCapabilityObjectKey(capabilityId)) ?? "");
+    const payload = await verifyContentToken(manifest?.signed_token ?? "", "content-secret");
+    expect(manifest?.revision_number).toBe(2);
+    expect(payload?.revision_id).toBe("rev_2");
+  });
+
+  it("rewrites the same manifest between pinned and expiring lifecycle states", async () => {
+    const { env, writes } = capabilityEnv();
+    const baseView = {
+      workspace_id: workspaceId,
+      capability_id: capabilityId,
+      artifact_id: "art_1",
+      revision_id: "rev_1",
+      revision_number: 1,
+      artifact_updated_at: "2026-08-24T00:00:00.000Z",
+      entrypoint: "index.html",
+      bundle: { status: "ready" },
+      files: [{ path: "index.html" }],
+    };
+
+    const pinned = (await signAgentViewContentUrls({ ...baseView, pinned_at: "2026-08-24T00:00:00.000Z" }, env, {
+      workspaceId,
+    })) as { revision_content_url: string; bundle: { url: string } };
+    const pinnedManifest = parseContentCapabilityManifest(writes.get(contentCapabilityObjectKey(capabilityId)) ?? "");
+    const pinnedPayload = await verifyContentToken(pinnedManifest?.signed_token ?? "", "content-secret");
+    expect(pinnedPayload?.exp).toBeNull();
+    const legacyBundleToken = new URL(pinned.bundle.url).pathname.split("/")[2] ?? "";
+    expect((await verifyContentToken(legacyBundleToken, "content-secret"))?.exp).toEqual(expect.any(Number));
+
+    const unpinned = (await signAgentViewContentUrls(
+      {
+        ...baseView,
+        artifact_updated_at: "2026-08-24T00:01:00.000Z",
+        expires_at: "2026-01-01T00:00:00.000Z",
+      },
+      env,
+      { workspaceId },
+    )) as { revision_content_url: string };
+    const unpinnedManifest = parseContentCapabilityManifest(writes.get(contentCapabilityObjectKey(capabilityId)) ?? "");
+    const unpinnedPayload = await verifyContentToken(unpinnedManifest?.signed_token ?? "", "content-secret", {
+      now: () => new Date("2025-01-01T00:00:00.000Z").getTime(),
+    });
+
+    expect(new URL(unpinned.revision_content_url).origin).toBe(new URL(pinned.revision_content_url).origin);
+    expect(unpinnedPayload?.exp).toBe(Math.floor(new Date("2026-01-01T00:00:00.000Z").getTime() / 1000));
   });
 
   it("fails loudly when capability hosting is configured without a writable R2 binding", async () => {
     await expect(
       signAgentViewContentUrls(
-        { workspace_id: workspaceId, artifact_id: "art_1", revision_id: "rev_1", entrypoint: "index.html" },
+        {
+          workspace_id: workspaceId,
+          capability_id: capabilityId,
+          artifact_id: "art_1",
+          revision_id: "rev_1",
+          revision_number: 1,
+          artifact_updated_at: "2026-08-24T00:00:00.000Z",
+          entrypoint: "index.html",
+          expires_at: "2030-01-01T00:00:00.000Z",
+        },
         {
           CONTENT_SIGNING_SECRET: "content-secret",
           CONTENT_CAPABILITY_DOMAIN: "content.example.test",
@@ -151,7 +256,15 @@ describe("agent view capability origins", () => {
   it("fails loudly when capability hosting is configured without a signing secret", async () => {
     await expect(
       signAgentViewContentUrls(
-        { workspace_id: workspaceId, artifact_id: "art_1", revision_id: "rev_1", entrypoint: "index.html" },
+        {
+          workspace_id: workspaceId,
+          capability_id: capabilityId,
+          artifact_id: "art_1",
+          revision_id: "rev_1",
+          revision_number: 1,
+          artifact_updated_at: "2026-08-24T00:00:00.000Z",
+          entrypoint: "index.html",
+        },
         { CONTENT_CAPABILITY_DOMAIN: "content.example.test" },
         { workspaceId },
       ),

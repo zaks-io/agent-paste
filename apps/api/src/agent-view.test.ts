@@ -250,7 +250,6 @@ describe("signAgentViewContentUrls characterization", () => {
       workspace_id: workspaceId,
       access_link_id: "al_1",
       paths: ["docs/index.html", "index.html"],
-      script_disabled: false,
     });
   });
 
@@ -316,7 +315,7 @@ describe("signAgentViewContentUrls characterization", () => {
     expect(signed.bundle.url).toBeUndefined();
   });
 
-  it("sets noindex and script_disabled on signed content URLs when the agent view is ephemeral tier via options", async () => {
+  it("sets noindex without disabling scripts when the agent view is ephemeral tier via options", async () => {
     const signed = (await signAgentViewContentUrls(
       {
         workspace_id: workspaceId,
@@ -332,7 +331,7 @@ describe("signAgentViewContentUrls characterization", () => {
 
     const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(payload?.noindex).toBe(true);
-    expect(payload?.script_disabled).toBe(true);
+    expect(payload?.script_disabled).toBeUndefined();
   });
 
   it("omits path scoping on publish-result entrypoint URLs so relative assets can load", async () => {
@@ -355,7 +354,7 @@ describe("signAgentViewContentUrls characterization", () => {
     expect(signed.render_mode).toBeUndefined();
     const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(payload?.paths).toBeUndefined();
-    expect(payload?.script_disabled).toBe(false);
+    expect(payload?.script_disabled).toBeUndefined();
   });
 
   it("scopes publish-result entrypoint URLs when signing an explicit object key", async () => {
@@ -416,7 +415,7 @@ describe("signAgentViewContentUrls characterization", () => {
     expect(payload?.paths).toEqual(["index.html", "assets/app.js"]);
   });
 
-  it("sets noindex and script_disabled when ephemeral_tier is present on the view payload", async () => {
+  it("sets noindex without disabling scripts when ephemeral_tier is present on the view payload", async () => {
     const signed = (await signAgentViewContentUrls(
       {
         workspace_id: workspaceId,
@@ -432,10 +431,10 @@ describe("signAgentViewContentUrls characterization", () => {
 
     const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(payload?.noindex).toBe(true);
-    expect(payload?.script_disabled).toBe(true);
+    expect(payload?.script_disabled).toBeUndefined();
   });
 
-  it("sets script_disabled false on signed content URLs for claimed tenants", async () => {
+  it("omits the retired script_disabled bit for claimed tenants", async () => {
     const signed = (await signAgentViewContentUrls(
       {
         workspace_id: workspaceId,
@@ -450,7 +449,7 @@ describe("signAgentViewContentUrls characterization", () => {
     )) as { revision_content_url: string };
 
     const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
-    expect(payload?.script_disabled).toBe(false);
+    expect(payload?.script_disabled).toBeUndefined();
     expect(payload?.noindex).toBeUndefined();
   });
 

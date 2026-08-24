@@ -1,4 +1,5 @@
 import { BytePurgeMessage } from "@agent-paste/contracts";
+import { contentCapabilityObjectKey } from "@agent-paste/tokens/content-capability";
 import type { Env, QueueMessage } from "../env.js";
 import { logOp, logOpError } from "../op-log.js";
 import { deletePrefixes } from "../r2-purge.js";
@@ -26,11 +27,15 @@ export async function handleBytePurgeBatch(messages: readonly QueueMessage[], en
         }
         throw error;
       }
+      if (payload.capability_id) {
+        await deleteCapabilityManifest(env.ARTIFACTS, payload.capability_id);
+      }
       const deleted = await deletePrefixes(env.ARTIFACTS, payload.prefixes);
       logOp("queue.byte_purge.succeeded", {
         artifact_id: payload.artifact_id,
         revision_id: payload.revision_id,
         reason: payload.reason,
+        capability_manifest_deleted: Boolean(payload.capability_id),
         deleted_objects: deleted,
       });
       message.ack();
@@ -41,4 +46,8 @@ export async function handleBytePurgeBatch(messages: readonly QueueMessage[], en
       message.retry();
     }
   }
+}
+
+async function deleteCapabilityManifest(bucket: NonNullable<Env["ARTIFACTS"]>, capabilityId: string): Promise<void> {
+  await bucket.delete([contentCapabilityObjectKey(capabilityId)]);
 }

@@ -105,8 +105,9 @@ Agent-auth access tokens are short-lived `ap_pk_*` credentials with `read` and
 `publish` scopes. They are issued only by `/oauth2/token`; `/agent/identity`
 returns a service-signed `identity_assertion`, never a bearer credential.
 Anonymous pre-claim credentials inherit the Ephemeral Workspace trust tier:
-low-cap writes, script-disabled serving while unclaimed, and no admin/billing
-scope. Existing-user ID-JAG matches without a stored provider delegation require
+low-cap writes, 24-hour Auto Deletion, `noindex`, and no admin/billing scope.
+Artifact scripts execute on isolated capability origins under the open artifact
+CSP. Existing-user ID-JAG matches without a stored provider delegation require
 first-link step-up in the dashboard before the delegation is bound. No-match
 ID-JAGs JIT provision a normal Personal Workspace using a synthetic
 `agent-auth:` member id and a durable provider delegation, so later ID-JAGs for
