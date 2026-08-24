@@ -101,7 +101,6 @@ async function signAgentViewFileEntries(
   files: AgentViewRecord["files"],
   expiresAt: string | undefined,
   contentAuth: ContentSigningAuth,
-  capabilityOrigin?: string,
 ): Promise<AgentViewRecord["files"]> {
   if (!Array.isArray(files)) {
     return files;
@@ -114,11 +113,9 @@ async function signAgentViewFileEntries(
       }
       return {
         ...publicFile,
-        url: capabilityOrigin
-          ? contentCapabilityUrl(capabilityOrigin, file.path)
-          : await signedContentUrl(env, artifactId, revisionId, file.path, expiresAt, contentAuth, {
-              ...(typeof file.object_key === "string" ? { objectKey: file.object_key } : {}),
-            }),
+        url: await signedContentUrl(env, artifactId, revisionId, file.path, expiresAt, contentAuth, {
+          ...(typeof file.object_key === "string" ? { objectKey: file.object_key } : {}),
+        }),
       };
     }),
   );
@@ -150,15 +147,11 @@ async function resolveRevisionContentUrl(
   storedRevisionContentUrl: unknown,
   expiresAt: string | undefined,
   contentAuth: ContentSigningAuth,
-  capabilityOrigin?: string,
 ): Promise<string | undefined> {
   const contentPath =
     entrypoint ??
     (typeof storedRevisionContentUrl === "string" ? entrypointPathFromContentUrl(storedRevisionContentUrl) : undefined);
   if (contentPath) {
-    if (capabilityOrigin) {
-      return contentCapabilityUrl(capabilityOrigin, contentPath);
-    }
     return signedContentUrl(env, artifactId, revisionId, contentPath, expiresAt, contentAuth, {
       paths: revisionFilePaths(contentPath, files),
       ...revisionFileObjectKeys(files),
@@ -199,7 +192,13 @@ function existingRevisionContentUrl(data: AgentViewRecord): string | undefined {
 export async function signAgentViewContentUrls(
   view: unknown,
   env: Env,
-  options?: { accessLinkId?: string; workspaceId?: string; ephemeralTier?: boolean; includePrivateUrl?: boolean },
+  options?: {
+    accessLinkId?: string;
+    workspaceId?: string;
+    ephemeralTier?: boolean;
+    includePrivateUrl?: boolean;
+    refreshCapabilityManifest?: boolean;
+  },
 ): Promise<unknown> {
   if (!view || typeof view !== "object") {
     return view;
@@ -238,31 +237,31 @@ export async function signAgentViewContentUrls(
     (typeof data.revision_content_url === "string"
       ? entrypointPathFromContentUrl(data.revision_content_url)
       : undefined);
-  const capabilityOrigin = contentPath
-    ? await signedContentCapabilityOrigin(
-        env,
-        artifactId,
-        revisionId,
-        contentPath,
-        expiresAt,
-        contentAuth,
-        {
-          paths: revisionFilePaths(contentPath, data.files),
-          ...revisionFileObjectKeys(data.files),
-        },
-        !options?.accessLinkId && typeof data.capability_id === "string" ? data.capability_id : undefined,
-        typeof data.revision_number === "number" && typeof data.artifact_updated_at === "string"
-          ? {
-              revisionNumber: data.revision_number,
-              artifactUpdatedAt: data.artifact_updated_at,
-              persistent: typeof data.pinned_at === "string",
-            }
-          : undefined,
-      )
-    : undefined;
+  if (contentPath && options?.refreshCapabilityManifest) {
+    await signedContentCapabilityOrigin(
+      env,
+      artifactId,
+      revisionId,
+      contentPath,
+      expiresAt,
+      contentAuth,
+      {
+        paths: revisionFilePaths(contentPath, data.files),
+        ...revisionFileObjectKeys(data.files),
+      },
+      !options?.accessLinkId && typeof data.capability_id === "string" ? data.capability_id : undefined,
+      typeof data.revision_number === "number" && typeof data.artifact_updated_at === "string"
+        ? {
+            revisionNumber: data.revision_number,
+            artifactUpdatedAt: data.artifact_updated_at,
+            persistent: typeof data.pinned_at === "string",
+          }
+        : undefined,
+    );
+  }
 
   const [files, bundle, revisionContentUrl] = await Promise.all([
-    signAgentViewFileEntries(env, artifactId, revisionId, data.files, expiresAt, contentAuth, capabilityOrigin),
+    signAgentViewFileEntries(env, artifactId, revisionId, data.files, expiresAt, contentAuth),
     signReadyAgentViewBundle(env, artifactId, revisionId, data.bundle, expiresAt, contentAuth),
     resolveRevisionContentUrl(
       env,
@@ -273,7 +272,6 @@ export async function signAgentViewContentUrls(
       data.revision_content_url,
       expiresAt,
       contentAuth,
-      capabilityOrigin,
     ),
   ]);
 

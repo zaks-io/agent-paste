@@ -42,14 +42,17 @@ automatic; flags override detection.
   version is `"1"`. Consumers should branch on it; new fields may be added
   within a version, but field removals or renames bump it.
 - Object payloads are emitted as `{ "schema_version": "1", ...fields }`.
-- `publish --json` is content-only and private. It emits
+- `publish --json` is content-only and private-first. It emits
   `{ schema_version, artifact_id, revision_id, title, private_url,
 revision_content_url, agent_view_url, expires_at, bundle, upload_stats }`.
   `private_url` is the login-walled clean viewer at `/v/<artifactId>` for a
   Workspace Member, the same field the MCP server returns. It is the only link
-  publish creates. `revision_content_url` is a signed URL for one exact Revision
-  file, not a live share link. `agent_view_url` returns file metadata and signed
-  per-file URLs. `upload_stats` is `{ total_files, total_bytes, uploaded_files,
+  printed by human output. During the serialized rollout,
+  `revision_content_url` is the durable per-Artifact capability entrypoint in
+  production and advances to later Published Revisions; preview and local
+  environments retain the legacy signed exact-Revision URL. Step 5 replaces the
+  transitional field with `url`. `agent_view_url` returns file metadata and
+  signed exact-Revision file URLs during this rollout. `upload_stats` is `{ total_files, total_bytes, uploaded_files,
 uploaded_bytes, reused_files, reused_bytes }`.
 - There is no `--share` input and no `shared` output bit. No-login unlisted
   sharing is the separate `set-visibility <artifact-id> unlisted` command, which
@@ -215,17 +218,18 @@ keep the install small and the supply chain clean.
 selection. `agent-paste publish --help` prints the same guide. The guide must
 lead with mode choice and exact commands before longer flag descriptions:
 
-| Mode               | Current shipped meaning                                                                 | Command sequence                                                                                                          | Agent returns                                               |
-| ------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Signed-in private  | Default publish into the user's Workspace; no unauthenticated access.                   | `agent-paste publish <path> --json`                                                                                       | `private_url`                                               |
-| Signed-in no-login | Revocable Share Link that follows later publishes.                                      | `agent-paste publish <path> --json` then `agent-paste set-visibility <artifact_id> unlisted --json`                       | `unlisted_url`                                              |
-| Accountless 24h    | Fallback when login is unavailable, or the user explicitly asks for accountless upload. | `agent-paste publish <path> --ephemeral --json` or `agent-paste publish <path> --ephemeral --claim-code <clm_...> --json` | `unlisted_url`; `claim_url` when the human wants to keep it |
+| Mode               | Current shipped meaning                                                                                  | Command sequence                                                                                                          | Agent returns                                               |
+| ------------------ | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Signed-in private  | Default human handoff is login-walled; production JSON also contains the transitional capability bearer. | `agent-paste publish <path> --json`                                                                                       | `private_url`                                               |
+| Signed-in no-login | Revocable Share Link that follows later publishes.                                                       | `agent-paste publish <path> --json` then `agent-paste set-visibility <artifact_id> unlisted --json`                       | `unlisted_url`                                              |
+| Accountless 24h    | Fallback when login is unavailable, or the user explicitly asks for accountless upload.                  | `agent-paste publish <path> --ephemeral --json` or `agent-paste publish <path> --ephemeral --claim-code <clm_...> --json` | `unlisted_url`; `claim_url` when the human wants to keep it |
 
 The guide should tell agents to run `whoami --json` first, run `agent-paste
 login` when browser auth is possible, use `--artifact-id` when revising an
 existing Artifact, use the publish JSON's `artifact_id` when calling
-`set-visibility`, and avoid handing `revision_content_url` back as the final
-live page. If copied instructions include `--claim-code <clm_...>`, the guide
+`set-visibility`. The production `revision_content_url` is the transitional
+capability URL; preview and local values are exact-Revision fallbacks. If copied
+instructions include `--claim-code <clm_...>`, the guide
 must tell agents to preserve it on `publish --ephemeral`; it is for attribution
 and claim links.
 
@@ -243,7 +247,8 @@ the upload summary, and an **Update** line:
   live-updates the open page) instead of republishing a new Artifact on a new link.
   (The default private `View`/`→ open` URL is the `/v/<artifact_id>` clean viewer,
   so the id appears there too; the `Update` line is what spells out the revise
-  command.) The `revision_id` and snapshot content URLs stay on the JSON surface.
+  command.) The `revision_id` and transitional `revision_content_url` stay on the
+  JSON surface; Agent View file URLs remain exact-Revision links.
 
 ## Ephemeral publish human output
 

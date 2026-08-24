@@ -148,7 +148,7 @@ async function signedWebArtifactDetail(
       revision_content_url: detail.viewer.iframe_src,
     },
     context.env,
-    { workspaceId: actor.workspace_id },
+    { workspaceId: actor.workspace_id, refreshCapabilityManifest: true },
   )) as { revision_content_url?: unknown };
   const iframeSrc =
     typeof signed.revision_content_url === "string" ? signed.revision_content_url : detail.viewer.iframe_src;

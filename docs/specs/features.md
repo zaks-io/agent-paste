@@ -9,15 +9,15 @@ phases recorded in [`docs/ops/project-status.md`](../ops/project-status.md).
 
 ### CLI
 
-| Feature                      | Current behavior                                                                                                           | Primary users     |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| `agent-paste login`          | Runs browser OAuth and stores a scoped local credential.                                                                   | Humans, agents    |
-| `agent-paste logout`         | Revokes the stored credential when possible and removes it locally.                                                        | Humans, agents    |
-| `agent-paste whoami`         | Verifies the effective actor, Workspace, and scopes.                                                                       | Humans, agents    |
-| `agent-paste publish`        | Publishes a file or folder, or a new Revision with `--artifact-id`; returns owner/member URLs plus exact Revision content. | Agents, CI        |
-| `--ephemeral`                | Publishes with no login, then prints a working `unlisted_url` plus a one-time Claim Token link.                            | Unattended agents |
-| Standalone binary installers | `/install.sh` and `/install.ps1` download, verify, and install signed release assets.                                      | Humans, agents    |
-| `agent-paste upgrade`        | Self-updates standalone binary installs by downloading and verifying a release asset.                                      | Humans, agents    |
+| Feature                      | Current behavior                                                                                                                          | Primary users     |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `agent-paste login`          | Runs browser OAuth and stores a scoped local credential.                                                                                  | Humans, agents    |
+| `agent-paste logout`         | Revokes the stored credential when possible and removes it locally.                                                                       | Humans, agents    |
+| `agent-paste whoami`         | Verifies the effective actor, Workspace, and scopes.                                                                                      | Humans, agents    |
+| `agent-paste publish`        | Publishes a file or folder, or a new Revision with `--artifact-id`; JSON includes the transitional capability or exact-Revision fallback. | Agents, CI        |
+| `--ephemeral`                | Publishes with no login, then prints a working `unlisted_url` plus a one-time Claim Token link.                                           | Unattended agents |
+| Standalone binary installers | `/install.sh` and `/install.ps1` download, verify, and install signed release assets.                                                     | Humans, agents    |
+| `agent-paste upgrade`        | Self-updates standalone binary installs by downloading and verifying a release asset.                                                     | Humans, agents    |
 
 ### Hosted Surfaces
 
@@ -25,7 +25,7 @@ phases recorded in [`docs/ops/project-status.md`](../ops/project-status.md).
 | -------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------- |
 | API Worker     | Authenticated CLI/MCP control plane, Artifact metadata, Agent View, web/operator routes, billing, and ephemeral routes. | CLI, MCP, dashboard |
 | Upload Worker  | Upload Sessions, signed upload-worker PUT URLs, validation, and private R2 writes.                                      | CLI, MCP publish    |
-| Content Worker | Signed file and Bundle reads from private R2 on the isolated content origin.                                            | Recipients          |
+| Content Worker | Capability-origin and legacy signed file reads, plus signed Bundle reads, from private R2.                              | Recipients          |
 | Web Dashboard  | Workspace, Artifacts, Revisions, Access Links, credentials, audit, settings, billing, and claim UI.                     | Humans              |
 | Stream Worker  | Live Update SSE fan-out for authorized viewers.                                                                         | Viewers             |
 | MCP Worker     | OAuth-only Streamable HTTP MCP with twelve text-focused tools.                                                          | Hosted agents       |
@@ -33,19 +33,19 @@ phases recorded in [`docs/ops/project-status.md`](../ops/project-status.md).
 
 ### Artifact Lifecycle
 
-| Feature                | Current behavior                                                                                     | Primary users              |
-| ---------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------- |
-| Artifact               | Durable, addressable package owned by one Workspace.                                                 | All readers and publishers |
-| Revision               | Immutable saved state. Publishing to an existing Artifact appends a new Published Revision.          | Publishers                 |
-| Upload Session         | Temporary workflow for collecting expected files before finalize.                                    | CLI, MCP                   |
-| Artifact URL           | Authenticated Artifact detail URL for Workspace management.                                          | Workspace members          |
-| Access Link            | Revocable grant family for unauthenticated read access.                                              | Humans, agents             |
-| Access Link Signed URL | URL minted from an Access Link; `/al/{publicId}#{blob}` carries credential material in the fragment. | Humans, agents             |
-| Share Link             | Access Link type that follows the latest Published Revision in the Artifact Viewer.                  | Humans, agents             |
-| Revision Link          | Snapshot Access Link pinned to a specific Revision.                                                  | Humans, agents             |
-| Revision Content URL   | Direct signed Content Origin URL for one Revision; expires and does not Live Update.                 | Humans, agents             |
-| Bundle                 | Generated archive for a complete Revision file tree.                                                 | Humans, agents             |
-| Live Updates           | Pro viewers advance to the latest Published Revision without manual refresh.                         | Humans                     |
+| Feature                | Current behavior                                                                                      | Primary users              |
+| ---------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------- |
+| Artifact               | Durable, addressable package owned by one Workspace.                                                  | All readers and publishers |
+| Revision               | Immutable saved state. Publishing to an existing Artifact appends a new Published Revision.           | Publishers                 |
+| Upload Session         | Temporary workflow for collecting expected files before finalize.                                     | CLI, MCP                   |
+| Artifact URL           | Authenticated Artifact detail URL for Workspace management.                                           | Workspace members          |
+| Access Link            | Revocable grant family for unauthenticated read access.                                               | Humans, agents             |
+| Access Link Signed URL | URL minted from an Access Link; `/al/{publicId}#{blob}` carries credential material in the fragment.  | Humans, agents             |
+| Share Link             | Access Link type that follows the latest Published Revision in the Artifact Viewer.                   | Humans, agents             |
+| Revision Link          | Snapshot Access Link pinned to a specific Revision.                                                   | Humans, agents             |
+| Revision Content URL   | Transitional field: durable per-Artifact capability in production, exact-Revision fallback elsewhere. | Humans, agents             |
+| Bundle                 | Generated archive for a complete Revision file tree.                                                  | Humans, agents             |
+| Live Updates           | Pro viewers advance to the latest Published Revision without manual refresh.                          | Humans                     |
 
 ### Billing And Limits
 

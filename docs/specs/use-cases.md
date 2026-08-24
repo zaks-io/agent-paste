@@ -31,14 +31,16 @@ committing temporary files, creating a gist, or deploying to a preview host.
 | Govern agent output         | A team needs to know what agents published, when it expires, and how to revoke access if needed.             | Attach Artifacts to Workspaces, Access Links, Audit Events, Auto Deletion, and lockdown controls.        |
 | Embed artifact handoff      | A product needs artifact storage and a manifest protocol without building the whole platform itself.         | Expose CLI, MCP, Agent View, and documented contracts that can be built on by another platform.          |
 
-For the iteration use case, authenticated no-login shareable browser URLs must
-come from an explicit unlisted Share Link, minted by the separate
-`set-visibility unlisted` step (`agent-paste set-visibility <artifact-id>
-unlisted`, MCP `set_visibility` with `visibility: "unlisted"`). Accountless
+For the iteration use case, a managed unlisted Share Link still comes from the
+explicit `set-visibility unlisted` step (`agent-paste set-visibility
+<artifact-id> unlisted`, MCP `set_visibility` with `visibility: "unlisted"`).
+Accountless
 `--ephemeral` publish is the exception: it auto-creates that unlisted Share Link
-and returns `unlisted_url` immediately. The direct
-`revision_content_url` is exact Revision content; it is useful for one-shot
-inspection but it does not advance when the agent publishes a later Revision.
+and returns `unlisted_url` immediately. During the serialized rollout,
+`revision_content_url` is also a no-login bearer: it is the durable per-Artifact
+capability URL in production and advances when the agent publishes a later
+Revision. Preview and local
+environments without capability routing retain the legacy exact-Revision URL.
 The `private_url` (`/v/<artifactId>` clean viewer) is the default authenticated
 Workspace view publish returns.
 

@@ -5,9 +5,11 @@ Source of truth for the Live Updates feature decided in [ADR 0069](../adr/0069-l
 Status: **shipped.** Backend in AP-25 (`apps/stream`, api notify/authorize, web SSE proxies); the SSE-driven live UI landed in AP-164 (publishing a revision live-updates the whole artifact card / iframe with no reload, verified on preview 2026-06-04). Two deferred-polish items remain, tracked in [AP-166](https://linear.app/zaks-io/issue/AP-166): the Access Link Lockdown disconnect hook and an operator-tunable viewer cap.
 
 Publish-handoff model (ADR 0086): publish is content-only and private. Publish
-results return one link, `private_url` — the login-walled `/v/<artifactId>` clean
-viewer — alongside the exact content-origin Revision content
-(`revision_content_url`). There is no `share` input and no `shared` output, and
+results return the login-walled `/v/<artifactId>` clean viewer as `private_url`
+alongside the transitional content entrypoint
+(`revision_content_url`). Production now returns the durable per-Artifact
+capability URL in that field; preview and local environments retain the legacy
+exact-Revision fallback until the Step 5 `url` cutover. There is no `share` input and no `shared` output, and
 the result carries no `access_link_url`. Unlisted no-login sharing is the
 separate `set_visibility` (MCP) / `agent-paste set-visibility <artifact-id>
 unlisted` (CLI) verb, which mints or reuses the one Share Link and returns
@@ -67,5 +69,6 @@ sharing, and pinned-Revision flows. (This supersedes the AP-299/PR #475 + 2026-0
       AP-299/PR #475 added the field; the 2026-06-11 tightening made MCP
       publish/add-revision default to no Share Link, returning `access_link_url`
       only when `share: true` is explicitly requested. `artifact_url` remains
-      authenticated app navigation and `revision_content_url` remains the exact
-      snapshot content URL.
+      authenticated app navigation. At that rollout point,
+      `revision_content_url` remained the exact snapshot content URL; ADR 0094
+      Step 2 later made it the production capability entrypoint.

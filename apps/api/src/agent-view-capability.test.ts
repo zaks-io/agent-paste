@@ -47,7 +47,7 @@ function capabilityIdFromUrl(url: string): string {
 }
 
 describe("agent view capability origins", () => {
-  it("stores one Artifact-scoped manifest and gives every file the same origin", async () => {
+  it("keeps exact-Revision Agent View files on the legacy origin without rewriting the capability", async () => {
     const { env, writes } = capabilityEnv();
     const signed = (await signAgentViewContentUrls(
       {
@@ -70,21 +70,13 @@ describe("agent view capability origins", () => {
     )) as { revision_content_url: string; files: Array<{ url: string }> };
 
     const origin = new URL(signed.revision_content_url).origin;
-    expect(new URL(origin).hostname).toBe(`${capabilityId}-uc.content.example.test`);
+    expect(new URL(origin).hostname).toBe("legacy-content.example.test");
     expect(signed.files.map((file) => new URL(file.url).origin)).toEqual([origin, origin, origin]);
+    expect(new URL(signed.revision_content_url).pathname).toContain("/v/");
+    expect(signed.files.every((file) => new URL(file.url).pathname.includes("/v/"))).toBe(true);
     expect(new URL("/assets/app.js", signed.revision_content_url).origin).toBe(origin);
     expect(new URL("/fonts/site.woff2", signed.revision_content_url).origin).toBe(origin);
-    expect(writes.size).toBe(1);
-
-    const manifest = parseContentCapabilityManifest(writes.get(contentCapabilityObjectKey(capabilityId)) ?? "");
-    expect(manifest?.entrypoint).toBe("index.html");
-    const payload = await verifyContentToken(manifest?.signed_token ?? "", "content-secret");
-    expect(payload).toMatchObject({
-      workspace_id: workspaceId,
-      artifact_id: "art_1",
-      revision_id: "rev_1",
-      paths: ["index.html", "assets/app.js", "fonts/site.woff2"],
-    });
+    expect(writes.size).toBe(0);
   });
 
   it("keeps a 100-file publish URL bounded while moving the path map into R2", async () => {
@@ -132,7 +124,10 @@ describe("agent view capability origins", () => {
       files: [{ path: "index.html" }],
     };
 
-    const first = (await signAgentViewContentUrls(view, env, { workspaceId })) as { revision_content_url: string };
+    const first = (await signAgentViewContentUrls(view, env, {
+      workspaceId,
+      refreshCapabilityManifest: true,
+    })) as { revision_content_url: string };
     const second = (await signAgentViewContentUrls(
       {
         ...view,
@@ -141,7 +136,7 @@ describe("agent view capability origins", () => {
         artifact_updated_at: "2026-08-24T00:01:00.000Z",
       },
       env,
-      { workspaceId },
+      { workspaceId, refreshCapabilityManifest: true },
     )) as {
       revision_content_url: string;
     };
@@ -171,7 +166,7 @@ describe("agent view capability origins", () => {
         artifact_updated_at: "2026-08-24T00:02:00.000Z",
       },
       env,
-      { workspaceId },
+      { workspaceId, refreshCapabilityManifest: true },
     );
     await signAgentViewContentUrls(
       {
@@ -181,7 +176,7 @@ describe("agent view capability origins", () => {
         artifact_updated_at: "2026-08-24T00:01:00.000Z",
       },
       env,
-      { workspaceId },
+      { workspaceId, refreshCapabilityManifest: true },
     );
 
     const manifest = parseContentCapabilityManifest(writes.get(contentCapabilityObjectKey(capabilityId)) ?? "");
@@ -227,7 +222,7 @@ describe("agent view capability origins", () => {
         files: [{ path: "index.html" }],
       },
       env,
-      { workspaceId },
+      { workspaceId, refreshCapabilityManifest: true },
     );
 
     expect(putAttempts).toBe(2);
@@ -259,7 +254,7 @@ describe("agent view capability origins", () => {
           files: [{ path: "index.html" }],
         },
         env,
-        { workspaceId },
+        { workspaceId, refreshCapabilityManifest: true },
       ),
     ).rejects.toThrow(/lost repeated conditional write races/);
     expect(putAttempts).toBe(5);
@@ -280,7 +275,7 @@ describe("agent view capability origins", () => {
           files: [{ path: "index.html" }],
         },
         env,
-        { workspaceId },
+        { workspaceId, refreshCapabilityManifest: true },
       ),
     ).rejects.toThrow(/persisted capability requires revision state/);
   });
@@ -301,6 +296,7 @@ describe("agent view capability origins", () => {
 
     const pinned = (await signAgentViewContentUrls({ ...baseView, pinned_at: "2026-08-24T00:00:00.000Z" }, env, {
       workspaceId,
+      refreshCapabilityManifest: true,
     })) as { revision_content_url: string; bundle: { url: string } };
     const pinnedManifest = parseContentCapabilityManifest(writes.get(contentCapabilityObjectKey(capabilityId)) ?? "");
     const pinnedPayload = await verifyContentToken(pinnedManifest?.signed_token ?? "", "content-secret");
@@ -315,7 +311,7 @@ describe("agent view capability origins", () => {
         expires_at: "2026-01-01T00:00:00.000Z",
       },
       env,
-      { workspaceId },
+      { workspaceId, refreshCapabilityManifest: true },
     )) as { revision_content_url: string };
     const unpinnedManifest = parseContentCapabilityManifest(writes.get(contentCapabilityObjectKey(capabilityId)) ?? "");
     const unpinnedPayload = await verifyContentToken(unpinnedManifest?.signed_token ?? "", "content-secret", {
@@ -343,7 +339,7 @@ describe("agent view capability origins", () => {
           CONTENT_SIGNING_SECRET: "content-secret",
           CONTENT_CAPABILITY_DOMAIN: "content.example.test",
         },
-        { workspaceId },
+        { workspaceId, refreshCapabilityManifest: true },
       ),
     ).rejects.toThrow(/R2 write binding/);
   });
@@ -361,7 +357,7 @@ describe("agent view capability origins", () => {
           entrypoint: "index.html",
         },
         { CONTENT_CAPABILITY_DOMAIN: "content.example.test" },
-        { workspaceId },
+        { workspaceId, refreshCapabilityManifest: true },
       ),
     ).rejects.toThrow(/signing secret/);
   });
