@@ -32,7 +32,15 @@ the human browser `/admin` check both passed on 2026-05-26. The legacy `ADMIN_TO
 Richer operator event/audit browsing shipped in AP-16, with the follow-up
 coverage gate restored in PR #92.
 
-Active local handoff: none. AP-236 shipped in PR #356. AP-109, AP-174, AP-181,
+Active local handoff: ADR 0094 capability-URL-is-the-link redesign (Isaac
+directive, 2026-08-24). The `{id}-uc` capability origin becomes the one URL a
+publish returns, served top-level with scripts and an open CSP; `/al` access
+links, the viewer iframe/sandbox, and the ephemeral `script_disabled` override
+are removed; publish strips `integrity`/`crossorigin` attributes. Serialized
+PRs: (1) ADR + backlog, (2) durable capability + api/content serving posture +
+spec updates, (3) delete `/al` + web viewer rewire, (4) publish-time HTML
+normalization, (5) CLI contract bump + release + agent-guidance copy. Specs
+update with the PR that changes each behavior. AP-236 shipped in PR #356. AP-109, AP-174, AP-181,
 and AP-242 are Done on `main`. Production deploys after launch were briefly
 blocked by a stale forbidden `SMOKE_HARNESS_SECRET` on
 `agent-paste-api-production`; Isaac deleted that Worker secret on 2026-06-07,
