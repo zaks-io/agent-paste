@@ -32,10 +32,18 @@ import { Route } from "../src/routes/__root";
 
 const loaderData = {
   webBaseUrl: "https://app.agent-paste.sh",
-  sentry: { dsn: "https://sentry.test/dsn", environment: "test" },
+  sentry: { dsn: "https://sentry.test/dsn", environment: "test", tracesSampleRate: 1 },
+  traceMeta: {
+    sentryTrace: "0011223344556677889900aabbccddee-1122334455667788-1",
+    baggage: "sentry-environment=test",
+  },
   analyticsToken: "analytics-token",
   optionalAnalyticsDisabled: false,
 };
+
+function metaContent(head: { meta?: Array<Record<string, unknown>> }, name: string): unknown {
+  return head.meta?.find((tag) => tag.name === name)?.content;
+}
 
 describe("__root route head", () => {
   it("keeps analytics scripts on normal app routes", () => {
@@ -51,6 +59,26 @@ describe("__root route head", () => {
         "data-cf-beacon": '{"token":"analytics-token"}',
       },
     ]);
+  });
+
+  it("hands the browser the Worker trace so the pageload transaction joins it", () => {
+    const head = Route.head({
+      loaderData,
+      matches: [{ routeId: "__root__", loaderData }, { routeId: "/v/$artifactId" }],
+    });
+
+    expect(metaContent(head, "sentry-trace")).toBe("0011223344556677889900aabbccddee-1122334455667788-1");
+    expect(metaContent(head, "baggage")).toBe("sentry-environment=test");
+  });
+
+  it("omits trace meta on Access Link routes, which opt out of external observability", () => {
+    const head = Route.head({
+      loaderData,
+      matches: [{ routeId: "__root__", loaderData }, { routeId: "/al/$publicId" }],
+    });
+
+    expect(metaContent(head, "sentry-trace")).toBeUndefined();
+    expect(metaContent(head, "baggage")).toBeUndefined();
   });
 
   it("omits analytics scripts on Access Link routes", () => {

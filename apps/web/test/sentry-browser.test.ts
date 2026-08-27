@@ -29,6 +29,18 @@ describe("browser Sentry route policy", () => {
     expect(sentry.init).not.toHaveBeenCalled();
   });
 
+  it("samples traces at the rate the Worker reported so both ends of a trace agree", async () => {
+    const { initBrowserSentry } = await loadSentryBrowser();
+
+    initBrowserSentry(
+      { dsn: "https://sentry.test/dsn", environment: "test", tracesSampleRate: 0.25 },
+      {},
+      "/dashboard",
+    );
+
+    expect(sentry.init.mock.calls[0]?.[0].tracesSampleRate).toBe(0.25);
+  });
+
   it("drops events and transactions after navigating to an Access Link viewer", async () => {
     const { initBrowserSentry } = await loadSentryBrowser();
     const event = { event_id: "evt_1" };

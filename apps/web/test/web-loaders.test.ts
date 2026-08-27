@@ -83,7 +83,9 @@ describe("web server loaders", () => {
   it("exposes root env and auth without calling the API", async () => {
     expect(loadRootEnv()).toEqual({
       webBaseUrl: "https://app.test",
-      sentry: { dsn: "https://sentry.test/dsn", environment: "dev" },
+      sentry: { dsn: "https://sentry.test/dsn", environment: "dev", tracesSampleRate: 1 },
+      // No active Worker span under test, so there is no trace to hand the browser.
+      traceMeta: { sentryTrace: undefined, baggage: undefined },
       analyticsToken: "analytics-token",
       optionalAnalyticsDisabled: false,
     });

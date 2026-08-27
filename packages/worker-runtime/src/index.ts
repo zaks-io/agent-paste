@@ -91,7 +91,7 @@ export {
   routeRepositorySurfaces,
 } from "./route-repository-errors.js";
 export { BASELINE_SECURITY_HEADERS, generateCspNonce, securityHeadersMiddleware } from "./security-headers.js";
-export { type SentryEnv, sentryOptions } from "./sentry.js";
+export { type SentryEnv, sentryOptions, tracesSampleRate } from "./sentry.js";
 export {
   createSentryPostgresQueryInstrumentation,
   sentryPostgresExecutorOptions,

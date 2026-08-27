@@ -53,7 +53,7 @@ describe("apex browser Sentry", () => {
       environment: "production",
       sendDefaultPii: false,
       integrations: ["browser-tracing"],
-      tracesSampleRate: 0.1,
+      tracesSampleRate: 1,
     });
   });
 

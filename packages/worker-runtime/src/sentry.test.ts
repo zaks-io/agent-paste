@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { sentryOptions } from "./sentry.js";
 
+// A capability id and a trace id are both 32 hex characters but are unrelated
+// values, so they stay distinct here: redacting one must not depend on losing the other.
+const CAPABILITY_ID = "aabbccddeeff00112233445566778899";
+const TRACE_ID = "00112233445566778899aabbccddeeff";
+const SPAN_ID = "ffeeddccbbaa9988";
+const PARENT_SPAN_ID = "1122334455667788";
+
 describe("sentryOptions", () => {
   it("disables Sentry when no DSN is configured", () => {
     expect(sentryOptions({})).toMatchObject({
@@ -165,17 +172,17 @@ describe("sentryOptions", () => {
       {
         type: undefined,
         request: {
-          url: "https://00112233445566778899aabbccddeeff-uc.content.test/private/customer.html",
+          url: `https://${CAPABILITY_ID}-uc.content.test/private/customer.html`,
           method: "GET",
           headers: {
-            Host: "00112233445566778899aabbccddeeff-uc.content.test",
-            trace_id: "00112233445566778899aabbccddeeff",
+            Host: `${CAPABILITY_ID}-uc.content.test`,
+            capability_ref: CAPABILITY_ID,
           },
         },
         contexts: {
           trace: {
-            trace_id: "00112233445566778899aabbccddeeff",
-            span_id: "ffeeddccbbaa9988",
+            trace_id: TRACE_ID,
+            span_id: SPAN_ID,
           },
         },
         transaction: "GET /private/customer.html",
@@ -189,18 +196,18 @@ describe("sentryOptions", () => {
         url: "/[redacted_capability_path]",
         headers: {
           Host: "[redacted_capability_host]",
-          trace_id: "[redacted_capability_id]",
+          capability_ref: "[redacted_capability_id]",
         },
       },
       contexts: {
         trace: {
-          trace_id: expect.stringMatching(/^[0-9a-f]{32}$/u),
-          span_id: "ffeeddccbbaa9988",
+          trace_id: TRACE_ID,
+          span_id: SPAN_ID,
         },
       },
       transaction: "[redacted_capability_request]",
     });
-    expect(JSON.stringify(event)).not.toContain("00112233445566778899aabbccddeeff");
+    expect(JSON.stringify(event)).not.toContain(CAPABILITY_ID);
     expect(JSON.stringify(event)).not.toContain("private/customer.html");
   });
 
@@ -211,15 +218,15 @@ describe("sentryOptions", () => {
     });
     const span = options.beforeSendSpan?.({
       data: {
-        "server.address": "00112233445566778899aabbccddeeff-uc.content.test",
-        "url.full": "https://00112233445566778899aabbccddeeff-uc.content.test/private/customer.html",
+        "server.address": `${CAPABILITY_ID}-uc.content.test`,
+        "url.full": `https://${CAPABILITY_ID}-uc.content.test/private/customer.html`,
         "url.path": "/private/customer.html",
       },
-      description: "GET https://00112233445566778899aabbccddeeff-uc.content.test/private/customer.html",
+      description: `GET https://${CAPABILITY_ID}-uc.content.test/private/customer.html`,
       op: "http.server",
       span_id: "0123456789abcdef",
       start_timestamp: 1,
-      trace_id: "00112233445566778899aabbccddeeff",
+      trace_id: TRACE_ID,
     });
 
     expect(span).toMatchObject({
@@ -227,12 +234,17 @@ describe("sentryOptions", () => {
       description: "[redacted_capability_request]",
       op: "http.server",
     });
-    expect(JSON.stringify(span)).not.toContain("00112233445566778899aabbccddeeff");
+    expect(JSON.stringify(span)).not.toContain(CAPABILITY_ID);
     expect(JSON.stringify(span)).not.toContain("private/customer.html");
-    expect(span?.trace_id).toMatch(/^[0-9a-f]{32}$/u);
+    // The capability details are gone, but the span still reports its real trace so
+    // the capability request remains one coherent trace inside Sentry.
+    expect(span?.trace_id).toBe(TRACE_ID);
   });
 
-  it("pseudonymizes caller-propagated trace IDs on non-capability routes", () => {
+  // Distributed tracing only works if every service reports the trace id it was
+  // handed. Rewriting it here would give each Worker isolate its own id for the
+  // same request and no trace would ever join across the browser, web, and api.
+  it("preserves caller-propagated trace and span IDs so distributed traces join", () => {
     const options = sentryOptions({
       SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1",
       SENTRY_TRACES_SAMPLE_RATE: "1",
@@ -243,8 +255,9 @@ describe("sentryOptions", () => {
         request: { url: "https://content.test/healthz", method: "GET" },
         contexts: {
           trace: {
-            trace_id: "00112233445566778899aabbccddeeff",
-            span_id: "ffeeddccbbaa9988",
+            trace_id: TRACE_ID,
+            span_id: SPAN_ID,
+            parent_span_id: PARENT_SPAN_ID,
           },
         },
       },
@@ -254,14 +267,35 @@ describe("sentryOptions", () => {
       data: { "url.path": "/healthz" },
       description: "GET /healthz",
       op: "http.server",
-      span_id: "ffeeddccbbaa9988",
+      span_id: SPAN_ID,
       start_timestamp: 1,
-      trace_id: "00112233445566778899aabbccddeeff",
+      trace_id: TRACE_ID,
     });
 
-    expect(event?.contexts?.trace?.trace_id).toMatch(/^[0-9a-f]{32}$/u);
-    expect(span?.trace_id).toBe(event?.contexts?.trace?.trace_id);
-    expect(JSON.stringify({ event, span })).not.toContain("00112233445566778899aabbccddeeff");
+    expect(event?.contexts?.trace).toMatchObject({
+      trace_id: TRACE_ID,
+      span_id: SPAN_ID,
+      parent_span_id: PARENT_SPAN_ID,
+    });
+    expect(span?.trace_id).toBe(TRACE_ID);
+    expect(span?.span_id).toBe(SPAN_ID);
+  });
+
+  it("still sanitizes malformed trace IDs", () => {
+    const options = sentryOptions({
+      SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1",
+      SENTRY_TRACES_SAMPLE_RATE: "1",
+    });
+    const span = options.beforeSendSpan?.({
+      data: {},
+      description: "GET /healthz",
+      op: "http.server",
+      span_id: SPAN_ID,
+      start_timestamp: 1,
+      trace_id: `${CAPABILITY_ID}-uc.content.test`,
+    });
+
+    expect(span?.trace_id).not.toContain(CAPABILITY_ID);
   });
 
   it("does not classify ordinary 32-character IDs as capability requests", () => {
@@ -316,18 +350,28 @@ describe("sentryOptions", () => {
     expect(sentryOptions({ SENTRY_TRACES_SAMPLE_RATE: "0.2" })).not.toHaveProperty("tracesSampleRate");
   });
 
-  it("ignores invalid tracing sample rates", () => {
+  it("falls back to the default sample rate when the configured one is invalid", () => {
     expect(
       sentryOptions({
         SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1",
         SENTRY_TRACES_SAMPLE_RATE: "2",
       }),
-    ).not.toHaveProperty("tracesSampleRate");
+    ).toMatchObject({ tracesSampleRate: 1 });
     expect(
       sentryOptions({
         SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1",
         SENTRY_TRACES_SAMPLE_RATE: "not-a-number",
       }),
-    ).not.toHaveProperty("tracesSampleRate");
+    ).toMatchObject({ tracesSampleRate: 1 });
+  });
+
+  it("traces by default so an enabled Worker joins distributed traces without extra config", () => {
+    expect(sentryOptions({ SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1" })).toMatchObject({
+      enabled: true,
+      tracesSampleRate: 1,
+      // Service bindings bypass global fetch instrumentation; this carries the trace across them.
+      enableRpcTracePropagation: true,
+    });
+    expect(sentryOptions({})).not.toHaveProperty("tracesSampleRate");
   });
 });

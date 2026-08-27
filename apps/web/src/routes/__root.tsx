@@ -26,13 +26,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     loaderData?: RootLoaderData;
     matches?: ReadonlyArray<{ routeId?: string; loaderData?: unknown }>;
   }) => {
-    const scripts = isExternalObservabilityBlockedRoute(matches) ? [] : analyticsScripts(loaderData?.analyticsToken);
+    const observabilityBlocked = isExternalObservabilityBlockedRoute(matches);
+    const scripts = observabilityBlocked ? [] : analyticsScripts(loaderData?.analyticsToken);
     return {
       meta: [
         { charSet: "utf-8" },
         { name: "viewport", content: "width=device-width, initial-scale=1" },
         { name: "color-scheme", content: "light dark" },
         ...buildPageMeta({ title: SITE_NAME }).meta,
+        // Handoff for the browser SDK: it reads these on pageload so the client
+        // transaction joins the Worker trace that rendered this document. Omitted
+        // on access-link routes, which opt out of external observability entirely.
+        ...(observabilityBlocked ? [] : traceMeta(loaderData?.traceMeta)),
       ],
       links: [
         { rel: "icon", type: "image/png", href: "/favicon.png" },
@@ -50,6 +55,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     return {
       webBaseUrl: env.webBaseUrl,
       sentry: env.sentry,
+      traceMeta: env.traceMeta,
       analyticsToken: env.analyticsToken,
       optionalAnalyticsDisabled: env.optionalAnalyticsDisabled,
     };
@@ -58,6 +64,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   notFoundComponent: NotFound,
   component: RootComponent,
 });
+
+function traceMeta(trace: RootLoaderData["traceMeta"] | undefined): Array<{ name: string; content: string }> {
+  if (!trace?.sentryTrace) {
+    return [];
+  }
+  return [
+    { name: "sentry-trace", content: trace.sentryTrace },
+    ...(trace.baggage ? [{ name: "baggage", content: trace.baggage }] : []),
+  ];
+}
 
 function RootComponent() {
   const { sentry } = Route.useLoaderData();

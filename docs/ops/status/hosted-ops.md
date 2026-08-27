@@ -274,9 +274,13 @@ called with incorrect this reference`. Example failed revisions:
   `db.namespace`) are included for compatibility. Query-source attributes
   (`code.filepath`, `code.function`, `code.namespace`, and `code.lineno` when
   explicitly available) come from explicit async query-source context on shared
-  DB query helpers, not bundled Worker stack frames. Set
+  DB query helpers, not bundled Worker stack frames. Tracing is on by default at
+  a sample rate of `1` wherever `SENTRY_DSN` is set; set
   `SENTRY_TRACES_SAMPLE_RATE` to a value from `0` to `1` on the target Worker to
-  enable sampled trace export. Leave it unset to keep tracing disabled.
+  sample lower. Because sampling is head-based, the rate must match across
+  services or whole legs of a distributed trace are dropped: `web` passes the
+  same value to the browser SDK so a client-initiated navigation and the Worker
+  it calls agree.
 - Neon OpenTelemetry export is separate database-side metrics/log export. It
   does not replace app-side query spans for Sentry's Queries dashboard.
 

@@ -5,8 +5,6 @@ type SentrySpan = Parameters<NonNullable<CloudflareOptions["beforeSendSpan"]>>[0
 type SentryTraceContext = NonNullable<NonNullable<ErrorEvent["contexts"]>["trace"]>;
 const TRACE_ID_PATTERN = /^[0-9a-f]{32}$/iu;
 const SPAN_ID_PATTERN = /^[0-9a-f]{16}$/iu;
-const TRACE_ID_PSEUDONYMS = new Map<string, string>();
-const MAX_TRACE_ID_PSEUDONYMS = 4096;
 
 export function sanitizeSentryEvent(event: ErrorEvent): ErrorEvent {
   const safe: ErrorEvent = { ...event };
@@ -56,7 +54,7 @@ export function sanitizeSentryEvent(event: ErrorEvent): ErrorEvent {
     const contexts = sanitizeSentryRecord(event.contexts) as NonNullable<ErrorEvent["contexts"]>;
     const trace = event.contexts.trace;
     if (trace) {
-      contexts.trace = pseudonymizeTraceContext(contexts.trace, trace);
+      contexts.trace = preserveTraceIdentifiers(contexts.trace, trace);
     }
     safe.contexts = contexts;
   }
@@ -80,9 +78,13 @@ export function sanitizeSentrySpan(span: SentrySpan, knownCapabilityId?: string)
       (found, value) => found ?? (typeof value === "string" ? contentCapabilityIdFromValue(value) : undefined),
       undefined,
     );
-  const traceId = pseudonymizeTraceId(span.trace_id);
-  const profileId = span.profile_id ? pseudonymizeTraceId(span.profile_id) : undefined;
-  const segmentId = span.segment_id ? pseudonymizeTraceId(span.segment_id) : undefined;
+  // Distributed tracing needs the real ids: a trace only joins across the browser,
+  // web, and api when every service reports the same trace_id. These are
+  // SDK-generated randomness, not caller data, and `sanitizeString` would otherwise
+  // mistake a bare 32-hex trace id for a capability id and redact it.
+  const traceId = preserveTraceIdentifier(span.trace_id);
+  const profileId = span.profile_id ? preserveTraceIdentifier(span.profile_id) : undefined;
+  const segmentId = span.segment_id ? preserveTraceIdentifier(span.segment_id) : undefined;
   if (capabilityId) {
     return {
       ...span,
@@ -105,27 +107,10 @@ export function sanitizeSentrySpan(span: SentrySpan, knownCapabilityId?: string)
   };
 }
 
-function pseudonymizeTraceId(traceId: string): string {
-  if (!TRACE_ID_PATTERN.test(traceId)) {
-    return sanitizeString(traceId);
-  }
-  const normalized = traceId.toLowerCase();
-  const existing = TRACE_ID_PSEUDONYMS.get(normalized);
-  if (existing) {
-    return existing;
-  }
-  if (TRACE_ID_PSEUDONYMS.size >= MAX_TRACE_ID_PSEUDONYMS) {
-    const oldest = TRACE_ID_PSEUDONYMS.keys().next().value;
-    if (oldest !== undefined) {
-      TRACE_ID_PSEUDONYMS.delete(oldest);
-    }
-  }
-  let replacement = crypto.randomUUID().replaceAll("-", "");
-  while (replacement === normalized) {
-    replacement = crypto.randomUUID().replaceAll("-", "");
-  }
-  TRACE_ID_PSEUDONYMS.set(normalized, replacement);
-  return replacement;
+// Trace and span ids are opaque SDK-generated identifiers. Anything that is not
+// well-formed did not come from the SDK, so it still goes through sanitizeString.
+function preserveTraceIdentifier(value: string): string {
+  return TRACE_ID_PATTERN.test(value) || SPAN_ID_PATTERN.test(value) ? value : sanitizeString(value);
 }
 
 function sanitizeSentryRequest(request: NonNullable<ErrorEvent["request"]>): NonNullable<ErrorEvent["request"]> {
@@ -192,13 +177,16 @@ function sanitizeSentryValue(key: string, value: unknown, depth = 0): unknown {
   return undefined;
 }
 
-function pseudonymizeTraceContext(
+// Generic record sanitization redacts bare 32-hex strings as possible capability
+// ids, which would strip the very fields Sentry uses to stitch a distributed
+// trace together. Restore the well-formed ones afterward.
+function preserveTraceIdentifiers(
   safeTrace: SentryTraceContext | undefined,
   trace: SentryTraceContext,
 ): SentryTraceContext {
   const restored = { ...safeTrace };
   if (typeof trace.trace_id === "string" && TRACE_ID_PATTERN.test(trace.trace_id)) {
-    restored.trace_id = pseudonymizeTraceId(trace.trace_id);
+    restored.trace_id = trace.trace_id;
   }
   if (typeof trace.span_id === "string" && SPAN_ID_PATTERN.test(trace.span_id)) {
     restored.span_id = trace.span_id;
