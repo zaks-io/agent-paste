@@ -6,6 +6,7 @@ type RouterArg = Parameters<typeof Sentry.tanstackRouterBrowserTracingIntegratio
 export type BrowserSentryConfig = {
   dsn?: string | undefined;
   environment?: string | undefined;
+  tracesSampleRate?: number | undefined;
 };
 
 let initialized = false;
@@ -24,7 +25,10 @@ export function initBrowserSentry(
       environment: config?.environment ?? "unknown",
       sendDefaultPii: false,
       integrations: [Sentry.tanstackRouterBrowserTracingIntegration(router)],
-      tracesSampleRate: 0.1,
+      // Same rate the Worker uses. Head-based sampling means a client-initiated
+      // navigation trace is decided here and inherited by the Worker, so a lower
+      // browser rate would silently drop server legs of those traces.
+      tracesSampleRate: config?.tracesSampleRate ?? 1,
       beforeSend: (event) => (isExternalObservabilityBlockedPath(browserPathname()) ? null : event),
       beforeSendTransaction: (event) => (isExternalObservabilityBlockedPath(browserPathname()) ? null : event),
     });

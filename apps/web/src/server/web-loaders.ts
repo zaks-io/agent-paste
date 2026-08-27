@@ -17,6 +17,8 @@ import type {
   WebSettingsResponse,
   WebWorkspaceResponse,
 } from "@agent-paste/contracts";
+import { tracesSampleRate } from "@agent-paste/worker-runtime";
+import { getTraceData } from "@sentry/cloudflare";
 import type { LoaderFallback } from "../lib/api-error";
 import { type OperatorEventSearch, operatorEventsQueryString } from "../lib/operator-events";
 import { apiFetchOrEmpty } from "./api-client";
@@ -35,9 +37,15 @@ function emptyFallback<T>(): LoaderFallback<T> {
 export function loadRootEnv() {
   const env = getWebEnv();
   const optionalAnalyticsDisabled = shouldDisableOptionalAnalytics({ getHeader: getRequestHeaderValue });
+  const traceData = getTraceData();
   return {
     webBaseUrl: env.WEB_BASE_URL,
-    sentry: { dsn: env.SENTRY_DSN, environment: env.AGENT_PASTE_ENV },
+    sentry: {
+      dsn: env.SENTRY_DSN,
+      environment: env.AGENT_PASTE_ENV,
+      tracesSampleRate: tracesSampleRate(env.SENTRY_TRACES_SAMPLE_RATE),
+    },
+    traceMeta: { sentryTrace: traceData["sentry-trace"], baggage: traceData.baggage },
     analyticsToken: optionalAnalyticsDisabled ? undefined : env.CF_WEB_ANALYTICS_TOKEN,
     optionalAnalyticsDisabled,
   };

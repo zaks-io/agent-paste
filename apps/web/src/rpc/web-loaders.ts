@@ -3,7 +3,10 @@ import type { OperatorEventSearch } from "../lib/operator-events";
 
 export type RootLoaderData = {
   webBaseUrl: string;
-  sentry: { dsn: string | undefined; environment: string };
+  sentry: { dsn: string | undefined; environment: string; tracesSampleRate: number };
+  // Rendered into the SSR document as <meta> so the browser's pageload transaction
+  // continues the Worker's trace instead of starting an unrelated one.
+  traceMeta: { sentryTrace: string | undefined; baggage: string | undefined };
   analyticsToken: string | undefined;
   optionalAnalyticsDisabled: boolean;
 };

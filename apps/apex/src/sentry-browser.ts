@@ -37,7 +37,7 @@ async function loadAndInitSentry(fetcher: ConfigFetcher): Promise<void> {
       environment: config.sentry?.environment || "dev",
       sendDefaultPii: false,
       integrations: [Sentry.browserTracingIntegration()],
-      tracesSampleRate: 0.1,
+      tracesSampleRate: 1,
     });
     initialized = true;
   } catch (error) {

@@ -8,9 +8,17 @@ const runtime = vi.hoisted(() => ({
   },
 }));
 
+const sentry = vi.hoisted(() => ({
+  traceData: {} as Record<string, string | undefined>,
+}));
+
 vi.mock("../src/server/runtime", () => ({
   getRequestId: () => runtime.requestId,
   getWebEnv: () => runtime.env,
+}));
+
+vi.mock("@sentry/cloudflare", () => ({
+  getTraceData: () => sentry.traceData,
 }));
 
 import { ApiError, apiFetch, apiFetchOrEmpty } from "../src/server/api-client";
@@ -20,6 +28,7 @@ describe("web api client", () => {
     runtime.requestId = "req_test";
     runtime.env.API_BASE_URL = "https://api.example.test/";
     runtime.env.API = undefined;
+    sentry.traceData = {};
   });
 
   afterEach(() => {
@@ -50,6 +59,25 @@ describe("web api client", () => {
     expect(requests[0]?.headers.get("x-request-id")).toBe("req_test");
     expect(requests[0]?.headers.get("authorization")).toBe("Bearer workos-token");
     expect(requests[0]?.headers.get("content-type")).toBe("application/json");
+  });
+
+  it("propagates trace headers into the API service binding so the call joins the caller's trace", async () => {
+    const requests: Request[] = [];
+    sentry.traceData = {
+      "sentry-trace": "0011223344556677889900aabbccddee-1122334455667788-1",
+      baggage: "sentry-environment=test",
+    };
+    runtime.env.API = {
+      async fetch(request) {
+        requests.push(request);
+        return Response.json({ ok: true });
+      },
+    };
+
+    await apiFetch("/v1/web/workspace", {});
+
+    expect(requests[0]?.headers.get("sentry-trace")).toBe("0011223344556677889900aabbccddee-1122334455667788-1");
+    expect(requests[0]?.headers.get("baggage")).toBe("sentry-environment=test");
   });
 
   it("resolves paths without a leading slash and preserves explicit content type", async () => {

@@ -1,4 +1,5 @@
 import "@tanstack/react-start/server-only";
+import { getTraceData } from "@sentry/cloudflare";
 import type { LoaderFallback } from "../lib/api-error";
 import { getRequestId, getWebEnv } from "./runtime";
 
@@ -66,6 +67,15 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   const finalHeaders = new Headers(headers);
   finalHeaders.set("accept", "application/json");
   finalHeaders.set("x-request-id", requestId);
+  // Join this call to the caller's trace. getWebEnv() reads the raw `cloudflare:workers`
+  // env, not the binding proxy Sentry substitutes into the fetch handler's args, so
+  // env.API.fetch never picks up trace headers on its own. A service binding is also
+  // not global fetch, so the SDK's fetch instrumentation misses it either way.
+  for (const [name, value] of Object.entries(getTraceData())) {
+    if (value) {
+      finalHeaders.set(name, value);
+    }
+  }
   if (!finalHeaders.has("content-type") && rest.body) {
     finalHeaders.set("content-type", "application/json");
   }
