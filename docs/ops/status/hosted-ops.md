@@ -255,7 +255,7 @@ called with incorrect this reference`. Example failed revisions:
 
 ## Database credential boundaries
 
-- Migrations use `platform_admin` via `DATABASE_URL_MIGRATIONS_*` in GitHub
+- Migrations use `neondb_owner` via `DATABASE_URL_MIGRATIONS_*` in GitHub
   Actions only. See [`runbook-neon-database-roles.md`](../runbook-neon-database-roles.md).
 - Hyperdrive configs for `api` and `upload` must use `app_role`
   (`DATABASE_URL_RUNTIME_*`). PR previews resolve separate Neon URLs for migrate vs

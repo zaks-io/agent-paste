@@ -124,7 +124,7 @@ describe("assertMigrationBranchMatchesHyperdrive", () => {
     const log = vi.fn();
     await assertMigrationBranchMatchesHyperdrive({
       target: "preview",
-      migrationUrl: "postgresql://platform_admin:pw@ep-mute-mountain-ap2ca575.us-east-1.aws.neon.tech/neondb",
+      migrationUrl: "postgresql://neondb_owner:pw@ep-mute-mountain-ap2ca575.us-east-1.aws.neon.tech/neondb",
       configText: WRANGLER_CONFIG,
       runWrangler,
       log,
@@ -137,7 +137,7 @@ describe("assertMigrationBranchMatchesHyperdrive", () => {
     await expect(
       assertMigrationBranchMatchesHyperdrive({
         target: "preview",
-        migrationUrl: "postgresql://platform_admin:pw@ep-cold-block-apd1o14r.us-east-1.aws.neon.tech/neondb",
+        migrationUrl: "postgresql://neondb_owner:pw@ep-cold-block-apd1o14r.us-east-1.aws.neon.tech/neondb",
         configText: WRANGLER_CONFIG,
         runWrangler: async () => HYPERDRIVE_GET_OUTPUT,
         log: () => {},

@@ -1,7 +1,7 @@
 /** @typedef {"preview" | "production"} MigrationTarget */
 
 export const APP_RUNTIME_ROLE = "app_role";
-export const MIGRATION_ROLE = "platform_admin";
+export const MIGRATION_ROLE = "neondb_owner";
 export const DATABASE_RUNTIME_ROLE_PASSWORD_ENV = "DATABASE_RUNTIME_ROLE_PASSWORD";
 export const RUNTIME_ROLE_GUC = "app.runtime_role";
 export const RUNTIME_ROLE_PASSWORD_GUC = "app.runtime_role_password";
@@ -22,7 +22,7 @@ const RUNTIME_ENV = {
 };
 
 /**
- * Resolves the env var that holds the migration (platform_admin) connection string.
+ * Resolves the env var that holds the migration (neondb_owner) connection string.
  *
  * @param {MigrationTarget} target
  * @param {NodeJS.ProcessEnv} [env]
