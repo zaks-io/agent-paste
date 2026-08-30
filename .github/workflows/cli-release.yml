@@ -260,6 +260,7 @@ jobs:
     name: Draft release
     needs: build
     runs-on: blacksmith-2vcpu-ubuntu-2404
+    environment: Production
     timeout-minutes: 30
     permissions:
       contents: write
@@ -305,6 +306,20 @@ jobs:
         with:
           path: dist-binaries
           merge-multiple: true
+
+      # Exercise the exact standalone bytes that will be attached to the draft
+      # against the currently deployed production contract before the release can
+      # be published or advertised. This catches server/CLI response drift at the
+      # only boundary that matters: the compiled binary parsing a real successful
+      # publish. The API key is scoped to this step and is never printed.
+      - name: Smoke release binary against production publish
+        env:
+          AGENT_PASTE_RELEASE_BINARY: ${{ github.workspace }}/dist-binaries/agent-paste-linux-x64
+          AGENT_PASTE_API_KEY: ${{ secrets.AGENT_PASTE_PRODUCTION_SMOKE_API_KEY }}
+        run: |
+          set -euo pipefail
+          chmod +x "$AGENT_PASTE_RELEASE_BINARY"
+          node scripts/smoke-cli-release.mjs
 
       - name: Attach repo security attestation bundle
         run: tar -czf dist-binaries/repo-security-attestation.tgz -C artifacts/security .

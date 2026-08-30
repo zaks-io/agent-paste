@@ -56,12 +56,13 @@ optional keep and ownership step.
 | `agent-paste publish <path>`                           | Publish a new Artifact website.                      |
 | `agent-paste publish <path> --artifact-id <id>`        | Revise an Artifact at the same URL.                  |
 | `agent-paste publish <path> --ephemeral`               | Accountless 24-hour publish.                         |
-| `agent-paste pull <artifact-id> <path>`                | Read one stored file.                                |
+| `agent-paste pull <artifact-id> <remote-path>`         | Read one file; see pull help for output and URLs.    |
 | `agent-paste edit <artifact-id> <path> --edits <file>` | Apply literal edits and publish a Revision.          |
 | `agent-paste version`                                  | Print the installed version.                         |
 | `agent-paste upgrade`                                  | Install a selected release tag.                      |
 
 Run `agent-paste help publish` for the full agent-oriented publish guide.
+Run `agent-paste help pull` for remote-path and local redirection examples.
 
 ## Publish JSON
 
