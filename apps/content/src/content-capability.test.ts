@@ -154,12 +154,47 @@ describe("content capability routing", () => {
 
   it("returns the generic not-found boundary for malformed capability hosts and manifests", async () => {
     const fixture = await capabilityFixture({ manifest: "not-json" });
+    fixture.env.CONTENT_ROUTE_ORIGIN_HOSTS = "api.example.test";
+    const fetchOrigin = vi.fn();
     const malformedManifest = await handleRequest(new Request(`${capabilityOrigin}/index.html`), fixture.env);
-    const malformedHost = await handleRequest(new Request(`https://invalid.${capabilityDomain}/healthz`), fixture.env);
+    const malformedHost = await handleRequest(
+      new Request(`https://invalid.${capabilityDomain}/healthz`),
+      fixture.env,
+      fetchOrigin,
+    );
 
     expect(malformedManifest.status).toBe(404);
     expect(malformedHost.status).toBe(404);
+    expect(fetchOrigin).not.toHaveBeenCalled();
     await expect(malformedHost.json()).resolves.toMatchObject({ error: { code: "not_found" } });
+  });
+
+  it("forwards explicit product hosts to their Custom Domain origins", async () => {
+    const { env } = await capabilityFixture();
+    env.CONTENT_ROUTE_ORIGIN_HOSTS = "api.example.test,app.example.test";
+    const fetchOrigin = vi.fn(async () => new Response("api ok", { headers: { "x-product-origin": "api" } }));
+    const request = new Request("https://api.example.test/healthz");
+
+    const response = await handleRequest(request, env, fetchOrigin);
+
+    expect(fetchOrigin).toHaveBeenCalledOnce();
+    expect(fetchOrigin).toHaveBeenCalledWith(request);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-product-origin")).toBe("api");
+    expect(response.headers.get("content-security-policy")).toBeNull();
+    await expect(response.text()).resolves.toBe("api ok");
+  });
+
+  it("fails closed when the product-origin host configuration is malformed", async () => {
+    const { env } = await capabilityFixture();
+    env.CONTENT_ROUTE_ORIGIN_HOSTS = "api.example.test,invalid.example.test/path";
+    const fetchOrigin = vi.fn();
+
+    const response = await handleRequest(new Request("https://api.example.test/healthz"), env, fetchOrigin);
+
+    expect(fetchOrigin).not.toHaveBeenCalled();
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "internal_error" } });
   });
 
   it("returns the standard internal-error envelope when manifest storage fails", async () => {
