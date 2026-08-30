@@ -22,7 +22,7 @@ export class DaytonaEvalSandbox {
 
   async start(): Promise<void> {
     await this.stop();
-    const { Daytona } = await import("@daytonaio/sdk");
+    const { Daytona } = await import("@daytona/sdk");
     const daytona = new Daytona(daytonaConfig(this.env, this.config));
     const snapshot = this.config.sandbox.snapshot;
     if (!snapshot) {
