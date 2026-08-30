@@ -27,7 +27,7 @@ import {
 } from "./cli-args.js";
 import { type Credential, deleteCredential, isCredentialExpired, loadCredential } from "./credentials.js";
 import { edit } from "./edit.js";
-import { HELP_TEXT, PUBLISH_HELP_TEXT } from "./help.js";
+import { HELP_TEXT, PUBLISH_HELP_TEXT, PULL_HELP_TEXT } from "./help.js";
 import {
   contentTypeForLocalPath,
   inferPublishOptions,
@@ -67,8 +67,11 @@ export async function main(argv = process.argv.slice(2), client?: ApiClient) {
   if (command === "help") {
     return printHelp(parsed.positionals[0]);
   }
-  if (command === "" || command === "--help" || booleanFlag(parsed, "help", false)) {
-    return printHelp(command === "publish" ? "publish" : undefined);
+  if (booleanFlag(parsed, "help", false)) {
+    return printHelp(command);
+  }
+  if (command === "" || command === "--help") {
+    return printHelp();
   }
   validateKnownFlags(command, parsed);
   switch (command) {
@@ -420,13 +423,20 @@ async function existingArtifactTitle(client: ApiClient, artifactId: string): Pro
 }
 
 // Read one stored file's content for the owning member (ADR 0090). Default
-// output is cat-like: the raw text body to stdout, so `agent-paste pull <id> <path>
+// output is cat-like: the raw text body to stdout, so `agent-paste pull <id> <remote-path>
 //  > file` works. --json emits structured metadata (text body inline; binary and
 // oversize files carry no body — fetch those via the content URL). Plain mode refuses
 // a binary file (raw bytes would corrupt a terminal / piped text).
 async function pull(parsed: Parsed, client: ApiClient) {
   const artifactId = ArtifactId.parse(requiredArg(parsed, 0, "artifact-id"));
-  const filePath = requiredArg(parsed, 1, "path");
+  const rawFilePath = requiredArg(parsed, 1, "remote-path");
+  const parsedFilePath = FilePath.safeParse(rawFilePath);
+  if (!parsedFilePath.success) {
+    throw new Error(
+      "remote-path must be a relative file path inside the Artifact; redirect stdout to write a local file",
+    );
+  }
+  const filePath = parsedFilePath.data;
   const revisionId = stringFlag(parsed, "revision-id");
   const file = await client.artifacts.readFile(artifactId, filePath, revisionId);
 
@@ -451,12 +461,14 @@ async function pull(parsed: Parsed, client: ApiClient) {
   }
   // The body IS pull's result (cat-like), not a human summary, so --quiet does not
   // suppress it — like --quiet --json still emitting the object. Otherwise
-  // `pull <id> <path> --quiet > file` would silently write an empty file.
+  // `pull <id> <remote-path> --quiet > file` would silently write an empty file.
   await writeStdout(file.body);
 }
 
 function printHelp(topic?: string) {
-  return writeStdout(topic === "publish" ? PUBLISH_HELP_TEXT : HELP_TEXT);
+  if (topic === "publish") return writeStdout(PUBLISH_HELP_TEXT);
+  if (topic === "pull") return writeStdout(PULL_HELP_TEXT);
+  return writeStdout(HELP_TEXT);
 }
 
 export function isMainEntrypoint(metaUrl: string, argv1: string | undefined, platform = process.platform) {

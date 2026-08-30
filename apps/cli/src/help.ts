@@ -2,11 +2,12 @@ export const HELP_TEXT = `agent-paste
 
 Usage:
   agent-paste help publish
+  agent-paste help pull
   agent-paste login
   agent-paste logout
   agent-paste whoami [--json]
   agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ephemeral] [--claim-code <clm_...>] [--json]
-  agent-paste pull <artifact-id> <path> [--revision-id <id>] [--json]
+  agent-paste pull <artifact-id> <remote-path> [--revision-id <id>] [--json]
   agent-paste edit <artifact-id> <path> [--edits <file>] [--json]
   agent-paste version [--json]
   agent-paste upgrade [<tag>]
@@ -29,6 +30,22 @@ Output:
   --quiet       Suppress the human summary; errors and exit code still apply.
   --color       Force colour/rich output; --no-color forces plain.
                 Default: rich on a TTY, plain when piped or NO_COLOR/CI is set.
+`;
+
+export const PULL_HELP_TEXT = `agent-paste pull help
+
+Read one remote file stored inside an Artifact. The file body is written to
+stdout; <remote-path> is relative to the Artifact root, not a local destination.
+
+Usage:
+  agent-paste pull <artifact-id> <remote-path> [--revision-id <id>] [--json]
+
+Recipes:
+  Save a remote file locally:
+    agent-paste pull <artifact-id> index.html > ./index.html
+
+  Hash a remote file without saving it:
+    agent-paste pull <artifact-id> index.html | shasum -a 256
 `;
 
 export const PUBLISH_HELP_TEXT = `agent-paste publish help

@@ -141,6 +141,12 @@ export class ApiClient {
     // from the Agent View — the read half of a patch revise (ADR 0091).
     getAgentView: (artifactId: ArtifactId | string) =>
       this.request(AgentView, this.apiBaseUrl, `/v1/artifacts/${encodeURIComponent(artifactId)}/agent-view`),
+    getRevisionAgentView: (artifactId: ArtifactId | string, revisionId: RevisionId | string) =>
+      this.request(
+        AgentView,
+        this.apiBaseUrl,
+        `/v1/artifacts/${encodeURIComponent(artifactId)}/revisions/${encodeURIComponent(revisionId)}/agent-view`,
+      ),
     // Read one stored file's decrypted plaintext + sha256 so the caller can diff
     // against it for a patch revise (ADR 0090). revisionId pins the read
     // to a specific Revision; omit for the latest.

@@ -78,7 +78,11 @@ It cross-compiles the four binaries on native per-OS runners
 attaches a CycloneDX SBOM + grype report + build-provenance attestations, and
 exports SLSA provenance sidecars (`*.intoto.jsonl`) for each binary. It creates
 (or updates) a **draft** GitHub release tagged `cli-v<version>` with a
-`SHA256SUMS` manifest. New draft releases and draft reruns are pinned to the
+`SHA256SUMS` manifest. Before creating the draft, the compiled Linux binary runs
+`whoami`, signed-in directory and single-file publishes, read-back of the freshly
+published entrypoint, and ephemeral publish against production. A response parser
+that does not accept the deployed contract therefore blocks the release before it
+can be published or advertised. New draft releases and draft reruns are pinned to the
 workflow build SHA; reruns may clobber draft assets only, never assets on a
 published release.
 
@@ -145,6 +149,10 @@ per-isolate memo), stale CLIs on the binary channel start seeing
 | Update API | `curl -sS <api-origin>/v1/public/cli-version` returns `{ latest, min_supported }` updated.                                |
 | Binary     | On a binary install, `agent-paste upgrade` downloads + verifies + self-replaces.                                          |
 
+The draft workflow's production smoke also proves the release binary reports
+`schema_version: "2"`, returns the complete publish JSON contract, and can pull
+the just-published entrypoint using the same API-key actor.
+
 `<api-origin>` is the per-environment API base (preview or production). The
 endpoint is public and unauthenticated; CF edge-caches it for ~5 minutes, so a
 freshly advertised version can take a few minutes to appear.
@@ -167,16 +175,20 @@ freshly advertised version can take a few minutes to appear.
   macOS codesign + notarize step.
 - **`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`** repo secrets (shared with
   the deploy workflow) scoped to the KV-write step only.
+- **`AGENT_PASTE_PRODUCTION_SMOKE_API_KEY`** in the GitHub `Production`
+  environment, with `publish` and `read` scopes. The release job exposes it only
+  to the compiled-binary smoke step.
 
 ## Failure modes
 
-| Symptom                                             | Likely cause                                                            | Action                                                                                                                                                                   |
-| --------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| CLI Release fails on "Invalid package.json version" | `version` is not clean semver                                           | Fix `apps/cli/package.json`, merge, re-dispatch.                                                                                                                         |
-| Advertise fails on tag/version mismatch             | Release tagged off a SHA whose `package.json` differs                   | Ensure the bump merged before dispatching; re-cut from `main`.                                                                                                           |
-| npm publish skipped ("already published")           | Re-published an existing release (event re-fires on edits)              | Expected; the KV write still runs and is idempotent.                                                                                                                     |
-| `agent-paste upgrade` reports a checksum mismatch   | Corrupted download or asset/`SHA256SUMS` drift                          | Re-run; if persistent, re-cut the release (do **not** hand-edit).                                                                                                        |
-| Update check never shows the new version            | Edge cache not yet expired, KV write failed, or Wrangler wrote local KV | Wait ~5 min; check the Advertise run's KV step logs for `--remote`/`Resource location: remote`, then manually dispatch CLI Advertise Release for the same tag if needed. |
+| Symptom                                             | Likely cause                                                                                     | Action                                                                                                                                                                   |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CLI Release fails on "Invalid package.json version" | `version` is not clean semver                                                                    | Fix `apps/cli/package.json`, merge, re-dispatch.                                                                                                                         |
+| Advertise fails on tag/version mismatch             | Release tagged off a SHA whose `package.json` differs                                            | Ensure the bump merged before dispatching; re-cut from `main`.                                                                                                           |
+| npm publish skipped ("already published")           | Re-published an existing release (event re-fires on edits)                                       | Expected; the KV write still runs and is idempotent.                                                                                                                     |
+| `agent-paste upgrade` reports a checksum mismatch   | Corrupted download or asset/`SHA256SUMS` drift                                                   | Re-run; if persistent, re-cut the release (do **not** hand-edit).                                                                                                        |
+| Update check never shows the new version            | Edge cache not yet expired, KV write failed, or Wrangler wrote local KV                          | Wait ~5 min; check the Advertise run's KV step logs for `--remote`/`Resource location: remote`, then manually dispatch CLI Advertise Release for the same tag if needed. |
+| Release binary production smoke fails               | Compiled CLI/deployed API contract drift, missing production smoke key, or a real hosted failure | Do not publish the draft. Check the named failing command, fix the contract or environment, and rerun CLI Release.                                                       |
 
 ## Verification boundary
 

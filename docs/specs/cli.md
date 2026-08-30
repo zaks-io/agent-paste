@@ -47,16 +47,25 @@ url, expires_at, upload_stats }`. `url` is the no-login top-level capability
   website and is the only recipient link. Revising with `--artifact-id` keeps
   it unchanged. `upload_stats` is `{ total_files, total_bytes, uploaded_files,
 uploaded_bytes, reused_files, reused_bytes }`.
+- If the publish request fails after the server may have committed the Revision,
+  the CLI reads the authenticated Agent View and recovers success only when it
+  reports the exact Artifact and Revision just finalized. This keeps response
+  parser drift or a post-commit connection failure from stranding the Artifact
+  URL while preserving the original error when the exact commit cannot be
+  verified. Recovery exits successfully with the normal result on stdout and a
+  diagnostic on stderr so release validation can still reject parser drift.
 - There is no `--share`, visibility input, private viewer, or second sharing
   command.
 - `publish --ephemeral --json` emits the normal publish fields plus
   `{ claim_token, claim_url, workspace_id, api_key_id, claim_token_id }`. When the caller supplies
   `--claim-code <clm_...>`, the API embeds it in the claim token; the CLI never
   returns `claim_code` as a separate field.
-- `pull <artifact-id> <path> [--revision-id <id>]` reads one stored file back
+- `pull <artifact-id> <remote-path> [--revision-id <id>]` reads one stored file back
   ([ADR 0090](../adr/0090-agent-file-read-back-api-decrypts-member-plaintext.md)).
-  Default output is cat-like (the raw text body to stdout, so `pull … > file`
-  works); `--json` emits `{ schema_version, path, sha256, size_bytes, is_binary,
+  `<remote-path>` is relative to the Artifact root, not a local destination.
+  Default output is cat-like (the raw text body to stdout, so
+  `pull <artifact-id> index.html > ./index.html` works); `--json` emits
+  `{ schema_version, path, sha256, size_bytes, is_binary,
 body? }`. A binary file has no inline body: `--json` reports `is_binary: true`
   with no `body`, and plain mode errors (raw bytes would corrupt the stream). An
   oversize text file likewise has no `body`; fetch it via the content URL.

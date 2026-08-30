@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Credential } from "../src/credentials.js";
 import * as credentials from "../src/credentials.js";
+import { PULL_HELP_TEXT } from "../src/help.js";
 import { isMainEntrypoint, logout, main, parseArgs, SCHEMA_VERSION, shellQuote } from "../src/index.js";
 import { CLI_VERSION } from "../src/version.js";
 
@@ -148,6 +149,15 @@ describe("cli command dispatch", () => {
       expect(help).toContain("agent-paste publish <path>");
       expect(help).toContain("url");
     }
+  });
+
+  it("routes both pull help forms to the dedicated guide", async () => {
+    const stdout = mockStdout();
+
+    await main(["pull", "--help"]);
+    await main(["help", "pull"]);
+
+    expect(stdoutValues(stdout)).toEqual([PULL_HELP_TEXT, PULL_HELP_TEXT]);
   });
 
   it("documents agent-facing publish contract tokens in publish help", async () => {
@@ -834,6 +844,16 @@ describe("cli command dispatch", () => {
     await main(["pull", artifactId, "notes.md", "--quiet"], client);
     expect(stdoutValues(quietStdout).join("")).toBe(body);
     quietStdout.mockRestore();
+  });
+
+  it("pull rejects a local destination where a remote Artifact path is required", async () => {
+    const readFile = vi.fn();
+    const client = fakeClient({ artifacts: { readFile } });
+
+    await expect(main(["pull", artifactId, "/tmp/daily-status-pull-check"], client)).rejects.toThrow(
+      /remote-path must be a relative file path inside the Artifact/,
+    );
+    expect(readFile).not.toHaveBeenCalled();
   });
 
   it("pull refuses a binary file in plain mode", async () => {

@@ -270,6 +270,25 @@ describe("ApiClient", () => {
     expect(result.url).toBe("https://0123456789abcdef0123456789abcdef.agent-paste.sh/");
   });
 
+  it("reads the Agent View for an exact Revision", async () => {
+    const calls: Request[] = [];
+    const client = authedClient({
+      apiBaseUrl: "https://api.example.test/",
+      fetch: async (input, init) => {
+        calls.push(new Request(input, init));
+        return Response.json(agentView());
+      },
+    });
+
+    await expect(client.artifacts.getRevisionAgentView(artifactId, revisionId)).resolves.toMatchObject({
+      artifact_id: artifactId,
+      revision_id: revisionId,
+    });
+    expect(calls[0]?.url).toBe(
+      `https://api.example.test/v1/artifacts/${artifactId}/revisions/${revisionId}/agent-view`,
+    );
+  });
+
   it("applies default headers to public API requests", async () => {
     const calls: Request[] = [];
     const client = authedClient({
@@ -453,6 +472,26 @@ function publishResult() {
     title: "Demo",
     url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
     expires_at: "2026-02-01T00:00:00.000Z",
+  };
+}
+
+function agentView() {
+  return {
+    ...publishResult(),
+    created_at: "2026-01-01T00:00:00.000Z",
+    entrypoint: "index.html",
+    revision_content_url: "https://content.example.test/v/demo/index.html",
+    files: [
+      {
+        path: "index.html",
+        size_bytes: 12,
+        content_type: "text/html",
+        url: "https://content.example.test/v/demo/index.html",
+        sha256: "a".repeat(64),
+      },
+    ],
+    safety_warnings: [],
+    bundle: { status: "disabled" },
   };
 }
 
