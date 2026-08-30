@@ -35,6 +35,20 @@ Last updated: 2026-06-01
 - Focused checks: pnpm test <path>, pnpm prettier:check
 - Production approval required: yes
 
+## Planning Artifacts
+
+- Current-truth spec authority: docs/specs/README.md and docs/specs/\*.md
+- Spec paths: docs/specs/\*.md
+- Spec format: existing repo template
+- Spec status convention: Draft and Ready for slicing
+- Spec readiness authority: explicit user confirmation required
+- Glossary paths: CONTEXT.md
+- Context map: none; single context
+- ADR path: docs/adr/
+- ADR naming and status convention: NNNN-slug.md; Accepted or Superseded
+- Authority hierarchy: specs, glossary, ADR rationale, code evidence, tracker slices, conversation context
+- Documentation checks: pnpm format:check, pnpm docs:links, git diff --check
+
 ## Issue Tracker
 
 - Provider: Linear
@@ -95,16 +109,12 @@ Last updated: 2026-06-01
 
 - Worker delegation paths: issue-assigned (Cursor), local-worktree
 - Default worker path: issue-assigned (Cursor)
-- Active PR/preview cap: 3 active delivery slots. Count repo-level open PRs,
-  active PR-scoped previews, and Cursor dispatches that have not yet returned a
-  PR
-- Cap count policy: count each open PR once, add active previews that are not
-  clearly linked to an already counted PR, then add unreturned Cursor
-  dispatches. Reconcile missing dispatches from repo-scoped active Linear claims
-  and dirty, baseline-unmerged, or uncertain non-default worktrees. Do not
-  double-count a normal linked PR, preview, claim, and worktree
-- Capacity drain policy: when the cap is full, review, merge, close, or escalate
-  existing PRs/previews before assigning more Cursor work
+- Worker concurrency cap: 3 active Cursor or local repair sessions
+- Worker count policy: count confirmed sessions until return, stop, failure, or
+  PR creation. Human assignees, open PRs, previews, and abandoned worktrees do
+  not occupy worker slots
+- Saturation policy: advance PR state and immediately fill every safe worker
+  slot; record why any slot remains idle while ready work exists
 - Stuck-worker timeout: no branch/PR/agent-thread reply within <N> min -> direct
   thread nudge, then escalate or re-delegate only if the session cannot continue
 - Attempt cap: 3 implement+review cycles before the thrash breaker escalates
@@ -127,8 +137,8 @@ Last updated: 2026-06-01
 - Friction intake: private Linear Skills team/project, state Inbox, ticket-per-finding
 - Friction review automation: daily Codex automation reviews Inbox, dedupes or
   closes noise, and opens a small PR for concrete skill improvements
-- Capacity metrics: open PRs, active previews, active delivery slots, and
-  remaining headroom at start and end of orchestration runs
+- Capacity metrics: active workers, worker cap, remaining headroom, and
+  justified idle slots at tick start and end
 
 ## Agent Access
 

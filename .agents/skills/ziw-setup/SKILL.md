@@ -1,8 +1,7 @@
 ---
 name: ziw-setup
-description: Use for workflow setup when setting up or refreshing a repository for agent workflows by creating docs/agents/workflow/config.md with repo commands, issue tracking, agent adapters, review gates, and environment safety rules.
+description: Use for workflow setup when setting up or refreshing a repository for agent workflows by creating docs/agents/workflow/config.md with repo commands, planning artifacts, issue tracking, agent adapters, review gates, and environment safety rules.
 argument-hint: "[repo-path]"
-disable-model-invocation: true
 ---
 
 # Setup
@@ -35,6 +34,7 @@ user instruction. If the value is not verified, mark it `inferred` or move it to
 
 - Repo path to configure.
 - Existing repo rules, CI, package scripts, issue tracker, and deploy docs.
+- Existing spec indexes, specs, glossaries, context maps, and ADR conventions.
 - Any user-provided tracker, agent access, or environment constraints.
 
 ## Output File
@@ -56,7 +56,7 @@ Load these references when writing the config:
 - [references/issue-tracker-contract.md](references/issue-tracker-contract.md)
   for tracker states, labels, readiness, and issue body shape
 - [references/operating-profile.md](references/operating-profile.md) for the
-  active PR/preview cap default, the issue-assigned delegation and continuation
+  worker concurrency default, the issue-assigned delegation and continuation
   mechanic, the repo-route precondition, and the merge-safety decision table
 - [references/linear-cursor-example.md](references/linear-cursor-example.md) for
   a worked Linear + Cursor config to copy when the repo uses that stack
@@ -96,6 +96,9 @@ Verify all populated workflow fields that setup writes or preserves:
 - install, check, build, test, lint, smoke, preview, and generated-artifact
   commands from scripts, CI workflows, makefiles, justfiles, runbooks, or direct
   safe command execution
+- planning artifact authority, paths, status convention, and documentation
+  checks from spec indexes, context maps, ADR indexes, scripts, CI, or explicit
+  user instruction
 - issue tracker provider, location, team/project/board/roadmap, statuses,
   labels, priorities, estimate fields, relationships, issue templates, and query
   contracts with read-only tracker tool calls when tools are available
@@ -169,6 +172,9 @@ Record:
   calls it. Flag any test, lint, coverage, format, or scan step that CI runs
   outside that entrypoint as a `config-gap` to fix in the repo, not a
   difference to document in prose
+- planning artifact map: current-truth spec index and paths, glossary or context
+  map paths, ADR path and naming convention, authority hierarchy, spec status
+  convention, and documentation checks
 - issue tracker provider, provider location, project or board, routing label,
   triage scope, orphan policy, statuses, labels, kind label set
   (`kind-spec`, `kind-epic`, `kind-slice`) and its single-select policy,
@@ -198,7 +204,7 @@ Record:
 - duplicate worker or PR detection policy for issue-assigned providers that can
   spawn more than one session for one dispatch
 - autonomous-loop controls when the repo runs the orchestrator unattended:
-  active PR/preview cap, cap count policy, preview-provider cap, stuck-worker
+  worker concurrency cap, worker count policy, preview-provider cap, stuck-worker
   timeout, attempt cap before the thrash circuit breaker, required checks that
   define green for the integrate gate, auto-merge risk tiers, merge method,
   post-merge preparation and check, the production deploy status check on the
@@ -309,10 +315,11 @@ Review evidence:
 
 - configured exact label slug or ID, such as `code-review-passed`
 
-By default, the review evidence label means the latest linked PR head SHA has
-passed the configured code review gate for the ticket. Record the exact
-configured label slug or ID, PR URL, and reviewed head SHA when applying it.
-Remove it when the PR head changes, blocking findings appear, the linked PR
+By default, the review evidence label means the linked PR's review-relevant diff
+has passed the configured code review gate for the ticket. Record the exact
+configured label slug or ID, PR URL, reviewed head SHA, and review-diff
+fingerprint when applying it.
+Remove it when the review-relevant diff changes, blocking findings appear, the linked PR
 changes, or the evidence is missing. Resolve the label by configured slug or ID,
 not by reconstructing a title-case display name.
 
