@@ -19,12 +19,13 @@ stays fast and does not run the full bundle.
 - [x] Confirm the org-wide `SNYK_TOKEN` reaches this repo's Actions — proven on
       PR #217: Snyk Open Source tested 24 projects (clean) and Snyk Code ran.
 - [x] Pass the public GitHub remote URL to Snyk Open Source scans. Done
-      2026-07-04 for AP-403: `snyk test --all-projects` and the main-only
-      `snyk monitor --all-projects` step both set `--remote-repo-url` to this
-      public GitHub repo so Snyk classifies the scan against the public project
-      instead of consuming private-test quota. This does not replace the
-      dashboard-link follow-up below, which still needs verification after the
-      first post-merge `main` push.
+      2026-07-04 for AP-403: `snyk test --all-projects` and
+      `snyk monitor --all-projects` both set `--remote-repo-url` to this public
+      GitHub repo. Live verification on 2026-08-30 showed that URL attribution
+      alone does not make the CLI tests public: Snyk still classified each
+      workspace manifest as private and exhausted the 200-test monthly quota.
+      The complete 29-manifest scan now runs weekly, which fits the quota while
+      the repo attestation continues on every `main` push and every day.
 - [x] Patch the eval runner image's upstream shrinkwrapped `brace-expansion`
       copy to `5.0.7`. Done 2026-07-04 for AP-403: the Dockerfile updates the
       nested `@earendil-works/pi-coding-agent` install after `npm ci` and asserts
@@ -45,15 +46,19 @@ stays fast and does not run the full bundle.
 - [ ] Triage the initial Snyk Code HIGH findings (19 on PR #217) — see **AP-160**.
       Mostly `scripts/*.mjs` "hardcoded non-cryptographic secret" likely-FPs plus a
       few app-code XSS/SSRF worth a real look. Add `.snyk` ignores for confirmed FPs.
-- [ ] Link a Snyk project so `snyk monitor --all-projects` (main-only step) posts
-      `main` state to the Snyk dashboard. Verify after the first push to `main`.
+- [ ] Link a public Snyk project so the weekly
+      `snyk monitor --all-projects` snapshot posts `main` state to the dashboard
+      without consuming private-test quota. Verify after the first scheduled
+      run following the link.
 - [ ] Tune scanner noise only if warranted: add `.semgrep.yml` / `.trivyignore` /
       `.snyk` ignore files instead of leaving findings as advisory log spam. Start
       empty; add narrowly-scoped allowlists per confirmed false positive.
-- [ ] Decide whether to promote `Repo security attestation` and Snyk
-      `Dependency scan (Snyk SCA)` to required ruleset checks for `main`. The
-      attestation job is blocking inside its workflow today, but repository
-      rulesets still decide whether a failed `Security` workflow blocks merging.
+- [ ] Decide whether to promote `Repo security attestation` to a required
+      ruleset check for `main`. The attestation job is blocking inside its
+      workflow today, but repository rulesets still decide whether a failed
+      `Security` workflow blocks merging. Reconsider Snyk as a required check
+      only after its public-project classification is fixed; it currently runs
+      weekly to stay within the private-test quota.
 - [ ] Re-verify the pinned non-`actions/*` action tags are current before each
       release cycle: `aquasecurity/trivy-action@v0.36.0`, `anchore/sbom-action@v0`,
       `anchore/scan-action@v7`, and the `semgrep/semgrep` container image.
