@@ -142,7 +142,7 @@ export async function handleRequest(request: Request, env: Env, fetchOrigin: typ
     if (capability.kind === "not_found") {
       if (isContentRouteOriginRequest(request, env)) {
         // A Cloudflare Route executes before a Custom Domain on the same host.
-        // Forward named product hosts to their existing Custom Domain origin.
+        // Forward configured product hosts to their existing Custom Domain origin.
         return await fetchOrigin(request);
       }
       const notFoundUrl = new URL(request.url);

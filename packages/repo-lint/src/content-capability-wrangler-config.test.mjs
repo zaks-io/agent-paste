@@ -91,6 +91,24 @@ describe("content-capability-wrangler-config", () => {
     }
   });
 
+  it("rejects a missing per-PR preview forwarding domain", () => {
+    const tempRoot = copyConfigs();
+    try {
+      const contentPath = join(tempRoot, "apps/content/wrangler.jsonc");
+      writeFileSync(
+        contentPath,
+        readFileSync(contentPath, "utf8").replace(
+          '        "CONTENT_ROUTE_PR_PREVIEW_DOMAIN": "preview.agent-paste.sh",\n',
+          "",
+        ),
+      );
+
+      expect(validateContentCapabilityWranglerConfig(tempRoot).join("\n")).toContain("CONTENT_ROUTE_PR_PREVIEW_DOMAIN");
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   it("rejects any additional agent-paste.sh route in preview", () => {
     const tempRoot = copyConfigs();
     try {

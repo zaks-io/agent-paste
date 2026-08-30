@@ -31,10 +31,12 @@ and delete update or remove that manifest through the existing lifecycle path.
 The content Worker accepts only the configured hostname shape. Production uses
 the wildcard Worker route `*.agent-paste.sh/*`. Cloudflare Routes execute before
 Custom Domains on the same hostname, so the Worker forwards the explicit
-`api`, `app`, `mcp`, `stream`, and `upload` hosts to their existing Custom
-Domain origins. Every other hostname that does not match the capability grammar
-is rejected. Preview uses `*-preview.agent-paste.sh/*`, which does not overlap
-the `*.preview.agent-paste.sh` product hosts.
+production and standing-preview product hosts to their existing Custom Domain
+origins. It also forwards the strictly bounded per-PR web hostname shape
+`pr-{positive integer}.preview.agent-paste.sh` used for OAuth callbacks. Every
+other hostname that does not match the capability grammar is rejected. Preview
+uses `*-preview.agent-paste.sh/*`, which does not overlap the
+`*.preview.agent-paste.sh` product hosts.
 
 `/` resolves to the manifest entrypoint. Every other path resolves within the
 same manifest. This gives uploaded HTML, CSS, JavaScript, fonts, images, module
