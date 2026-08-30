@@ -26,10 +26,15 @@ file carries the order of operations.
    continuation target or mark the ticket for human attention. If no explicit
    draft blocker remains, mark the PR ready-for-review and verify it is
    non-draft.
-4. Confirm code review happened when feasible and covers the current PR head
+4. Confirm code review happened when feasible and covers the current
+   review-relevant diff
    before applying the configured review evidence label, moving to
    `Ready to Merge`, or calling integrate. Request Agent Review only when
    review evidence is the actual blocker, not merely because the PR is draft.
+   Reuse evidence when the review-relevant diff is unchanged, including after a
+   base-only update. Never review an empty diff, repeat a pending or
+   equivalent-diff review, or route conformance, CI, provider, or authority
+   failures into Agent Review.
 5. When the next action requires review evidence, first verify the review
    target is stable enough to spend a review pass: the PR head matches the
    code host, the original worker is not still pushing to that head, and
@@ -40,17 +45,18 @@ file carries the order of operations.
    wasted, log the cost with an existing friction category, usually
    `stuck-worker` for live worker churn or `config-gap` for missing
    check-state expectations.
-6. When the review target is stable, run independent `ziw-code-review` in a
+6. When the review target is stable and no equivalent-diff request exists, run one
+   independent `ziw-code-review` in a
    subagent or disposable worktree. Parallel reviews must use isolated
    worktrees or sessions, never one shared mutable checkout.
 7. Read the review verdict and hosted bot review recommendation from the review
    artifact. If multiple current review artifacts disagree on blocking
    findings, reconcile conservatively: treat the PR as blocked until a focused
    re-review resolves the exact findings or the risky diff is fixed.
-8. If the PR head changed since the configured review evidence label was
-   applied, or the label lacks reviewed head SHA evidence, remove the label
-   before continuing. Also remove the configured code-host human-merge PR
-   label if it is present.
+8. If the review-relevant diff changed since the configured review evidence
+   label was applied, or the label lacks a review-diff fingerprint, remove the
+   label before continuing. Also remove the configured code-host human-merge
+   PR label if it is present. A head change alone does not invalidate review.
 9. If the latest review has blocking findings, remove the configured review
    evidence label and post actionable findings as PR review comments when
    configured.
@@ -62,22 +68,20 @@ file carries the order of operations.
     number of times.
 12. Keep fixes on the same branch and PR. After fixes, rerun review and
     required checks.
-13. When review is clean for the current PR head, apply the configured review
+13. When review is clean for the current review-relevant diff, apply the configured review
     evidence label to the issue and record the PR URL, reviewed head SHA,
-    review artifact, and reviewer path in a tracker comment or configured
-    evidence field.
+    review-diff fingerprint, review artifact, and reviewer path in a tracker
+    comment or configured evidence field.
 14. Before changing draft state, refresh code-host PR state and the current PR
     head. Before applying the configured review evidence label, moving tracker
     state to `Ready to Merge`, or calling integrate, refresh local Git refs
     and code-host PR state. Verify the local branch or worktree HEAD, PR head
-    SHA, and default branch HEAD still match the review and check evidence. If
-    they do not match, rerun review and checks for the current head instead of
-    approving or merging from stale local state. If the base branch moved
-    since the review or `Ready to Merge` evidence was recorded, treat merge
-    readiness as expired. For GitHub PRs, refresh PR state, run
-    `gh pr update-branch <pr>`, then rerun checks and review on the updated
-    head. Do not delegate this routine update; delegate only when the command or
-    code host reports a merge conflict or equivalent manual conflict state.
+    SHA, and default branch HEAD still match current check evidence. If the PR
+    head moved, compare the review-relevant diff before purchasing another
+    review. Base movement expires checks, not equivalent-diff review evidence.
+    For GitHub PRs, refresh PR state, run `gh pr update-branch <pr>`, rerun
+    checks, and rerun review only if the review-relevant diff changed. Delegate
+    only when the code host reports a merge conflict.
 15. If review is clean, required checks pass or are not required, and the PR
     is still draft, move the PR to ready-for-review unless the user or repo
     config explicitly says to keep it draft. Then refresh the code-host PR
@@ -89,8 +93,9 @@ file carries the order of operations.
     configured providers include CodeRabbit and Cursor Bugbot. Resolve provider,
     auto-review mode, trigger policy, and current PR-hosted review state before
     posting any command. If provider policy is unknown, stop and resolve it
-    first. If a hosted review is enabled, pending, or already current for the
-    PR head, record that state and wait. For CodeRabbit, top-level PR comments
+    first. Wait only when hosted review is explicitly required and already
+    pending for the current review-relevant diff. Optional hosted review never
+    parks a merge-ready PR. For CodeRabbit, top-level PR comments
     such as `@coderabbitai review` and `@coderabbitai full review`, plus
     `@coderabbitai ignore` in the PR description, are provider-specific tools;
     never run the CodeRabbit CLI for an existing PR. For Cursor Bugbot, use only
@@ -102,7 +107,7 @@ file carries the order of operations.
     finding.
 18. Move to `Ready to Merge` only when review is clean, required checks pass,
     the PR is non-draft and ready-for-review, the configured review evidence
-    label is current for the PR head, the diff matches the linked issue's
+    label is current for the review-relevant diff, the diff matches the linked issue's
     in-scope and out-of-scope boundary, and required hosted bot review escalation is
     complete or recorded as skipped by policy. If configured merge authority is
     human, apply the configured code-host human-merge PR label such as
@@ -139,9 +144,9 @@ When the integrate gate passes:
    the affected gate instead of merging.
 2. If the default branch moved since the PR branch last updated, refresh PR
    state, run `gh pr update-branch <pr>` for GitHub PRs, then rerun required
-   checks and `ziw-code-review`. Do not merge a stale branch on the assumption
-   it still applies, and do not preserve `Ready to Merge` state without fresh
-   evidence. Do not send routine branch updates to the implementation worker.
+   checks. Reuse review evidence when the review-relevant diff is equivalent;
+   request review only when that diff changed. Do not send routine branch
+   updates to the implementation worker.
    Record a `merge-conflict` friction entry and delegate or escalate only when
    the update command or code host reports a merge conflict or equivalent manual
    conflict state.
