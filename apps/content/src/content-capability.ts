@@ -69,19 +69,32 @@ export function isContentCapabilityRequest(request: Request): boolean {
 
 export function isContentRouteOriginRequest(request: Request, env: Env): boolean {
   const configuredHosts = env.CONTENT_ROUTE_ORIGIN_HOSTS;
-  if (!configuredHosts) {
-    return false;
+  const requestHostname = new URL(request.url).hostname.toLowerCase();
+  const originHosts = configuredHosts
+    ? configuredHosts.split(",").map((configuredHost) => parseHostname(configuredHost, "CONTENT_ROUTE_ORIGIN_HOSTS"))
+    : [];
+  if (originHosts.includes(requestHostname)) {
+    return true;
   }
 
-  const requestHostname = new URL(request.url).hostname.toLowerCase();
-  const originHosts = configuredHosts.split(",").map((configuredHost) => {
-    const host = configuredHost.trim().toLowerCase();
-    if (!host || new URL(`https://${host}/`).host !== host) {
-      throw new Error("CONTENT_ROUTE_ORIGIN_HOSTS must contain comma-separated hostnames.");
-    }
-    return host;
-  });
-  return originHosts.includes(requestHostname);
+  const prPreviewDomain = env.CONTENT_ROUTE_PR_PREVIEW_DOMAIN;
+  if (!prPreviewDomain) {
+    return false;
+  }
+  const domain = parseHostname(prPreviewDomain, "CONTENT_ROUTE_PR_PREVIEW_DOMAIN");
+  const suffix = `.${domain}`;
+  if (!requestHostname.endsWith(suffix)) {
+    return false;
+  }
+  return /^pr-[1-9][0-9]*$/.test(requestHostname.slice(0, -suffix.length));
+}
+
+function parseHostname(value: string, variableName: string): string {
+  const host = value.trim().toLowerCase();
+  if (!host || new URL(`https://${host}/`).host !== host) {
+    throw new Error(`${variableName} must contain hostnames.`);
+  }
+  return host;
 }
 
 function encodePath(path: string): string {

@@ -185,12 +185,54 @@ describe("content capability routing", () => {
     await expect(response.text()).resolves.toBe("api ok");
   });
 
+  it("forwards only the bounded per-PR web hostname shape", async () => {
+    const { env } = await capabilityFixture();
+    env.CONTENT_ROUTE_PR_PREVIEW_DOMAIN = "preview.agent-paste.sh";
+    const fetchOrigin = vi.fn(async () => new Response("preview ok"));
+
+    const response = await handleRequest(
+      new Request("https://pr-617.preview.agent-paste.sh/auth/callback"),
+      env,
+      fetchOrigin,
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchOrigin).toHaveBeenCalledOnce();
+
+    for (const hostname of [
+      "pr-0.preview.agent-paste.sh",
+      "pr-01.preview.agent-paste.sh",
+      "pr-main.preview.agent-paste.sh",
+      "pr-617.attacker.preview.agent-paste.sh",
+    ]) {
+      const rejected = await handleRequest(new Request(`https://${hostname}/auth/callback`), env, fetchOrigin);
+      expect(rejected.status).toBe(404);
+    }
+    expect(fetchOrigin).toHaveBeenCalledOnce();
+  });
+
   it("fails closed when the product-origin host configuration is malformed", async () => {
     const { env } = await capabilityFixture();
     env.CONTENT_ROUTE_ORIGIN_HOSTS = "api.example.test,invalid.example.test/path";
     const fetchOrigin = vi.fn();
 
     const response = await handleRequest(new Request("https://api.example.test/healthz"), env, fetchOrigin);
+
+    expect(fetchOrigin).not.toHaveBeenCalled();
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "internal_error" } });
+  });
+
+  it("fails closed when the per-PR preview domain is malformed", async () => {
+    const { env } = await capabilityFixture();
+    env.CONTENT_ROUTE_PR_PREVIEW_DOMAIN = "preview.agent-paste.sh/path";
+    const fetchOrigin = vi.fn();
+
+    const response = await handleRequest(
+      new Request("https://pr-617.preview.agent-paste.sh/auth/callback"),
+      env,
+      fetchOrigin,
+    );
 
     expect(fetchOrigin).not.toHaveBeenCalled();
     expect(response.status).toBe(500);

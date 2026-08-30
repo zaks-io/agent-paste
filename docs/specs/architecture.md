@@ -34,8 +34,10 @@ redacted host metadata.
 The content Worker owns wildcard routes `*.agent-paste.sh/*` in production and
 `*-preview.agent-paste.sh/*` in preview. Because a Cloudflare Route runs before
 a matching Custom Domain, the production Worker forwards the explicit product
-host allowlist to those Custom Domain origins. It rejects every other wildcard
-hostname that does not exactly match the environment's capability-host grammar.
+host allowlist and the bounded `pr-{positive integer}.preview.agent-paste.sh`
+web-preview shape to those Custom Domain origins. It rejects every other
+wildcard hostname that does not exactly match the environment's
+capability-host grammar.
 
 ## Rendering and CSP
 
