@@ -119,8 +119,9 @@
           "custom_domain": true
         },
         {
-          // Exact product routes win over this wildcard. The Worker accepts only
-          // a bare 32-character lowercase hexadecimal capability label.
+          // Cloudflare Routes run before Custom Domains, including nested preview
+          // product hosts. The exact forwarding allowlist below preserves those
+          // named origins while every other non-capability host fails closed.
           "pattern": "*.agent-paste.sh/*",
           "zone_name": "agent-paste.sh"
         }
@@ -129,7 +130,7 @@
         "AGENT_PASTE_ENV": "production",
         "CONTENT_BASE_URL": "https://usercontent.agent-paste.sh",
         "CONTENT_CAPABILITY_DOMAIN": "agent-paste.sh",
-        "CONTENT_ROUTE_ORIGIN_HOSTS": "api.agent-paste.sh,app.agent-paste.sh,mcp.agent-paste.sh,stream.agent-paste.sh,upload.agent-paste.sh",
+        "CONTENT_ROUTE_ORIGIN_HOSTS": "api.agent-paste.sh,app.agent-paste.sh,mcp.agent-paste.sh,stream.agent-paste.sh,upload.agent-paste.sh,api.preview.agent-paste.sh,app.preview.agent-paste.sh,mcp.preview.agent-paste.sh,stream.preview.agent-paste.sh,upload.preview.agent-paste.sh,usercontent.preview.agent-paste.sh,preview.agent-paste.sh",
         "CONTENT_SIGNING_KID": "v1",
         "DOCS_BASE_URL": ""
       },

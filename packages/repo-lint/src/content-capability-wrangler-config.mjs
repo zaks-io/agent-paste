@@ -11,6 +11,10 @@ const PREVIEW_HOST_SUFFIX = "-preview";
 const PRODUCTION_ORIGIN_HOSTS = ["api", "app", "mcp", "stream", "upload"].map(
   (label) => `${label}.${CAPABILITY_DOMAIN}`,
 );
+const PREVIEW_ORIGIN_HOSTS = ["api", "app", "mcp", "stream", "upload", "usercontent"]
+  .map((label) => `${label}.preview.${CAPABILITY_DOMAIN}`)
+  .concat(`preview.${CAPABILITY_DOMAIN}`);
+const ROUTE_ORIGIN_HOSTS = [...PRODUCTION_ORIGIN_HOSTS, ...PREVIEW_ORIGIN_HOSTS];
 
 export function validateContentCapabilityWranglerConfig(repoRoot) {
   const apiConfig = readWranglerConfig(join(repoRoot, "apps/api/wrangler.jsonc"));
@@ -44,9 +48,9 @@ export function validateContentCapabilityWranglerConfig(repoRoot) {
 
   const productionRoutes = contentConfig.env?.production?.routes ?? [];
   const productionOriginHosts = contentConfig.env?.production?.vars?.CONTENT_ROUTE_ORIGIN_HOSTS;
-  if (productionOriginHosts !== PRODUCTION_ORIGIN_HOSTS.join(",")) {
+  if (productionOriginHosts !== ROUTE_ORIGIN_HOSTS.join(",")) {
     errors.push(
-      `apps/content/wrangler.jsonc env.production.vars.CONTENT_ROUTE_ORIGIN_HOSTS must be ${PRODUCTION_ORIGIN_HOSTS.join(",")}`,
+      `apps/content/wrangler.jsonc env.production.vars.CONTENT_ROUTE_ORIGIN_HOSTS must be ${ROUTE_ORIGIN_HOSTS.join(",")}`,
     );
   }
   const capabilityRoutes = productionRoutes.filter((route) => route.pattern === CAPABILITY_ROUTE);
