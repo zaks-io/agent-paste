@@ -5,7 +5,6 @@ import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Credential } from "../src/credentials.js";
 import * as credentials from "../src/credentials.js";
-import { PULL_HELP_TEXT } from "../src/help.js";
 import { isMainEntrypoint, logout, main, parseArgs, SCHEMA_VERSION, shellQuote } from "../src/index.js";
 import { CLI_VERSION } from "../src/version.js";
 
@@ -157,7 +156,13 @@ describe("cli command dispatch", () => {
     await main(["pull", "--help"]);
     await main(["help", "pull"]);
 
-    expect(stdoutValues(stdout)).toEqual([PULL_HELP_TEXT, PULL_HELP_TEXT]);
+    const outputs = stdoutValues(stdout);
+    expect(outputs).toHaveLength(2);
+    expect(outputs[0]).toBe(outputs[1]);
+    for (const help of outputs) {
+      expect(help).toContain("agent-paste pull <artifact-id> <remote-path>");
+      expect(help).toContain("--json");
+    }
   });
 
   it("documents agent-facing publish contract tokens in publish help", async () => {
@@ -823,6 +828,7 @@ describe("cli command dispatch", () => {
 
   it("pull writes the file body to stdout, and --quiet does not suppress it", async () => {
     const body = "line one\nline two\n";
+    const contentUrl = "https://content.example.test/v/demo/notes.md";
     const readFile = vi.fn().mockResolvedValue({
       path: "notes.md",
       sha256: "b".repeat(64),
@@ -831,11 +837,14 @@ describe("cli command dispatch", () => {
       is_binary: false,
       body,
     });
-    const client = fakeClient({ artifacts: { readFile } });
+    const getAgentView = vi.fn().mockResolvedValue(pullView("notes.md", contentUrl));
+    const client = fakeClient({ artifacts: { getAgentView, getRevisionAgentView: vi.fn(), readFile } });
 
     const stdout = mockStdout();
     await main(["pull", artifactId, "notes.md"], client);
     expect(stdoutValues(stdout).join("")).toBe(body);
+    expect(getAgentView).toHaveBeenCalledWith(artifactId);
+    expect(readFile).toHaveBeenCalledWith(artifactId, "notes.md", revisionId);
     stdout.mockRestore();
 
     // The body IS the result (cat-like), so --quiet must not suppress it — otherwise
@@ -857,6 +866,7 @@ describe("cli command dispatch", () => {
   });
 
   it("pull refuses a binary file in plain mode", async () => {
+    const contentUrl = "https://content.example.test/v/demo/logo.bin";
     const readFile = vi.fn().mockResolvedValue({
       path: "logo.bin",
       sha256: "c".repeat(64),
@@ -864,9 +874,24 @@ describe("cli command dispatch", () => {
       content_type: "application/octet-stream",
       is_binary: true,
     });
-    const client = fakeClient({ artifacts: { readFile } });
+    const client = fakeClient({
+      artifacts: {
+        getAgentView: vi.fn().mockResolvedValue(pullView("logo.bin", contentUrl)),
+        getRevisionAgentView: vi.fn(),
+        readFile,
+      },
+    });
     mockStdout();
     await expect(main(["pull", artifactId, "logo.bin"], client)).rejects.toThrow(/binary/);
+
+    const jsonStdout = mockStdout();
+    await main(["pull", artifactId, "logo.bin", "--json"], client);
+    expect(JSON.parse(stdoutValues(jsonStdout).join(""))).toMatchObject({
+      path: "logo.bin",
+      is_binary: true,
+      url: contentUrl,
+    });
+    jsonStdout.mockRestore();
   });
 
   it("pull refuses a too-large-to-inline text file in plain mode but emits metadata in --json", async () => {
@@ -879,7 +904,14 @@ describe("cli command dispatch", () => {
       content_type: "text/plain",
       is_binary: false,
     };
-    const client = fakeClient({ artifacts: { readFile: vi.fn().mockResolvedValue(oversize) } });
+    const contentUrl = "https://content.example.test/v/demo/huge.txt";
+    const client = fakeClient({
+      artifacts: {
+        getAgentView: vi.fn().mockResolvedValue(pullView("huge.txt", contentUrl)),
+        getRevisionAgentView: vi.fn(),
+        readFile: vi.fn().mockResolvedValue(oversize),
+      },
+    });
 
     mockStdout();
     await expect(main(["pull", artifactId, "huge.txt"], client)).rejects.toThrow(/too large to inline/);
@@ -888,8 +920,39 @@ describe("cli command dispatch", () => {
     await main(["pull", artifactId, "huge.txt", "--json"], client);
     const printed = JSON.parse(stdoutValues(jsonStdout).join(""));
     expect(printed).not.toHaveProperty("body");
-    expect(printed).toMatchObject({ path: "huge.txt", is_binary: false, size_bytes: 20_000_000 });
+    expect(printed).toMatchObject({
+      path: "huge.txt",
+      is_binary: false,
+      size_bytes: 20_000_000,
+      url: contentUrl,
+    });
     jsonStdout.mockRestore();
+  });
+
+  it("pull pins an explicit Revision for both Agent View and file content", async () => {
+    const pinnedRevision = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8ZA";
+    const readFile = vi.fn().mockResolvedValue({
+      path: "notes.md",
+      sha256: "e".repeat(64),
+      size_bytes: 5,
+      content_type: "text/markdown",
+      is_binary: false,
+      body: "hello",
+    });
+    const getRevisionAgentView = vi
+      .fn()
+      .mockResolvedValue(pullView("notes.md", "https://content.example.test/v/pinned/notes.md", pinnedRevision));
+    const client = fakeClient({
+      artifacts: { getAgentView: vi.fn(), getRevisionAgentView, readFile },
+    });
+
+    const stdout = mockStdout();
+    await main(["pull", artifactId, "notes.md", "--revision-id", pinnedRevision], client);
+
+    expect(stdoutValues(stdout).join("")).toBe("hello");
+    expect(getRevisionAgentView).toHaveBeenCalledWith(artifactId, pinnedRevision);
+    expect(readFile).toHaveBeenCalledWith(artifactId, "notes.md", pinnedRevision);
+    stdout.mockRestore();
   });
 
   it("throws on unknown commands", async () => {
@@ -1018,6 +1081,19 @@ function fakeClient(overrides: Record<string, unknown> = {}): NonNullable<Parame
     },
     ...overrides,
   } as unknown as NonNullable<Parameters<typeof main>[1]>;
+}
+
+function pullView(filePath: string, url: string, viewRevisionId = revisionId) {
+  return {
+    artifact_id: artifactId,
+    revision_id: viewRevisionId,
+    title: "Published",
+    entrypoint: filePath,
+    files: [{ path: filePath, url }],
+    safety_warnings: [],
+    bundle: { status: "pending", retry_after_seconds: 5 },
+    url: artifactUrl,
+  };
 }
 
 function storedCredential(): Credential {

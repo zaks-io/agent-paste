@@ -34,8 +34,10 @@ Output:
 
 export const PULL_HELP_TEXT = `agent-paste pull help
 
-Read one remote file stored inside an Artifact. The file body is written to
-stdout; <remote-path> is relative to the Artifact root, not a local destination.
+Read one remote file stored inside an Artifact. Plain mode writes an inline text
+body to stdout. --json writes metadata and a content URL; binary or oversized
+files omit body and can be fetched from that URL. <remote-path> is relative to
+the Artifact root, not a local destination.
 
 Usage:
   agent-paste pull <artifact-id> <remote-path> [--revision-id <id>] [--json]

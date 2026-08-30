@@ -438,7 +438,14 @@ async function pull(parsed: Parsed, client: ApiClient) {
   }
   const filePath = parsedFilePath.data;
   const revisionId = stringFlag(parsed, "revision-id");
-  const file = await client.artifacts.readFile(artifactId, filePath, revisionId);
+  const view = revisionId
+    ? await client.artifacts.getRevisionAgentView(artifactId, revisionId)
+    : await client.artifacts.getAgentView(artifactId);
+  const remoteFile = view.files.find((candidate) => candidate.path === filePath);
+  if (!remoteFile) {
+    throw new Error(`${filePath} is not present in Revision ${view.revision_id}`);
+  }
+  const file = await client.artifacts.readFile(artifactId, filePath, view.revision_id);
 
   if (parsed.global.json) {
     return output(
@@ -448,16 +455,17 @@ async function pull(parsed: Parsed, client: ApiClient) {
         size_bytes: file.size_bytes,
         content_type: file.content_type,
         is_binary: file.is_binary,
+        url: remoteFile.url,
         ...(file.body !== undefined ? { body: file.body } : {}),
       },
       parsed.global,
     );
   }
   if (file.is_binary) {
-    throw new Error(`${file.path} is binary; use --json for metadata and fetch the bytes via the content URL`);
+    throw new Error(`${file.path} is binary; use --json for metadata and its content URL`);
   }
   if (file.body === undefined) {
-    throw new Error(`${file.path} is ${file.size_bytes} bytes, too large to inline; fetch via the content URL`);
+    throw new Error(`${file.path} is ${file.size_bytes} bytes, too large to inline; use --json for its content URL`);
   }
   // The body IS pull's result (cat-like), not a human summary, so --quiet does not
   // suppress it — like --quiet --json still emitting the object. Otherwise

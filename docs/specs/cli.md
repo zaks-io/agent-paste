@@ -65,10 +65,13 @@ uploaded_bytes, reused_files, reused_bytes }`.
   `<remote-path>` is relative to the Artifact root, not a local destination.
   Default output is cat-like (the raw text body to stdout, so
   `pull <artifact-id> index.html > ./index.html` works); `--json` emits
-  `{ schema_version, path, sha256, size_bytes, is_binary,
-body? }`. A binary file has no inline body: `--json` reports `is_binary: true`
-  with no `body`, and plain mode errors (raw bytes would corrupt the stream). An
-  oversize text file likewise has no `body`; fetch it via the content URL.
+  `{ schema_version, path, sha256, size_bytes, is_binary, url, body? }`. A binary
+  file has no inline body: `--json` reports `is_binary: true` with no `body` and
+  includes the signed exact-Revision `url`; plain mode errors because raw bytes
+  would corrupt the stream. An oversize text file likewise has no `body`; fetch
+  it from `url`. The CLI resolves Agent View first and pins the content read to
+  that returned `revision_id`, so the body, metadata, and URL cannot cross a
+  concurrent latest-Revision update.
 - `edit <artifact-id> <path>` applies literal find/replace edits to one stored
   file and publishes the result as a new Revision of the same Artifact (the
   parity twin of the MCP `multi_edit` tool; see [the edit verb](#edit-literal-findreplace-revise)).

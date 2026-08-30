@@ -25,11 +25,12 @@ try {
   assert(whoami.scopes?.includes("read"), "production smoke key has read scope");
 
   const directoryPublish = await runJson(["publish", directory, "--title", "CLI release smoke", "--json"]);
-  assertPublish(directoryPublish, "signed-in directory publish");
+  assertPublish(directoryPublish, "signed-in directory publish", "CLI release smoke");
 
   const pulled = await runJson(["pull", directoryPublish.artifact_id, entrypoint, "--json"]);
   assert(pulled.revision_id === undefined, "pull does not invent a revision id");
   assert(pulled.path === entrypoint, "pull returns the requested path");
+  assert(typeof pulled.url === "string" && pulled.url.startsWith("https://"), "pull returns a content URL");
   assert(pulled.body === body, "pull returns the freshly published bytes to the same API-key actor");
 
   const singleFile = path.join(fixture, "single.txt");
@@ -37,10 +38,11 @@ try {
   assertPublish(
     await runJson(["publish", singleFile, "--title", "CLI single-file smoke", "--json"]),
     "signed-in single-file publish",
+    "CLI single-file smoke",
   );
 
   const ephemeral = await runJson(["publish", singleFile, "--ephemeral", "--title", "CLI ephemeral smoke", "--json"]);
-  assertPublish(ephemeral, "ephemeral publish");
+  assertPublish(ephemeral, "ephemeral publish", "CLI ephemeral smoke");
   assert(typeof ephemeral.claim_url === "string", "ephemeral publish returns claim_url");
   assert(typeof ephemeral.claim_token === "string", "ephemeral publish returns claim_token");
 
@@ -49,10 +51,11 @@ try {
   await fs.rm(fixture, { recursive: true, force: true });
 }
 
-function assertPublish(value, label) {
+function assertPublish(value, label, expectedTitle) {
   assert(value.schema_version === "2", `${label} reports schema_version 2`);
   assert(typeof value.artifact_id === "string" && value.artifact_id.startsWith("art_"), `${label} returns artifact_id`);
   assert(typeof value.revision_id === "string" && value.revision_id.startsWith("rev_"), `${label} returns revision_id`);
+  assert(value.title === expectedTitle, `${label} returns the requested title`);
   assert(typeof value.url === "string" && value.url.startsWith("https://"), `${label} returns url`);
   assert(typeof value.expires_at === "string", `${label} returns expires_at`);
   assert(value.upload_stats && typeof value.upload_stats === "object", `${label} returns upload_stats`);
