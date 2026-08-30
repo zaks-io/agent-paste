@@ -2,10 +2,12 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { AgentPasteError } from "@agent-paste/api-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Credential } from "../src/credentials.js";
 import * as credentials from "../src/credentials.js";
 import { isMainEntrypoint, logout, main, parseArgs, SCHEMA_VERSION, shellQuote } from "../src/index.js";
+import { exitCodeFor } from "../src/render.js";
 import { CLI_VERSION } from "../src/version.js";
 
 const usagePolicy = {
@@ -160,6 +162,7 @@ describe("cli command dispatch", () => {
     expect(outputs).toHaveLength(2);
     expect(outputs[0]).toBe(outputs[1]);
     for (const help of outputs) {
+      expect(help).toContain("agent-paste pull help");
       expect(help).toContain("agent-paste pull <artifact-id> <remote-path>");
       expect(help).toContain("--json");
     }
@@ -953,6 +956,30 @@ describe("cli command dispatch", () => {
     expect(getRevisionAgentView).toHaveBeenCalledWith(artifactId, pinnedRevision);
     expect(readFile).toHaveBeenCalledWith(artifactId, "notes.md", pinnedRevision);
     stdout.mockRestore();
+  });
+
+  it("preserves the not-found error contract when a remote path is absent", async () => {
+    const readFile = vi.fn();
+    const client = fakeClient({
+      artifacts: {
+        getAgentView: vi.fn().mockResolvedValue({
+          ...pullView("notes.md", "https://content.example.test/v/demo/notes.md"),
+          files: [],
+        }),
+        getRevisionAgentView: vi.fn(),
+        readFile,
+      },
+    });
+
+    const error = await main(["pull", artifactId, "missing.md"], client).catch((caught: unknown) => caught);
+    expect(error).toMatchObject({
+      name: "AgentPasteError",
+      code: "not_found",
+      status: 404,
+    });
+    expect(error).toBeInstanceOf(AgentPasteError);
+    expect(exitCodeFor(error)).toBe(5);
+    expect(readFile).not.toHaveBeenCalled();
   });
 
   it("throws on unknown commands", async () => {

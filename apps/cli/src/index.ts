@@ -443,7 +443,11 @@ async function pull(parsed: Parsed, client: ApiClient) {
     : await client.artifacts.getAgentView(artifactId);
   const remoteFile = view.files.find((candidate) => candidate.path === filePath);
   if (!remoteFile) {
-    throw new Error(`${filePath} is not present in Revision ${view.revision_id}`);
+    throw new AgentPasteError({
+      code: "not_found",
+      message: `${filePath} is not present in Revision ${view.revision_id}`,
+      status: 404,
+    });
   }
   const file = await client.artifacts.readFile(artifactId, filePath, view.revision_id);
 
