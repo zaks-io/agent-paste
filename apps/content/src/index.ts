@@ -25,6 +25,7 @@ import * as Sentry from "@sentry/cloudflare";
 import { Hono } from "hono";
 import {
   isContentCapabilityRequest,
+  isContentRouteOriginRequest,
   markContentCapabilityRequest,
   resolveContentCapabilityRequest,
 } from "./content-capability.js";
@@ -132,13 +133,18 @@ const worker = {
 
 export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
-export async function handleRequest(request: Request, env: Env): Promise<Response> {
+export async function handleRequest(request: Request, env: Env, fetchOrigin: typeof fetch = fetch): Promise<Response> {
   try {
     const capability = await resolveContentCapabilityRequest(request, env);
     if (capability.kind === "request") {
       return await app.fetch(markContentCapabilityRequest(capability.request), env);
     }
     if (capability.kind === "not_found") {
+      if (isContentRouteOriginRequest(request, env)) {
+        // A Cloudflare Route executes before a Custom Domain on the same host.
+        // Forward named product hosts to their existing Custom Domain origin.
+        return await fetchOrigin(request);
+      }
       const notFoundUrl = new URL(request.url);
       notFoundUrl.pathname = "/__content_capability_not_found__";
       return await app.fetch(new Request(notFoundUrl, request), env);

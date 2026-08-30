@@ -67,6 +67,18 @@ describe("content-capability-wrangler-config", () => {
     }
   });
 
+  it("rejects a missing product-origin forwarding host", () => {
+    const tempRoot = copyConfigs();
+    try {
+      const contentPath = join(tempRoot, "apps/content/wrangler.jsonc");
+      writeFileSync(contentPath, readFileSync(contentPath, "utf8").replace("api.agent-paste.sh,", ""));
+
+      expect(validateContentCapabilityWranglerConfig(tempRoot).join("\n")).toContain("CONTENT_ROUTE_ORIGIN_HOSTS");
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   it("rejects any additional agent-paste.sh route in preview", () => {
     const tempRoot = copyConfigs();
     try {

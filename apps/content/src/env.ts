@@ -38,6 +38,7 @@ export type Env = {
   CONTENT_BASE_URL?: string;
   CONTENT_CAPABILITY_DOMAIN?: string;
   CONTENT_CAPABILITY_HOST_SUFFIX?: string;
+  CONTENT_ROUTE_ORIGIN_HOSTS?: string;
   DOCS_BASE_URL?: string;
   AGENT_PASTE_ENV?: string;
   SENTRY_DSN?: string;

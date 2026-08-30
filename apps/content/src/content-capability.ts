@@ -67,6 +67,23 @@ export function isContentCapabilityRequest(request: Request): boolean {
   return capabilityRequests.has(request);
 }
 
+export function isContentRouteOriginRequest(request: Request, env: Env): boolean {
+  const configuredHosts = env.CONTENT_ROUTE_ORIGIN_HOSTS;
+  if (!configuredHosts) {
+    return false;
+  }
+
+  const requestHostname = new URL(request.url).hostname.toLowerCase();
+  const originHosts = configuredHosts.split(",").map((configuredHost) => {
+    const host = configuredHost.trim().toLowerCase();
+    if (!host || new URL(`https://${host}/`).host !== host) {
+      throw new Error("CONTENT_ROUTE_ORIGIN_HOSTS must contain comma-separated hostnames.");
+    }
+    return host;
+  });
+  return originHosts.includes(requestHostname);
+}
+
 function encodePath(path: string): string {
   return path.split("/").map(encodeURIComponent).join("/");
 }

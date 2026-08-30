@@ -72,6 +72,7 @@
       ],
       "vars": {
         "AGENT_PASTE_ENV": "preview",
+        "CONTENT_BASE_URL": "https://usercontent.preview.agent-paste.sh",
         "CONTENT_CAPABILITY_DOMAIN": "agent-paste.sh",
         "CONTENT_CAPABILITY_HOST_SUFFIX": "-preview",
         "CONTENT_SIGNING_KID": "v1",
@@ -126,7 +127,9 @@
       ],
       "vars": {
         "AGENT_PASTE_ENV": "production",
+        "CONTENT_BASE_URL": "https://usercontent.agent-paste.sh",
         "CONTENT_CAPABILITY_DOMAIN": "agent-paste.sh",
+        "CONTENT_ROUTE_ORIGIN_HOSTS": "api.agent-paste.sh,app.agent-paste.sh,mcp.agent-paste.sh,stream.agent-paste.sh,upload.agent-paste.sh",
         "CONTENT_SIGNING_KID": "v1",
         "DOCS_BASE_URL": ""
       },
