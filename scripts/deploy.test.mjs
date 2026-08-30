@@ -232,6 +232,19 @@ describe("runDeployPlan deploy step", () => {
 
 describe("deploy secret planning", () => {
   describe("generatedByteLength", () => {
+    it("generates the optional agent-auth signing secret when it is missing", async () => {
+      const planner = createSecretPlanner({
+        target: "preview",
+        env: previewEnv(),
+        listSecretsForWorker: listNoSecrets(),
+        randomBytesFn: deterministicRandomBytes,
+      });
+
+      const plan = await planner.buildProvisionPlan(["api"]);
+
+      expect(plan.get("api")).toContain("AGENT_AUTH_ASSERTION_SIGNING_SECRET");
+    });
+
     it("uses 32 bytes for transient harness/internal secrets", () => {
       for (const name of TRANSIENT_32_BYTE_SECRETS) {
         expect(generatedByteLength(name)).toBe(32);

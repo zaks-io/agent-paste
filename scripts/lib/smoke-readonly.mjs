@@ -26,9 +26,10 @@ export { assert };
 
 const ENV_PREFIX = { preview: "PREVIEW", production: "PRODUCTION" };
 
-// Defaults mirror the deployed routes in each app's wrangler.jsonc. Preview api/
-// upload/content use the workers.dev hosts the authed smoke already defaults to;
-// stream/mcp use their custom domains. Production uses custom domains throughout.
+// Defaults mirror the deployed routes in each app's wrangler.jsonc. Preview api
+// and upload use workers.dev; content uses its Custom Domain because capability
+// routing intentionally rejects arbitrary workers.dev hostnames. Stream and MCP
+// use their Custom Domains. Production uses Custom Domains throughout.
 // `jobs` is intentionally absent from production: the prod jobs Worker sets
 // workers_dev:false with no route, so it has NO public /healthz to probe — only
 // preview exposes jobs. See assertWorkersHealthy.
@@ -36,7 +37,7 @@ const DEFAULT_URLS = {
   preview: {
     api: "https://agent-paste-api-preview.isaac-a46.workers.dev",
     upload: "https://agent-paste-upload-preview.isaac-a46.workers.dev",
-    content: "https://agent-paste-content-preview.isaac-a46.workers.dev",
+    content: "https://usercontent.preview.agent-paste.sh",
     jobs: "https://agent-paste-jobs-preview.isaac-a46.workers.dev",
     stream: "https://stream.preview.agent-paste.sh",
     mcp: "https://mcp.preview.agent-paste.sh",

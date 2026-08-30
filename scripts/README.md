@@ -107,7 +107,7 @@ Use `--print-only` to verify generation shape without calling Wrangler. Use `--s
 
 Steady-state secret application is folded into the deploy. `scripts/deploy.mjs <local|preview|production>` is the one command:
 
-- For each Worker it lists the secret **names** it already has (`wrangler secret list` — values are never readable) and provisions only the **missing** required secrets, generating random symmetric values in memory and piping them to `wrangler secret bulk` over stdin. No value is ever printed or written to disk in cleartext.
+- For each Worker it lists the secret **names** it already has (`wrangler secret list` — values are never readable) and provisions missing required symmetric secrets plus the optional agent-auth signing secret, generating values in memory and piping them to `wrangler secret bulk` over stdin. No value is ever printed or written to disk in cleartext.
 - It then hands build + deploy to Turbo (`turbo run deploy:<target>`, which dependsOn `build`), so every workspace dependency is built in graph order (cached) before `wrangler deploy` runs. Routing (which secret binds to which Worker) is the single source of truth in `lib/secret-routing.mjs`, and the same data backs each Worker's `secrets.required` in `wrangler.jsonc`, so a missing required secret fails the deploy.
 - Preview-only `--app=<name>` (comma-separated) scopes both provisioning and the Turbo deploy to the selected Worker set (e.g. `--app=apex` for the marketing page); production deploys are full-fleet only. `--no-migrate` skips migrations. Migrations run automatically only when a DB-backed Worker (`api`, `upload`, `jobs`) is in scope.
 - It is **idempotent**: a secret that already exists is left untouched, so re-running never rotates anything. Generation is the only way a value comes into being, and it goes straight from `randomBytes()` to the Worker.
@@ -118,7 +118,7 @@ Rotation is separate: use `rotate-versioned-secret.mjs` / `rotate-workos-secrets
 
 ### `migrate.mjs`
 
-Migration runner command for preview/production (uses `platform_admin`, not Worker credentials):
+Migration runner command for preview/production (uses the `neondb_owner` direct URL, not Worker credentials):
 
 ```sh
 DATABASE_URL_MIGRATIONS_PREVIEW=postgres://... pnpm migrate:preview
