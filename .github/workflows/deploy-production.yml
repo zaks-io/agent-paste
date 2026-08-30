@@ -130,7 +130,8 @@ jobs:
           # truth for secret VALUES. scripts/deploy.mjs injects these onto each
           # Worker (wrangler secret bulk over stdin) so the Worker cannot drift from
           # source. Missing generatable symmetric values are created in memory;
-          # a required provider secret with no value here fails the deploy fast.
+          # a required provider secret with no configured value and no existing
+          # Worker value fails the deploy fast.
           # Routing/required-set source of truth: scripts/lib/secret-routing.mjs.
           PRODUCTION_CONTENT_SIGNING_SECRET: ${{ secrets.PRODUCTION_CONTENT_SIGNING_SECRET }}
           PRODUCTION_UPLOAD_SIGNING_SECRET: ${{ secrets.PRODUCTION_UPLOAD_SIGNING_SECRET }}
