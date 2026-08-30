@@ -116,7 +116,7 @@ jobs:
 
       - name: Migrate PR database
         env:
-          # Bootstrap migrations with the Neon owner URL until platform_admin exists on the project.
+          # Schema migrations require the Neon owner URL for ownership-only DDL.
           DATABASE_URL_MIGRATIONS_PREVIEW: ${{ steps.neon.outputs.db_url }}
           DATABASE_RUNTIME_ROLE_PASSWORD: ${{ steps.pr_app_role.outputs.password }}
           # PR previews migrate a per-PR Neon branch and create their own per-PR Hyperdrive
