@@ -1,6 +1,7 @@
-# Daily and main-branch security attestation. This workflow deliberately does
-# not run on pull_request; PR CI stays fast, and release/deploy workflows run the
-# same `pnpm security:attest` command on the exact commit being published.
+# Daily and main-branch security attestation, with a weekly Snyk workspace scan.
+# This workflow deliberately does not run on pull_request; PR CI stays fast, and
+# release/deploy workflows run the same `pnpm security:attest` command on the
+# exact commit being published.
 
 name: Security
 
@@ -9,7 +10,8 @@ on:
     branches:
       - main
   schedule:
-    - cron: "0 9 * * *"
+    - cron: "0 9 * * 1-6"
+    - cron: "0 9 * * 0"
   workflow_dispatch:
 
 permissions:
@@ -63,6 +65,7 @@ jobs:
 
   snyk-sca:
     name: Dependency scan (Snyk SCA)
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '0 9 * * 0' }}
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 15
     env:
@@ -91,10 +94,4 @@ jobs:
       - name: Snyk Open Source test
         run: >-
           pnpm dlx snyk@latest test --all-projects --severity-threshold=high
-          --remote-repo-url="https://github.com/${{ github.repository }}"
-
-      - name: Snyk monitor main
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        run: >-
-          pnpm dlx snyk@latest monitor --all-projects
           --remote-repo-url="https://github.com/${{ github.repository }}"

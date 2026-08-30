@@ -45,9 +45,6 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
-          # Fine-grained read-only PAT — without it the Branch-Protection check
-          # can't read protection settings and silently scores 0. See README.
-          repo_token: ${{ secrets.SCORECARD_TOKEN }}
           # Publish to the OpenSSF REST API so the public badge resolves.
           publish_results: true
 
