@@ -95,9 +95,3 @@ jobs:
         run: >-
           pnpm dlx snyk@latest test --all-projects --severity-threshold=high
           --remote-repo-url="https://github.com/${{ github.repository }}"
-
-      - name: Snyk monitor main
-        if: ${{ github.event_name == 'schedule' }}
-        run: >-
-          pnpm dlx snyk@latest monitor --all-projects
-          --remote-repo-url="https://github.com/${{ github.repository }}"
