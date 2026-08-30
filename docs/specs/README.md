@@ -1,15 +1,12 @@
 # Product Specs
 
-These specs describe the current hosted service and the historical CLI-first MVP
-baseline it grew from. The shipped service now includes dashboard login, Access
-Links, multi-Revision Artifacts, jobs, Bundles, Live Updates, MCP, billing, and
-ephemeral publish. [`docs/ops/project-status.md`](../ops/project-status.md)
+These specs describe the current hosted service. The shipped service includes
+dashboard login, one-URL capability-host publishing, multi-Revision Artifacts,
+jobs, Bundles, MCP, billing, and ephemeral publish.
+[`docs/ops/project-status.md`](../ops/project-status.md)
 records implementation status; these specs own the behavioral contract.
 
-- [`mvp.md`](./mvp.md): historical baseline for the original CLI-first MVP
-  story, actors, surfaces, journeys, limits, and non-goals. Do not use it as
-  current agent publish guidance; use [`api.md`](./api.md),
-  [`local-dev.md`](./local-dev.md), and [`../mcp.md`](../mcp.md).
+- [`mvp.md`](./mvp.md): current one-operation, one-URL product contract.
 - [`use-cases.md`](./use-cases.md): canonical product use cases, audiences, and
   explicit non-use-cases.
 - [`../mcp.md`](../mcp.md): practical MCP guide for agents that cannot run the
@@ -32,8 +29,8 @@ records implementation status; these specs own the behavioral contract.
 Later-phase specs are now current where the corresponding feature shipped:
 
 - [`jobs.md`](./jobs.md): queue/DLQ worker contract and lifecycle sweeps.
-- [`web.md`](./web.md): dashboard, Access Link viewer, claim, billing, and
-  operator route contract.
+- [`web.md`](./web.md): management dashboard, claim, billing, and operator route
+  contract.
 - [`style-guide.md`](./style-guide.md): visual and interaction standard for
   human-facing surfaces and renderer pages.
 - [`contracts.md`](./contracts.md): implementation contract source-of-truth rules and ID formats.

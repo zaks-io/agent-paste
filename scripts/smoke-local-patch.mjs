@@ -308,12 +308,9 @@ async function putTargets(client, session, files) {
   }
 }
 
-// Fetch one file of a published artifact through the content origin via the agent view.
+// Fetch one file from the published Artifact origin.
 async function fetchArtifactFile(publishResult, path) {
-  const agentView = await fetchJson(publishResult.agent_view_url);
-  const file = agentView.files.find((f) => f.path === path);
-  assert(file, `agent view did not list ${path}`);
-  const response = await fetch(file.url);
+  const response = await fetch(new URL(path, publishResult.url));
   assert(response.status === 200, `content fetch for ${path} returned ${response.status}`);
   return new Uint8Array(await response.arrayBuffer());
 }
@@ -344,14 +341,6 @@ function unifiedDiffLineSwap(lineNo, from, to, baseOverride) {
     ...ctxAfter.map((l) => ` ${l}`),
     "",
   ].join("\n");
-}
-
-async function fetchJson(url) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`${url} returned ${response.status}`);
-  }
-  return response.json();
 }
 
 function assertBytesEqual(actual, expected, message) {

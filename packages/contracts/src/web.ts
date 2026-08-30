@@ -1,10 +1,7 @@
-import { AccessLinkId, AccessLinkType } from "./accessLinks.js";
 import { ApiKeySummary, CreateApiKeyResponse } from "./apiKeys.js";
 import { PageInfo } from "./common.js";
 import { ActorType, OperationEventTargetType, Scope } from "./enums.js";
-import { LiveUpdatePointer } from "./liveUpdates.js";
-import { ArtifactId, IsoDateTime, OperationEventId, RevisionId, WorkspaceId } from "./primitives.js";
-import { RenderMode } from "./revisions.js";
+import { ArtifactId, IsoDateTime, OperationEventId, RevisionId, UrlString, WorkspaceId } from "./primitives.js";
 import { UsagePolicy, WorkspaceSummary } from "./workspace.js";
 import { z } from "./zod.js";
 
@@ -66,17 +63,11 @@ export const WebArtifactListResponse = z.object({
 });
 export type WebArtifactListResponse = z.infer<typeof WebArtifactListResponse>;
 
-export const WebArtifactViewer = z.object({
-  iframe_src: LiveUpdatePointer.shape.iframe_src,
-  render_mode: RenderMode,
-});
-export type WebArtifactViewer = z.infer<typeof WebArtifactViewer>;
-
 export const WebArtifactDetailResponse = WebArtifactRow.extend({
   entrypoint: z.string().min(1),
   file_count: z.number().int().nonnegative(),
   size_bytes: z.number().int().nonnegative(),
-  viewer: WebArtifactViewer.nullable(),
+  url: UrlString.nullable(),
 });
 export type WebArtifactDetailResponse = z.infer<typeof WebArtifactDetailResponse>;
 
@@ -90,30 +81,6 @@ export const WebApiKeyListResponse = z.object({
   page_info: PageInfo,
 });
 export type WebApiKeyListResponse = z.infer<typeof WebApiKeyListResponse>;
-
-export const WebAccessLinkRow = z.object({
-  id: AccessLinkId,
-  type: AccessLinkType,
-  artifact_id: ArtifactId,
-  revision_id: RevisionId.nullable(),
-  created_at: IsoDateTime,
-  expires_at: IsoDateTime.nullable(),
-  revoked_at: IsoDateTime.nullable(),
-  revoked: z.boolean(),
-});
-export type WebAccessLinkRow = z.infer<typeof WebAccessLinkRow>;
-
-export const WebAccessLinkListResponse = z.object({
-  items: z.array(WebAccessLinkRow).max(100),
-  page_info: PageInfo,
-});
-export type WebAccessLinkListResponse = z.infer<typeof WebAccessLinkListResponse>;
-
-export const WebRevokeAccessLinkResponse = z.object({
-  access_link_id: AccessLinkId,
-  revoked_at: IsoDateTime,
-});
-export type WebRevokeAccessLinkResponse = z.infer<typeof WebRevokeAccessLinkResponse>;
 
 export const WebAuditRow = z.object({
   id: OperationEventId,

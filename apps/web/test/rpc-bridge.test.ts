@@ -79,9 +79,6 @@ import {
   activateBillingReturnFn,
   getArtifactFn,
   healthFn,
-  listAccessLinksFn,
-  listArtifactAccessLinksFn,
-  listArtifactRevisionsFn,
   listArtifactsFn,
   listAuditFn,
   listKeysFn,
@@ -96,21 +93,16 @@ import {
 } from "../src/rpc/web-loaders";
 import {
   claimEphemeralFn,
-  createAccessLinkFn,
   createKeyFn,
   liftLockdownFn,
-  mintAccessLinkFn,
   openPortalFn,
-  revokeAccessLinkFn,
   revokeKeyFn,
   saveSettingsFn,
-  setAccessLinkLockdownFn,
   setLockdownFn,
   startCheckoutFn,
 } from "../src/rpc/web-mutations";
 
 const ARTIFACT_ID = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-const ACCESS_LINK_ID = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 
 describe("web RPC bridge", () => {
   beforeEach(() => {
@@ -140,13 +132,6 @@ describe("web RPC bridge", () => {
     await expect(getArtifactFn({ data: { artifactId: ARTIFACT_ID } })).resolves.toMatchObject({ data: { ok: true } });
     await expect(listAuditFn()).resolves.toMatchObject({ data: { ok: true } });
     await expect(listKeysFn()).resolves.toMatchObject({ data: { ok: true } });
-    await expect(listAccessLinksFn()).resolves.toMatchObject({ data: { ok: true } });
-    await expect(listArtifactAccessLinksFn({ data: { artifactId: ARTIFACT_ID } })).resolves.toMatchObject({
-      data: { ok: true },
-    });
-    await expect(listArtifactRevisionsFn({ data: { artifactId: ARTIFACT_ID } })).resolves.toMatchObject({
-      data: { ok: true },
-    });
     await expect(loadSettingsFn()).resolves.toMatchObject({ data: { ok: true } });
     await expect(loadBillingFn()).resolves.toMatchObject({
       status: { data: { ok: true } },
@@ -179,22 +164,6 @@ describe("web RPC bridge", () => {
       error: null,
     });
     await expect(revokeKeyFn({ data: { apiKeyId: "key_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" } })).resolves.toMatchObject({
-      data: { ok: true },
-      error: null,
-    });
-    await expect(createAccessLinkFn({ data: { artifactId: ARTIFACT_ID, type: "share" } })).resolves.toMatchObject({
-      data: { ok: true },
-      error: null,
-    });
-    await expect(mintAccessLinkFn({ data: { accessLinkId: ACCESS_LINK_ID } })).resolves.toMatchObject({
-      data: { ok: true },
-      error: null,
-    });
-    await expect(revokeAccessLinkFn({ data: { accessLinkId: ACCESS_LINK_ID } })).resolves.toMatchObject({
-      data: { ok: true },
-      error: null,
-    });
-    await expect(setAccessLinkLockdownFn({ data: { artifactId: ARTIFACT_ID, locked: true } })).resolves.toMatchObject({
       data: { ok: true },
       error: null,
     });

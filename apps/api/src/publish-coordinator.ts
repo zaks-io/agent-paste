@@ -1,23 +1,17 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import type { ApiActor, Repository } from "@agent-paste/db";
 import { writeArtifactEvent, writeFunnelEvent } from "@agent-paste/worker-runtime";
-import { entrypointPathFromContentUrl, signPublishResult } from "./agent-view.js";
+import { signPublishResult } from "./agent-view.js";
 import type { Env } from "./env.js";
-import { buildRevisionNoticeFromPublishResult, notifyLiveUpdatePublish } from "./live-updates.js";
 import { enqueuePostPublishJobs } from "./post-publish.js";
 import { RepositoryRouteError } from "./responses.js";
-import { accessLinkSigningSecret } from "./routes/access-links.js";
-import { webBaseUrl } from "./runtime.js";
 import { enforceNewArtifactWriteAllowance, releaseNewArtifactWriteAllowance } from "./write-allowance.js";
 
 type PublishResult = Awaited<ReturnType<Repository["publishRevision"]>>;
 
-// Publish is content-only and private for authenticated callers: it mints no
-// Share Link and creates no unauthenticated access; visibility is a separate
-// explicit step. Ephemeral (accountless `--ephemeral`) publish is the one
-// exception: the agent has no human in the loop and no follow-up call, so the
-// coordinator auto-creates the unlisted Share Link and returns `unlisted_url`,
-// a no-login (script-disabled) link that works immediately (ADR 0075).
+// Every publish returns the Artifact's durable capability URL. Authenticated and
+// ephemeral callers use the same top-level page contract; the capability itself
+// is the unguessable, revocable access grant (ADR 0094).
 export type PublishCoordinatorInput = {
   actor: ApiActor;
   idempotencyKey: string;
@@ -140,51 +134,7 @@ async function runPostPublishFanout(
   recordFreshPublishEvent(deps.env, input, ephemeralTier, isReplay);
   recordFreshEphemeralFunnelEvent(deps.env, input, ephemeralTier, isReplay);
   await enqueuePublishJobs(deps.env, input, result, now, ephemeralTier);
-  const signed = await signPublishResult(result, deps.env, { workspaceId: input.actor.workspace_id, ephemeralTier });
-  await notifyPublishedRevision(deps.env, result, signed);
-  return ephemeralTier ? attachUnlistedUrl(deps, input, signed) : signed;
-}
-
-// Ephemeral publish hands the link to an agent with no human and no follow-up
-// call, so the unlisted Share Link is minted here rather than left to a separate
-// set-visibility step. The Share-Link create dedupes on the artifact's one active
-// link, so an idempotent publish replay reuses it instead of stacking links.
-// Ephemeral publish has one public viewing link. Missing signing config is a
-// platform misconfiguration, so fail loudly instead of returning claim-only output.
-async function attachUnlistedUrl(
-  deps: PublishCoordinatorDeps,
-  input: PublishCoordinatorInput,
-  signed: unknown,
-): Promise<unknown> {
-  if (!signed || typeof signed !== "object") {
-    return signed;
-  }
-  const signing = accessLinkSigningSecret(deps.env);
-  if (!signing) {
-    throw new Error("ephemeral_access_link_signing_unavailable");
-  }
-  try {
-    const link = await deps.db.createMemberAccessLink({
-      actor: input.actor,
-      idempotencyKey: `ephemeral-unlist:${input.artifactId}`,
-      artifactId: input.artifactId,
-      type: "share",
-    });
-    const minted = await deps.db.mintMemberAccessLink({
-      actor: input.actor,
-      accessLinkId: link.id,
-      appBaseUrl: webBaseUrl(deps.env),
-      signingSecret: signing.secret,
-      signingKid: signing.kid,
-    });
-    return { ...(signed as Record<string, unknown>), unlisted_url: minted.url };
-  } catch (error) {
-    console.warn("Ephemeral unlisted Share Link mint failed after publish.", {
-      artifactId: input.artifactId,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
-  }
+  return signPublishResult(result, deps.env, { workspaceId: input.actor.workspace_id, ephemeralTier });
 }
 
 function isEphemeralPublish(result: PublishResult): boolean {
@@ -264,39 +214,4 @@ function bundleStatusFromPublishResult(result: unknown): string {
   }
   const status = (bundle as { status?: unknown }).status;
   return typeof status === "string" ? status : "disabled";
-}
-
-async function notifyPublishedRevision(env: Env, result: PublishResult, signed: unknown): Promise<void> {
-  const publish = publishMetadata(result);
-  if (!publish) {
-    return;
-  }
-  const entrypoint =
-    typeof (signed as { revision_content_url?: string }).revision_content_url === "string"
-      ? entrypointPathFromContentUrl((signed as { revision_content_url: string }).revision_content_url)
-      : "index.html";
-  const revision = await buildRevisionNoticeFromPublishResult(signed, entrypoint, publish.title, result.render_mode);
-  if (!revision) {
-    return;
-  }
-
-  try {
-    await notifyLiveUpdatePublish(env, { artifactId: publish.artifactId, revision });
-  } catch (error) {
-    console.warn("Live update publish notify failed after commit.", {
-      artifactId: publish.artifactId,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
-
-function publishMetadata(result: PublishResult): { artifactId: string; title: string } | null {
-  if (!result || typeof result !== "object" || !("artifact_id" in result)) {
-    return null;
-  }
-  const publish = result as { artifact_id: string; title?: string };
-  return {
-    artifactId: publish.artifact_id,
-    title: typeof publish.title === "string" ? publish.title : "Untitled",
-  };
 }

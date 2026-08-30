@@ -73,10 +73,9 @@ pnpm smoke:local
 
 It starts the local harness, signs the CLI in through the mock WorkOS flow, runs
 `agent-paste whoami`, publishes `examples/local-harness/site`, verifies the
-returned `private_url`, fetches the JSON `revision_content_url` and
-`agent_view_url`, deletes the Artifact and verifies purge, then publishes
+returned `url`, deletes the Artifact and verifies purge, then publishes
 `examples/local-harness/ephemeral-site` with `agent-paste publish --ephemeral`,
-checks ephemeral policy boundaries (noindex, open artifact CSP, write
+checks ephemeral policy boundaries (noindex, Artifact CSP, write
 allowance, Claim Token isolation), and redeems the Claim Token through the local
 WorkOS stub into a member workspace.
 
@@ -199,7 +198,7 @@ KV denylist so future binding work has a stable convention. The local env helper
 generates `AGENT_PASTE_API_KEY_PEPPER`; the local dev server maps it to
 `API_KEY_PEPPER_V1` for Worker runtime compatibility.
 
-Future WorkOS, web session, MCP, queue, and Access Link settings should not be required for the MVP local smoke test.
+Future WorkOS, web session, MCP, and queue settings should not be required for the MVP local smoke test.
 
 ## Local Smoke Test Target
 
@@ -208,9 +207,11 @@ The first local vertical slice is complete when:
 1. A Workspace and local CLI credential can be created locally.
 2. `agent-paste whoami` succeeds after `pnpm cli:dev login`.
 3. CLI can publish a folder with `index.html`.
-4. Authenticated publish is content-only and private: it prints the `private_url` (`/v/<artifactId>` clean viewer) as `View`. Authenticated unlisted no-login sharing is the separate `set-visibility unlisted` step (MCP `set_visibility`); accountless `--ephemeral` publish auto-creates `unlisted_url`.
-5. CLI JSON output includes `artifact_id`, `revision_id`, `private_url`, `revision_content_url`, `agent_view_url`, and `expires_at` for automation. There is no `share` input and no `shared` output. Ephemeral JSON also includes `unlisted_url` and claim fields.
-6. `private_url` opens the authenticated `/v/<artifactId>` clean viewer in the local harness, while the local capability-domain fallback keeps `revision_content_url` on the legacy signed exact-Revision content route with direct HTML scripts disabled.
-7. `agent_view_url` returns Agent View JSON with full per-file URLs.
-8. Admin CLI can list and inspect the artifact.
-9. Manual cleanup can dry-run and admin delete invalidates content URLs.
+4. Publish prints one no-login `url` as `View`; there is no sharing follow-up.
+5. CLI JSON output is `artifact_id`, `revision_id`, `title`, `url`, and
+   `expires_at`. Ephemeral JSON also includes separate claim fields.
+6. Hosted preview and production use the capability hostname. Local development
+   may use the signed exact-Revision fallback because wildcard DNS does not exist
+   on localhost.
+7. Admin CLI can list and inspect the Artifact.
+8. Manual cleanup can dry-run and admin delete invalidates content URLs.

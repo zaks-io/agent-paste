@@ -160,8 +160,8 @@ function Line({ line }: { line: TranscriptLine }) {
         </div>
       );
     case "preview":
-      // The payoff: a miniature of the real /al access-link viewer. A narrow,
-      // fixed-width "viewer" surface (the iframe area) with the wordmark brand bar
+      // The payoff: a miniature of the published Artifact. A narrow,
+      // fixed-width preview surface with the wordmark brand bar
       // pinned bottom-left, exactly the collapsed state of the real
       // AccessLinkBrandBar (wordmark only, no URL). apex.css inverts the frame's
       // theme against the page (light frame on the dark site, and vice versa) so it
@@ -178,7 +178,7 @@ function Line({ line }: { line: TranscriptLine }) {
             {/* A minimal browser address bar so the snippet reads as a real opened
                 page. Its fill is a distinctly grayer shade (t-preview-bar in apex.css)
                 than the page body so it reads as chrome; the dots and URL field sit on
-                it. The URL is the access link, truncated to fit (no fragment). */}
+                it. The URL is the Artifact capability, truncated to fit. */}
             <div className="t-preview-bar flex items-center gap-2 border-b border-rule-strong px-3 py-2">
               <span className="flex flex-none items-center gap-1.5" aria-hidden="true">
                 <span className="t-preview-dot h-2 w-2 rounded-full" />

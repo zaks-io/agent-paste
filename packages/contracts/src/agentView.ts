@@ -95,11 +95,9 @@ export const PublicAgentView = AgentViewBase;
 export type PublicAgentView = z.infer<typeof PublicAgentView>;
 
 export const AgentView = AgentViewBase.extend({
-  // The stable login-walled viewer link (`/v/<id>`) to hand back to a member. The API
-  // already constructs it; it is the same link publish returns, so a revise that changes
-  // nothing (no-op) can still echo the stable link from a read. Authed-only — it never
-  // appears on `PublicAgentView`, which an anonymous share viewer can fetch.
-  private_url: UrlString,
+  // The stable top-level capability link publish returns. A no-op revise echoes
+  // this same URL from the authenticated read path.
+  url: UrlString,
   lockdown: AgentViewLockdownState.optional(),
 });
 export type AgentView = z.infer<typeof AgentView>;

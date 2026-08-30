@@ -1,9 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
   getArtifactFn,
-  listAccessLinksFn,
-  listArtifactAccessLinksFn,
-  listArtifactRevisionsFn,
   listArtifactsFn,
   listAuditFn,
   listKeysFn,
@@ -34,11 +31,8 @@ export const queryKeys = {
   dashboard: () => ["dashboard"] as const,
   artifacts: () => ["artifacts"] as const,
   artifact: (artifactId: string) => ["artifact", artifactId] as const,
-  artifactAccessLinks: (artifactId: string) => ["artifact-access-links", artifactId] as const,
-  artifactRevisions: (artifactId: string) => ["artifact-revisions", artifactId] as const,
   audit: () => ["audit"] as const,
   keys: () => ["keys"] as const,
-  accessLinks: () => ["access-links"] as const,
   settings: () => ["settings"] as const,
   billing: () => ["billing"] as const,
   webSession: () => ["web-session"] as const,
@@ -77,18 +71,6 @@ export const artifactQuery = (artifactId: string) =>
     queryFn: () => getArtifactFn({ data: { artifactId } }),
   });
 
-export const artifactAccessLinksQuery = (artifactId: string) =>
-  queryOptions({
-    queryKey: queryKeys.artifactAccessLinks(artifactId),
-    queryFn: () => listArtifactAccessLinksFn({ data: { artifactId } }),
-  });
-
-export const artifactRevisionsQuery = (artifactId: string) =>
-  queryOptions({
-    queryKey: queryKeys.artifactRevisions(artifactId),
-    queryFn: () => listArtifactRevisionsFn({ data: { artifactId } }),
-  });
-
 export const auditQuery = () =>
   queryOptions({
     queryKey: queryKeys.audit(),
@@ -101,13 +83,6 @@ export const keysQuery = () =>
     queryKey: queryKeys.keys(),
     queryFn: () => listKeysFn(),
     staleTime: STALE.stable,
-  });
-
-export const accessLinksQuery = () =>
-  queryOptions({
-    queryKey: queryKeys.accessLinks(),
-    queryFn: () => listAccessLinksFn(),
-    staleTime: STALE.list,
   });
 
 export const settingsQuery = () =>

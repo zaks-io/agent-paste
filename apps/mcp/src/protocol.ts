@@ -8,23 +8,14 @@ export type ProtocolHandlerResult =
   | { kind: "accepted" }
   | { kind: "error"; error: ReturnType<typeof mapMcpProtocolError> };
 
-// Free-text lifecycle primer the host injects into the model's context at connect
-// (InitializeResult.instructions, MCP 2025-06-18). It teaches the publish → revise →
-// live-update rule once, so an agent doesn't republish on an edit and strand the
-// user's open link. Keep it consistent with the publish_artifact/add_revision tool
-// descriptions in @agent-paste/contracts.
+// Free-text lifecycle primer the host injects into the model's context at connect.
+// Keep it consistent with the publish and revise tool descriptions.
 const MCP_LIFECYCLE_INSTRUCTIONS =
-  "agent-paste stores work as Artifacts you publish and hand to users as a private_url (a login-walled browser " +
-  "link). publish_artifact and add_revision are content-only and PRIVATE — there is no share param. " +
-  "Lifecycle: publish_artifact creates a NEW Artifact with a NEW private_url. To change anything you already " +
-  "published — fix, update, extend — call add_revision with that Artifact's id; do NOT publish again. The " +
-  "private_url is stable and live-updates any page the user already has open to the newest Revision, " +
-  "so a revision needs no new link. Publishing again for an edit makes a separate Artifact on a different link " +
-  "and strands the user's open page. Publish responses intentionally omit artifact_id; recover it with list_artifacts " +
-  "(data[].id). Once you have artifact_id, use read_artifact, read_file, or list_revisions for follow-up work. " +
-  "Artifacts are private by default; to make one reachable without login, " +
-  "call set_visibility with visibility: 'unlisted', which returns unlisted_url. To remove no-login access, " +
-  "call set_visibility with visibility: 'private'.";
+  "agent-paste stores work as Artifacts. publish_artifact creates a NEW Artifact with a NEW top-level url. " +
+  "The URL is an unguessable capability that opens without login. To fix, update, or extend existing work, call " +
+  "add_revision with that Artifact's id; do not publish again. The same url shows the latest Revision on refresh. " +
+  "Publishing again for an edit creates a separate Artifact on a different URL. Publish responses include artifact_id; " +
+  "use it with read_artifact, read_file, or list_revisions for follow-up work.";
 
 export function handleMcpProtocolMethod(input: {
   method: string;

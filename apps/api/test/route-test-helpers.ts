@@ -67,7 +67,7 @@ export function contextFor(
     body,
   });
   const params = input.params ?? {};
-  const env = input.env ?? {};
+  const env = { AGENT_PASTE_ENV: "dev", ...input.env };
   const stub = {
     env,
     req: {

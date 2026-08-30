@@ -11,7 +11,7 @@ describe("plan-tiers", () => {
     expect(proRow).toBeDefined();
 
     const comparison = pricingComparisonRows();
-    expect(comparison).toHaveLength(6);
+    expect(comparison).toHaveLength(5);
 
     const byFeature = Object.fromEntries(comparison.map((row) => [row.feature, row]));
     expect(byFeature["Daily new Artifacts"]?.free).toBe(freeRow?.[1]);
@@ -24,8 +24,6 @@ describe("plan-tiers", () => {
     expect(byFeature.TTL?.pro).toBe(proRow?.[4]);
     expect(byFeature["Live Artifacts"]?.free).toBe(freeRow?.[5]);
     expect(byFeature["Live Artifacts"]?.pro).toBe(proRow?.[5]);
-    expect(byFeature["Live Updates"]?.free).toBe(freeRow?.[6]);
-    expect(byFeature["Live Updates"]?.pro).toBe(proRow?.[6]);
   });
 
   it("feeds the billing docs page table from the same rows", () => {

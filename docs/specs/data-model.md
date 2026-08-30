@@ -75,7 +75,7 @@ same scope vocabulary for API keys and Workspace Members.
 | `size_bytes`              | `BIGINT NOT NULL`                         | Total uploaded bytes.                                                                                                                                                                                                                    |
 | `expires_at`              | `TIMESTAMPTZ NOT NULL`                    | Required.                                                                                                                                                                                                                                |
 | `pinned_at`               | `TIMESTAMPTZ NULL`                        | Set while pinned; exempts from Auto Deletion.                                                                                                                                                                                            |
-| `access_link_lockdown_at` | `TIMESTAMPTZ NULL`                        | Non-null while Access Link minting is locked for this Artifact. Blocks new share/revision links and writes KV denylist `ad:{artifactId}` with reason `access_link_lockdown`. Cleared on lift.                                            |
+| `access_link_lockdown_at` | `TIMESTAMPTZ NULL`                        | Dormant legacy column retained for migration history. Current publish and viewing paths do not read or write it.                                                                                                                         |
 | `created_by_type`         | `TEXT NOT NULL`                           | `api_key` or `member`.                                                                                                                                                                                                                   |
 | `created_by_id`           | `TEXT NOT NULL`                           | Creator id for the stored type.                                                                                                                                                                                                          |
 | `deleted_at`              | `TIMESTAMPTZ NULL`                        | Set for `deleted` and `expired`.                                                                                                                                                                                                         |
@@ -85,8 +85,8 @@ same scope vocabulary for API keys and Workspace Members.
 
 No artifact can be created without `expires_at`. While `pinned_at` is set, the
 stored `expires_at` is retained but not enforced: the Auto Deletion sweep skips
-the Artifact and reads (Agent Views, Access Links, dashboard viewer) do not
-treat it as expired even when `expires_at` is in the past. Its durable
+the Artifact and capability-manifest reads do not treat it as expired even when
+`expires_at` is in the past. Its durable
 capability manifest carries a signed token with explicit `exp: null`.
 Unpinning re-arms the stored `expires_at` as-is and rewrites the same manifest
 with that finite expiration.

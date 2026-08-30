@@ -8,7 +8,7 @@ import { validateContentCapabilityWranglerConfig } from "./content-capability-wr
 const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 
 describe("content-capability-wrangler-config", () => {
-  it("passes against the checked-in api, content, and web wrangler configs", () => {
+  it("passes against the checked-in api and content wrangler configs", () => {
     expect(validateContentCapabilityWranglerConfig(repoRoot)).toEqual([]);
   });
 
@@ -18,7 +18,7 @@ describe("content-capability-wrangler-config", () => {
       const apiPath = join(tempRoot, "apps/api/wrangler.jsonc");
       writeFileSync(
         apiPath,
-        readFileSync(apiPath, "utf8").replace(
+        readFileSync(apiPath, "utf8").replaceAll(
           '"CONTENT_CAPABILITY_DOMAIN": "agent-paste.sh"',
           '"CONTENT_CAPABILITY_DOMAIN": "content.example.test"',
         ),
@@ -30,16 +30,16 @@ describe("content-capability-wrangler-config", () => {
     }
   });
 
-  it("rejects a broad content route that can capture product hosts", () => {
+  it("rejects the legacy suffixed production route", () => {
     const tempRoot = copyConfigs();
     try {
       const contentPath = join(tempRoot, "apps/content/wrangler.jsonc");
       writeFileSync(
         contentPath,
-        readFileSync(contentPath, "utf8").replace("*-uc.agent-paste.sh/*", "*.agent-paste.sh/*"),
+        readFileSync(contentPath, "utf8").replace("*.agent-paste.sh/*", "*-uc.agent-paste.sh/*"),
       );
 
-      expect(validateContentCapabilityWranglerConfig(tempRoot).join("\n")).toContain("capture non-capability");
+      expect(validateContentCapabilityWranglerConfig(tempRoot).join("\n")).toContain("exactly one");
     } finally {
       rmSync(tempRoot, { recursive: true, force: true });
     }
@@ -50,18 +50,40 @@ describe("content-capability-wrangler-config", () => {
     try {
       const contentPath = join(tempRoot, "apps/content/wrangler.jsonc");
       const content = readFileSync(contentPath, "utf8");
-      const capabilityRoute = `          "pattern": "*-uc.agent-paste.sh/*",
+      const capabilityRoute = `          "pattern": "*.agent-paste.sh/*",
           "zone_name": "agent-paste.sh"
         }`;
       writeFileSync(
         contentPath,
         content.replace(
           capabilityRoute,
-          `${capabilityRoute},\n        {\n          "pattern": "*-uc.agent-paste.sh/*",\n          "zone_name": "agent-paste.sh"\n        }`,
+          `${capabilityRoute},\n        {\n          "pattern": "*.agent-paste.sh/*",\n          "zone_name": "agent-paste.sh"\n        }`,
         ),
       );
 
       expect(validateContentCapabilityWranglerConfig(tempRoot).join("\n")).toContain("exactly one");
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects any additional agent-paste.sh route in preview", () => {
+    const tempRoot = copyConfigs();
+    try {
+      const contentPath = join(tempRoot, "apps/content/wrangler.jsonc");
+      const content = readFileSync(contentPath, "utf8");
+      const capabilityRoute = `          "pattern": "*-preview.agent-paste.sh/*",
+          "zone_name": "agent-paste.sh"
+        }`;
+      writeFileSync(
+        contentPath,
+        content.replace(
+          capabilityRoute,
+          `${capabilityRoute},\n        {\n          "pattern": "*.agent-paste.sh/*",\n          "zone_name": "agent-paste.sh"\n        }`,
+        ),
+      );
+
+      expect(validateContentCapabilityWranglerConfig(tempRoot).join("\n")).toContain("non-preview");
     } finally {
       rmSync(tempRoot, { recursive: true, force: true });
     }

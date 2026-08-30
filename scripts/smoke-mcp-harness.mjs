@@ -9,15 +9,13 @@ export const MCP_PROTOCOL_VERSION = "2025-06-18";
 export const MCP_TOOL_NAMES = [
   "publish_artifact",
   "add_revision",
+  "multi_edit",
   "list_artifacts",
   "read_artifact",
+  "read_file",
   "list_revisions",
   "delete_artifact",
   "update_display_metadata",
-  "create_share_link",
-  "create_revision_link",
-  "list_access_links",
-  "revoke_access_link",
   "whoami",
 ];
 

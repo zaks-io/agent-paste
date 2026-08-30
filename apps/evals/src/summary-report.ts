@@ -71,7 +71,7 @@ function runRow(result: RunResult): string {
     result.model_id,
     result.harness_id,
     result.status.toUpperCase(),
-    result.unlisted_url ?? "",
+    result.artifact_url ?? "",
     formatJudge(result),
     formatDuration(resultDurationMs(result)),
     formatNumber(result.turn_count),

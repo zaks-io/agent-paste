@@ -133,56 +133,41 @@ export function shouldFailHostedEphemeralReadiness(readiness) {
 
 export function assertNoClaimTokenLeakage(published, stderrOutput) {
   const claimToken = published.claim_token;
+  const artifactUrl = parseSmokeUrl(published.url, "publish", "url is a valid URL");
   assertBoundary(claimToken?.startsWith("ap_ct_"), "publish", "JSON output includes Claim Token");
   assertBoundary(published.claim_url?.includes(`#${claimToken}`), "publish", "claim_url carries token in URL hash");
   assertBoundary(!published.claim_url?.includes("?"), "publish", "claim_url does not use query string");
-  assertBoundary(!("private_url" in published), "publish", "ephemeral JSON output omits private_url");
-  assertBoundary(!published.unlisted_url?.includes(claimToken), "publish", "unlisted_url does not embed Claim Token");
+  assertBoundary(artifactUrl.search === "", "publish", "Artifact URL has no query string");
+  assertBoundary(artifactUrl.hash === "", "publish", "Artifact URL has no fragment");
+  assertBoundary(!published.url?.includes(claimToken), "publish", "Artifact URL does not embed Claim Token");
   assertBoundary(
-    !published.revision_content_url?.includes(claimToken),
+    !decodeURIComponent(artifactUrl.pathname).includes(claimToken),
     "publish",
-    "revision_content_url does not embed Claim Token",
-  );
-  assertBoundary(
-    !published.agent_view_url?.includes(claimToken),
-    "publish",
-    "agent_view_url does not embed Claim Token",
+    "Artifact URL path does not encode Claim Token",
   );
   if (stderrOutput.includes(claimToken)) {
     throw new EphemeralSmokeError("publish", "stderr leaked Claim Token");
   }
 }
 
-export async function assertPublishOutput(
-  published,
-  { apiBaseUrl, contentBaseUrl, webBaseUrl, claimWebOrigin, expectedClaimTokenPrefix },
-) {
+export async function assertPublishOutput(published, { target = "local", claimWebOrigin, expectedClaimTokenPrefix }) {
   assertBoundary(published.artifact_id?.startsWith("art_"), "publish", "artifact_id returned");
   assertBoundary(published.revision_id?.startsWith("rev_"), "publish", "revision_id returned");
-  const viewerUrl = parseSmokeUrl(published.unlisted_url, "publish", "unlisted_url is a valid URL");
-  const revisionContentUrl = parseSmokeUrl(
-    published.revision_content_url,
-    "content",
-    "revision_content_url is a valid URL",
-  );
-  const agentViewUrl = parseSmokeUrl(published.agent_view_url, "content", "agent_view_url is a valid URL");
-  if (webBaseUrl) {
-    const webUrl = parseSmokeUrl(webBaseUrl, "publish", "webBaseUrl is a valid URL");
-    assertBoundary(viewerUrl.origin === webUrl.origin, "publish", "unlisted_url targets web origin");
-  }
-  assertBoundary(viewerUrl.pathname.startsWith("/al/"), "publish", "unlisted_url targets Share Link");
-  const contentUrl = parseSmokeUrl(contentBaseUrl, "content", "contentBaseUrl is a valid URL");
+  const artifactUrl = parseSmokeUrl(published.url, "publish", "url is a valid URL");
+  const hostedTarget = target === "production" || target === "preview" || target === "pr";
+  assertBoundary(!hostedTarget || artifactUrl.protocol === "https:", "publish", "hosted url uses HTTPS");
   assertBoundary(
-    revisionContentUrl.origin === contentUrl.origin && revisionContentUrl.pathname.startsWith("/v/"),
-    "content",
-    "revision_content_url targets content origin",
+    hostedTarget ? artifactUrl.pathname === "/" : artifactUrl.pathname.startsWith("/v/"),
+    "publish",
+    hostedTarget ? "url opens the Artifact root" : "local url uses the signed content fallback",
   );
-  const apiUrl = parseSmokeUrl(apiBaseUrl, "content", "apiBaseUrl is a valid URL");
-  assertBoundary(
-    agentViewUrl.origin === apiUrl.origin && agentViewUrl.pathname.startsWith("/v1/public/agent-view/"),
-    "content",
-    "agent_view_url targets API agent view",
-  );
+  const expectedHost =
+    target === "production"
+      ? /^[0-9a-f]{32}\.agent-paste\.sh$/
+      : target === "preview" || target === "pr"
+        ? /^[0-9a-f]{32}-preview\.agent-paste\.sh$/
+        : /^(?:[0-9a-f]{32}\.artifact\.test|127\.0\.0\.1|localhost)$/;
+  assertBoundary(expectedHost.test(artifactUrl.hostname), "publish", `url targets ${target} Artifact host`);
   assertBoundary(
     published.claim_url === `${claimWebOrigin}/claim#${published.claim_token}`,
     "publish",
@@ -206,11 +191,30 @@ export async function assertPublishOutput(
   );
 }
 
-export async function assertContentPolicy(revisionContentUrl, claimToken) {
-  const response = await fetch(revisionContentUrl);
-  assertBoundary(response.status === 200, "content", `revision_content_url returned ${response.status}`);
+export async function assertContentPolicy(artifactUrl, claimToken) {
+  const response = await fetch(artifactUrl, { redirect: "manual" });
+  assertBoundary(response.status === 200, "content", `Artifact URL returned ${response.status}`);
   const csp = response.headers.get("content-security-policy") ?? "";
-  assertBoundary(csp.includes("script-src 'none'"), "policy", "content CSP is script-disabled for ephemeral tier");
+  const directives = parseContentSecurityPolicy(csp);
+  const scriptSrc = effectiveDirective(directives, "script-src", "default-src");
+  const scriptSrcElem = effectiveDirective(directives, "script-src-elem", "script-src", "default-src");
+  assertBoundary(scriptSrc.includes("'unsafe-inline'"), "policy", "content CSP permits inline scripts");
+  assertBoundary(scriptSrc.includes("'unsafe-eval'"), "policy", "content CSP permits runtime script evaluation");
+  assertBoundary(scriptSrc.includes("https:"), "policy", "content CSP permits HTTPS script dependencies");
+  assertBoundary(scriptSrcElem.includes("'unsafe-inline'"), "policy", "content CSP permits inline script elements");
+  assertBoundary(scriptSrcElem.includes("https:"), "policy", "content CSP permits HTTPS script elements");
+  assertBoundary(
+    !scriptSrc.includes("'none'") && !scriptSrcElem.includes("'none'"),
+    "policy",
+    "content CSP does not disable scripts",
+  );
+  const frameAncestors = effectiveDirective(directives, "frame-ancestors");
+  assertBoundary(frameAncestors.length === 1 && frameAncestors[0] === "'none'", "policy", "content CSP blocks framing");
+  assertBoundary(
+    response.headers.get("x-frame-options")?.trim().toLowerCase() === "deny",
+    "policy",
+    "content sets X-Frame-Options DENY",
+  );
   assertBoundary(
     response.headers.get("x-robots-tag") === "noindex, nofollow",
     "policy",
@@ -218,70 +222,32 @@ export async function assertContentPolicy(revisionContentUrl, claimToken) {
   );
   const html = await response.text();
   assertBoundary(!html.includes(claimToken), "content", "served HTML does not embed Claim Token");
-  assertBoundary(
-    html.includes("Ephemeral Local Smoke"),
-    "content",
-    "revision_content_url served ephemeral fixture HTML",
-  );
+  assertBoundary(html.includes("Ephemeral Local Smoke"), "content", "Artifact URL served ephemeral fixture HTML");
   assertBoundary(
     html.includes("<title>Agent Paste Ephemeral Smoke</title>"),
     "policy",
-    "inline script did not execute (title unchanged in served HTML)",
+    "Artifact source retains the fixture title",
   );
 }
 
-export async function assertAgentView(published, { apiBaseUrl, contentBaseUrl }) {
-  const agentView = await fetchJson(published.agent_view_url, { boundary: "content" });
-  assertBoundary(agentView.artifact_id === published.artifact_id, "content", "agent view artifact id matches publish");
-  const contentUrl = parseSmokeUrl(contentBaseUrl, "content", "contentBaseUrl is a valid URL");
-  const agentViewRevisionUrl = parseSmokeUrl(
-    agentView.revision_content_url,
-    "content",
-    "agent view revision_content_url is a valid URL",
-  );
-  assertBoundary(
-    agentViewRevisionUrl.origin === contentUrl.origin && agentViewRevisionUrl.pathname.startsWith("/v/"),
-    "content",
-    "agent view revision_content_url targets content origin",
-  );
-  assertBoundary(
-    !agentView.revision_content_url?.includes(published.claim_token),
-    "content",
-    "agent view revision_content_url does not embed Claim Token",
-  );
-  const indexFile = agentView.files?.find((file) => file.path === "index.html");
-  const indexFileUrl = parseSmokeUrl(indexFile?.url, "content", "agent view index.html URL is valid");
-  assertBoundary(
-    indexFileUrl.origin === contentUrl.origin && indexFileUrl.pathname.startsWith("/v/"),
-    "content",
-    "agent view lists index.html on content origin",
-  );
-  assertBoundary(
-    !indexFile?.url?.includes(published.claim_token),
-    "content",
-    "signed content file URL does not embed Claim Token",
-  );
-  assertBoundary(
-    !JSON.stringify(agentView).includes(published.claim_token),
-    "content",
-    "agent view JSON does not include Claim Token",
-  );
+function parseContentSecurityPolicy(value) {
+  const directives = new Map();
+  for (const rawDirective of value.split(";")) {
+    const [name, ...sources] = rawDirective.trim().split(/\s+/);
+    const normalizedName = name?.toLowerCase();
+    if (normalizedName && !directives.has(normalizedName)) {
+      directives.set(normalizedName, sources);
+    }
+  }
+  return directives;
+}
 
-  const browserAgentView = await fetch(published.agent_view_url, { headers: { accept: "text/html" } });
-  assertBoundary(browserAgentView.status === 200, "content", "browser agent view HTML returned 200");
-  const browserHtml = await browserAgentView.text();
-  assertBoundary(
-    browserAgentView.headers.get("x-robots-tag") === "noindex, nofollow",
-    "policy",
-    "agent view HTML includes noindex header for ephemeral tier",
-  );
-  assertBoundary(browserHtml.includes(published.artifact_id), "content", "agent view HTML renders artifact id");
-  assertBoundary(!browserHtml.includes(published.claim_token), "content", "agent view HTML omits Claim Token");
-  assertBoundary(
-    browserHtml.includes(apiBaseUrl) || browserHtml.includes("index.html"),
-    "content",
-    "agent view HTML lists files",
-  );
+function effectiveDirective(directives, ...names) {
+  for (const name of names) {
+    const sources = directives.get(name);
+    if (sources) return sources;
+  }
+  return [];
 }
 
 export async function assertEphemeralWriteAllowance(apiBaseUrl) {
@@ -350,16 +316,16 @@ export async function assertClaimRedemption({ apiBaseUrl, memberAuth, memberWork
     headers: memberAuth,
     boundary: "claim",
   });
-  const viewerUrl = claimedArtifact.viewer?.iframe_src;
+  const artifactUrl = claimedArtifact.url;
   assertBoundary(
-    typeof viewerUrl === "string" && viewerUrl.length > 0,
+    typeof artifactUrl === "string" && artifactUrl.length > 0,
     "claim",
-    "claimed artifact exposes viewer content URL",
+    "claimed artifact exposes its direct URL",
   );
-  const viewerResponse = await fetch(viewerUrl);
-  assertBoundary(viewerResponse.status === 200, "claim", `claimed viewer content returned ${viewerResponse.status}`);
-  const viewerHtml = await viewerResponse.text();
-  assertBoundary(viewerHtml.includes("Ephemeral Local Smoke"), "claim", "claimed viewer serves artifact HTML");
+  const artifactResponse = await fetch(artifactUrl, { redirect: "manual" });
+  assertBoundary(artifactResponse.status === 200, "claim", `claimed Artifact URL returned ${artifactResponse.status}`);
+  const artifactHtml = await artifactResponse.text();
+  assertBoundary(artifactHtml.includes("Ephemeral Local Smoke"), "claim", "claimed Artifact URL serves its HTML");
 }
 
 export function classifyCliFailure(error) {

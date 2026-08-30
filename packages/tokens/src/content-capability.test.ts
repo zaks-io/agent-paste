@@ -6,6 +6,7 @@ import {
   isContentCapabilityHostname,
   mintContentCapabilityId,
   parseContentCapabilityDomain,
+  parseContentCapabilityHostSuffix,
   parseContentCapabilityManifest,
   serializeContentCapabilityManifest,
 } from "./content-capability.js";
@@ -25,20 +26,33 @@ describe("content capabilities", () => {
     expect(() => contentCapabilityObjectKey("not-an-id")).toThrow(/Invalid/);
   });
 
-  it("validates canonical capability domains and extracts one suffixed capability label", () => {
+  it("validates canonical capability domains and extracts bare or environment-suffixed capability labels", () => {
     expect(parseContentCapabilityDomain("content.example.test")).toBe("content.example.test");
     expect(contentCapabilityHostname(capabilityId, "content.example.test")).toBe(
-      `${capabilityId}-uc.content.example.test`,
+      `${capabilityId}.content.example.test`,
     );
-    expect(contentCapabilityIdFromHostname(`${capabilityId}-uc.content.example.test`, "content.example.test")).toBe(
+    expect(contentCapabilityIdFromHostname(`${capabilityId}.content.example.test`, "content.example.test")).toBe(
       capabilityId,
     );
+    expect(contentCapabilityHostname(capabilityId, "content.example.test", "-preview")).toBe(
+      `${capabilityId}-preview.content.example.test`,
+    );
     expect(
-      contentCapabilityIdFromHostname(`prefix.${capabilityId}-uc.content.example.test`, "content.example.test"),
+      contentCapabilityIdFromHostname(
+        `${capabilityId}-preview.content.example.test`,
+        "content.example.test",
+        "-preview",
+      ),
+    ).toBe(capabilityId);
+    expect(
+      contentCapabilityIdFromHostname(`prefix.${capabilityId}.content.example.test`, "content.example.test"),
     ).toBeNull();
-    expect(isContentCapabilityHostname("invalid-uc.content.example.test", "content.example.test")).toBe(true);
+    expect(isContentCapabilityHostname("invalid.content.example.test", "content.example.test")).toBe(false);
+    expect(isContentCapabilityHostname(`${capabilityId}.content.example.test`, "content.example.test")).toBe(true);
     expect(isContentCapabilityHostname("invalid.content.example.test", "content.example.test")).toBe(false);
     expect(isContentCapabilityHostname("content.example.test", "content.example.test")).toBe(false);
+    expect(parseContentCapabilityHostSuffix(undefined)).toBe("");
+    expect(() => parseContentCapabilityHostSuffix("preview")).toThrow(/HOST_SUFFIX/);
   });
 
   it.each([
@@ -57,9 +71,22 @@ describe("content capabilities", () => {
     const rejectedDomain = `${"a".repeat(61)}.${"b".repeat(61)}.${"c".repeat(61)}.${"d".repeat(32)}`;
 
     expect(acceptedDomain).toHaveLength(217);
-    expect(contentCapabilityHostname(capabilityId, acceptedDomain)).toHaveLength(253);
+    expect(contentCapabilityHostname(capabilityId, acceptedDomain)).toHaveLength(250);
+    expect(() => contentCapabilityHostname(capabilityId, acceptedDomain, "-preview")).toThrow(/DNS length/);
+    expect(contentCapabilityHostname(capabilityId, "content.example.test", "-preview")).toBe(
+      `${capabilityId}-preview.content.example.test`,
+    );
     expect(rejectedDomain).toHaveLength(218);
     expect(() => parseContentCapabilityDomain(rejectedDomain)).toThrow(/CONTENT_CAPABILITY_DOMAIN/);
+  });
+
+  it("keeps the capability ID and environment suffix within one 63-character DNS label", () => {
+    const maximumSuffix = `-${"a".repeat(30)}`;
+    const hostname = contentCapabilityHostname(capabilityId, "content.example.test", maximumSuffix);
+
+    expect(parseContentCapabilityHostSuffix(maximumSuffix)).toBe(maximumSuffix);
+    expect(hostname.split(".")[0]).toHaveLength(63);
+    expect(() => parseContentCapabilityHostSuffix(`-${"a".repeat(31)}`)).toThrow(/HOST_SUFFIX/);
   });
 
   it("round-trips strict versioned manifests", () => {

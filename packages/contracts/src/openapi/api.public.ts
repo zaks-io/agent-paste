@@ -31,33 +31,6 @@ export function registerPublicPaths(registry: OpenAPIRegistry, helpers: ApiPathH
   });
 
   registry.registerPath({
-    method: "post",
-    path: "/v1/access-links/resolve",
-    operationId: "accessLinks.resolve",
-    summary: "Resolve an Access Link Signed URL to Agent View and content URLs.",
-    security: [{ SignedAccessLinkRequest: [] }],
-    request: {
-      headers: [requestIdHeader],
-      body: {
-        required: true,
-        content: {
-          "application/json": {
-            schema: schemaRef("AccessLinkResolveRequest"),
-          },
-        },
-      },
-    },
-    responses: {
-      "200": jsonOk(schemaRef("AccessLinkResolveResponse"), "Success (200)"),
-      "400": errorResponse,
-      "404": errorResponse,
-      "429": artifactRateLimitResponse,
-      "500": errorResponse,
-      "503": errorResponse,
-    },
-  });
-
-  registry.registerPath({
     method: "get",
     path: "/v1/public/cli-version",
     operationId: "cli.version",

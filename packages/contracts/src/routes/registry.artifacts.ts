@@ -3,7 +3,7 @@ import { routeErrorGroups } from "./errors.js";
 const { apiKeyActorRead: apiKeyActorReadErrors, apiKeyMutation: apiKeyMutationErrors } = routeErrorGroups;
 
 /**
- * Artifact, revision, access-link, and agent-view API route contracts, split out
+ * Artifact, revision, and agent-view API route contracts, split out
  * of `registry.ts` to keep each file under the `noExcessiveLinesPerFile` limit.
  * Spread into `routeContracts` with `as const` so route-id literal inference is preserved.
  */
@@ -44,55 +44,6 @@ export const artifactRouteContracts = [
     requestSchema: "UpdateDisplayMetadataRequest",
     responseSchema: "DisplayMetadata",
     errors: [...apiKeyMutationErrors, "forbidden", "invalid_request", "artifact_not_found"],
-  },
-  {
-    id: "accessLinks.create",
-    app: "api",
-    method: "POST",
-    path: "/v1/artifacts/{artifact_id}/access-links",
-    auth: "api_key_or_mcp_oauth",
-    scopes: ["publish"],
-    idempotency: "required",
-    rateLimit: "actor",
-    requestSchema: "CreateAccessLinkRequest",
-    responseSchema: "CreateAccessLinkResponse",
-    errors: [...apiKeyMutationErrors, "forbidden", "not_found", "artifact_not_found", "invalid_request"],
-  },
-  {
-    id: "accessLinks.mint",
-    app: "api",
-    method: "POST",
-    path: "/v1/access-links/{access_link_id}/mint",
-    auth: "api_key_or_mcp_oauth",
-    scopes: ["publish"],
-    idempotency: "none",
-    rateLimit: "actor",
-    responseSchema: "AccessLinkSignedUrl",
-    errors: [...apiKeyActorReadErrors, "forbidden", "not_found"],
-  },
-  {
-    id: "accessLinks.list",
-    app: "api",
-    method: "GET",
-    path: "/v1/artifacts/{artifact_id}/access-links",
-    auth: "api_key_or_mcp_oauth",
-    scopes: ["publish"],
-    idempotency: "none",
-    rateLimit: "actor",
-    responseSchema: "McpListAccessLinksOutput",
-    errors: [...apiKeyActorReadErrors, "forbidden", "artifact_not_found"],
-  },
-  {
-    id: "accessLinks.revoke",
-    app: "api",
-    method: "POST",
-    path: "/v1/access-links/{access_link_id}/revoke",
-    auth: "api_key_or_mcp_oauth",
-    scopes: ["publish"],
-    idempotency: "none",
-    rateLimit: "actor",
-    responseSchema: "McpRevokeAccessLinkOutput",
-    errors: [...apiKeyMutationErrors, "forbidden", "not_found", "storage_unavailable"],
   },
   {
     id: "agentView.getLatest",

@@ -1,15 +1,15 @@
 # Public Artifacts and Unlisted Share Links
 
-Status: Planned. Current shipped CLI/MCP behavior supports
-`set_visibility` / `agent-paste set-visibility <artifact-id> unlisted` for
-Share Link minting and rejects `public` until the implementation specs and routes
-are updated.
+Status: The Public Artifact portion remains planned. The unlisted Share Link
+premise was superseded by [ADR 0094](./0094-capability-url-is-the-artifact-link.md),
+which removed visibility commands and made each Artifact's capability hostname
+its no-login URL.
 
 ## Context
 
 ADR 0086 made publish private-first and moved unauthenticated handoff into a
-separate `set_visibility` step. That fixed accidental public-by-flag publishing
-and reserved distinct visibility states for two different jobs:
+separate `set_visibility` step. ADR 0094 later retired that split in favor of
+one capability URL. The original proposal distinguished two jobs:
 
 - unlisted, revocable handoff to a specific audience
 - broad public distribution that should survive traffic spikes and benefit from
@@ -22,7 +22,11 @@ profile. Treating both as "public" makes the product and implementation lie.
 
 ## Decision
 
-- **Share Links are unlisted.** A Share Link remains an Access Link that follows
+The Share Link and Access Link decision text below is historical. ADR 0094
+removed those surfaces; the current behavior is the capability URL contract in
+[`docs/specs/content-rendering.md`](../specs/content-rendering.md).
+
+- **Historical: Share Links are unlisted.** A Share Link remains an Access Link that follows
   the latest Published Revision, opens the Artifact Viewer, and can receive Live
   Updates. It is the control-oriented unauthenticated path: revocable,
   expirable, not a permalink, and not the aggressive edge-cache surface.
@@ -55,12 +59,11 @@ profile. Treating both as "public" makes the product and implementation lie.
 
 ## Consequences
 
-- The current `set_visibility` abstraction stays: `unlisted` is the shipped Share
-  Link model, and `public` remains a rejected state until the Public Artifact
-  model lands.
-- Existing shipped specs and user docs remain current until that implementation
-  lands: publish is private-first, Share Link creation is explicit, and Access
-  Link Signed URLs remain the only shipped no-login latest-moving handoff.
+- **Historical:** the `set_visibility` abstraction and explicit Share Link
+  creation described here were later removed by ADR 0094. They are not current
+  product behavior.
+- Current publish returns one no-login capability URL. See
+  [`docs/specs/content-rendering.md`](../specs/content-rendering.md).
 - The Public Artifact model needs schema, API, CLI, MCP, cache, audit, and
   operator-lockdown work before it can be described as shipped behavior in
   `docs/specs/`.
@@ -86,5 +89,5 @@ profile. Treating both as "public" makes the product and implementation lie.
 ## What this ADR is not
 
 - Not an implementation of Public Artifacts.
-- Not a change to the current Access Link Signed URL model from ADR 0047.
-- Not an implementation of `set_visibility public`.
+- At the time of writing, this did not change the Access Link Signed URL model
+  from ADR 0047. ADR 0094 later superseded that model.

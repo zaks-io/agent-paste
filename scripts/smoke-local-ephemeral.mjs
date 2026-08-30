@@ -5,7 +5,6 @@ import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import { listenHttpPort } from "./lib/smoke-port.mjs";
 import {
-  assertAgentView,
   assertClaimRedemption,
   assertContentPolicy,
   assertEphemeralWriteAllowance,
@@ -23,7 +22,6 @@ import {
  * @param {object} options
  * @param {string} options.apiBaseUrl
  * @param {string} options.uploadBaseUrl
- * @param {string} options.contentBaseUrl
  * @param {string} options.cliEntry absolute path to apps/cli/dist/index.js
  * @param {string|URL} [options.root] repo root for spawn cwd
  * @param {import("node:http").Server} [options.workosServer] listening WorkOS stub
@@ -36,7 +34,6 @@ export async function runLocalEphemeralSmoke(options) {
   const {
     apiBaseUrl,
     uploadBaseUrl,
-    contentBaseUrl,
     cliEntry,
     root = fileURLToPath(new URL("..", import.meta.url)),
     workosServer,
@@ -106,13 +103,10 @@ export async function runLocalEphemeralSmoke(options) {
   assertNoClaimTokenLeakage(published, stderrOutput);
 
   await assertPublishOutput(published, {
-    apiBaseUrl,
-    contentBaseUrl,
     claimWebOrigin,
     expectedClaimTokenPrefix: "ap_ct_preview_",
   });
-  await assertContentPolicy(published.revision_content_url, published.claim_token);
-  await assertAgentView(published, { apiBaseUrl, contentBaseUrl });
+  await assertContentPolicy(published.url, published.claim_token);
   await assertClaimRedemption({
     apiBaseUrl,
     memberAuth,
@@ -122,8 +116,7 @@ export async function runLocalEphemeralSmoke(options) {
 
   return {
     artifact_id: published.artifact_id,
-    unlisted_url: published.unlisted_url,
-    revision_content_url: published.revision_content_url,
+    url: published.url,
     workspace_id: published.workspace_id,
     member_workspace_id: memberWorkspaceId,
     claim_url: published.claim_url,

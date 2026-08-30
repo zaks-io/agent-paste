@@ -71,11 +71,6 @@
   "durable_objects": {
     "bindings": [
       {
-        "name": "ARTIFACT_LIVE",
-        "class_name": "ArtifactLiveUpdates",
-        "script_name": "agent-paste-stream"
-      },
-      {
         "name": "WRITE_ALLOWANCE",
         "class_name": "WorkspaceWriteAllowance"
       },
@@ -144,14 +139,7 @@
       // Per ADR 0078: deploy fails if any of these are missing. Source of truth
       // for routing is scripts/lib/secret-routing.mjs.
       "secrets": {
-        "required": [
-          "ACCESS_LINK_SIGNING_KEY_V1",
-          "API_KEY_PEPPER_V1",
-          "ARTIFACT_BYTES_ENCRYPTION_KEY",
-          "CONTENT_SIGNING_SECRET",
-          "STREAM_INTERNAL_SECRET",
-          "WORKOS_API_KEY"
-        ]
+        "required": ["API_KEY_PEPPER_V1", "ARTIFACT_BYTES_ENCRYPTION_KEY", "CONTENT_SIGNING_SECRET", "WORKOS_API_KEY"]
       },
       "routes": [
         {
@@ -169,6 +157,8 @@
         "CLEANUP_BATCH_SIZE": "100",
         "EPHEMERAL_PROVISION_DELAY_MS": "200",
         "AGENT_PASTE_ENV": "preview",
+        "CONTENT_CAPABILITY_DOMAIN": "agent-paste.sh",
+        "CONTENT_CAPABILITY_HOST_SUFFIX": "-preview",
         // Billing (Free + Pro) routes mount only when this flag is "true"
         // (apps/api/src/env.ts:billingEnabled). On in preview so the Stripe
         // Checkout/webhook/Portal flow can be exercised against test-mode keys. The
@@ -287,11 +277,6 @@
       "durable_objects": {
         "bindings": [
           {
-            "name": "ARTIFACT_LIVE",
-            "class_name": "ArtifactLiveUpdates",
-            "script_name": "agent-paste-stream-preview"
-          },
-          {
             "name": "WRITE_ALLOWANCE",
             "class_name": "WorkspaceWriteAllowance"
           },
@@ -306,14 +291,7 @@
       "name": "agent-paste-api-production",
       "workers_dev": false,
       "secrets": {
-        "required": [
-          "ACCESS_LINK_SIGNING_KEY_V1",
-          "API_KEY_PEPPER_V1",
-          "ARTIFACT_BYTES_ENCRYPTION_KEY",
-          "CONTENT_SIGNING_SECRET",
-          "STREAM_INTERNAL_SECRET",
-          "WORKOS_API_KEY"
-        ]
+        "required": ["API_KEY_PEPPER_V1", "ARTIFACT_BYTES_ENCRYPTION_KEY", "CONTENT_SIGNING_SECRET", "WORKOS_API_KEY"]
       },
       "routes": [
         {
@@ -452,11 +430,6 @@
       },
       "durable_objects": {
         "bindings": [
-          {
-            "name": "ARTIFACT_LIVE",
-            "class_name": "ArtifactLiveUpdates",
-            "script_name": "agent-paste-stream-production"
-          },
           {
             "name": "WRITE_ALLOWANCE",
             "class_name": "WorkspaceWriteAllowance"

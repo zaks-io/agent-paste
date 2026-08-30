@@ -11,7 +11,6 @@ describe("command item builders", () => {
       expect(items.map((item) => item.id)).toEqual([
         "dashboard",
         "artifacts",
-        "access-links",
         "keys",
         "audit",
         "settings",

@@ -5,7 +5,9 @@ import { fileURLToPath } from "node:url";
 import { readWranglerConfig } from "./wrangler-config.mjs";
 
 const CAPABILITY_DOMAIN = "agent-paste.sh";
-const CAPABILITY_ROUTE = "*-uc.agent-paste.sh/*";
+const CAPABILITY_ROUTE = "*.agent-paste.sh/*";
+const PREVIEW_CAPABILITY_ROUTE = "*-preview.agent-paste.sh/*";
+const PREVIEW_HOST_SUFFIX = "-preview";
 
 export function validateContentCapabilityWranglerConfig(repoRoot) {
   const apiConfig = readWranglerConfig(join(repoRoot, "apps/api/wrangler.jsonc"));
@@ -15,7 +17,6 @@ export function validateContentCapabilityWranglerConfig(repoRoot) {
   for (const [app, config] of [
     ["api", apiConfig],
     ["content", contentConfig],
-    ["web", readWranglerConfig(join(repoRoot, "apps/web/wrangler.jsonc"))],
   ]) {
     const productionDomain = config.env?.production?.vars?.CONTENT_CAPABILITY_DOMAIN;
     if (productionDomain !== CAPABILITY_DOMAIN) {
@@ -23,10 +24,17 @@ export function validateContentCapabilityWranglerConfig(repoRoot) {
         `apps/${app}/wrangler.jsonc env.production.vars.CONTENT_CAPABILITY_DOMAIN is ${JSON.stringify(productionDomain)}; expected ${JSON.stringify(CAPABILITY_DOMAIN)}`,
       );
     }
-    const previewDomain = config.env?.preview?.vars?.CONTENT_CAPABILITY_DOMAIN;
-    if (previewDomain !== undefined) {
+    const productionSuffix = config.env?.production?.vars?.CONTENT_CAPABILITY_HOST_SUFFIX;
+    if (productionSuffix !== undefined) {
       errors.push(
-        `apps/${app}/wrangler.jsonc env.preview.vars.CONTENT_CAPABILITY_DOMAIN must stay unset; received ${JSON.stringify(previewDomain)}`,
+        `apps/${app}/wrangler.jsonc env.production.vars.CONTENT_CAPABILITY_HOST_SUFFIX must stay unset; received ${JSON.stringify(productionSuffix)}`,
+      );
+    }
+    const previewDomain = config.env?.preview?.vars?.CONTENT_CAPABILITY_DOMAIN;
+    const previewSuffix = config.env?.preview?.vars?.CONTENT_CAPABILITY_HOST_SUFFIX;
+    if (previewDomain !== CAPABILITY_DOMAIN || previewSuffix !== PREVIEW_HOST_SUFFIX) {
+      errors.push(
+        `apps/${app}/wrangler.jsonc preview capability host must use ${PREVIEW_HOST_SUFFIX}.${CAPABILITY_DOMAIN}`,
       );
     }
   }
@@ -49,6 +57,26 @@ export function validateContentCapabilityWranglerConfig(repoRoot) {
   for (const route of unexpectedZoneRoutes) {
     errors.push(
       `apps/content/wrangler.jsonc production route ${JSON.stringify(route.pattern)} can capture non-capability agent-paste.sh hosts`,
+    );
+  }
+
+  const previewRoutes = contentConfig.env?.preview?.routes ?? [];
+  const previewCapabilityRoutes = previewRoutes.filter((route) => route.pattern === PREVIEW_CAPABILITY_ROUTE);
+  if (
+    previewCapabilityRoutes.length !== 1 ||
+    previewCapabilityRoutes[0]?.zone_name !== CAPABILITY_DOMAIN ||
+    previewCapabilityRoutes[0]?.custom_domain === true
+  ) {
+    errors.push(
+      `apps/content/wrangler.jsonc preview must contain exactly one ${PREVIEW_CAPABILITY_ROUTE} route through zone_name ${CAPABILITY_DOMAIN}`,
+    );
+  }
+  const unexpectedPreviewZoneRoutes = previewRoutes.filter(
+    (route) => route.zone_name === CAPABILITY_DOMAIN && route.pattern !== PREVIEW_CAPABILITY_ROUTE,
+  );
+  for (const route of unexpectedPreviewZoneRoutes) {
+    errors.push(
+      `apps/content/wrangler.jsonc preview route ${JSON.stringify(route.pattern)} can capture non-preview agent-paste.sh hosts`,
     );
   }
 

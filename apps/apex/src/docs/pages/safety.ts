@@ -12,7 +12,7 @@ export const SAFETY_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Published Artifacts are private to the Workspace by default. When you explicitly create an Access Link Signed URL, anyone with that URL can read the files until the Artifact or link expires, is revoked, or is deleted. Treat shared links as sensitive.",
+          text: "Every published Artifact has an unguessable capability URL. Anyone holding that URL can read it until the Artifact expires, is disabled, or is deleted. Treat Artifact URLs as sensitive.",
         },
         {
           kind: "paragraph",
@@ -38,7 +38,7 @@ export const SAFETY_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Published files are served from `usercontent.agent-paste.sh`, not the dashboard or API origin. R2 stays private. Clients receive signed content URLs, never direct storage URLs. The content origin is byte delivery; direct top-level HTML there is inert and unbranded.",
+          text: "Every Artifact is served top-level from its own `{capability}.agent-paste.sh` origin, never the dashboard or API origin. R2 stays private and clients never receive direct storage URLs. The authentication cookie is host-only and is not sent to Artifact hosts.",
         },
       ],
     },
@@ -52,7 +52,7 @@ export const SAFETY_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Untrusted content responses carry CSP, HSTS, X-Content-Type-Options, frame protections, Referrer-Policy, and permissions restrictions. Interactive HTML execution is allowed only inside the controlled Artifact Viewer iframe; direct `usercontent` HTML gets `script-src 'none'`. SVG receives a stricter CSP.",
+          text: "Artifact HTML runs top-level with a compatibility-oriented CSP that allows inline scripts, external HTTPS dependencies, data and blob assets, workers, fetch, and secure WebSockets. `frame-ancestors 'none'` prevents another site from putting it back inside an iframe.",
         },
       ],
     },
@@ -62,7 +62,7 @@ export const SAFETY_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Unclaimed ephemeral HTML may contain scripts, but scripts do not execute. Static markup and CSS still render. After a human claims the Artifact into a regular Workspace, newly minted viewer URLs may use the claimed Workspace execution policy, but interactive HTML still runs only inside the controlled Artifact Viewer iframe.",
+          text: "Unclaimed ephemeral HTML uses the same script-enabled top-level policy as authenticated content. It differs through its shorter lifetime, lower write caps, and `noindex`, not through a second browser mode.",
         },
       ],
     },
@@ -72,7 +72,7 @@ export const SAFETY_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "agent-paste does not inspect or certify uploaded content as safe. Access Links can be revoked, and abusive content can be disabled without exposing private storage URLs.",
+          text: "agent-paste does not certify uploaded content as safe. Artifacts can be deleted or disabled without exposing private storage URLs.",
         },
       ],
     },
@@ -85,7 +85,7 @@ export const SAFETY_DOC: DocsPage = {
           items: [
             "Stored credentials are non-recoverable after creation.",
             "Claim Tokens ride the URL hash and are stored hashed.",
-            "Signed Access Link credentials live in URL fragments.",
+            "Capability hostnames are bearer locators and must not be logged in full.",
             "Tokens, signed URLs, and credential secret material must not be logged.",
           ],
         },

@@ -1,16 +1,14 @@
 import { resolveAgentViewTokenSigner } from "@agent-paste/rotation";
-import { type AgentViewTokenPayload, mintAgentViewUrl } from "@agent-paste/tokens/agent-view";
-import { contentCapabilityUrl } from "./content-capability.js";
+import type { AgentViewTokenPayload } from "@agent-paste/tokens/agent-view";
+import { contentCapabilityOrigin, contentCapabilityUrl } from "./content-capability.js";
 import {
   type ContentSigningAuth,
   contentSigningSecret,
-  contentTokenExpiration,
   signedBundleUrl,
   signedContentCapabilityOrigin,
   signedContentUrl,
 } from "./content-signing.js";
 import type { Env } from "./env.js";
-import { apiBaseUrl, webBaseUrl } from "./runtime.js";
 
 export async function verifyAgentViewTokenForEnv(token: string, env: Env): Promise<AgentViewTokenPayload | null> {
   const signer = resolveAgentViewTokenSigner(env);
@@ -76,15 +74,8 @@ function isEphemeralAgentView(data: AgentViewRecord, options?: { ephemeralTier?:
   return options?.ephemeralTier === true || ("ephemeral_tier" in data && data.ephemeral_tier === true);
 }
 
-function buildContentSigningAuth(
-  options: { accessLinkId?: string } | undefined,
-  workspaceId: string | undefined,
-  ephemeralTier: boolean,
-): ContentSigningAuth {
+function buildContentSigningAuth(workspaceId: string | undefined, ephemeralTier: boolean): ContentSigningAuth {
   const contentAuth: ContentSigningAuth = {};
-  if (options?.accessLinkId) {
-    contentAuth.accessLinkId = options.accessLinkId;
-  }
   if (workspaceId) {
     contentAuth.workspaceId = workspaceId;
   }
@@ -189,14 +180,48 @@ function existingRevisionContentUrl(data: AgentViewRecord): string | undefined {
   return typeof data.revision_content_url === "string" ? data.revision_content_url : undefined;
 }
 
+async function refreshAgentViewCapability(input: {
+  data: AgentViewRecord;
+  env: Env;
+  options: { refreshCapabilityManifest?: boolean } | undefined;
+  artifactId: string;
+  revisionId: string;
+  contentPath: string | undefined;
+  expiresAt: string | undefined;
+  contentAuth: ContentSigningAuth;
+}): Promise<void> {
+  const { data, env, options, artifactId, revisionId, contentPath, expiresAt, contentAuth } = input;
+  if (!contentPath || !options?.refreshCapabilityManifest) return;
+
+  await signedContentCapabilityOrigin(
+    env,
+    artifactId,
+    revisionId,
+    contentPath,
+    expiresAt,
+    contentAuth,
+    {
+      paths: revisionFilePaths(contentPath, data.files),
+      ...revisionFileObjectKeys(data.files),
+    },
+    typeof data.capability_id === "string" ? data.capability_id : undefined,
+    typeof data.revision_number === "number" && typeof data.artifact_updated_at === "string"
+      ? {
+          revisionNumber: data.revision_number,
+          artifactUpdatedAt: data.artifact_updated_at,
+          persistent: typeof data.pinned_at === "string",
+        }
+      : undefined,
+  );
+}
+
 export async function signAgentViewContentUrls(
   view: unknown,
   env: Env,
   options?: {
-    accessLinkId?: string;
     workspaceId?: string;
     ephemeralTier?: boolean;
-    includePrivateUrl?: boolean;
+    includeArtifactUrl?: boolean;
     refreshCapabilityManifest?: boolean;
   },
 ): Promise<unknown> {
@@ -207,58 +232,56 @@ export async function signAgentViewContentUrls(
   const data = view as AgentViewRecord;
   const publicFields = stripInternalAgentViewFields(data);
   const workspaceId = resolveSigningWorkspaceId(data.workspace_id, options);
-  // The member viewer link (`/v/<id>`) is login-walled and member-only. Only the authenticated
-  // member route opts in (`includePrivateUrl`); the public and access-link paths also pass a
-  // `workspaceId` (to sign content tokens) but their viewer is anonymous, so they must NOT carry
-  // it. It is absent from `PublicAgentView` and never reaches the wire on those paths.
-  const privateUrl =
-    options?.includePrivateUrl && typeof data.artifact_id === "string"
-      ? { private_url: `${webBaseUrl(env)}/v/${encodeURIComponent(data.artifact_id)}` }
-      : {};
+  const artifactUrl = () =>
+    options?.includeArtifactUrl && typeof data.capability_id === "string"
+      ? contentCapabilityOrigin(env, data.capability_id)
+      : undefined;
 
   if (!contentSigningSecret(env)) {
     if (env.CONTENT_CAPABILITY_DOMAIN) {
       throw new Error("CONTENT_CAPABILITY_DOMAIN requires a content signing secret.");
     }
-    return { ...publicFields, ...privateUrl, revision_content_url: existingRevisionContentUrl(data) };
+    const revisionContentUrl = existingRevisionContentUrl(data);
+    return {
+      ...publicFields,
+      ...(options?.includeArtifactUrl && (artifactUrl() ?? revisionContentUrl)
+        ? { url: artifactUrl() ?? revisionContentUrl }
+        : {}),
+      revision_content_url: revisionContentUrl,
+    };
   }
 
   if (typeof data.artifact_id !== "string" || typeof data.revision_id !== "string") {
-    return { ...publicFields, ...privateUrl, revision_content_url: existingRevisionContentUrl(data) };
+    const revisionContentUrl = existingRevisionContentUrl(data);
+    return {
+      ...publicFields,
+      ...(options?.includeArtifactUrl && (artifactUrl() ?? revisionContentUrl)
+        ? { url: artifactUrl() ?? revisionContentUrl }
+        : {}),
+      revision_content_url: revisionContentUrl,
+    };
   }
 
   const artifactId = data.artifact_id;
   const revisionId = data.revision_id;
   const entrypoint = typeof data.entrypoint === "string" ? data.entrypoint : undefined;
   const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
-  const contentAuth = buildContentSigningAuth(options, workspaceId, isEphemeralAgentView(data, options));
+  const contentAuth = buildContentSigningAuth(workspaceId, isEphemeralAgentView(data, options));
   const contentPath =
     entrypoint ??
     (typeof data.revision_content_url === "string"
       ? entrypointPathFromContentUrl(data.revision_content_url)
       : undefined);
-  if (contentPath && options?.refreshCapabilityManifest) {
-    await signedContentCapabilityOrigin(
-      env,
-      artifactId,
-      revisionId,
-      contentPath,
-      expiresAt,
-      contentAuth,
-      {
-        paths: revisionFilePaths(contentPath, data.files),
-        ...revisionFileObjectKeys(data.files),
-      },
-      !options?.accessLinkId && typeof data.capability_id === "string" ? data.capability_id : undefined,
-      typeof data.revision_number === "number" && typeof data.artifact_updated_at === "string"
-        ? {
-            revisionNumber: data.revision_number,
-            artifactUpdatedAt: data.artifact_updated_at,
-            persistent: typeof data.pinned_at === "string",
-          }
-        : undefined,
-    );
-  }
+  await refreshAgentViewCapability({
+    data,
+    env,
+    options,
+    artifactId,
+    revisionId,
+    contentPath,
+    expiresAt,
+    contentAuth,
+  });
 
   const [files, bundle, revisionContentUrl] = await Promise.all([
     signAgentViewFileEntries(env, artifactId, revisionId, data.files, expiresAt, contentAuth),
@@ -277,7 +300,9 @@ export async function signAgentViewContentUrls(
 
   return {
     ...publicFields,
-    ...privateUrl,
+    ...(options?.includeArtifactUrl && (artifactUrl() ?? revisionContentUrl)
+      ? { url: artifactUrl() ?? revisionContentUrl }
+      : {}),
     revision_content_url: revisionContentUrl,
     files,
     bundle,
@@ -295,9 +320,7 @@ export async function signPublishResult(
   const data = result as Record<string, unknown> & {
     artifact_id?: unknown;
     revision_id?: unknown;
-    private_url?: unknown;
     revision_content_url?: unknown;
-    agent_view_url?: unknown;
     entrypoint_object_key?: unknown;
     file_object_keys?: unknown;
     capability_id?: unknown;
@@ -309,20 +332,13 @@ export async function signPublishResult(
   if (typeof data.artifact_id !== "string" || typeof data.revision_id !== "string") {
     return result;
   }
-  const {
-    private_url: _rawPrivateUrl,
-    revision_content_url: rawRevisionContentUrl,
-    agent_view_url: rawAgentViewUrl,
-    entrypoint_object_key: rawEntrypointObjectKey,
-    file_object_keys: rawFileObjectKeys,
-    capability_id: rawCapabilityId,
-    pinned_at: rawPinnedAt,
-    artifact_updated_at: rawArtifactUpdatedAt,
-    revision_number: rawRevisionNumber,
-    ephemeral_tier: _internalEphemeralTier,
-    render_mode: _internalRenderMode,
-    ...rest
-  } = data;
+  const rawRevisionContentUrl = data.revision_content_url;
+  const rawEntrypointObjectKey = data.entrypoint_object_key;
+  const rawFileObjectKeys = data.file_object_keys;
+  const rawCapabilityId = data.capability_id;
+  const rawPinnedAt = data.pinned_at;
+  const rawArtifactUpdatedAt = data.artifact_updated_at;
+  const rawRevisionNumber = data.revision_number;
   const entrypointPath =
     typeof rawRevisionContentUrl === "string" ? entrypointPathFromContentUrl(rawRevisionContentUrl) : "index.html";
   const entrypointObjectKey =
@@ -331,7 +347,6 @@ export async function signPublishResult(
       : undefined;
   const fileObjectKeys = normalizedFileObjectKeys(rawFileObjectKeys);
   const expiresAt = typeof data.expires_at === "string" ? data.expires_at : undefined;
-  const secret = agentViewSigningSecret(env);
   const contentAuth = auth?.workspaceId
     ? {
         workspaceId: auth.workspaceId,
@@ -360,6 +375,9 @@ export async function signPublishResult(
         }
       : undefined,
   );
+  if (!capabilityOrigin && env.AGENT_PASTE_ENV !== "dev") {
+    throw new Error("Publishing requires a durable content capability URL.");
+  }
   const revisionContentUrl = capabilityOrigin
     ? contentCapabilityUrl(capabilityOrigin, entrypointPath)
     : await signedContentUrl(
@@ -372,27 +390,11 @@ export async function signPublishResult(
         contentOptions,
       );
   return {
-    ...rest,
-    // The member viewer link (`/v/<id>`) is login-walled and member-only. Emit it only
-    // when a workspace member is the viewer; the public/share path passes no auth and must
-    // not receive it (it is absent from `PublicAgentView` and stays off the wire here).
-    ...(auth?.workspaceId && !auth.ephemeralTier
-      ? { private_url: `${webBaseUrl(env)}/v/${encodeURIComponent(data.artifact_id)}` }
-      : {}),
-    revision_content_url: revisionContentUrl,
-    agent_view_url: secret
-      ? await mintAgentViewUrl({
-          baseUrl: apiBaseUrl(env),
-          secret,
-          payload: {
-            artifact_id: data.artifact_id,
-            revision_id: data.revision_id,
-            exp: contentTokenExpiration(expiresAt),
-          },
-        })
-      : typeof rawAgentViewUrl === "string"
-        ? rawAgentViewUrl
-        : `${apiBaseUrl(env)}/v1/public/agent-view/${data.artifact_id}.${data.revision_id}`,
+    artifact_id: data.artifact_id,
+    revision_id: data.revision_id,
+    title: data.title,
+    url: capabilityOrigin ?? revisionContentUrl,
+    expires_at: data.expires_at,
   };
 }
 
@@ -443,8 +445,4 @@ function entrypointPathFromFallback(contentUrl: string): string {
   const match = withoutQuery.match(/\/v\/[^/]+\/(.+)$/);
   const path = match?.[1] ?? withoutQuery.replace(/^\/+/, "");
   return path.includes("/") || path.includes(".") ? path : "index.html";
-}
-
-function agentViewSigningSecret(env: Env): string | undefined {
-  return resolveAgentViewTokenSigner(env)?.signingSecret;
 }

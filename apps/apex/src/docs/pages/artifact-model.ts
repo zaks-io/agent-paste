@@ -4,7 +4,7 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
   slug: "artifact-model",
   title: "Artifact Model",
   shortTitle: "Model",
-  summary: "Artifacts, Revisions, Access Links, and Agent View are the core handoff objects.",
+  summary: "Artifacts, Revisions, capability URLs, and Agent View are the core objects.",
   sections: [
     {
       id: "objects",
@@ -14,66 +14,40 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
           kind: "table",
           columns: ["Object", "Meaning"],
           rows: [
-            ["Workspace", "The tenant that owns Artifacts, members, Plan, and Audit Events."],
-            ["Artifact", "A durable, addressable folder-like package containing one or more files."],
-            ["Revision", "An immutable saved state of an Artifact after publish. New publishes append Revisions."],
-            ["Published Revision", "The Revision currently visible through stable Artifact links."],
-            [
-              "Private Link",
-              "The login-walled clean viewer (`/v/<artifactId>`) for a Workspace Member; the `private_url` publish returns.",
-            ],
-            ["Artifact Console", "The dashboard-only management page (`/artifacts/<id>`); never returned by publish."],
-            [
-              "Revision Content URL",
-              "A signed Content Origin byte URL for one exact Revision. It expires, does not Live Update, and direct HTML there is inert.",
-            ],
-            ["Access Link", "A revocable grant family for unauthenticated read access."],
-            [
-              "Share Link",
-              "Access Link type that follows the latest Published Revision; created by `set-visibility unlisted`.",
-            ],
-            ["Revision Link", "A snapshot Access Link pinned to one specific Revision."],
-            ["Bundle", "A downloadable archive generated from a complete Revision file tree."],
+            ["Workspace", "Tenant that owns Artifacts, members, policy, and Audit Events."],
+            ["Artifact", "Durable folder-like package containing one or more files."],
+            ["Revision", "Immutable saved state of an Artifact."],
+            ["Published Revision", "Revision currently visible at the Artifact URL."],
+            ["Artifact URL", "Unguessable top-level capability website returned by publish."],
+            ["Artifact Console", "Login-walled management page at `/artifacts/<id>`; never returned by publish."],
+            ["Agent View", "Machine-readable Artifact and Revision metadata with per-file URLs."],
+            ["Bundle", "Downloadable archive of a complete Revision tree."],
           ],
         },
       ],
     },
     {
-      id: "ids",
-      title: "IDs and handoff URLs",
+      id: "identity",
+      title: "IDs and URLs",
       blocks: [
         {
           kind: "paragraph",
-          text: 'Publish creates stable Artifact and Revision IDs and is content-only and private. The default post-publish `View` (`private_url`) is the login-walled `/v/<artifactId>` clean viewer for a Workspace Member. Unlisted no-login handoff is `agent-paste set-visibility <artifact-id> unlisted` on the CLI, or MCP `set_visibility` with `visibility: "unlisted"`; it mints or reuses the one Share Link and returns `unlisted_url` opening the controlled Artifact Viewer. The direct `usercontent.agent-paste.sh/v/...` URL is the Revision Content URL for one exact Revision and is raw byte delivery, not the product viewer.',
+          text: "Artifact and Revision IDs are management identities. The Artifact URL uses an independent random 128-bit capability ID, so it does not expose either management ID.",
         },
         {
           kind: "code",
           language: "text",
-          code: "art_01HZ8K2X9NPQR3VW7TYBE5MCDF\nrev_01HZ8K2X9NPQR3VW7TYBE5MCDF",
+          code: "art_01HZ8K2X9NPQR3VW7TYBE5MCDF\nrev_01HZ8K2X9NPQR3VW7TYBE5MCDF\nhttps://0123456789abcdef0123456789abcdef.agent-paste.sh/",
         },
       ],
     },
     {
       id: "revisions",
-      title: "Revisions and Live Updates",
+      title: "Revisions",
       blocks: [
         {
           kind: "paragraph",
-          text: "Publishing to an existing Artifact creates a new Published Revision. Old Revisions remain addressable through Revision Links while retained by the Workspace policy.",
-        },
-        {
-          kind: "paragraph",
-          text: "On Pro, Live Updates let already-open Artifact Viewers opened through Share Links or authenticated Private Links advance to the latest Published Revision without a manual reload. Revision Links and Revision Content URLs are pinned to one Revision and do not Live Update. Draft Revisions are never revealed.",
-        },
-      ],
-    },
-    {
-      id: "agent-view",
-      title: "Agent View",
-      blocks: [
-        {
-          kind: "paragraph",
-          text: "Agent View is JSON for machines. It includes Artifact and Revision IDs, title, entrypoint, file metadata, signed per-file URLs, and Bundle Availability. It does not inline file bytes. Each file entry uses `files[].url` for the signed content URL, with `path`, `size_bytes`, `content_type`, and optional `sha256` beside it.",
+          text: "Publishing to an existing Artifact creates a new Published Revision and rewrites the capability manifest in place. The URL stays unchanged. Draft Revisions are never served there.",
         },
       ],
     },

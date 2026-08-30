@@ -55,15 +55,13 @@ export async function publishViaSharedModule(deps: McpToolDeps, input: PublishIn
 
 /** Shape a publish outcome (or a no-op echo) into the MCP publish output envelope. */
 export function shapePublishOutput(
-  outcome: Pick<PublishOutcome, "title" | "privateUrl" | "expiresAt" | "uploadStats">,
+  outcome: Pick<PublishOutcome, "title" | "url" | "expiresAt" | "uploadStats" | "result">,
 ): McpToolResult {
-  if (!outcome.privateUrl) {
-    console.error("mcp: publish output missing private_url");
-    return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
-  }
-  const parsed = McpPublishArtifactOutput.safeParse({
+  return validatedPublishOutput({
+    artifact_id: outcome.result.artifact_id,
+    revision_id: outcome.result.revision_id,
     title: outcome.title,
-    private_url: outcome.privateUrl,
+    url: outcome.url,
     expires_at: outcome.expiresAt,
     upload_stats: {
       total_files: outcome.uploadStats.totalFiles,
@@ -74,6 +72,10 @@ export function shapePublishOutput(
       reused_bytes: outcome.uploadStats.reusedBytes,
     },
   });
+}
+
+function validatedPublishOutput(output: unknown): McpToolResult {
+  const parsed = McpPublishArtifactOutput.safeParse(output);
   if (!parsed.success) {
     // Log only issue metadata, never the raw error — the publish outcome can
     // carry artifact content/PII. Same rule as parseForwardResult.
@@ -87,15 +89,26 @@ export function shapePublishOutput(
 
 /** A no-op revise echoes the base link/title/expiry with all-zero upload stats. */
 export function noopPublishOutput(base: {
+  artifact_id: string;
+  revision_id: string;
   title: string;
-  private_url: string;
+  url: string;
   expires_at: PublishOutcome["expiresAt"];
 }): McpToolResult {
-  return shapePublishOutput({
+  return validatedPublishOutput({
+    artifact_id: base.artifact_id,
+    revision_id: base.revision_id,
     title: base.title,
-    privateUrl: base.private_url,
-    expiresAt: base.expires_at,
-    uploadStats: { totalFiles: 0, totalBytes: 0, uploadedFiles: 0, uploadedBytes: 0, reusedFiles: 0, reusedBytes: 0 },
+    url: base.url,
+    expires_at: base.expires_at,
+    upload_stats: {
+      total_files: 0,
+      total_bytes: 0,
+      uploaded_files: 0,
+      uploaded_bytes: 0,
+      reused_files: 0,
+      reused_bytes: 0,
+    },
   });
 }
 

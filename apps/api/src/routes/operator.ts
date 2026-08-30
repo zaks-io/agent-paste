@@ -13,10 +13,9 @@ import {
 import { type Repository, rlsExecutor, type SqlExecutor } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
-import { clearPlatformLockdownDenylist, invalidatePlatformLockdown } from "../access-link-invalidation.js";
 import { type AppContext, billingEnabled } from "../env.js";
-import { notifyLiveUpdateDisconnect, notifyLiveUpdateDisconnectWorkspace } from "../live-updates.js";
 import { parsePagination } from "../pagination.js";
+import { clearPlatformLockdownDenylist, invalidatePlatformLockdown } from "../platform-lockdown-invalidation.js";
 import { platformActor } from "../principals.js";
 import { executeRepositoryRoute, RepositoryRouteError, runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
@@ -104,26 +103,6 @@ export async function webAdminSetLockdown(
         requestId: getRequestId(context),
       });
       await invalidatePlatformLockdown(env, body.scope, body.target_id);
-      try {
-        if (body.scope === "artifact") {
-          await notifyLiveUpdateDisconnect(env, {
-            artifactId: body.target_id,
-            audiences: ["share", "dashboard"],
-            reason: "platform_lockdown",
-          });
-        } else {
-          await notifyLiveUpdateDisconnectWorkspace(env, db, {
-            workspaceId: body.target_id,
-            audiences: ["share", "dashboard"],
-            reason: "platform_lockdown",
-          });
-        }
-      } catch (error) {
-        console.warn(
-          `Live update disconnect failed for ${body.scope} lockdown ${body.target_id}; lockdown persisted.`,
-          error,
-        );
-      }
       return detail;
     },
     { successStatus: 201 },

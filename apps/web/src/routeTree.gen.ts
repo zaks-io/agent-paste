@@ -12,8 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as HealthzRouteImport } from './routes/healthz'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as VArtifactIdRouteImport } from './routes/v.$artifactId'
-import { Route as AlPublicIdRouteImport } from './routes/al.$publicId'
 import { Route as AuthedSettingsRouteImport } from './routes/_authed.settings'
 import { Route as AuthedKeysRouteImport } from './routes/_authed.keys'
 import { Route as AuthedDashboardRouteImport } from './routes/_authed.dashboard'
@@ -21,16 +19,12 @@ import { Route as AuthedClaimRouteImport } from './routes/_authed.claim'
 import { Route as AuthedBillingRouteImport } from './routes/_authed.billing'
 import { Route as AuthedAuditRouteImport } from './routes/_authed.audit'
 import { Route as AuthedAdminRouteImport } from './routes/_authed.admin'
-import { Route as AuthedAccessLinksRouteImport } from './routes/_authed.access-links'
 import { Route as AuthedArtifactsIndexRouteImport } from './routes/_authed.artifacts.index'
 import { Route as ApiAuthSignOutRouteImport } from './routes/api/auth/sign-out'
 import { Route as ApiAuthSignInRouteImport } from './routes/api/auth/sign-in'
 import { Route as ApiAuthCallbackRouteImport } from './routes/api/auth/callback'
-import { Route as ApiAccessLinksResolveRouteImport } from './routes/api/access-links/resolve'
 import { Route as AuthedArtifactsArtifactIdRouteImport } from './routes/_authed.artifacts.$artifactId'
 import { Route as AuthedAgentAuthClaimRouteImport } from './routes/_authed.agent-auth.claim'
-import { Route as ApiLiveArtifactsArtifactIdRouteImport } from './routes/api/live/artifacts/$artifactId'
-import { Route as ApiLiveAccessLinksPublicIdRouteImport } from './routes/api/live/access-links/$publicId'
 
 const HealthzRoute = HealthzRouteImport.update({
   id: '/healthz',
@@ -44,16 +38,6 @@ const AuthedRoute = AuthedRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const VArtifactIdRoute = VArtifactIdRouteImport.update({
-  id: '/v/$artifactId',
-  path: '/v/$artifactId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AlPublicIdRoute = AlPublicIdRouteImport.update({
-  id: '/al/$publicId',
-  path: '/al/$publicId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthedSettingsRoute = AuthedSettingsRouteImport.update({
@@ -91,11 +75,6 @@ const AuthedAdminRoute = AuthedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedAccessLinksRoute = AuthedAccessLinksRouteImport.update({
-  id: '/access-links',
-  path: '/access-links',
-  getParentRoute: () => AuthedRoute,
-} as any)
 const AuthedArtifactsIndexRoute = AuthedArtifactsIndexRouteImport.update({
   id: '/artifacts/',
   path: '/artifacts/',
@@ -116,11 +95,6 @@ const ApiAuthCallbackRoute = ApiAuthCallbackRouteImport.update({
   path: '/api/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAccessLinksResolveRoute = ApiAccessLinksResolveRouteImport.update({
-  id: '/api/access-links/resolve',
-  path: '/api/access-links/resolve',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthedArtifactsArtifactIdRoute =
   AuthedArtifactsArtifactIdRouteImport.update({
     id: '/artifacts/$artifactId',
@@ -132,23 +106,10 @@ const AuthedAgentAuthClaimRoute = AuthedAgentAuthClaimRouteImport.update({
   path: '/agent-auth/claim',
   getParentRoute: () => AuthedRoute,
 } as any)
-const ApiLiveArtifactsArtifactIdRoute =
-  ApiLiveArtifactsArtifactIdRouteImport.update({
-    id: '/api/live/artifacts/$artifactId',
-    path: '/api/live/artifacts/$artifactId',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiLiveAccessLinksPublicIdRoute =
-  ApiLiveAccessLinksPublicIdRouteImport.update({
-    id: '/api/live/access-links/$publicId',
-    path: '/api/live/access-links/$publicId',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/healthz': typeof HealthzRoute
-  '/access-links': typeof AuthedAccessLinksRoute
   '/admin': typeof AuthedAdminRoute
   '/audit': typeof AuthedAuditRoute
   '/billing': typeof AuthedBillingRoute
@@ -156,22 +117,16 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthedDashboardRoute
   '/keys': typeof AuthedKeysRoute
   '/settings': typeof AuthedSettingsRoute
-  '/al/$publicId': typeof AlPublicIdRoute
-  '/v/$artifactId': typeof VArtifactIdRoute
   '/agent-auth/claim': typeof AuthedAgentAuthClaimRoute
   '/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
-  '/api/access-links/resolve': typeof ApiAccessLinksResolveRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
   '/api/auth/sign-in': typeof ApiAuthSignInRoute
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
   '/artifacts/': typeof AuthedArtifactsIndexRoute
-  '/api/live/access-links/$publicId': typeof ApiLiveAccessLinksPublicIdRoute
-  '/api/live/artifacts/$artifactId': typeof ApiLiveArtifactsArtifactIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/healthz': typeof HealthzRoute
-  '/access-links': typeof AuthedAccessLinksRoute
   '/admin': typeof AuthedAdminRoute
   '/audit': typeof AuthedAuditRoute
   '/billing': typeof AuthedBillingRoute
@@ -179,24 +134,18 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthedDashboardRoute
   '/keys': typeof AuthedKeysRoute
   '/settings': typeof AuthedSettingsRoute
-  '/al/$publicId': typeof AlPublicIdRoute
-  '/v/$artifactId': typeof VArtifactIdRoute
   '/agent-auth/claim': typeof AuthedAgentAuthClaimRoute
   '/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
-  '/api/access-links/resolve': typeof ApiAccessLinksResolveRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
   '/api/auth/sign-in': typeof ApiAuthSignInRoute
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
   '/artifacts': typeof AuthedArtifactsIndexRoute
-  '/api/live/access-links/$publicId': typeof ApiLiveAccessLinksPublicIdRoute
-  '/api/live/artifacts/$artifactId': typeof ApiLiveArtifactsArtifactIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authed': typeof AuthedRouteWithChildren
   '/healthz': typeof HealthzRoute
-  '/_authed/access-links': typeof AuthedAccessLinksRoute
   '/_authed/admin': typeof AuthedAdminRoute
   '/_authed/audit': typeof AuthedAuditRoute
   '/_authed/billing': typeof AuthedBillingRoute
@@ -204,24 +153,18 @@ export interface FileRoutesById {
   '/_authed/dashboard': typeof AuthedDashboardRoute
   '/_authed/keys': typeof AuthedKeysRoute
   '/_authed/settings': typeof AuthedSettingsRoute
-  '/al/$publicId': typeof AlPublicIdRoute
-  '/v/$artifactId': typeof VArtifactIdRoute
   '/_authed/agent-auth/claim': typeof AuthedAgentAuthClaimRoute
   '/_authed/artifacts/$artifactId': typeof AuthedArtifactsArtifactIdRoute
-  '/api/access-links/resolve': typeof ApiAccessLinksResolveRoute
   '/api/auth/callback': typeof ApiAuthCallbackRoute
   '/api/auth/sign-in': typeof ApiAuthSignInRoute
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
   '/_authed/artifacts/': typeof AuthedArtifactsIndexRoute
-  '/api/live/access-links/$publicId': typeof ApiLiveAccessLinksPublicIdRoute
-  '/api/live/artifacts/$artifactId': typeof ApiLiveArtifactsArtifactIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/healthz'
-    | '/access-links'
     | '/admin'
     | '/audit'
     | '/billing'
@@ -229,22 +172,16 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/keys'
     | '/settings'
-    | '/al/$publicId'
-    | '/v/$artifactId'
     | '/agent-auth/claim'
     | '/artifacts/$artifactId'
-    | '/api/access-links/resolve'
     | '/api/auth/callback'
     | '/api/auth/sign-in'
     | '/api/auth/sign-out'
     | '/artifacts/'
-    | '/api/live/access-links/$publicId'
-    | '/api/live/artifacts/$artifactId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/healthz'
-    | '/access-links'
     | '/admin'
     | '/audit'
     | '/billing'
@@ -252,23 +189,17 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/keys'
     | '/settings'
-    | '/al/$publicId'
-    | '/v/$artifactId'
     | '/agent-auth/claim'
     | '/artifacts/$artifactId'
-    | '/api/access-links/resolve'
     | '/api/auth/callback'
     | '/api/auth/sign-in'
     | '/api/auth/sign-out'
     | '/artifacts'
-    | '/api/live/access-links/$publicId'
-    | '/api/live/artifacts/$artifactId'
   id:
     | '__root__'
     | '/'
     | '/_authed'
     | '/healthz'
-    | '/_authed/access-links'
     | '/_authed/admin'
     | '/_authed/audit'
     | '/_authed/billing'
@@ -276,31 +207,21 @@ export interface FileRouteTypes {
     | '/_authed/dashboard'
     | '/_authed/keys'
     | '/_authed/settings'
-    | '/al/$publicId'
-    | '/v/$artifactId'
     | '/_authed/agent-auth/claim'
     | '/_authed/artifacts/$artifactId'
-    | '/api/access-links/resolve'
     | '/api/auth/callback'
     | '/api/auth/sign-in'
     | '/api/auth/sign-out'
     | '/_authed/artifacts/'
-    | '/api/live/access-links/$publicId'
-    | '/api/live/artifacts/$artifactId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthedRoute: typeof AuthedRouteWithChildren
   HealthzRoute: typeof HealthzRoute
-  AlPublicIdRoute: typeof AlPublicIdRoute
-  VArtifactIdRoute: typeof VArtifactIdRoute
-  ApiAccessLinksResolveRoute: typeof ApiAccessLinksResolveRoute
   ApiAuthCallbackRoute: typeof ApiAuthCallbackRoute
   ApiAuthSignInRoute: typeof ApiAuthSignInRoute
   ApiAuthSignOutRoute: typeof ApiAuthSignOutRoute
-  ApiLiveAccessLinksPublicIdRoute: typeof ApiLiveAccessLinksPublicIdRoute
-  ApiLiveArtifactsArtifactIdRoute: typeof ApiLiveArtifactsArtifactIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -324,20 +245,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/v/$artifactId': {
-      id: '/v/$artifactId'
-      path: '/v/$artifactId'
-      fullPath: '/v/$artifactId'
-      preLoaderRoute: typeof VArtifactIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/al/$publicId': {
-      id: '/al/$publicId'
-      path: '/al/$publicId'
-      fullPath: '/al/$publicId'
-      preLoaderRoute: typeof AlPublicIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authed/settings': {
@@ -389,13 +296,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAdminRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/access-links': {
-      id: '/_authed/access-links'
-      path: '/access-links'
-      fullPath: '/access-links'
-      preLoaderRoute: typeof AuthedAccessLinksRouteImport
-      parentRoute: typeof AuthedRoute
-    }
     '/_authed/artifacts/': {
       id: '/_authed/artifacts/'
       path: '/artifacts'
@@ -424,13 +324,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/access-links/resolve': {
-      id: '/api/access-links/resolve'
-      path: '/api/access-links/resolve'
-      fullPath: '/api/access-links/resolve'
-      preLoaderRoute: typeof ApiAccessLinksResolveRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authed/artifacts/$artifactId': {
       id: '/_authed/artifacts/$artifactId'
       path: '/artifacts/$artifactId'
@@ -445,25 +338,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAgentAuthClaimRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/api/live/artifacts/$artifactId': {
-      id: '/api/live/artifacts/$artifactId'
-      path: '/api/live/artifacts/$artifactId'
-      fullPath: '/api/live/artifacts/$artifactId'
-      preLoaderRoute: typeof ApiLiveArtifactsArtifactIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/live/access-links/$publicId': {
-      id: '/api/live/access-links/$publicId'
-      path: '/api/live/access-links/$publicId'
-      fullPath: '/api/live/access-links/$publicId'
-      preLoaderRoute: typeof ApiLiveAccessLinksPublicIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 interface AuthedRouteChildren {
-  AuthedAccessLinksRoute: typeof AuthedAccessLinksRoute
   AuthedAdminRoute: typeof AuthedAdminRoute
   AuthedAuditRoute: typeof AuthedAuditRoute
   AuthedBillingRoute: typeof AuthedBillingRoute
@@ -477,7 +355,6 @@ interface AuthedRouteChildren {
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
-  AuthedAccessLinksRoute: AuthedAccessLinksRoute,
   AuthedAdminRoute: AuthedAdminRoute,
   AuthedAuditRoute: AuthedAuditRoute,
   AuthedBillingRoute: AuthedBillingRoute,
@@ -497,14 +374,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthedRoute: AuthedRouteWithChildren,
   HealthzRoute: HealthzRoute,
-  AlPublicIdRoute: AlPublicIdRoute,
-  VArtifactIdRoute: VArtifactIdRoute,
-  ApiAccessLinksResolveRoute: ApiAccessLinksResolveRoute,
   ApiAuthCallbackRoute: ApiAuthCallbackRoute,
   ApiAuthSignInRoute: ApiAuthSignInRoute,
   ApiAuthSignOutRoute: ApiAuthSignOutRoute,
-  ApiLiveAccessLinksPublicIdRoute: ApiLiveAccessLinksPublicIdRoute,
-  ApiLiveArtifactsArtifactIdRoute: ApiLiveArtifactsArtifactIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -48,29 +48,12 @@ vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => vi.fn(),
 }));
 
-const emptyListEnvelope = {
-  data: { items: [], page_info: { next_cursor: null, has_more: false } },
-  empty: true,
-  error: null,
-};
-
 vi.mock("@tanstack/react-query", () => ({
-  // Migrated routes read through useSuspenseQuery; mirror the loader-data
-  // harness so components still render from state.loaderData. The artifact
-  // detail page also reads access-link/revision lists; return empty envelopes
-  // for those keys so the single state.loaderData drives the artifact read.
-  useSuspenseQuery: (options?: { queryKey?: readonly unknown[] }) => {
-    const key = options?.queryKey?.[0];
-    if (key === "artifact-access-links" || key === "artifact-revisions") {
-      return { data: emptyListEnvelope };
-    }
-    return { data: state.loaderData };
-  },
-  // Non-blocking reads: web-session provisioning + deferred artifact revisions.
+  useSuspenseQuery: () => ({ data: state.loaderData }),
+  // Non-blocking web-session provisioning.
   useQuery: (options?: { queryKey?: readonly unknown[] }) => {
     const key = options?.queryKey?.[0];
     if (key === "web-session") return { data: state.webSession };
-    if (key === "artifact-revisions") return { data: emptyListEnvelope };
     return { data: state.loaderData };
   },
   useQueryClient: () => ({
@@ -287,13 +270,12 @@ describe("web routes", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load your workspace");
   });
 
-  it("loads and renders artifact list, detail, audit, keys, settings, access-links, admin, and health routes", async () => {
+  it("loads and renders artifact list, detail, audit, keys, settings, admin, and health routes", async () => {
     const artifacts = await import("../src/routes/_authed.artifacts.index");
     const artifactDetail = await import("../src/routes/_authed.artifacts.$artifactId");
     const audit = await import("../src/routes/_authed.audit");
     const keys = await import("../src/routes/_authed.keys");
     const settings = await import("../src/routes/_authed.settings");
-    const accessLinks = await import("../src/routes/_authed.access-links");
     const admin = await import("../src/routes/_authed.admin");
     const health = await import("../src/routes/healthz");
     const { ToastProvider } = await import("../src/components/ui/ToastProvider");
@@ -313,20 +295,7 @@ describe("web routes", () => {
     expect(screen.getByText("Artifact One")).toBeInTheDocument();
     view.unmount();
 
-    // The migrated loader ensureQueryData's three queries (artifact, access
-    // links, revisions); feed their fetchers in array order.
-    state.apiFetchOrEmpty
-      .mockResolvedValueOnce({ data: artifactDetailRow(), empty: false, error: null })
-      .mockResolvedValueOnce({
-        data: { items: [], page_info: { next_cursor: null, has_more: false } },
-        empty: false,
-        error: null,
-      })
-      .mockResolvedValueOnce({
-        data: { artifact_id: state.params.artifactId, items: [], page_info: { next_cursor: null, has_more: false } },
-        empty: false,
-        error: null,
-      });
+    state.apiFetchOrEmpty.mockResolvedValueOnce({ data: artifactDetailRow(), empty: false, error: null });
     state.loaderData = { data: artifactDetailRow(), empty: false, error: null };
     await (artifactDetail.Route.loader as (input: unknown) => Promise<unknown>)({
       ...queryContext(),
@@ -375,19 +344,6 @@ describe("web routes", () => {
       </ToastProvider>,
     );
     expect(screen.getByText("Usage policy")).toBeInTheDocument();
-    view.unmount();
-
-    state.loaderData = {
-      data: { items: [], page_info: { next_cursor: null, has_more: false } },
-      empty: false,
-      error: null,
-    };
-    view = render(
-      <ToastProvider>
-        <accessLinks.Route.component />
-      </ToastProvider>,
-    );
-    expect(screen.getByText("Access Links")).toBeInTheDocument();
     view.unmount();
 
     state.apiFetchOrEmpty
@@ -532,14 +488,12 @@ describe("web routes", () => {
     const dashboard = await import("../src/routes/_authed.dashboard");
     const artifactDetail = await import("../src/routes/_authed.artifacts.$artifactId");
     const artifactsIndex = await import("../src/routes/_authed.artifacts.index");
-    const accessLinks = await import("../src/routes/_authed.access-links");
     const keys = await import("../src/routes/_authed.keys");
     const audit = await import("../src/routes/_authed.audit");
     const settings = await import("../src/routes/_authed.settings");
     const admin = await import("../src/routes/_authed.admin");
     const claim = await import("../src/routes/_authed.claim");
     const index = await import("../src/routes/index");
-    const accessLink = await import("../src/routes/al.$publicId");
     const rootMatches = [{ routeId: "__root__", loaderData: { webBaseUrl: "https://app.agent-paste.sh" } }];
     const headCtx = { matches: rootMatches };
 
@@ -562,17 +516,6 @@ describe("web routes", () => {
       meta: expect.arrayContaining([
         { title: "Artifacts | agent-paste" },
         { name: "description", content: "Everything published from this workspace." },
-      ]),
-    });
-
-    expect(
-      (accessLinks.Route.head as (ctx: { matches: Array<{ routeId: string; loaderData?: unknown }> }) => unknown)(
-        headCtx,
-      ),
-    ).toEqual({
-      meta: expect.arrayContaining([
-        { title: "Access Links | agent-paste" },
-        { name: "description", content: "Short-lived URLs that reveal a single artifact to a recipient." },
       ]),
     });
 
@@ -655,25 +598,6 @@ describe("web routes", () => {
         { property: "og:url", content: "https://app.agent-paste.sh/" },
         { property: "og:image", content: "https://app.agent-paste.sh/agent-paste-social.svg" },
         { name: "twitter:card", content: "summary_large_image" },
-      ]),
-    });
-
-    expect(
-      (
-        accessLink.Route.head as (ctx: {
-          params: { publicId: string };
-          matches: Array<{ routeId: string; loaderData?: unknown }>;
-        }) => unknown
-      )({
-        params: { publicId: "pub_1" },
-        matches: rootMatches,
-      }),
-    ).toEqual({
-      meta: expect.arrayContaining([
-        { name: "referrer", content: "no-referrer" },
-        { title: "Access Link | agent-paste" },
-        { property: "og:url", content: "https://app.agent-paste.sh/al/pub_1" },
-        { name: "robots", content: "noindex,nofollow" },
       ]),
     });
   });
@@ -766,7 +690,13 @@ function artifactRow() {
 }
 
 function artifactDetailRow() {
-  return { ...artifactRow(), entrypoint: "index.html", file_count: 1, size_bytes: 1024 };
+  return {
+    ...artifactRow(),
+    entrypoint: "index.html",
+    file_count: 1,
+    size_bytes: 1024,
+    url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+  };
 }
 
 function auditRow() {

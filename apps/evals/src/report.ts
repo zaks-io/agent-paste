@@ -46,7 +46,7 @@ export function summarizeResults(results: RunResult[], options: ReportOptions = 
       formatNumber(totalTokens(result.token_usage)),
       formatUsd(result.cost_usd),
       formatJudge(result),
-      result.unlisted_url ?? "",
+      result.artifact_url ?? "",
       `${warnings}${failures}`.trim(),
     ].join(" | ")} |`;
   });
@@ -149,7 +149,7 @@ function evalContext(config: EvalConfig | undefined): string[] {
     `- Target: ${config.environment.target}`,
     `- Reject production handoff URLs: ${config.environment.reject_production_urls}`,
     `- Required HTTP status: ${config.verification.require_http_status}`,
-    `- Require unlisted URL: ${config.verification.require_unlisted_url}`,
+    `- Require artifact URL: ${config.verification.require_artifact_url}`,
     `- Require final-answer URL: ${config.verification.require_final_answer_url}`,
     `- Claim-code mode: ${config.suite.prompt.claim_code.mode}`,
     `- Judge model: ${config.judge.enabled ? config.judge.model : "disabled"}`,

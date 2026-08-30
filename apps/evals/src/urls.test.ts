@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { classifyUrls } from "./urls";
 
 describe("classifyUrls", () => {
-  it("classifies preview unlisted and claim URLs", () => {
+  it("classifies preview artifact and claim URLs", () => {
     const urls = classifyUrls(
-      "Done https://app.preview.agent-paste.sh/al/abc#secret Claim https://app.preview.agent-paste.sh/claim#token",
+      "Done https://0123456789abcdef0123456789abcdef-preview.agent-paste.sh/ Claim https://app.preview.agent-paste.sh/claim#token",
     );
-    expect(urls.unlisted).toBe("https://app.preview.agent-paste.sh/al/abc#secret");
+    expect(urls.artifact).toBe("https://0123456789abcdef0123456789abcdef-preview.agent-paste.sh/");
     expect(urls.claim).toBe("https://app.preview.agent-paste.sh/claim#token");
     expect(urls.production).toEqual([]);
   });
@@ -23,8 +23,10 @@ describe("classifyUrls", () => {
     expect(urls.production).toEqual(["https://agent-paste.sh/agents.md"]);
   });
 
-  it("detects production Agent Paste URLs", () => {
-    const urls = classifyUrls("https://app.agent-paste.sh/al/abc#secret");
-    expect(urls.production).toEqual(["https://app.agent-paste.sh/al/abc#secret"]);
+  it("detects production artifact URLs", () => {
+    const url = "https://0123456789abcdef0123456789abcdef.agent-paste.sh/";
+    const urls = classifyUrls(url);
+    expect(urls.artifact).toBe(url);
+    expect(urls.production).toEqual([url]);
   });
 });

@@ -78,7 +78,7 @@ describe("AP-91 web route modules", () => {
     expect(badAuditCursor.status).toBe(400);
   });
 
-  it("signs web artifact viewer URLs and returns not_found for missing artifacts", async () => {
+  it("returns a direct Artifact URL and not_found for missing artifacts", async () => {
     const missing = await webArtifactDetail(
       contextFor(),
       memberPrincipal(),
@@ -88,22 +88,44 @@ describe("AP-91 web route modules", () => {
     expect(missing.status).toBe(404);
 
     const detail = await webArtifactDetail(
-      contextFor({ env: { CONTENT_SIGNING_SECRET: "content-secret", CONTENT_BASE_URL: "https://content.test" } }),
+      contextFor({
+        env: {
+          AGENT_PASTE_ENV: "dev",
+          CONTENT_SIGNING_SECRET: "content-secret",
+          CONTENT_BASE_URL: "https://content.test",
+          CONTENT_CAPABILITY_DOMAIN: "agent-paste.test",
+          ARTIFACTS: {
+            get: vi.fn(async () => null),
+            put: vi.fn(async () => ({ etag: "capability" })),
+          } as never,
+        },
+      }),
       memberPrincipal(),
       {
         getWebArtifact: vi.fn(async () => ({
           id: "art_1",
           latest_revision_id: "rev_1",
           entrypoint: "index.html",
-          viewer: { iframe_src: "https://old.test/v/art_1.rev_1/index.html" },
+          capability_view: {
+            workspace_id: memberActor.workspace_id,
+            capability_id: "0123456789abcdef0123456789abcdef",
+            artifact_id: "art_1",
+            revision_id: "rev_1",
+            revision_number: 1,
+            artifact_updated_at: "2029-01-01T00:00:00.000Z",
+            entrypoint: "index.html",
+            expires_at: "2030-01-01T00:00:00.000Z",
+            revision_content_url: "https://content.test/v/art_1.rev_1/index.html",
+            files: [{ path: "index.html", object_key: "workspaces/ws_1/blobs/index" }],
+          },
         })),
       } as never,
       { artifactId: "art_1" },
     );
     expect(detail.status).toBe(200);
-    const body = await responseJson<{ viewer: { iframe_src: string } }>(detail);
-    expect(body.viewer.iframe_src).toContain("https://content.test/v/");
-    expect(body.viewer.iframe_src).toContain("/index.html");
+    const body = await responseJson<{ url: string }>(detail);
+    expect(body.url).toBe("https://0123456789abcdef0123456789abcdef.agent-paste.test");
+    expect(body).not.toHaveProperty("viewer");
   });
 
   it("maps web pin and unpin repository errors through route envelopes", async () => {

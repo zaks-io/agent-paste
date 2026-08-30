@@ -134,7 +134,9 @@ Handler behavior:
 
 ## Post-Commit Sequencing
 
-Deletion, Access Link Lockdown, Platform Lockdown, and Access Link revocation follow this order:
+Deletion and Platform Lockdown follow this order. Dormant legacy Access Link
+operations retain the same sequencing inside their repository workflows, but
+no current route invokes them.
 
 1. Commit the Postgres state change and Audit Event through `runCommand`.
 2. Write the KV denylist entry with retries.

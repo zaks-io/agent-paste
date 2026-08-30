@@ -3,7 +3,7 @@ import { type OutputMode, resolveMode } from "./render.js";
 
 export type { GlobalFlags };
 
-export const SCHEMA_VERSION = "1";
+export const SCHEMA_VERSION = "2";
 
 export type Parsed = {
   command: string[];

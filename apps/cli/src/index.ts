@@ -37,12 +37,7 @@ import {
 } from "./local.js";
 import { login } from "./login.js";
 import { loadManifestCache, type ManifestCacheFile, saveManifestCache } from "./manifest-cache.js";
-import {
-  ephemeralClaimUrl,
-  formatEphemeralPublishResult,
-  formatPublishResult,
-  formatSetVisibility,
-} from "./publish-format.js";
+import { ephemeralClaimUrl, formatEphemeralPublishResult, formatPublishResult } from "./publish-format.js";
 import { apiClientTransport } from "./publish-transport.js";
 import { createProgress, exitCodeFor, formatError, type OutputMode } from "./render.js";
 import { buildRevisePlan, isBaseUnusableError, type LocalFileWithDigest, type RevisePlan } from "./revise.js";
@@ -105,8 +100,6 @@ async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
         return publishEphemeral(parsed);
       }
       return publish(parsed, client);
-    case "set-visibility":
-      return setVisibility(parsed, client);
     case "pull":
       return pull(parsed, client);
     case "edit":
@@ -123,7 +116,6 @@ const COMMAND_FLAG_NAMES: Record<string, readonly string[]> = {
   logout: [],
   whoami: [],
   publish: ["claim-code", "artifact-id", "title", "entrypoint", "render-mode", "ephemeral"],
-  "set-visibility": [],
   pull: ["revision-id"],
   edit: ["edits"],
   version: [],
@@ -261,22 +253,15 @@ export async function publishEphemeral(parsed: Parsed, deps: EphemeralPublishDep
   const mode = outputModeFor(parsed.global);
   const result = await runPublish(parsed, publishClient, mode);
   const claimUrl = ephemeralClaimUrl(provisioned.claim_token);
-  const publicResult =
-    "private_url" in result
-      ? (() => {
-          const { private_url: _privateUrl, ...rest } = result;
-          return rest;
-        })()
-      : result;
   const payload = {
-    ...publicResult,
+    ...result,
     claim_token: provisioned.claim_token,
     claim_url: claimUrl,
     workspace_id: provisioned.workspace_id,
     api_key_id: provisioned.api_key_id,
     claim_token_id: provisioned.claim_token_id,
   };
-  return output(payload, parsed.global, formatEphemeralPublishResult(mode, publicResult, claimUrl));
+  return output(payload, parsed.global, formatEphemeralPublishResult(mode, result, claimUrl));
 }
 
 async function noteEphemeralCredentialPrecedence() {
@@ -415,9 +400,7 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
     });
   }
 
-  // Publish is content-only and private: one link to hand the user, the private
-  // viewer URL (`/v/<id>`), identical to what the MCP server returns. Visibility
-  // changes are explicit `agent-paste set-visibility` calls.
+  // Publish returns the Artifact's one durable top-level capability URL.
   return {
     ...outcome.result,
     upload_stats: {
@@ -434,58 +417,6 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
 async function existingArtifactTitle(client: ApiClient, artifactId: string): Promise<string> {
   const view = await client.artifacts.getAgentView(artifactId);
   return view.title;
-}
-
-async function setVisibility(parsed: Parsed, client: ApiClient) {
-  const artifactId = ArtifactId.parse(requiredArg(parsed, 0, "artifact-id"));
-  const visibility = requiredArg(parsed, 1, "visibility");
-  if (visibility === "private") {
-    return setPrivate(parsed, client, artifactId);
-  }
-  if (visibility === "unlisted") {
-    return setUnlisted(parsed, client, artifactId);
-  }
-  throw new AgentPasteError({
-    code: "invalid_request",
-    message: "visibility must be one of: private, unlisted",
-    status: 400,
-  });
-}
-
-async function setUnlisted(parsed: Parsed, client: ApiClient, artifactId: string) {
-  const created = await client.accessLinks.create(
-    artifactId,
-    { type: "share" },
-    createIdempotencyKey("cli_set_visibility"),
-  );
-  const minted = await client.accessLinks.mint(created.id);
-  const payload = {
-    artifact_id: artifactId,
-    visibility: "unlisted" as const,
-    access_link_id: created.id,
-    unlisted_url: minted.url,
-  };
-  return output(payload, parsed.global, formatSetVisibility(outputModeFor(parsed.global), payload));
-}
-
-async function setPrivate(parsed: Parsed, client: ApiClient, artifactId: string) {
-  const [agentView, accessLinks] = await Promise.all([
-    client.artifacts.getAgentView(artifactId),
-    client.accessLinks.list(artifactId),
-  ]);
-  const activeLinks = accessLinks.items.filter((link) => link.revoked_at === null);
-  const revokedAccessLinkIds: string[] = [];
-  for (const link of activeLinks) {
-    await client.accessLinks.revoke(link.id);
-    revokedAccessLinkIds.push(link.id);
-  }
-  const payload = {
-    artifact_id: artifactId,
-    visibility: "private" as const,
-    private_url: agentView.private_url,
-    revoked_access_link_ids: revokedAccessLinkIds,
-  };
-  return output(payload, parsed.global, formatSetVisibility(outputModeFor(parsed.global), payload));
 }
 
 // Read one stored file's content for the owning member (ADR 0090). Default

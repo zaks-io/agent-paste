@@ -9,7 +9,6 @@ import {
   runPostCommitArtifactDeletionInvalidation,
 } from "../deletion-invalidation.js";
 import type { AppContext } from "../env.js";
-import { notifyLiveUpdateDisconnect } from "../live-updates.js";
 import { parsePagination } from "../pagination.js";
 import { workspaceApiActor } from "../principals.js";
 import { executeRepositoryRoute, runIdempotent } from "../responses.js";
@@ -62,7 +61,7 @@ export async function deleteMemberArtifactRoute(
       isReplay = replay !== null && "result" in replay;
     }
     const result = await db.deleteMemberArtifact({ actor, idempotencyKey, artifactId });
-    const invalidation = await runPostCommitArtifactDeletionInvalidation(
+    await runPostCommitArtifactDeletionInvalidation(
       env,
       {
         actor,
@@ -74,13 +73,6 @@ export async function deleteMemberArtifactRoute(
       },
       { isReplay },
     );
-    if (!invalidation.replaySkipped) {
-      await notifyLiveUpdateDisconnect(env, {
-        artifactId: result.artifact_id,
-        audiences: ["share", "dashboard"],
-        reason: "deletion",
-      });
-    }
     return {
       artifact_id: result.artifact_id,
       deleted_at: result.deleted_at,

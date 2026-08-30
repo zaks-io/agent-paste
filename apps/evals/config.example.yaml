@@ -345,7 +345,7 @@ retries:
     - judge_request
 
 verification:
-  require_unlisted_url: true
+  require_artifact_url: true
   require_final_answer_url: true
   require_http_status: 200
   capture_claim_url: true

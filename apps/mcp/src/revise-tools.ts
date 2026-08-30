@@ -57,7 +57,7 @@ export async function callAddRevision(
     return addRevisionError(error);
   }
   if (result.noop) {
-    // Byte-identical body: no revision minted. Echo the stable member viewer link from
+    // Byte-identical body: no revision minted. Echo the stable Artifact URL from
     // the base the engine already read, so the agent still gets the link to hand back
     // (the live page already shows this content). Reused stats: nothing was uploaded.
     return noopPublishOutput(result.base);

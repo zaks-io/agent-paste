@@ -14,6 +14,7 @@ import {
   sha256Bytes,
 } from "./agent-auth-workflow-helpers.js";
 import {
+  type ClaimEphemeralWorkspaceResult,
   claimResolvedEphemeralWorkspaceWithReplayState,
   DEFAULT_CLAIM_TOKEN_TTL_SECONDS,
   insertEphemeralWorkspaceProvision,
@@ -45,6 +46,10 @@ export type StartAgentAuthAnonymousClaimResult =
     }
   | { kind: "expired_token" }
   | { kind: "invalid_grant" };
+
+export type CompleteAgentAuthAnonymousClaimResult = AgentAuthRegistrationView & {
+  claimed_artifact_ids: ClaimEphemeralWorkspaceResult["artifact_ids"];
+};
 
 export async function registerAgentAnonymousIdentity(
   ctx: RepositoryCoreContext,
@@ -189,7 +194,7 @@ export async function completeAgentAuthAnonymousClaim(
     userCode: string;
     now?: Date;
   },
-): Promise<AgentAuthRegistrationView | null> {
+): Promise<CompleteAgentAuthAnonymousClaimResult | null> {
   const now = nowIso(input.now);
   const claimAttemptTokenHash = await sha256Bytes(input.claimAttemptToken);
   const userCodeHash = await sha256Bytes(input.userCode);
@@ -198,7 +203,7 @@ export async function completeAgentAuthAnonymousClaim(
     if (
       !registration ||
       registration.registration_type !== "anonymous" ||
-      registration.status !== "anonymous_claim_pending" ||
+      (registration.status !== "anonymous_claim_pending" && registration.status !== "verified") ||
       !registration.claim_token_id ||
       !registration.claim_expires_at ||
       !registration.claim_attempt_expires_at ||
@@ -232,7 +237,7 @@ export async function completeAgentAuthAnonymousClaim(
     ...(input.now ? { now: input.now } : {}),
   });
 
-  return ctx.uow.command(
+  const completed = await ctx.uow.command(
     {
       actor: { type: "member", id: input.actor.id, workspaceId: input.actor.workspace_id },
       operation: "agent_auth.anonymous_claim.complete",
@@ -277,4 +282,5 @@ export async function completeAgentAuthAnonymousClaim(
       return registrationView(completed);
     },
   );
+  return completed ? { ...completed, claimed_artifact_ids: claimed.result.artifact_ids } : null;
 }

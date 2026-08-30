@@ -2,7 +2,7 @@ import type { PageMeta } from "./meta";
 
 export const PRICING_TITLE = "Pricing - agent-paste.sh";
 export const PRICING_DESCRIPTION =
-  "Compare Free and Pro plans for the hosted agent-paste service. Reads stay free; Pro raises write allowance, retention, caps, and Live Updates.";
+  "Compare Free and Pro plans for the hosted agent-paste service. Reads stay free; Pro raises write allowance, retention, and caps.";
 
 export const PRICING_META: PageMeta = {
   title: PRICING_TITLE,
@@ -13,5 +13,5 @@ export const PRICING_META: PageMeta = {
 export const PRICING = {
   eyebrow: "Pricing",
   headline: "Free to try, Pro when you need more",
-  lead: "Reads are always free. Plans change write allowance, retention windows, size caps, and whether Live Updates are available on your Workspace.",
+  lead: "Reads are always free. Plans change write allowance, retention windows, and size caps.",
 } as const;

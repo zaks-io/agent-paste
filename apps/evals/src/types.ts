@@ -52,7 +52,7 @@ export type RunResult = {
   prompt?: string | undefined;
   claim_code?: string | undefined;
   final_answer?: string | undefined;
-  unlisted_url?: string | undefined;
+  artifact_url?: string | undefined;
   claim_url?: string | undefined;
   warnings: string[];
   failures: string[];
@@ -78,10 +78,8 @@ export type TokenUsage = {
 export type VerifierResult = {
   passed: boolean;
   status?: number | undefined;
-  unlisted_url?: string | undefined;
+  artifact_url?: string | undefined;
   claim_url?: string | undefined;
-  private_url?: string | undefined;
-  revision_content_url?: string | undefined;
   production_handoff_url_detected: boolean;
   production_artifact_url_detected: boolean;
   production_url_details: {
@@ -251,7 +249,7 @@ export type TimeoutConfig = {
 export type RetryConfig = { infra_attempts: number; retryable_categories: string[] };
 
 export type VerificationConfig = {
-  require_unlisted_url: boolean;
+  require_artifact_url: boolean;
   require_final_answer_url: boolean;
   require_http_status: number;
   capture_claim_url: boolean;

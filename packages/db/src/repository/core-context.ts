@@ -1,7 +1,7 @@
 import { buildAgentView } from "../agent-view.js";
 import { type UsagePolicyConfig, usagePolicyForWorkspace } from "../policy.js";
 import { repositoryError } from "../repository-error.js";
-import type { Artifact, RepositoryOptions, Revision, Workspace } from "../types.js";
+import type { Artifact, RepositoryOptions, Workspace } from "../types.js";
 import type { Entities, UnitOfWork } from "./ports.js";
 import { toWebArtifactRow } from "./web-transforms.js";
 
@@ -52,7 +52,6 @@ export class RepositoryCoreContext {
 
   async webArtifactDetailFromArtifact(entities: Entities, artifact: Artifact, workspaceId: string) {
     const revisionId = artifact.revision_id;
-    let viewer: { iframe_src: string; render_mode: Revision["render_mode"] } | null = null;
     let capabilityView: ReturnType<typeof buildAgentView> | null = null;
     if (revisionId && artifact.status === "active") {
       const revision = await entities.revisions.findById(revisionId, workspaceId);
@@ -68,10 +67,6 @@ export class RepositoryCoreContext {
           warnings,
         );
         capabilityView = agentView;
-        viewer = {
-          iframe_src: agentView.revision_content_url,
-          render_mode: revision.render_mode,
-        };
       }
     }
     return {
@@ -79,7 +74,6 @@ export class RepositoryCoreContext {
       entrypoint: artifact.entrypoint,
       file_count: artifact.file_count,
       size_bytes: artifact.size_bytes,
-      viewer,
       capability_view: capabilityView,
     };
   }

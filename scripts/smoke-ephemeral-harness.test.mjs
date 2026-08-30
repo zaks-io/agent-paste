@@ -1,6 +1,8 @@
 import { createServer } from "node:http";
 import { describe, expect, it } from "vitest";
 import {
+  assertContentPolicy,
+  assertNoClaimTokenLeakage,
   assertPublishOutput,
   ephemeralHostedConfig,
   normalizeEphemeralHostedTarget,
@@ -34,45 +36,149 @@ describe("smoke-ephemeral-harness", () => {
     expect(() => ephemeralHostedConfig("pr")).toThrow(/AGENT_PASTE_PR_API_URL/);
   });
 
-  it("allows PR smoke to skip exact Share Link origin assertion", async () => {
+  it("accepts a preview capability hostname for PR smoke", async () => {
     await expect(
-      assertPublishOutput(samplePublishResult("https://agent-paste-web-pr-460.example.workers.dev"), {
-        apiBaseUrl: "https://api.example.test",
-        contentBaseUrl: "https://content.example.test",
-        webBaseUrl: undefined,
+      assertPublishOutput(samplePublishResult(), {
+        target: "pr",
         claimWebOrigin: "https://app.preview.agent-paste.sh",
         expectedClaimTokenPrefix: "ap_ct_preview_",
       }),
     ).resolves.toBeUndefined();
   });
 
-  it("checks exact Share Link origin when configured", async () => {
-    await expect(
-      assertPublishOutput(samplePublishResult("https://app.preview.agent-paste.sh.evil"), {
-        apiBaseUrl: "https://api.example.test",
-        contentBaseUrl: "https://content.example.test",
-        webBaseUrl: "https://app.preview.agent-paste.sh",
-        claimWebOrigin: "https://app.preview.agent-paste.sh",
-        expectedClaimTokenPrefix: "ap_ct_preview_",
-      }),
-    ).rejects.toThrow(/unlisted_url targets web origin/);
-  });
-
-  it("checks exact revision content URL origin", async () => {
+  it("accepts the signed content path used by the local harness", async () => {
     await expect(
       assertPublishOutput(
-        samplePublishResult("https://app.preview.agent-paste.sh", {
-          revision_content_url: "https://content.example.test.evil/v/token/index.html",
+        samplePublishResult({
+          url: "http://127.0.0.1:8789/v/signed-content-token/index.html",
+          claim_url: "http://127.0.0.1:18999/claim#ap_ct_preview_test",
         }),
         {
-          apiBaseUrl: "https://api.example.test",
-          contentBaseUrl: "https://content.example.test",
-          webBaseUrl: "https://app.preview.agent-paste.sh",
+          target: "local",
+          claimWebOrigin: "http://127.0.0.1:18999",
+          expectedClaimTokenPrefix: "ap_ct_preview_",
+        },
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects a signed content path for hosted targets", async () => {
+    await expect(
+      assertPublishOutput(
+        samplePublishResult({
+          url: "https://0123456789abcdef0123456789abcdef-preview.agent-paste.sh/v/token/index.html",
+        }),
+        {
+          target: "preview",
           claimWebOrigin: "https://app.preview.agent-paste.sh",
           expectedClaimTokenPrefix: "ap_ct_preview_",
         },
       ),
-    ).rejects.toThrow(/revision_content_url targets content origin/);
+    ).rejects.toThrow(/url opens the Artifact root/);
+  });
+
+  it("rejects HTTP capability URLs for hosted targets", async () => {
+    await expect(
+      assertPublishOutput(samplePublishResult({ url: previewArtifactUrl.replace("https:", "http:") }), {
+        target: "preview",
+        claimWebOrigin: "https://app.preview.agent-paste.sh",
+        expectedClaimTokenPrefix: "ap_ct_preview_",
+      }),
+    ).rejects.toThrow(/hosted url uses HTTPS/);
+  });
+
+  it("rejects a lookalike preview capability hostname", async () => {
+    await expect(
+      assertPublishOutput(
+        samplePublishResult({ url: "https://0123456789abcdef0123456789abcdef-preview.agent-paste.sh.evil/" }),
+        {
+          target: "preview",
+          claimWebOrigin: "https://app.preview.agent-paste.sh",
+          expectedClaimTokenPrefix: "ap_ct_preview_",
+        },
+      ),
+    ).rejects.toThrow(/url targets preview Artifact host/);
+  });
+
+  it("rejects a production capability hostname in preview", async () => {
+    await expect(
+      assertPublishOutput(samplePublishResult({ url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/" }), {
+        target: "preview",
+        claimWebOrigin: "https://app.preview.agent-paste.sh",
+        expectedClaimTokenPrefix: "ap_ct_preview_",
+      }),
+    ).rejects.toThrow(/url targets preview Artifact host/);
+  });
+
+  it("rejects query strings and fragments on Artifact URLs", () => {
+    expect(() =>
+      assertNoClaimTokenLeakage(samplePublishResult({ url: `${previewArtifactUrl}?token=encoded` }), ""),
+    ).toThrow(/no query string/);
+    expect(() => assertNoClaimTokenLeakage(samplePublishResult({ url: `${previewArtifactUrl}#fragment` }), "")).toThrow(
+      /no fragment/,
+    );
+  });
+
+  it("rejects a percent-encoded Claim Token in an Artifact path", () => {
+    const claimToken = "ap_ct_preview_test";
+    const encodedClaimToken = Array.from(
+      claimToken,
+      (character) => `%${character.codePointAt(0).toString(16).padStart(2, "0")}`,
+    ).join("");
+
+    expect(() =>
+      assertNoClaimTokenLeakage(
+        samplePublishResult({ url: `http://127.0.0.1:8789/v/${encodedClaimToken}/index.html` }),
+        "",
+      ),
+    ).toThrow(/path does not encode Claim Token/);
+  });
+});
+
+describe("assertContentPolicy", () => {
+  it("accepts script-compatible content that cannot be framed", async () => {
+    const server = await startContentServer();
+    try {
+      await expect(assertContentPolicy(server.baseUrl, "ap_ct_preview_secret")).resolves.toBeUndefined();
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("rejects redirects before following them", async () => {
+    const server = await startContentServer();
+    try {
+      await expect(assertContentPolicy(`${server.baseUrl}/redirect`, "ap_ct_preview_secret")).rejects.toThrow(
+        /returned 302/,
+      );
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("uses the first duplicate CSP directive like browsers do", async () => {
+    const server = await startContentServer();
+    try {
+      await expect(
+        assertContentPolicy(`${server.baseUrl}/duplicate-script-src`, "ap_ct_preview_secret"),
+      ).rejects.toThrow(/permits inline scripts/);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it.each([
+    ["missing frame-ancestors", "/missing-frame-ancestors", /content CSP blocks framing/],
+    ["permissive frame-ancestors", "/wrong-frame-ancestors", /content CSP blocks framing/],
+    ["missing X-Frame-Options", "/missing-x-frame-options", /X-Frame-Options DENY/],
+    ["permissive X-Frame-Options", "/wrong-x-frame-options", /X-Frame-Options DENY/],
+  ])("rejects %s", async (_label, path, expected) => {
+    const server = await startContentServer();
+    try {
+      await expect(assertContentPolicy(`${server.baseUrl}${path}`, "ap_ct_preview_secret")).rejects.toThrow(expected);
+    } finally {
+      await server.close();
+    }
   });
 });
 
@@ -167,14 +273,52 @@ function startProbeServer({ status, body }) {
   });
 }
 
-function samplePublishResult(artifactOrigin, overrides = {}) {
-  const revisionContentUrl = overrides.revision_content_url ?? "https://content.example.test/v/token/index.html";
+function startContentServer() {
+  return new Promise((resolve) => {
+    const server = createServer((request, response) => {
+      if (request.url === "/redirect") {
+        response.writeHead(302, { location: "/" });
+        response.end();
+        return;
+      }
+
+      const path = request.url ?? "/";
+      const scriptPolicy = "default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:";
+      const effectiveScriptPolicy =
+        path === "/duplicate-script-src" ? `script-src 'none'; ${scriptPolicy}` : scriptPolicy;
+      const framePolicy =
+        path === "/missing-frame-ancestors"
+          ? effectiveScriptPolicy
+          : `${effectiveScriptPolicy}; frame-ancestors ${path === "/wrong-frame-ancestors" ? "'self'" : "'none'"}`;
+      const headers = {
+        "content-type": "text/html; charset=utf-8",
+        "content-security-policy": framePolicy,
+        "x-robots-tag": "noindex, nofollow",
+      };
+      if (path !== "/missing-x-frame-options") {
+        headers["x-frame-options"] = path === "/wrong-x-frame-options" ? "SAMEORIGIN" : "DENY";
+      }
+      response.writeHead(200, headers);
+      response.end("<!doctype html><title>Agent Paste Ephemeral Smoke</title><h1>Ephemeral Local Smoke</h1>");
+    });
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      resolve({
+        baseUrl: `http://127.0.0.1:${port}`,
+        close: () => new Promise((closeResolve) => server.close(closeResolve)),
+      });
+    });
+  });
+}
+
+const previewArtifactUrl = "https://0123456789abcdef0123456789abcdef-preview.agent-paste.sh/";
+
+function samplePublishResult(overrides = {}) {
   return {
     artifact_id: "art_test",
     revision_id: "rev_test",
-    unlisted_url: `${artifactOrigin}/al/pub_test#signed`,
-    revision_content_url: revisionContentUrl,
-    agent_view_url: "https://api.example.test/v1/public/agent-view/art_test",
+    url: previewArtifactUrl,
     claim_token: "ap_ct_preview_test",
     claim_url: "https://app.preview.agent-paste.sh/claim#ap_ct_preview_test",
     expires_at: new Date(Date.now() + 60_000).toISOString(),

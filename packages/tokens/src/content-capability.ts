@@ -3,7 +3,7 @@ const CONTENT_CAPABILITY_ID_PATTERN = /^[a-f0-9]{32}$/;
 const CONTENT_CAPABILITY_DOMAIN_PATTERN =
   /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const MAX_CONTENT_CAPABILITY_DOMAIN_LENGTH = 217;
-const CONTENT_CAPABILITY_HOST_SUFFIX = "-uc";
+const CONTENT_CAPABILITY_HOST_SUFFIX_PATTERN = /^(?:-[a-z0-9](?:[a-z0-9-]{0,28}[a-z0-9])?)?$/;
 const CONTENT_CAPABILITY_PREFIX = "content-capabilities/v1";
 const MAX_CONTENT_CAPABILITY_TOKEN_LENGTH = 64 * 1024;
 const MAX_CONTENT_CAPABILITY_ENTRYPOINT_LENGTH = 4 * 1024;
@@ -42,8 +42,16 @@ export function parseContentCapabilityDomain(value: string): string {
   return value;
 }
 
-export function contentCapabilityIdFromHostname(hostname: string, domain: string): string | null {
-  const suffix = `${CONTENT_CAPABILITY_HOST_SUFFIX}.${parseContentCapabilityDomain(domain)}`;
+export function parseContentCapabilityHostSuffix(value: string | undefined): string {
+  const suffix = value ?? "";
+  if (!CONTENT_CAPABILITY_HOST_SUFFIX_PATTERN.test(suffix)) {
+    throw new Error("CONTENT_CAPABILITY_HOST_SUFFIX must be empty or a lowercase DNS-label suffix beginning with '-'.");
+  }
+  return suffix;
+}
+
+export function contentCapabilityIdFromHostname(hostname: string, domain: string, hostSuffix?: string): string | null {
+  const suffix = `${parseContentCapabilityHostSuffix(hostSuffix)}.${parseContentCapabilityDomain(domain)}`;
   const normalizedHostname = hostname.toLowerCase();
   if (!normalizedHostname.endsWith(suffix)) {
     return null;
@@ -52,15 +60,19 @@ export function contentCapabilityIdFromHostname(hostname: string, domain: string
   return isContentCapabilityId(capabilityId) ? capabilityId : null;
 }
 
-export function isContentCapabilityHostname(hostname: string, domain: string): boolean {
-  return hostname.toLowerCase().endsWith(`${CONTENT_CAPABILITY_HOST_SUFFIX}.${parseContentCapabilityDomain(domain)}`);
+export function isContentCapabilityHostname(hostname: string, domain: string, hostSuffix?: string): boolean {
+  return contentCapabilityIdFromHostname(hostname, domain, hostSuffix) !== null;
 }
 
-export function contentCapabilityHostname(capabilityId: string, domain: string): string {
+export function contentCapabilityHostname(capabilityId: string, domain: string, hostSuffix?: string): string {
   if (!isContentCapabilityId(capabilityId)) {
     throw new Error("Invalid content capability ID.");
   }
-  return `${capabilityId}${CONTENT_CAPABILITY_HOST_SUFFIX}.${parseContentCapabilityDomain(domain)}`;
+  const hostname = `${capabilityId}${parseContentCapabilityHostSuffix(hostSuffix)}.${parseContentCapabilityDomain(domain)}`;
+  if (hostname.length > 253) {
+    throw new Error("Content capability hostname exceeds the DNS length limit.");
+  }
+  return hostname;
 }
 
 export function serializeContentCapabilityManifest(manifest: ContentCapabilityManifest): string {

@@ -12,19 +12,10 @@ import {
 } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { Hono } from "hono";
-import { signAgentViewContentUrls } from "./agent-view.js";
-import { authenticateWebIdentity, createApiAuthResolvers } from "./auth.js";
+import { createApiAuthResolvers } from "./auth.js";
 import type { AppContext, Env } from "./env.js";
-import { handleLiveUpdateAuthorize, wireLiveUpdateDeps } from "./live-updates.js";
 import { RepositoryRouteError } from "./responses.js";
 import { contractById } from "./route-contracts.js";
-import {
-  createAccessLinkRoute,
-  listAccessLinksRoute,
-  mintAccessLinkRoute,
-  resolveAccessLinkRoute,
-  revokeAccessLinkRoute,
-} from "./routes/access-links.js";
 import { getUsagePolicy, mcpWhoami, revokeCurrentApiKey, whoami } from "./routes/account.js";
 import { agentAuthWwwAuthenticateMiddleware, mountAgentAuthRoutes } from "./routes/agent-auth.js";
 import { readArtifactFileContent } from "./routes/artifact-file-content.js";
@@ -54,21 +45,15 @@ import {
 import { authenticatedAgentView, listRevisions, publicAgentView, publishRevision } from "./routes/revisions.js";
 import { deleteSmokeArtifact, forceExpire, getDenylistKey, listR2Prefix, provisionSmoke } from "./routes/smoke.js";
 import {
-  webAccessLinks,
   webApiKeys,
-  webArtifactAccessLinks,
   webArtifactDetail,
   webArtifactRevisions,
   webArtifacts,
   webAudit,
   webAuthCallback,
-  webCreateAccessLink,
   webCreateApiKey,
-  webMintAccessLink,
   webPinArtifact,
-  webRevokeAccessLink,
   webRevokeApiKey,
-  webSetAccessLinkLockdown,
   webSettings,
   webUnpinArtifact,
   webUpdateSettings,
@@ -100,7 +85,6 @@ export const nonContractRoutePaths = [
   "/__test__/delete-artifact",
   "/__test__/r2-list",
   "/__test__/denylist",
-  "/v1/internal/live-updates/authorize",
 ] as const;
 
 const boundResponderConfig = {
@@ -174,18 +158,6 @@ apiDbRegistrar.mount(contractById("artifacts.delete"), async (context, principal
 apiDbRegistrar.mount(contractById("artifacts.updateDisplayMetadata"), async (context, principal, db, guard) =>
   updateDisplayMetadataRoute(context as AppContext, principal, db, guard),
 );
-apiDbRegistrar.mount(contractById("accessLinks.create"), async (context, principal, db, guard) =>
-  createAccessLinkRoute(context as AppContext, principal, db, guard),
-);
-apiDbRegistrar.mount(contractById("accessLinks.mint"), async (context, principal, db) =>
-  mintAccessLinkRoute(context as AppContext, principal, db),
-);
-apiDbRegistrar.mount(contractById("accessLinks.list"), async (context, principal, db) =>
-  listAccessLinksRoute(context as AppContext, principal, db),
-);
-apiDbRegistrar.mount(contractById("accessLinks.revoke"), async (context, principal, db) =>
-  revokeAccessLinkRoute(context as AppContext, principal, db),
-);
 apiDbRegistrar.mount(contractById("usagePolicy.get"), async (context, principal, db) =>
   getUsagePolicy(context as AppContext, principal, db),
 );
@@ -194,9 +166,6 @@ apiDbRegistrar.mount(contractById("apiKeys.revokeCurrent"), async (context, prin
 );
 apiDbRegistrar.mount(contractById("agentView.public"), async (context, principal, db) =>
   publicAgentView(context as AppContext, principal, db),
-);
-apiDbRegistrar.mount(contractById("accessLinks.resolve"), async (context, _principal, db, guard) =>
-  resolveAccessLinkRoute(context as AppContext, db, guard),
 );
 apiNoDbRegistrar.mount(contractById("cli.version"), async (context) => getCliVersion(context as AppContext));
 apiDbRegistrar.mount(contractById("ephemeral.provision"), async (context, _principal, db, guard) =>
@@ -264,53 +233,10 @@ apiDbRegistrar.mount(contractById("web.apiKeys.create"), async (context, princip
 apiDbRegistrar.mount(contractById("web.apiKeys.revoke"), async (context, principal, db, guard) =>
   webRevokeApiKey(context as AppContext, principal, db, guard, { apiKeyId: context.req.param("api_key_id") ?? "" }),
 );
-apiDbRegistrar.mount(contractById("web.accessLinks.listAll"), async (context, principal, db) =>
-  webAccessLinks(context as AppContext, principal, db),
-);
-apiDbRegistrar.mount(contractById("web.accessLinks.listForArtifact"), async (context, principal, db) =>
-  webArtifactAccessLinks(context as AppContext, principal, db, {
-    artifactId: context.req.param("artifact_id") ?? "",
-  }),
-);
 apiDbRegistrar.mount(contractById("web.revisions.list"), async (context, principal, db) =>
   webArtifactRevisions(context as AppContext, principal, db, {
     artifactId: context.req.param("artifact_id") ?? "",
   }),
-);
-apiDbRegistrar.mount(contractById("web.accessLinks.create"), async (context, principal, db, guard) =>
-  webCreateAccessLink(context as AppContext, principal, db, guard, {
-    artifactId: context.req.param("artifact_id") ?? "",
-  }),
-);
-apiDbRegistrar.mount(contractById("web.accessLinks.mint"), async (context, principal, db) =>
-  webMintAccessLink(context as AppContext, principal, db, {
-    accessLinkId: context.req.param("access_link_id") ?? "",
-  }),
-);
-apiDbRegistrar.mount(contractById("web.accessLinks.revoke"), async (context, principal, db) =>
-  webRevokeAccessLink(context as AppContext, principal, db, {
-    accessLinkId: context.req.param("access_link_id") ?? "",
-  }),
-);
-apiDbRegistrar.mount(contractById("web.accessLinks.lockdown.set"), async (context, principal, db, guard) =>
-  webSetAccessLinkLockdown(
-    context as AppContext,
-    principal,
-    db,
-    guard,
-    { artifactId: context.req.param("artifact_id") ?? "" },
-    true,
-  ),
-);
-apiDbRegistrar.mount(contractById("web.accessLinks.lockdown.lift"), async (context, principal, db, guard) =>
-  webSetAccessLinkLockdown(
-    context as AppContext,
-    principal,
-    db,
-    guard,
-    { artifactId: context.req.param("artifact_id") ?? "" },
-    false,
-  ),
 );
 apiDbRegistrar.mount(contractById("web.audit.list"), async (context, principal, db) =>
   webAudit(context as AppContext, principal, db),
@@ -369,13 +295,6 @@ app.post("/__test__/force-expire", (context) => forceExpire(context as AppContex
 app.post("/__test__/delete-artifact", (context) => deleteSmokeArtifact(context as AppContext));
 app.get("/__test__/r2-list", (context) => listR2Prefix(context as AppContext));
 app.get("/__test__/denylist", (context) => getDenylistKey(context as AppContext));
-app.post("/v1/internal/live-updates/authorize", async (context) => {
-  const db = apiDatabase(context.env);
-  if (!db) {
-    return getBoundResponders(context).respondError("database_unavailable");
-  }
-  return handleLiveUpdateAuthorize(context.req.raw, context.env, db);
-});
 app.notFound((context) => getBoundResponders(context).respondError("not_found"));
 app.onError((error, context) => {
   const { respondError } = getBoundResponders(context);
@@ -395,28 +314,6 @@ app.onError((error, context) => {
     requestId: getRequestId(context),
   });
   return respondError("internal_error");
-});
-
-wireLiveUpdateDeps({
-  signAgentView: signAgentViewContentUrls,
-  authenticateWeb: async (authorization, env) => {
-    const request = new Request("https://api.internal/authorize", {
-      headers: { authorization },
-    });
-    const identity = await authenticateWebIdentity(request, env);
-    if (!identity) {
-      return null;
-    }
-    const db = apiDatabase(env);
-    if (!db) {
-      return null;
-    }
-    const actor = await db.getWebMemberByWorkOsUserId({ workosUserId: identity.workos_user_id });
-    if (!actor || actor.type !== "member") {
-      return null;
-    }
-    return { member: actor };
-  },
 });
 
 const worker = {

@@ -1,25 +1,23 @@
-import { mcpToolContracts } from "@agent-paste/contracts";
+import { mcpToolContracts, mcpToolOutputSchemas } from "@agent-paste/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { handleMcpProtocolMethod } from "./protocol.js";
 
 const auth = { tokenSub: "user_01", scopes: ["read"] as const, bearerToken: "token-read" };
 
 describe("handleMcpProtocolMethod tools/call", () => {
-  it("initializes with publish follow-up instructions that match MCP outputs", () => {
-    const handled = handleMcpProtocolMethod({
-      method: "initialize",
-      params: {},
-      id: 0,
-      auth,
-    });
-    expect(handled.kind).toBe("result");
-    if (handled.kind === "result") {
-      const instructions = (handled.response.result as { instructions: string }).instructions;
-      expect(instructions).toContain("Publish responses intentionally omit artifact_id");
-      expect(instructions).toContain("recover it with list_artifacts (data[].id)");
-      expect(instructions).toContain("Once you have artifact_id");
-      expect(instructions).not.toMatch(/artifact_id from each publish_artifact response/);
-      expect(instructions).not.toContain("data[].id), read_artifact");
+  it("exposes the required publish response fields through every publish tool contract", () => {
+    const output = {
+      artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      title: "Demo",
+      url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+      expires_at: "2099-01-01T00:00:00.000Z",
+    };
+    for (const toolName of ["publish_artifact", "add_revision", "multi_edit"] as const) {
+      expect(mcpToolOutputSchemas[toolName].parse(output)).toMatchObject({
+        artifact_id: output.artifact_id,
+        url: output.url,
+      });
     }
   });
 

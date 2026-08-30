@@ -54,7 +54,6 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
       { WorkOsBearer: [] },
       { McpOAuthBearer: [] },
       { SignedAgentViewToken: [] },
-      { SignedAccessLinkRequest: [] },
       { StripeSignature: [] },
       ...(includeOperatorPaths ? [{ CfAccessServiceToken: [] }] : []),
     ],

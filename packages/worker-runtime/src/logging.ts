@@ -53,8 +53,8 @@ const SECRET_ASSIGNMENT_PATTERN =
 const JSON_SECRET_ASSIGNMENT_PATTERN =
   /"((?:content_signing_secret|upload_signing_secret|api_key_pepper_v1|smoke_harness_secret|access_link_blob|content_token|idempotency[-_]?key|signature|token|kid|expires))"\s*:\s*"(?:\\.|[^"\\])*"/giu;
 const URL_PATTERN = /https?:\/\/[^\s"'<>]+/giu;
-const CONTENT_CAPABILITY_HOSTNAME_PATTERN = /[0-9a-f]{32}-uc(?:\.[a-z0-9-]+)+/iu;
-const CONTENT_CAPABILITY_HOSTNAME_GLOBAL_PATTERN = /[0-9a-f]{32}-uc(?:\.[a-z0-9-]+)+/giu;
+const CONTENT_CAPABILITY_HOSTNAME_PATTERN = /[0-9a-f]{32}(?:-(?:uc|preview))?(?:\.[a-z0-9-]+){2,}/iu;
+const CONTENT_CAPABILITY_HOSTNAME_GLOBAL_PATTERN = /[0-9a-f]{32}(?:-(?:uc|preview))?(?:\.[a-z0-9-]+){2,}/giu;
 const CONTENT_CAPABILITY_ID_GLOBAL_PATTERN = /\b[0-9a-f]{32}\b/giu;
 
 export function emitWorkerLog(input: WorkerLogInput): void {

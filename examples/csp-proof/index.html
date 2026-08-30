@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Artifact CSP proof</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: { proof: "#ff4f2f" },
+          },
+        },
+      };
+    </script>
+  </head>
+  <body class="min-h-screen bg-zinc-950 text-zinc-100 grid place-items-center">
+    <main class="max-w-xl border border-zinc-700 bg-zinc-900 p-10">
+      <p class="font-mono text-xs uppercase tracking-[0.25em] text-proof">agent-paste.sh</p>
+      <h1 class="mt-4 text-4xl font-semibold">Top-level Artifact</h1>
+      <p class="mt-4 text-zinc-400">Tailwind CDN and inline JavaScript both executed on this capability origin.</p>
+      <output id="status" class="mt-8 block border-l-4 border-proof pl-4 font-mono text-sm">checking</output>
+    </main>
+    <script>
+      const result = Function('return "inline script and eval are working"')();
+      document.documentElement.dataset.javascript = "ready";
+      document.querySelector("#status").textContent = result;
+    </script>
+  </body>
+</html>

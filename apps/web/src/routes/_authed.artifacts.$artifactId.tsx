@@ -1,12 +1,7 @@
-import { Badge, SectionLabel } from "@agent-paste/ui";
-import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { Badge, ButtonAnchor, SectionLabel } from "@agent-paste/ui";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { useCallback } from "react";
-import { AccessLinkLockdownToggle } from "../components/access-links/AccessLinkLockdownToggle";
-import { AccessLinksTable } from "../components/access-links/AccessLinksTable";
-import { CreateAccessLinkPanel } from "../components/access-links/CreateAccessLinkPanel";
-import { ArtifactLiveViewer, useLastGoodArtifact } from "../components/artifacts/ArtifactLiveViewer";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { Identifier } from "../components/ui/Identifier";
@@ -15,20 +10,12 @@ import { RelativeTime } from "../components/ui/RelativeTime";
 import { artifactStatusTone } from "../lib/artifact-status";
 import { formatBytes } from "../lib/format";
 import { dashboardPageMeta } from "../lib/page-meta";
-import { artifactAccessLinksQuery, artifactQuery, artifactRevisionsQuery, queryKeys } from "../lib/queries";
+import { artifactQuery } from "../lib/queries";
 
 export const Route = createFileRoute("/_authed/artifacts/$artifactId")({
-  loader: async ({ context, params }) => {
-    const { artifactId } = params;
-    // Revisions only feed the secondary "create access link" panel, so they load
-    // in the background (useQuery in the component) instead of gating first paint.
-    // See AP-256.
-    const [artifact] = await Promise.all([
-      context.queryClient.ensureQueryData(artifactQuery(artifactId)),
-      context.queryClient.ensureQueryData(artifactAccessLinksQuery(artifactId)),
-    ]);
-    return { artifact };
-  },
+  loader: async ({ context, params }) => ({
+    artifact: await context.queryClient.ensureQueryData(artifactQuery(params.artifactId)),
+  }),
   head: ({ loaderData, params, matches }) => {
     const artifact = loaderData?.artifact?.data;
     const title = artifact?.title?.trim() || "Artifact";
@@ -46,20 +33,8 @@ export const Route = createFileRoute("/_authed/artifacts/$artifactId")({
 
 function ArtifactDetailPage() {
   const { artifactId } = Route.useParams();
-  const queryClient = useQueryClient();
   const { data: result } = useSuspenseQuery(artifactQuery(artifactId));
-  const { data: accessLinks } = useSuspenseQuery(artifactAccessLinksQuery(artifactId));
-  // Non-blocking: the panel below renders with an empty revision list until this
-  // resolves, so the artifact viewer paints without waiting on revisions.
-  const { data: revisions } = useQuery(artifactRevisionsQuery(artifactId));
-  const refresh = useCallback(async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.artifact(artifactId) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.artifactAccessLinks(artifactId) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.artifactRevisions(artifactId) }),
-    ]);
-  }, [queryClient, artifactId]);
-  const artifact = useLastGoodArtifact(artifactId, result.data);
+  const artifact = result.data;
 
   if (result.error && !artifact) {
     return (
@@ -84,7 +59,10 @@ function ArtifactDetailPage() {
     ["Entrypoint", artifact.entrypoint],
     ["Files", artifact.file_count],
     ["Size", formatBytes(artifact.size_bytes)],
-    ["Last published", artifact.last_published_at ? <RelativeTime key="lp" value={artifact.last_published_at} /> : "—"],
+    [
+      "Last published",
+      artifact.last_published_at ? <RelativeTime key="lp" value={artifact.last_published_at} /> : "None",
+    ],
   ];
 
   return (
@@ -99,48 +77,41 @@ function ArtifactDetailPage() {
               {artifact.status}
             </Badge>
             {artifact.pinned ? <Badge tone="accent">Pinned</Badge> : null}
-            {artifact.lockdown ? <Badge tone="destructive">Locked down</Badge> : null}
+            {artifact.url ? (
+              <ButtonAnchor href={artifact.url} target="_blank" rel="noreferrer" variant="accent">
+                Open Artifact
+              </ButtonAnchor>
+            ) : null}
           </div>
         }
       />
-      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-        <div className="grid gap-6">
-          <ArtifactLiveViewer artifactId={artifactId} artifact={artifact} />
-        </div>
-        <div className="h-fit">
-          <SectionLabel className="mb-4">Latest revision</SectionLabel>
-          <dl className="border-t border-rule">
-            {meta.map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between gap-4 border-b border-rule py-2 pl-3 pr-3">
-                <dt className="text-mono text-subtle">{label}</dt>
-                <dd className="truncate text-right font-mono text-xs tabular-nums">{value}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      </div>
 
-      <section className="mt-10 grid gap-5">
-        <SectionLabel>Access Links</SectionLabel>
-        <AccessLinkLockdownToggle artifactId={artifact.id} locked={artifact.lockdown} onChanged={refresh} />
-        <CreateAccessLinkPanel
-          artifactId={artifact.id}
-          revisions={revisions?.data?.items ?? []}
-          latestRevisionId={artifact.latest_revision_id}
-          locked={artifact.lockdown}
-          onChanged={refresh}
-        />
-        {accessLinks.error ? (
-          <ErrorBanner
-            title="Couldn't load access links"
-            message={accessLinks.error.message}
-            requestId={accessLinks.error.requestId}
-          />
-        ) : (accessLinks.data?.items.length ?? 0) === 0 ? (
-          <EmptyState title="No access links yet." body="Create a Share or Revision Link above." />
-        ) : (
-          <AccessLinksTable rows={accessLinks.data?.items ?? []} locked={artifact.lockdown} onChanged={refresh} />
-        )}
+      {artifact.url ? (
+        <section className="grid gap-3">
+          <SectionLabel>Artifact URL</SectionLabel>
+          <a
+            href={artifact.url}
+            target="_blank"
+            rel="noreferrer"
+            className="break-all border-y border-rule px-3 py-4 font-mono text-sm text-accent hover:underline"
+          >
+            {artifact.url}
+          </a>
+        </section>
+      ) : (
+        <EmptyState title="No published revision." body="Publish a revision to create this Artifact's URL." />
+      )}
+
+      <section className="mt-10 max-w-xl">
+        <SectionLabel className="mb-4">Latest revision</SectionLabel>
+        <dl className="border-t border-rule">
+          {meta.map(([label, value]) => (
+            <div key={label} className="flex items-center justify-between gap-4 border-b border-rule px-3 py-2">
+              <dt className="text-mono text-subtle">{label}</dt>
+              <dd className="truncate text-right font-mono text-xs tabular-nums">{value}</dd>
+            </div>
+          ))}
+        </dl>
       </section>
     </>
   );

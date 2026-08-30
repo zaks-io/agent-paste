@@ -5,7 +5,7 @@ export const TERMS: LegalDocument = {
   title: "Terms of Use",
   eyebrow: "Hosted service terms",
   description: "The terms that govern access to the agent-paste hosted service.",
-  lead: "These terms govern your use of the agent-paste hosted service, including the dashboard, API, MCP server, CLI-backed hosted workflows, Access Links, and published Artifacts.",
+  lead: "These terms govern your use of the agent-paste hosted service, including the dashboard, API, MCP server, CLI-backed hosted workflows, Artifact URLs, and published Artifacts.",
   effectiveDate: "June 16, 2026",
   sections: [
     {
@@ -93,7 +93,7 @@ export const TERMS: LegalDocument = {
             "violent threats, unlawful harassment, or content intended to facilitate physical harm",
             "content that violates law, privacy rights, intellectual property rights, or a person's safety",
             "attempts to bypass limits, authentication, authorization, rate limits, revocation, or abuse-response controls",
-            "testing against accounts, Workspaces, Artifacts, Access Links, or systems you do not own or have permission to test",
+            "testing against accounts, Workspaces, Artifacts, Artifact URLs, or systems you do not own or have permission to test",
             "bulk scraping, denial-of-service activity, resource exhaustion, or attempts to degrade the service for others",
           ],
         },
@@ -113,11 +113,11 @@ export const TERMS: LegalDocument = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Private Links are for authenticated Workspace Members. Access Link Signed URLs, Revision Content URLs, and claim links are bearer-style mechanisms. Anyone with a valid link may be able to access the content or action the link permits until it expires, is revoked, or is otherwise disabled.",
+          text: "Artifact URLs and claim links are bearer-style mechanisms. Anyone with a valid link may be able to access the content or action the link permits until it expires, is deleted, or is otherwise disabled.",
         },
         {
           kind: "paragraph",
-          text: "Authenticated publish is private by default. Unlisted no-login access requires an explicit sharing step, such as creating a Share Link, except that accountless ephemeral publish creates an unlisted Share Link so the agent can return a usable no-login link immediately.",
+          text: "Every publish returns one unguessable no-login Artifact URL. Protect that URL and share it only with intended recipients.",
         },
         {
           kind: "paragraph",

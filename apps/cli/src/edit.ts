@@ -24,7 +24,7 @@ export async function edit(parsed: Parsed, client: ApiClient) {
       artifact_id: artifactId,
       noop: true,
       title: result.base.title,
-      private_url: result.base.private_url,
+      url: result.base.url,
     };
     return output(payload, parsed.global, formatEditNoop(mode, payload));
   }
@@ -39,8 +39,8 @@ export async function edit(parsed: Parsed, client: ApiClient) {
       reused_bytes: result.outcome.uploadStats.reusedBytes,
     },
   };
-  // Teach the revise verb at the moment the agent holds the id: the next edit reuses
-  // the same artifact_id so the open page live-updates instead of stranding on a new link.
+  // Teach the revise verb at the moment the agent holds the id: the next edit
+  // reuses the same artifact_id and preserves its Artifact URL.
   const updateCommand = commandInvocation(
     detectChannel(),
     `edit ${result.outcome.result.artifact_id} ${shellQuote(filePath)}`,

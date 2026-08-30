@@ -33,11 +33,8 @@ export const SECRET_ROUTING = {
     ARTIFACT_BYTES_ENCRYPTION_KEY_V2: { required: false }, // rotation overlap window (ADR 0045)
     API_KEY_PEPPER_V1: { required: true },
     API_KEY_PEPPER_V2: { required: false }, // rotation overlap window (ADR 0045)
-    ACCESS_LINK_SIGNING_KEY_V1: { required: true }, // signs Share/Revision Link URLs (ADR 0047); mint 503s without it
-    ACCESS_LINK_SIGNING_KEY_V2: { required: false }, // rotation overlap window
     AGENT_AUTH_ASSERTION_SIGNING_SECRET: { required: false }, // service-signed WorkOS auth.md identity_assertion JWTs
     SMOKE_HARNESS_SECRET: { required: false, envs: "preview" }, // non-production only
-    STREAM_INTERNAL_SECRET: { required: true },
     WORKOS_API_KEY: { required: true, source: "workos" }, // MCP bearer verification (mcpVerifyOptions) returns null without it
     CF_ACCESS_AUD: { required: false, envs: "production", source: "workos" },
     // Stripe billing (ADR 0073/0074). All optional: billing is off-by-default

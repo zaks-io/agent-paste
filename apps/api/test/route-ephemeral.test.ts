@@ -119,6 +119,7 @@ function ephemeralWorkspaceFixture() {
 describe("ephemeral claim route", () => {
   it("redeems a claim token for an authenticated member", async () => {
     const writeDataPoint = vi.fn();
+    const getWebArtifact = vi.fn(async () => ({ capability_view: null }));
     const claimEphemeralWorkspaceWithReplayState = vi.fn(async () => ({
       result: {
         destination_workspace_id: "00000000-0000-4000-8000-000000000001",
@@ -142,7 +143,7 @@ describe("ephemeral claim route", () => {
           scopes: ["publish", "read", "admin"],
         },
       },
-      { claimEphemeralWorkspaceWithReplayState } as never,
+      { claimEphemeralWorkspaceWithReplayState, getWebArtifact } as never,
       guardFor({ claim_token: claimTokenWithClaimCode }, "claim-1"),
     );
 
@@ -164,6 +165,10 @@ describe("ephemeral claim route", () => {
       claimTokenSecret: claimTokenWithClaimCode,
       idempotencyKey: "claim-1",
     });
+    expect(getWebArtifact).toHaveBeenCalledWith(
+      expect.objectContaining({ workspace_id: "00000000-0000-4000-8000-000000000001" }),
+      "art_test",
+    );
     expect(writeDataPoint).toHaveBeenCalledWith({
       indexes: [claimCode],
       blobs: ["link_claimed", "api", claimCode, "00000000-0000-4000-8000-000000000099", "", "ct_test", "", ""],
@@ -173,6 +178,7 @@ describe("ephemeral claim route", () => {
 
   it("does not duplicate link_claimed telemetry on idempotent claim replay", async () => {
     const writeDataPoint = vi.fn();
+    const getWebArtifact = vi.fn(async () => ({ capability_view: null }));
     const claimEphemeralWorkspaceWithReplayState = vi.fn(async () => ({
       result: {
         destination_workspace_id: "00000000-0000-4000-8000-000000000001",
@@ -196,7 +202,7 @@ describe("ephemeral claim route", () => {
           scopes: ["publish", "read", "admin"],
         },
       },
-      { claimEphemeralWorkspaceWithReplayState } as never,
+      { claimEphemeralWorkspaceWithReplayState, getWebArtifact } as never,
       guardFor({ claim_token: claimTokenWithClaimCode }, "claim-1"),
     );
 
@@ -213,6 +219,7 @@ describe("ephemeral claim route", () => {
       idempotencyKey: "claim-1",
     });
     expect(writeDataPoint).not.toHaveBeenCalled();
+    expect(getWebArtifact).toHaveBeenCalledTimes(1);
   });
 
   it("maps invalid claim tokens to not_found", async () => {

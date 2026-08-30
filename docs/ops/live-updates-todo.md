@@ -4,20 +4,11 @@ Source of truth for the Live Updates feature decided in [ADR 0069](../adr/0069-l
 
 Status: **shipped.** Backend in AP-25 (`apps/stream`, api notify/authorize, web SSE proxies); the SSE-driven live UI landed in AP-164 (publishing a revision live-updates the whole artifact card / iframe with no reload, verified on preview 2026-06-04). Two deferred-polish items remain, tracked in [AP-166](https://linear.app/zaks-io/issue/AP-166): the Access Link Lockdown disconnect hook and an operator-tunable viewer cap.
 
-Publish-handoff model (ADR 0086): publish is content-only and private. Publish
-results return the login-walled `/v/<artifactId>` clean viewer as `private_url`
-alongside the transitional content entrypoint
-(`revision_content_url`). Production now returns the durable per-Artifact
-capability URL in that field; preview and local environments retain the legacy
-exact-Revision fallback until the Step 5 `url` cutover. There is no `share` input and no `shared` output, and
-the result carries no `access_link_url`. Unlisted no-login sharing is the
-separate `set_visibility` (MCP) / `agent-paste set-visibility <artifact-id>
-unlisted` (CLI) verb, which mints or reuses the one Share Link and returns
-`unlisted_url`. MCP publish output
-deliberately omits Artifact IDs, Revision IDs, `revision_content_url`, and
-`agent_view_url`; explicit read/list/link tools remain available for management,
-sharing, and pinned-Revision flows. (This supersedes the AP-299/PR #475 + 2026-06-11
-`access_link_url`/`share:true` framing in the completed checklist items below.)
+Current publish handoff: the returned `url` opens the Artifact directly at the
+root of its isolated capability subdomain. The app viewer, iframe, and Access
+Link UI have been removed. The stream contracts and completed checklist below
+are retained as dormant migration history; they are not a current publish or
+viewing surface.
 
 ## Dependencies
 

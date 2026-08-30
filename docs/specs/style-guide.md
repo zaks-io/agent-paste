@@ -44,7 +44,7 @@ Three faces. No fourth without an ADR.
 | ----------- | --------------------------- | ----------- | -------------------------------------------------------------------------- |
 | **Display** | Cabinet Grotesk (variable)  | Self-hosted | The hero figure, large headlines, the wordmark                             |
 | **UI**      | Switzer (variable)          | Self-hosted | Body, labels, navigation, forms — everything that isn't a headline or mono |
-| **Mono**    | Spline Sans Mono (variable) | Self-hosted | Code, **Artifact** IDs, **Revision** IDs, **Access Link** URLs, timestamps |
+| **Mono**    | Spline Sans Mono (variable) | Self-hosted | Code, **Artifact** IDs, **Revision** IDs, capability URLs, timestamps      |
 
 Cabinet Grotesk is a confident geometric grotesque that holds its character at hero scale, where the landing page earns its voice. Switzer is a clean, neutral workhorse grotesque that stays quiet and legible at body and label sizes, so the display face never has to do double duty. Spline Sans Mono is a calm, technical mono with sane disambiguation (`0`, `O`, `l`, `1`) that holds up at small sizes for IDs and URLs.
 
@@ -211,13 +211,13 @@ Test both themes. Use the Chrome DevTools contrast checker on every text/backgro
 
 ### 3.4 Status hues at a glance
 
-| State       | Token           | When                                                                           |
-| ----------- | --------------- | ------------------------------------------------------------------------------ |
-| Default     | `--foreground`  | Everything not below                                                           |
-| Success     | `--success`     | **Publish** succeeded, **Bundle** ready, **Agent Credential** created          |
-| Warning     | `--warning`     | **Safety Warning** present, **Auto Deletion** approaching, quota near cap      |
-| Destructive | `--destructive` | **Deletion**, **Agent Credential Revocation**, **Access Link Lockdown** active |
-| Info        | `--info`        | **Draft Revision** waiting, **Upload Session** in progress                     |
+| State       | Token           | When                                                                      |
+| ----------- | --------------- | ------------------------------------------------------------------------- |
+| Default     | `--foreground`  | Everything not below                                                      |
+| Success     | `--success`     | **Publish** succeeded, **Bundle** ready, **Agent Credential** created     |
+| Warning     | `--warning`     | **Safety Warning** present, **Auto Deletion** approaching, quota near cap |
+| Destructive | `--destructive` | **Deletion** and **Agent Credential Revocation**                          |
+| Info        | `--info`        | **Draft Revision** waiting, **Upload Session** in progress                |
 
 ---
 
@@ -449,7 +449,7 @@ A **status pip** (inline with a row) is a 6px circle in the tone color, no borde
 **Canonical labels** for the domain — use these exact strings, in this case (sentence case, not uppercase):
 
 - `Published` (success), `Unpublished` (neutral), `Draft` (accent)
-- `Locked` (warning — **Access Link Lockdown**), `Revoked` (destructive)
+- `Locked` (warning), `Revoked` (destructive)
 - `Pinned` (accent), `Expiring` (warning), `Deleted` (destructive)
 - `Safe` (neutral), `Warned` (warning — **Safety Warning** present)
 
@@ -482,7 +482,10 @@ pre {
 
 **Syntax highlighting palette:** derive from neutrals and the accent. Keywords use `--accent`, strings `--success`, comments `--subtle`, punctuation `--muted`. Avoid the default prism.css colors — they will fight the page.
 
-When a code block contains an **Artifact ID**, **Revision ID**, or **Access Link Signed URL**, ship a Copy affordance in the top-right corner. The button is `ghost` size `sm`, icon-only by default, label fades in on hover. See §5.11 for the copy interaction itself.
+When a code block contains an **Artifact ID**, **Revision ID**, or capability
+URL, ship a Copy affordance in the top-right corner. The button is `ghost` size
+`sm`, icon-only by default, label fades in on hover. See §5.11 for the copy
+interaction itself.
 
 ### 5.7 Empty state
 
@@ -559,7 +562,8 @@ This is the one element that gets disproportionate design attention. The product
 
 **Long IDs** (e.g. `art_01HZ8K2X9NPQR3VW7TYBE5MCDF`) display the first 6 + last 4 characters by default with `…` between, and reveal the full string on hover via a `title` and on focus via an inline expansion. Copy always copies the full value.
 
-This pattern applies to: **Artifact** IDs, **Revision** IDs, credential prefixes, **Access Link** tokens, idempotency keys, and any other opaque identifier.
+This pattern applies to **Artifact** IDs, **Revision** IDs, capability IDs,
+credential prefixes, idempotency keys, and any other opaque identifier.
 
 ---
 
@@ -571,23 +575,20 @@ Use **Lucide**. 1.5px stroke at 16px and 20px display sizes. Always inherit `cur
 
 Domain mapping (lock these so future agents don't drift):
 
-| Concept                  | Icon                    |
-| ------------------------ | ----------------------- |
-| **Artifact**             | `file-stack`            |
-| **Revision**             | `git-commit-horizontal` |
-| **Workspace**            | `building-2`            |
-| **Workspace Member**     | `user-round`            |
-| **Agent Credential**     | `key-round`             |
-| **Access Link**          | `link`                  |
-| **Share Link**           | `share-2`               |
-| **Private Link**         | `lock`                  |
-| **Access Link Lockdown** | `lock-keyhole`          |
-| **Safety Warning**       | `triangle-alert`        |
-| **Audit Event**          | `scroll-text`           |
-| **Usage Policy**         | `gauge`                 |
-| **Pinned Artifact**      | `pin`                   |
-| **Bundle**               | `package`               |
-| **Render Mode**          | `eye`                   |
+| Concept              | Icon                    |
+| -------------------- | ----------------------- |
+| **Artifact**         | `file-stack`            |
+| **Revision**         | `git-commit-horizontal` |
+| **Workspace**        | `building-2`            |
+| **Workspace Member** | `user-round`            |
+| **Agent Credential** | `key-round`             |
+| Capability URL       | `link`                  |
+| **Safety Warning**   | `triangle-alert`        |
+| **Audit Event**      | `scroll-text`           |
+| **Usage Policy**     | `gauge`                 |
+| **Pinned Artifact**  | `pin`                   |
+| **Bundle**           | `package`               |
+| **Render Mode**      | `eye`                   |
 
 Do not mix icon sets. If a concept doesn't exist in Lucide, draw it in the same weight (1.5px stroke, rounded caps, 16/20px frame).
 
@@ -674,7 +675,7 @@ Server-rendered hono/jsx worker, CSS inlined from `@agent-paste/brand`. It share
 
 ### 8.2 Dashboard (`apps/web`, `/app/*`)
 
-Two-pane: a sidebar + main pane. Sidebar groups: **Overview**, **Artifacts**, **Access Links**, **Credentials**, **Audit Log**, **Workspace**, **Billing**.
+Two-pane: a sidebar + main pane. Sidebar groups: **Overview**, **Artifacts**, **Credentials**, **Audit Log**, **Workspace**, **Billing**.
 
 Each main view opens with a `PageHeader`: page title (`--text-h1`) on the left, primary action on the right, one-line `--text-sm --muted` description below the title. Tables fill the remaining viewport; empty states follow §5.7. Detail views use a two-column layout: main content beside a metadata rail of key/value rows in `--text-sm`.
 
@@ -687,37 +688,29 @@ Each main view opens with a `PageHeader`: page title (`--text-h1`) on the left, 
 
 Real primitives: `apps/web/src/components/ui/HeroStat.tsx`, `StatBand.tsx`, `Card.tsx`, `PageHeader.tsx`, `Table.tsx`. Build new data overviews from these, not from new boxed-card layouts. This pattern is dashboard-only; do not port the big-figure overview onto the marketing surface.
 
-### 8.3 Public **Artifact** and Access Link views
+### 8.3 Artifact management
 
 Authenticated Artifact detail (`app.agent-paste.sh/artifacts/{id}`):
 
 - Centered single column at `--container-default` width.
 - Top: **Display Metadata** title in `--text-h1`, **Artifact ID** as a §5.11 identifier in `--text-mono-sm`, **Workspace** attribution in `--text-sm`.
-- Right rail (or below title on mobile): **Render Mode** badge, **Bundle** download link, **Safety Warning** banner if any.
-- Main content area is an iframe to the content origin (ADR 0014, 0029). The frame chrome is part of the trusted page; the inner content is **Untrusted Content** and must not leak styling outward.
-- Bottom: "View **Agent View**" link in mono, opens the JSON in a new tab.
+- Right rail (or below title on mobile): **Artifact URL**, **Bundle** download
+  link, and **Safety Warning** banner if any.
+- The Artifact URL opens top-level in a new tab. Never embed Artifact content in
+  the management app.
+- Revision metadata and management actions remain below the header.
 
-Access Link Artifact Viewer (`app.agent-paste.sh/al/{publicId}#{blob}`):
+### 8.4 Artifact websites
 
-- Full-viewport content frame with no top header.
-- Bottom-left floating action bar with the canonical `agent-paste.sh` wordmark.
-  Do not use the PNG brand mark here. The action bar and metadata panel use the
-  solid theme background, not a translucent tint; only the wordmark hyphen uses
-  the vermilion brand accent.
-- Clicking the action bar opens a small metadata panel with title, Render Mode,
-  and public Access Link id.
-- Metadata panel includes a **Hide toggle** action. The hide is client-local and
-  non-persistent; every new page load shows the action bar again.
-
-### 8.4 Renderer pages (in `usercontent.agent-paste.sh`)
-
-These render Markdown, text, and eventually directory listings for **Render Modes** that need it (ADR 0029). They live in the content origin with a strict CSP (ADR 0030), so fonts and styles must self-contain.
+Artifact websites live on their own capability subdomains. Uploaded styling and
+scripts own the page; the platform adds no visual wrapper.
 
 - **Markdown render:** prose at `--container-prose`, applies the full typography scale. Inline and block code per §5.6.
 - **Text render:** mono at `--text-mono`, line numbers in `--subtle` if the file > 50 lines, wrap turned off.
 - **Directory render:** a single-column table with name, size (mono, tabular), modified timestamp. No icons — keep the renderer JS bundle minimal.
 
-These pages inherit the token system but ship a self-contained CSS file. They do not call into the trusted origin for fonts; subset Switzer and Spline Sans Mono into the renderer bundle.
+Platform-generated Markdown, text, and directory renderers remain self-contained
+and follow the same capability-host boundary.
 
 ---
 

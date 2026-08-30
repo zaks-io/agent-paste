@@ -4,7 +4,6 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { mintForPrefix } from "./lib/workos-m2m.mjs";
 import {
-  assertAgentView,
   assertClaimRedemption,
   assertContentPolicy,
   assertEphemeralWriteAllowance,
@@ -50,7 +49,6 @@ async function runHostedEphemeralSmoke() {
   }
 
   const claimWebOrigin = config.webBaseUrl.replace(/\/+$/, "");
-  const artifactWebOrigin = target === "pr" && !process.env.AGENT_PASTE_PR_WEB_URL ? undefined : claimWebOrigin;
   const cliEnv = {
     ...process.env,
     AGENT_PASTE_API_URL: config.apiBaseUrl,
@@ -103,17 +101,11 @@ async function runHostedEphemeralSmoke() {
 
   assertNoClaimTokenLeakage(published, stderrOutput);
   await assertPublishOutput(published, {
-    apiBaseUrl: config.apiBaseUrl,
-    contentBaseUrl: config.contentBaseUrl,
-    webBaseUrl: artifactWebOrigin,
+    target,
     claimWebOrigin,
     expectedClaimTokenPrefix: config.expectedClaimTokenPrefix,
   });
-  await assertContentPolicy(published.revision_content_url, published.claim_token);
-  await assertAgentView(published, {
-    apiBaseUrl: config.apiBaseUrl,
-    contentBaseUrl: config.contentBaseUrl,
-  });
+  await assertContentPolicy(published.url, published.claim_token);
 
   if (memberAuth && memberWorkspaceId) {
     await assertClaimRedemption({
@@ -137,12 +129,10 @@ async function runHostedEphemeralSmoke() {
 Environment:  ${target}
 Artifact:     ${published.artifact_id}
 Workspace:    ${published.workspace_id}
-Share URL:    ${published.unlisted_url}
-Revision URL: ${published.revision_content_url}
-Agent View:   ${published.agent_view_url}
+Artifact URL: ${published.url}
 Claim URL:    ${published.claim_url.replace(/#.*$/, "#<redacted>")}
 Provision:    rate limits and provision wait accepted the request
-Policy:       script-disabled CSP, noindex, ephemeral write allowance
+Policy:       script-enabled Artifact CSP, noindex, ephemeral write allowance
 ${claimSummary}
 ${cleanupSummary}
 `);

@@ -115,7 +115,7 @@ const configSchema = z.object({
     retryable_categories: z.array(z.string()).default([]),
   }),
   verification: z.object({
-    require_unlisted_url: z.boolean().default(true),
+    require_artifact_url: z.boolean().default(true),
     require_final_answer_url: z.boolean().default(true),
     require_http_status: positiveInt.default(200),
     capture_claim_url: z.boolean().default(true),

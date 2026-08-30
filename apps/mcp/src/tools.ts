@@ -1,14 +1,9 @@
 import {
-  AccessLinkSignedUrl,
   AgentView,
   DeleteArtifactResponse,
   DisplayMetadata,
-  type IdempotencyKey,
   type McpAddRevisionInput,
-  type McpCreateRevisionLinkInput,
   type McpDeleteArtifactInput,
-  type McpListAccessLinksInput,
-  McpListAccessLinksOutput,
   type McpListArtifactsInput,
   McpListArtifactsOutput,
   type McpListRevisionsInput,
@@ -18,11 +13,7 @@ import {
   type McpReadArtifactInput,
   type McpReadFileInput,
   McpReadFileOutput,
-  type McpRevokeAccessLinkInput,
-  McpRevokeAccessLinkOutput,
   type McpScope,
-  type McpSetVisibilityInput,
-  McpSetVisibilityOutput,
   McpToolCallParams,
   type McpUpdateDisplayMetadataInput,
   McpWhoamiResponse,
@@ -90,14 +81,6 @@ export async function callMcpTool(
       return callDeleteArtifact(inputParsed.data as McpDeleteArtifactInput, deps);
     case "update_display_metadata":
       return callUpdateDisplayMetadata(inputParsed.data as McpUpdateDisplayMetadataInput, deps);
-    case "set_visibility":
-      return callSetVisibility(inputParsed.data as McpSetVisibilityInput, auth, deps);
-    case "create_revision_link":
-      return callCreateRevisionLink(inputParsed.data as McpCreateRevisionLinkInput, auth, deps);
-    case "list_access_links":
-      return callListAccessLinks(inputParsed.data as McpListAccessLinksInput, deps);
-    case "revoke_access_link":
-      return callRevokeAccessLink(inputParsed.data as McpRevokeAccessLinkInput, deps);
     default:
       return {
         ok: false,
@@ -211,197 +194,6 @@ async function callUpdateDisplayMetadata(
   return parseForwardResult(forwarded, DisplayMetadata, "artifacts.updateDisplayMetadata");
 }
 
-type CreatedAndMintedAccessLink =
-  | { ok: true; accessLinkId: string; url: string }
-  | Extract<McpToolResult, { ok: false }>;
-
-async function createAndMintSignedAccessLink(
-  input: {
-    toolName: "set_visibility" | "create_revision_link";
-    toolArgs: Record<string, unknown>;
-    artifactId: string;
-    createBody: { type: "share" } | { type: "revision"; revision_id: string };
-  },
-  auth: McpAuthContext,
-  deps: McpToolDeps,
-): Promise<CreatedAndMintedAccessLink> {
-  const idempotencyKey = resolveIdempotencyKey(input.toolName, input.toolArgs, auth, deps);
-  const first = await createThenMint(input, idempotencyKey, deps);
-  if (first.ok || input.createBody.type !== "share") {
-    // Only share links get the salted retry. A reused idempotency key can replay a
-    // create whose link was revoked since (set_visibility unlisted, set_visibility
-    // private, set_visibility unlisted again with the same key), leaving mint
-    // pointed at a dead link.
-    // Retrying on a salted key re-runs the create, which reuses the artifact's one
-    // active share link or mints a new one. Revision links do NOT dedupe on
-    // create, so a blind retry there would insert a second link for the same
-    // revision; they return the original failure instead.
-    return first;
-  }
-  return createThenMint(input, `${idempotencyKey}:r` as IdempotencyKey, deps);
-}
-
-async function createThenMint(
-  input: { artifactId: string; createBody: { type: "share" } | { type: "revision"; revision_id: string } },
-  idempotencyKey: IdempotencyKey,
-  deps: McpToolDeps,
-): Promise<CreatedAndMintedAccessLink> {
-  const created = await forwardToApiRoute({
-    api: deps.api,
-    routeId: "accessLinks.create",
-    params: { artifact_id: input.artifactId },
-    bearerToken: deps.bearerToken,
-    idempotencyKey,
-    body: JSON.stringify(input.createBody),
-  });
-  if (!created.ok) {
-    return created;
-  }
-  const linkId =
-    created.body && typeof created.body === "object" && "id" in created.body && typeof created.body.id === "string"
-      ? created.body.id
-      : null;
-  if (!linkId) {
-    return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
-  }
-  const minted = await forwardToApiRoute({
-    api: deps.api,
-    routeId: "accessLinks.mint",
-    params: { access_link_id: linkId },
-    bearerToken: deps.bearerToken,
-  });
-  const parsed = parseForwardBody(minted, AccessLinkSignedUrl, "accessLinks.mint");
-  if (!parsed.ok) {
-    return parsed;
-  }
-  return { ok: true, accessLinkId: linkId, url: parsed.data.url };
-}
-
-async function callSetVisibility(
-  input: McpSetVisibilityInput,
-  auth: McpAuthContext,
-  deps: McpToolDeps,
-): Promise<McpToolResult> {
-  if (input.visibility === "private") {
-    return callSetVisibilityPrivate(input, deps);
-  }
-
-  const minted = await createAndMintSignedAccessLink(
-    {
-      toolName: "set_visibility",
-      toolArgs: input,
-      artifactId: input.artifact_id,
-      createBody: { type: "share" },
-    },
-    auth,
-    deps,
-  );
-  if (!minted.ok) {
-    return minted;
-  }
-  return parseResult(
-    {
-      artifact_id: input.artifact_id,
-      visibility: "unlisted",
-      access_link_id: minted.accessLinkId,
-      unlisted_url: minted.url,
-    },
-    McpSetVisibilityOutput,
-    "set_visibility",
-  );
-}
-
-async function callSetVisibilityPrivate(input: McpSetVisibilityInput, deps: McpToolDeps): Promise<McpToolResult> {
-  const agentView = await forwardToApiRoute({
-    api: deps.api,
-    routeId: "agentView.getLatest",
-    params: { artifact_id: input.artifact_id },
-    bearerToken: deps.bearerToken,
-  });
-  const parsedAgentView = parseForwardBody(agentView, AgentView, "agentView.getLatest");
-  if (!parsedAgentView.ok) {
-    return parsedAgentView;
-  }
-
-  const listed = await forwardToApiRoute({
-    api: deps.api,
-    routeId: "accessLinks.list",
-    params: { artifact_id: input.artifact_id },
-    bearerToken: deps.bearerToken,
-  });
-  const parsedList = parseForwardBody(listed, McpListAccessLinksOutput, "accessLinks.list");
-  if (!parsedList.ok) {
-    return parsedList;
-  }
-
-  const revokedAccessLinkIds: string[] = [];
-  for (const link of parsedList.data.items.filter((item) => item.revoked_at === null)) {
-    const revoked = await forwardToApiRoute({
-      api: deps.api,
-      routeId: "accessLinks.revoke",
-      params: { access_link_id: link.id },
-      bearerToken: deps.bearerToken,
-    });
-    const parsedRevoked = parseForwardBody(revoked, McpRevokeAccessLinkOutput, "accessLinks.revoke");
-    if (!parsedRevoked.ok) {
-      return parsedRevoked;
-    }
-    revokedAccessLinkIds.push(link.id);
-  }
-
-  return parseResult(
-    {
-      artifact_id: input.artifact_id,
-      visibility: "private",
-      private_url: parsedAgentView.data.private_url,
-      revoked_access_link_ids: revokedAccessLinkIds,
-    },
-    McpSetVisibilityOutput,
-    "set_visibility",
-  );
-}
-
-async function callCreateRevisionLink(
-  input: McpCreateRevisionLinkInput,
-  auth: McpAuthContext,
-  deps: McpToolDeps,
-): Promise<McpToolResult> {
-  const minted = await createAndMintSignedAccessLink(
-    {
-      toolName: "create_revision_link",
-      toolArgs: input,
-      artifactId: input.artifact_id,
-      createBody: { type: "revision", revision_id: input.revision_id },
-    },
-    auth,
-    deps,
-  );
-  if (!minted.ok) {
-    return minted;
-  }
-  return parseResult({ url: minted.url }, AccessLinkSignedUrl, "accessLinks.mint");
-}
-
-async function callListAccessLinks(input: McpListAccessLinksInput, deps: McpToolDeps): Promise<McpToolResult> {
-  const forwarded = await forwardToApiRoute({
-    api: deps.api,
-    routeId: "accessLinks.list",
-    params: { artifact_id: input.artifact_id },
-    bearerToken: deps.bearerToken,
-  });
-  return parseForwardResult(forwarded, McpListAccessLinksOutput, "accessLinks.list");
-}
-
-async function callRevokeAccessLink(input: McpRevokeAccessLinkInput, deps: McpToolDeps): Promise<McpToolResult> {
-  const forwarded = await forwardToApiRoute({
-    api: deps.api,
-    routeId: "accessLinks.revoke",
-    params: { access_link_id: input.access_link_id },
-    bearerToken: deps.bearerToken,
-  });
-  return parseForwardResult(forwarded, McpRevokeAccessLinkOutput, "accessLinks.revoke");
-}
-
 function parseForwardResult<T>(
   forwarded: ForwardToApiResult,
   schema: { safeParse: (value: unknown) => { success: true; data: T } | { success: false; error?: unknown } },
@@ -411,17 +203,6 @@ function parseForwardResult<T>(
     return forwarded;
   }
   return parseResult(forwarded.body, schema, label);
-}
-
-function parseForwardBody<T>(
-  forwarded: ForwardToApiResult,
-  schema: { safeParse: (value: unknown) => { success: true; data: T } | { success: false; error?: unknown } },
-  label: string,
-): { ok: true; data: T } | Extract<McpToolResult, { ok: false }> {
-  if (!forwarded.ok) {
-    return forwarded;
-  }
-  return parseBody(forwarded.body, schema, label);
 }
 
 function parseResult<T>(

@@ -3,6 +3,9 @@ import { ArtifactId, PlainTextTitle, RevisionId, UrlString } from "./primitives.
 import { RenderMode } from "./revisions.js";
 import { z } from "./zod.js";
 
+// Dormant migration contract for the removed iframe viewer. No current API or
+// web route authorizes or consumes this stream.
+
 /** Per-artifact concurrent Live Update viewer cap (ADR 0069). */
 export const LIVE_UPDATE_VIEWER_CAP = 10;
 

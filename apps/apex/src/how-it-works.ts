@@ -1,7 +1,7 @@
 export const HOW_IT_WORKS = {
   eyebrow: "How it works",
   headline: "Protected handoffs for agent work",
-  lead: "agent-paste is built for work an agent generated and a person needs to inspect. The safety model is straightforward: keep each Workspace separate, keep files private until shared, isolate generated content, make access revocable, and let handoffs expire.",
+  lead: "agent-paste is built for work an agent generated and a person needs to inspect. The safety model is straightforward: keep each Workspace separate, isolate generated content by origin, use unguessable URLs, and let handoffs expire.",
 };
 
 export type HowItWorksSection = {
@@ -14,35 +14,35 @@ export const HOW_IT_WORKS_SECTIONS: HowItWorksSection[] = [
     title: "Your Workspace stays separate",
     body: [
       "Artifacts, audit records, and settings belong to a Workspace. A publish from one Workspace is not mixed with another Workspace's data.",
-      "Human sign-in, CLI credentials, MCP OAuth, and share links are all checked against that boundary. A credential can publish for its Workspace, but it is not a broad pass into the rest of the system.",
+      "Human sign-in, CLI credentials, and MCP OAuth are checked against that boundary. A credential can publish for its Workspace, but it is not a broad pass into the rest of the system.",
     ],
   },
   {
-    title: "Files stay private until shared",
+    title: "Storage stays private",
     body: [
-      "Artifact files are stored privately. Viewers do not receive raw storage links. They receive signed, expiring access paths created for the Artifact they are allowed to see.",
-      "That means a shared link is a controlled handoff, not a public bucket URL that escapes the product.",
+      "Artifact files are encrypted and stored privately. Viewers never receive raw storage links. They receive an unguessable capability hostname backed by signed authorization.",
+      "That URL is a controlled handoff, not a public bucket address.",
     ],
   },
   {
     title: "Generated content is isolated",
     body: [
-      "Agent output is treated as untrusted. It is displayed from a separate content domain, away from the dashboard and account session.",
+      "Agent output is treated as untrusted. Each Artifact runs top-level on a separate capability origin, away from the dashboard and account session.",
       "That separation matters most for generated HTML. The page you inspect can be useful without being treated as part of the trusted app.",
     ],
   },
   {
-    title: "Sharing can be revoked",
+    title: "Handoffs end",
     body: [
-      "Access Links are revocable. If a link is sent to the wrong place or should no longer work, access can be cut off without deleting the underlying Artifact.",
+      "Delete an Artifact when its URL should stop working, or let Workspace Auto Deletion expire it. Platform deny controls can disable abusive content immediately.",
       "Stored credentials are scoped and replaceable. Secrets are shown once when created and stored in non-recoverable verifier form.",
     ],
   },
   {
     title: "Unclaimed work expires quickly",
     body: [
-      "An agent should check auth first, then publish normally when a Workspace login is available. If no auth is available, it can publish a non-interactive unclaimed handoff with short-lived credentials, low write caps, 24 hour cleanup, noindex, and a script-disabled content policy.",
-      "Text, markdown, images, and static pages work in that tier. Interactive HTML/JS does not; a human must claim the Artifact or the agent must publish from an authenticated Workspace.",
+      "An agent should use the CLI when it can run commands and a Workspace login is available. A hosted tool that cannot run commands should use MCP. Reserve `--ephemeral` for cases where no login is available, with short-lived credentials, low write caps, 24 hour cleanup, and noindex.",
+      "Ephemeral HTML uses the same script-enabled top-level behavior as authenticated content.",
     ],
   },
   {

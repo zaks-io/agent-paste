@@ -15,6 +15,7 @@ import {
 import type { Repository } from "@agent-paste/db";
 import { type BoundRespondersVariables, getBoundResponders } from "@agent-paste/worker-runtime";
 import type { Hono } from "hono";
+import { refreshClaimedArtifactCapabilities } from "../artifact-capability.js";
 import { authenticateWebIdentity } from "../auth.js";
 import type { Env } from "../env.js";
 import {
@@ -96,7 +97,7 @@ function authMd(context: AgentAuthContext) {
       "Anonymous user-claimed flow:",
       '1. POST /agent/identity with {"type":"anonymous"}. Store registration_id, identity_assertion, and claim_token.',
       `2. Exchange identity_assertion at /oauth2/token with grant_type=${AGENT_AUTH_JWT_BEARER_GRANT_TYPE}. The access token is pre-claim, scoped to read/publish on the ephemeral workspace only.`,
-      "3. Publish with the pre-claim access token. Because the registration is backed by an ephemeral workspace, publish returns unlisted_url for immediate no-login viewing.",
+      "3. Publish with the pre-claim access token. Because the registration is backed by an ephemeral workspace, publish returns `url` for immediate no-login viewing.",
       '4. When the human wants to keep or own the Artifact, POST /agent/identity/claim with {"claim_token":"..."}. Show the returned user_code and open claim.verification_uri in the browser.',
       `5. Poll /oauth2/token with grant_type=${AGENT_AUTH_CLAIM_GRANT_TYPE} and claim_token. Before browser completion it returns authorization_pending. After completion it returns a user-backed access token and revokes pre-claim credentials.`,
       "",
@@ -367,9 +368,16 @@ async function webAgentAuthClaimComplete(
     return getBoundResponders(context).respondError("invalid_request", "Invalid claim request.");
   }
   const actor = await db.ensureWebMember({ workosUserId: identity.workos_user_id, email: identity.email });
-  const completed = claimAttemptToken
-    ? await db.completeAgentAuthAnonymousClaim({ actor, claimAttemptToken, userCode })
-    : await db.completeAgentAuthClaim({ actor, claimToken, userCode });
+  if (claimAttemptToken) {
+    const completed = await db.completeAgentAuthAnonymousClaim({ actor, claimAttemptToken, userCode });
+    if (!completed) {
+      return getBoundResponders(context).respondError("invalid_request", "Claim code did not match.");
+    }
+    await refreshClaimedArtifactCapabilities(db, env, actor, completed.claimed_artifact_ids);
+    return context.json({ ok: true, registration_id: completed.id });
+  }
+
+  const completed = await db.completeAgentAuthClaim({ actor, claimToken, userCode });
   if (!completed) {
     return getBoundResponders(context).respondError("invalid_request", "Claim code did not match.");
   }
