@@ -5,12 +5,11 @@ import {
   type WorkspaceActorSeed,
 } from "@agent-paste/db/test-helpers/route-boundary-fixture";
 import type { Principal } from "@agent-paste/worker-runtime";
-import { beforeAll, describe, expect, it, vi } from "vitest";
-import { createAccessLinkRoute, listAccessLinksRoute, revokeAccessLinkRoute } from "../src/routes/access-links.js";
+import { beforeAll, describe, expect, it } from "vitest";
 import { billingStatus } from "../src/routes/billing.js";
 import { authenticatedAgentView, listRevisions } from "../src/routes/revisions.js";
 import { webArtifactDetail } from "../src/routes/web.js";
-import { contextFor, guardFor, responseJson } from "./route-test-helpers.js";
+import { contextFor, responseJson } from "./route-test-helpers.js";
 
 function apiPrincipalFor(actor: ApiActor): Principal {
   return { kind: "api_key", actor } as Principal;
@@ -113,76 +112,6 @@ describe("AP-219 API PGlite route-boundary matrix", () => {
       );
       expect(denied.status).toBe(404);
       await expect(responseJson(denied)).resolves.toMatchObject({ error: { code: "not_found" } });
-    });
-  });
-
-  describe("access links", () => {
-    it("allows same-workspace link management and denies cross-workspace create, list, and revoke", async () => {
-      const { workspaceA, workspaceB, repo } = fixture;
-      const env = routeEnv(fixture);
-      const denylist = { put: vi.fn(async () => {}) };
-
-      const listed = await listAccessLinksRoute(
-        contextFor({
-          env,
-          url: `https://api.test/v1/artifacts/${workspaceA.published.artifactId}/access-links`,
-          params: { artifact_id: workspaceA.published.artifactId },
-        }),
-        apiPrincipalFor(workspaceA.apiActor),
-        repo,
-      );
-      expect(listed.status).toBe(200);
-      await expect(responseJson(listed)).resolves.toMatchObject({
-        items: expect.arrayContaining([expect.objectContaining({ id: workspaceA.accessLinkId })]),
-      });
-
-      const crossCreate = await createAccessLinkRoute(
-        contextFor({
-          env,
-          url: `https://api.test/v1/artifacts/${workspaceA.published.artifactId}/access-links`,
-          params: { artifact_id: workspaceA.published.artifactId },
-        }),
-        apiPrincipalFor(workspaceB.apiActor),
-        repo,
-        guardFor({ type: "share" }, "idem-rls-link-create-deny"),
-      );
-      expect(crossCreate.status).toBe(404);
-      await expect(responseJson(crossCreate)).resolves.toMatchObject({ error: { code: "artifact_not_found" } });
-
-      const crossList = await listAccessLinksRoute(
-        contextFor({
-          env,
-          url: `https://api.test/v1/artifacts/${workspaceA.published.artifactId}/access-links`,
-          params: { artifact_id: workspaceA.published.artifactId },
-        }),
-        apiPrincipalFor(workspaceB.apiActor),
-        repo,
-      );
-      expect(crossList.status).toBe(404);
-      await expect(responseJson(crossList)).resolves.toMatchObject({ error: { code: "artifact_not_found" } });
-
-      const revoked = await revokeAccessLinkRoute(
-        contextFor({
-          env: { ...env, DENYLIST: denylist },
-          url: `https://api.test/v1/access-links/${workspaceA.accessLinkId}/revoke`,
-          params: { access_link_id: workspaceA.accessLinkId },
-        }),
-        apiPrincipalFor(workspaceA.apiActor),
-        repo,
-      );
-      expect(revoked.status).toBe(200);
-
-      const crossRevoke = await revokeAccessLinkRoute(
-        contextFor({
-          env: { ...env, DENYLIST: denylist },
-          url: `https://api.test/v1/access-links/${workspaceA.accessLinkId}/revoke`,
-          params: { access_link_id: workspaceA.accessLinkId },
-        }),
-        apiPrincipalFor(workspaceB.apiActor),
-        repo,
-      );
-      expect(crossRevoke.status).toBe(404);
-      await expect(responseJson(crossRevoke)).resolves.toMatchObject({ error: { code: "not_found" } });
     });
   });
 

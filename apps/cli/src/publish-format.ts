@@ -4,13 +4,8 @@ export type PublishResultShape = {
   artifact_id: string;
   revision_id: string;
   title: string;
-  private_url?: string | undefined;
-  revision_content_url: string;
-  agent_view_url: string;
+  url: string;
   expires_at: string;
-  // Present only on ephemeral publish: the no-login (script-disabled) Share Link
-  // the server auto-creates so the agent hands back a URL that works at once.
-  unlisted_url?: string | undefined;
   upload_stats?: {
     total_files: number;
     total_bytes: number;
@@ -33,26 +28,21 @@ function uploadStatsLine(mode: OutputMode, stats: NonNullable<PublishResultShape
   return `  ${paint(mode, "dim", "Upload")}    ${uploaded}, ${stats.reused_files} reused · ${formatBytes(stats.uploaded_bytes)} sent, ${formatBytes(stats.reused_bytes)} cached`;
 }
 
-// Human-readable publish result. The handoff leads with the live viewer URL,
-// then shows the one command to revise this Artifact in place so the agent
-// edits via add-revision (stable link, live-updates the open page) instead of
-// republishing a new Artifact. Snapshot URLs stay on the JSON surface.
+// Human-readable publish result. The capability URL is the Artifact itself and
+// remains stable when the same Artifact is revised.
 export function formatPublishResult(mode: OutputMode, result: PublishResultShape, updateCommand: string): string {
   const label = (text: string) => paint(mode, "dim", text);
-  const privateUrl = result.private_url;
-  if (!privateUrl) {
-    throw new Error("Authenticated publish result must include private_url");
-  }
   return [
     `${paint(mode, "green", "✓")} Published ${paint(mode, "bold", `"${result.title}"`)}`,
     "",
-    `  ${label("View")}      ${hyperlink(mode, privateUrl)}`,
+    `  ${label("View")}      ${hyperlink(mode, result.url)}`,
     `  ${label("Expires")}   ${formatExpiry(result.expires_at)}`,
     ...(result.upload_stats ? [uploadStatsLine(mode, result.upload_stats)] : []),
     "",
     `  ${label("Update")}    ${updateCommand}`,
-    `            ${label("(revises this Artifact; same link live-updates the open page)")}`,
-    ...(privateUrl ? ["", paint(mode, "cyan", `  → open ${privateUrl}`)] : []),
+    `            ${label("(revises this Artifact; the same link shows the latest revision)")}`,
+    "",
+    paint(mode, "cyan", `  → open ${result.url}`),
   ].join("\n");
 }
 
@@ -64,24 +54,19 @@ export function ephemeralClaimUrl(claimToken: string): string {
 export function formatEphemeralPublishResult(mode: OutputMode, result: PublishResultShape, claimUrl: string): string {
   assertClaimTokenNotInPublicUrls(result, claimUrl);
   const label = (text: string) => paint(mode, "dim", text);
-  const sharedUrl = result.unlisted_url;
   return [
     `${paint(mode, "green", "✓")} Published ${paint(mode, "bold", `"${result.title}"`)}`,
     "",
-    ...(sharedUrl
-      ? [
-          paint(mode, "dim", "Hand this link to anyone. No login, static page, expires soon:"),
-          `  ${label("Link")}     ${hyperlink(mode, sharedUrl)}`,
-        ]
-      : []),
+    paint(mode, "dim", "Hand this link to anyone. No login, expires soon:"),
+    `  ${label("Link")}     ${hyperlink(mode, result.url)}`,
     `  ${label("Expires")}   ${formatExpiry(result.expires_at)}`,
     ...(result.upload_stats ? [uploadStatsLine(mode, result.upload_stats)] : []),
     "",
-    paint(mode, "dim", "Log in and open this to keep it, make it interactive, and own it:"),
+    paint(mode, "dim", "Log in and open this to keep and own it:"),
     `  ${label("Claim")}    ${hyperlink(mode, claimUrl)}`,
     paint(mode, "dim", "The token lives in the URL hash only (never the query string)."),
     "",
-    paint(mode, "cyan", `  → open ${sharedUrl ?? claimUrl}`),
+    paint(mode, "cyan", `  → open ${result.url}`),
   ].join("\n");
 }
 
@@ -96,52 +81,19 @@ function assertClaimTokenNotInPublicUrls(result: PublishResultShape, claimUrl: s
   if (query.includes(claimToken)) {
     throw new Error("Claim Token must not appear in the URL query string");
   }
-  if (
-    (result.private_url?.includes(claimToken) ?? false) ||
-    result.revision_content_url.includes(claimToken) ||
-    result.agent_view_url.includes(claimToken) ||
-    (result.unlisted_url?.includes(claimToken) ?? false)
-  ) {
-    throw new Error("Claim Token must not appear in public Access Link Signed URLs");
+  if (result.url.includes(claimToken)) {
+    throw new Error("Claim Token must not appear in the Artifact URL");
   }
 }
 
 // An edit whose result reproduces the stored bytes mints no Revision. Report the
 // no-op plainly and echo the stable link so the agent still has it to hand back —
 // the live page already shows this content.
-export function formatEditNoop(mode: OutputMode, payload: { title: string; private_url: string }): string {
+export function formatEditNoop(mode: OutputMode, payload: { title: string; url: string }): string {
   const label = (text: string) => paint(mode, "dim", text);
   return [
     `${paint(mode, "dim", "•")} No change to ${paint(mode, "bold", `"${payload.title}"`)} (edits reproduce the stored content)`,
     "",
-    `  ${label("View")}      ${hyperlink(mode, payload.private_url)}`,
-  ].join("\n");
-}
-
-export type SetVisibilityResultShape =
-  | { visibility: "private"; private_url: string; revoked_access_link_ids: readonly string[] }
-  | { visibility: "unlisted"; unlisted_url: string; access_link_id: string };
-
-export function formatSetVisibility(mode: OutputMode, payload: SetVisibilityResultShape): string {
-  const label = (text: string) => paint(mode, "dim", text);
-  if (payload.visibility === "private") {
-    const count = payload.revoked_access_link_ids.length;
-    return [
-      `${paint(mode, "green", "✓")} Visibility set to private`,
-      "",
-      `  ${label("View")}      ${hyperlink(mode, payload.private_url)}`,
-      `  ${label("Revoked")}   ${count} active Access Link${count === 1 ? "" : "s"}`,
-      "",
-      paint(mode, "cyan", `  → open ${payload.private_url}`),
-    ].join("\n");
-  }
-
-  return [
-    `${paint(mode, "green", "✓")} Visibility set to unlisted`,
-    "",
-    `  ${label("Unlisted")}  ${hyperlink(mode, payload.unlisted_url)}`,
-    `            ${label("(anyone with this link can open it, no login; revoke to take it down)")}`,
-    "",
-    paint(mode, "cyan", `  → open ${payload.unlisted_url}`),
+    `  ${label("View")}      ${hyperlink(mode, payload.url)}`,
   ].join("\n");
 }

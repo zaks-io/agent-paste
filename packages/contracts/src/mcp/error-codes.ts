@@ -51,14 +51,6 @@ export const mcpToolErrorGroups = {
     "rate_limited_actor",
     "database_unavailable",
   ] as const satisfies readonly McpToolErrorCode[],
-  shareLink: [
-    "forbidden",
-    "not_found",
-    "artifact_not_found",
-    "invalid_request",
-    "rate_limited_actor",
-    "database_unavailable",
-  ] as const satisfies readonly McpToolErrorCode[],
 };
 
 export const MCP_API_ERROR_HTTP_STATUS: Partial<Record<(typeof ErrorCodeSchema.options)[number], number>> = {

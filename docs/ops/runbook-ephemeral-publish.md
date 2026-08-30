@@ -246,9 +246,10 @@ agent-paste publish <path> --ephemeral [--title <text>] [--json]
 - Not the Free Plan: ephemeral is the unclaimed restricted tier, with low caps,
   `noindex`, and 24h Auto Deletion. Its isolated capability origin permits
   interactive HTML and JavaScript.
-- Auto Deletion is one day for the unclaimed ephemeral Workspace. `--json` prints `artifact_id`, `private_url`,
-  `revision_content_url`, `agent_view_url`, `claim_url`, and `claim_token` — support scripts must redact `claim_token`
-  when logging.
+- Auto Deletion is one day for the unclaimed ephemeral Workspace. `--json`
+  prints `artifact_id`, `revision_id`, `title`, `url`, `expires_at`,
+  `claim_url`, and `claim_token`. The `url` is the Artifact root on its own
+  capability subdomain. Support scripts must redact `claim_token` when logging.
 - Provision failures and rate limits surface as stable CLI error codes
   (for example `ephemeral_provision_rate_limited`).
 

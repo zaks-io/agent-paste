@@ -8,6 +8,12 @@ The walkthrough used the connected `agent-paste` MCP server (authed as
 `isaac@zaks.io`, scopes write/read/share) plus the globally installed
 `agent-paste` CLI (v0.1.2). Findings are ordered worst-first.
 
+> **Current contract (2026-08-30):** this file preserves an older production
+> walkthrough. Publish now returns one `url` that opens the Artifact directly at
+> the root of its isolated capability subdomain. There is no app viewer or
+> iframe. Use the current specs and publish runbooks for present behavior; field
+> names and sharing flows in the historical notes below are superseded.
+
 > **Status (2026-06-13):** P0 is FIXED in PR1 (`ArtifactSummary.revision_id`
 > nullable + loud-log the swallowed Zod error). P1 (publish returns no link) and
 > the CLI/MCP divergence are being fixed by the publish-unification work — see

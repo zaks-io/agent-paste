@@ -27,7 +27,9 @@ Goal: prove the artifact handoff loop.
 - Storage: private R2.
 - Metadata: Postgres through Cloudflare Hyperdrive using Drizzle.
 - Publish: single HTML file or folder with `index.html`.
-- Output: authenticated publish is content-only and private. Human-facing publish prints the `private_url` (`/v/<artifactId>` clean viewer) as `View`; CLI JSON output includes `artifact_id`, `revision_id`, `private_url`, direct signed `revision_content_url`, signed `agent_view_url`, and `expires_at`. There is no `share` input and no `shared` output; authenticated unlisted no-login sharing is the separate `agent-paste set-visibility <artifact-id> unlisted` step. Accountless `--ephemeral` publish auto-creates `unlisted_url` and also returns claim fields.
+- Output: publish prints one top-level capability `url`; JSON includes
+  `artifact_id`, `revision_id`, `title`, `url`, and `expires_at`. Accountless
+  `--ephemeral` uses the same URL contract and also returns claim fields.
 - Agent View: simple JSON with full per-file URLs.
 - Retention: default `30d`, max `90d`, scheduled cleanup.
 - Operator: WorkOS `/v1/web/admin/*` lockdown routes; non-production smokes use the harness secret.
@@ -35,7 +37,8 @@ Goal: prove the artifact handoff loop.
 
 Exit criteria:
 
-- A real hosted publish can be shared with a human through an explicit Share Link and inspected by another agent.
+- A real hosted publish opens directly for a human on its capability subdomain
+  and can be inspected by another agent.
 - Expired artifacts and abandoned uploads are cleaned up.
 - The system can be operated without a dashboard.
 
@@ -66,7 +69,8 @@ Goal: let people use the service without manual operator setup, through a web da
 - Public CLI login: `agent-paste login` via WorkOS loopback PKCE ([ADR 0060](../adr/0060-cli-authentication-via-auth0-loopback.md)); agents should use CLI login or MCP rather than copied credentials.
 - Self-serve workspace creation and credential revocation, from both the dashboard and the CLI session.
 
-The web dashboard was previously hedged as Phase 6 "only if repeated workflows justify UI"; it is committed to Phase 3. **Access Links stay in Phase 4** ([ADR 0047](../adr/0047-access-link-signed-url-with-fragment-encoded-payload.md)/[0052](../adr/0052-agent-view-discovery-from-access-link-signed-urls.md)) because they depend on multi-revision artifacts and the kid signing-key family that land there.
+The dashboard manages Workspace state and opens Artifact capability URLs
+directly. It does not host uploaded content.
 
 Exit criteria:
 
@@ -80,11 +84,7 @@ Goal: graduate from standalone publishes to managed artifacts.
 
 - Multi-revision artifacts.
 - Publish update to an existing artifact.
-- Revision-pinned links remain stable.
-- Latest-moving share links.
-- Link mint/re-mint and revoke.
-- Fragment-based Access Link Signed URLs.
-- Access Link Lockdown.
+- One stable capability URL per Artifact, updated by its published Revision.
 - Bundle generation/download.
 - Agent-first ephemeral publish: self-provisioned **Ephemeral Workspace** with
   write-gated tiers and **Claim Token** promotion ([ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md),
@@ -93,8 +93,8 @@ Goal: graduate from standalone publishes to managed artifacts.
 
 Exit criteria:
 
-- The platform supports both "this exact thing" and "the latest thing" link semantics.
-- Link lifecycle is manageable without leaking credentials into server logs.
+- The platform supports a stable latest-Revision Artifact URL without leaking
+  credentials into server logs.
 - An agent can publish with no human in the loop and the resulting link works immediately; its operator can later claim and upgrade the tenant.
 
 ## Phase 5: MCP Integration

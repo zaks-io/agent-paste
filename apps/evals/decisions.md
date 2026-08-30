@@ -31,14 +31,14 @@ A run passes when:
 
 - The agent performs a cold Agent Paste install or one-shot `npx` use.
 - The publish targets preview.
-- A working `unlisted_url` is extracted.
-- The `unlisted_url` opens without auth.
-- The model explicitly hands the user the working `unlisted_url` in its final
+- A working `artifact_url` is extracted.
+- The `artifact_url` opens without auth.
+- The model explicitly hands the user the working `artifact_url` in its final
   answer.
 
 A run fails when:
 
-- No working `unlisted_url` is produced.
+- No working `artifact_url` is produced.
 - The model fabricates a link.
 - The model only uses authenticated/private flow.
 - The model hands off a production Agent Paste app URL during a preview eval.
@@ -358,7 +358,7 @@ existing results, and generates new claim codes.
 The deterministic verifier should extract URLs from the transcript and final
 answer, then classify them:
 
-- `unlisted_url`
+- `artifact_url`
 - `claim_url`
 - `private_url`
 - `revision_content_url`
@@ -366,13 +366,13 @@ answer, then classify them:
 
 For this suite:
 
-- `unlisted_url` is required.
-- The final answer must include the usable `unlisted_url` when
+- `artifact_url` is required.
+- The final answer must include the usable `artifact_url` when
   `verification.require_final_answer_url` is true.
 - `claim_url` is captured but not redeemed.
 - `private_url` alone is not enough.
 - Production URLs fail preview runs.
-- The verifier only proves the link works: fetch the `unlisted_url` without auth
+- The verifier only proves the link works: fetch the `artifact_url` without auth
   and require HTTP 200.
 
 Store the fetched artifact snapshot locally for debugging.

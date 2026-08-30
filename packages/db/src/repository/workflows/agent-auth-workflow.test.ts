@@ -129,6 +129,24 @@ describe("agent auth workflow", () => {
     expect(completed).toMatchObject({
       id: registered.registration.id,
       registration_type: "anonymous",
+      claimed_artifact_ids: [],
+    });
+    await expect(
+      repo.completeAgentAuthAnonymousClaim({
+        actor: {
+          type: "member",
+          id: member.workspace_member.id,
+          workspace_id: member.workspace.id,
+          email: member.workspace_member.email,
+          scopes: member.scopes,
+        },
+        claimAttemptToken: started.claim_attempt_token,
+        userCode: started.user_code,
+        now: new Date("2099-06-20T12:05:30.000Z"),
+      }),
+    ).resolves.toMatchObject({
+      id: registered.registration.id,
+      claimed_artifact_ids: [],
     });
     expect(local.agentAuthRegistrations.get(registered.registration.id)?.email).toBe("person@example.com");
 

@@ -1,7 +1,6 @@
 import {
   contentCapabilityIdFromHostname,
   contentCapabilityObjectKey,
-  isContentCapabilityHostname,
   parseContentCapabilityDomain,
   parseContentCapabilityManifest,
 } from "@agent-paste/tokens/content-capability";
@@ -25,10 +24,11 @@ export async function resolveContentCapabilityRequest(
   }
   const domain = parseContentCapabilityDomain(configuredDomain);
   const url = new URL(request.url);
-  if (!isContentCapabilityHostname(url.hostname, domain)) {
+  const hostSuffix = env.CONTENT_CAPABILITY_HOST_SUFFIX;
+  if (isLegacyContentHostname(url.hostname, env.CONTENT_BASE_URL)) {
     return { kind: "pass" };
   }
-  const capabilityId = contentCapabilityIdFromHostname(url.hostname, domain);
+  const capabilityId = contentCapabilityIdFromHostname(url.hostname, domain, hostSuffix);
   if (!capabilityId) {
     return { kind: "not_found" };
   }
@@ -45,6 +45,17 @@ export async function resolveContentCapabilityRequest(
   const encodedPath = url.pathname === "/" ? encodePath(manifest.entrypoint) : url.pathname.slice(1);
   url.pathname = `/v/${encodeURIComponent(manifest.signed_token)}/${encodedPath}`;
   return { kind: "request", request: new Request(url, request) };
+}
+
+function isLegacyContentHostname(hostname: string, contentBaseUrl: string | undefined): boolean {
+  if (!contentBaseUrl) {
+    return false;
+  }
+  try {
+    return new URL(contentBaseUrl).hostname === hostname.toLowerCase();
+  } catch {
+    throw new Error("CONTENT_BASE_URL must be an absolute URL.");
+  }
 }
 
 export function markContentCapabilityRequest(request: Request): Request {

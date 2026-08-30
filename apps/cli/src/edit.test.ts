@@ -75,7 +75,7 @@ describe("readEdits", () => {
 
 const ARTIFACT_ID = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const REVISION_ID = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-const PRIVATE_URL = "https://app.example/v/art_1";
+const ARTIFACT_URL = "https://0123456789abcdef0123456789abcdef.agent-paste.sh/";
 
 async function sha256Hex(text: string): Promise<string> {
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
@@ -101,7 +101,7 @@ async function readerOnlyClient(body: string): Promise<ApiClient> {
         files: [{ path: "index.html", size_bytes: body.length, content_type: "text/html", url: "https://x" }],
         safety_warnings: [],
         bundle: { available: false },
-        private_url: PRIVATE_URL,
+        url: ARTIFACT_URL,
       }),
       readFile: async () => ({
         path: "index.html",
@@ -139,7 +139,7 @@ describe("edit command", () => {
     const payload = JSON.parse(writes.join("")) as Record<string, unknown>;
     expect(payload.noop).toBe(true);
     expect(payload.artifact_id).toBe(ARTIFACT_ID);
-    expect(payload.private_url).toBe(PRIVATE_URL);
+    expect(payload.url).toBe(ARTIFACT_URL);
   });
 
   it("propagates a non-matching edit as a ReviseError the dispatcher buckets as a validation failure", async () => {

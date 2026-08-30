@@ -52,7 +52,6 @@ describe("ClaimSuccessPanel", () => {
     expect(screen.getByText("Enabled")).toBeInTheDocument();
     expect(screen.getByText("Unlimited — never gated")).toBeInTheDocument();
     expect(screen.getByText(/Reads stay free either way/i)).toBeInTheDocument();
-    expect(screen.getByText(/JavaScript and interactive HTML now run/i)).toBeInTheDocument();
   });
 
   it("shows upgrade affordances when billing is enabled", () => {

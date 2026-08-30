@@ -20,6 +20,7 @@ import type { OperatorEventFilters } from "./operator-event-filters.js";
 import type { CreateUploadSessionRequest } from "./upload-session-lifecycle.js";
 import type { toWebArtifactRow, toWebAuditRow, toWebOperatorEventRow } from "./web-transforms.js";
 import type {
+  CompleteAgentAuthAnonymousClaimResult,
   RegisterAgentAnonymousIdentityInput,
   RegisterAgentAnonymousIdentityResult,
   StartAgentAuthAnonymousClaimResult,
@@ -87,7 +88,6 @@ type WebArtifactDetail = WebArtifactRow & {
   entrypoint: string;
   file_count: number;
   size_bytes: number;
-  viewer: { iframe_src: string; render_mode: string } | null;
   capability_view: AgentView | null;
 };
 
@@ -228,7 +228,7 @@ export type Repository = {
     claimAttemptToken: string;
     userCode: string;
     now?: Date;
-  }): Promise<{ id: string; expires_at: string; scopes: Array<"read" | "publish"> } | null>;
+  }): Promise<CompleteAgentAuthAnonymousClaimResult | null>;
   exchangeAgentAuthIdentityAssertion(input: {
     registrationId: string;
     anonymousClaimState?: "pre_claim" | "post_claim";

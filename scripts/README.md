@@ -211,10 +211,9 @@ Optional endpoint overrides:
 Assertions:
 
 - smoke harness provisions a workspace and API key (preview/PR) or uses a pre-provisioned production key
-- CLI JSON publish returns `artifact_url`, optional `access_link_url`, content `revision_content_url`, and API `agent_view_url`
-- Agent View JSON returns the published artifact and file list
-- browser Agent View HTML returns `text/html` and renders the artifact/file list
-- content HTML returns the published fixture
+- CLI JSON publish returns `artifact_id`, `revision_id`, `title`, `url`, and `expires_at`
+- hosted `url` is the Artifact root on its own capability subdomain
+- content HTML returns the published fixture directly, without an app viewer or iframe
 - deleting the artifact makes the old content URL return `404`
 - preview/PR content Artifact Rate Limit returns `rate_limited_artifact` (serial GET burst; CF bindings are per-colo)
 - apex `/`, `/llms.txt`, `/agents.md`, and product-surface redirects behave without cookies

@@ -1,27 +1,6 @@
 import type { FilePath, IdempotencyKey } from "../primitives.js";
 import { IdempotencyKey as IdempotencyKeySchema } from "../primitives.js";
-import { MCP_PUBLISH_SHARE_LINK_IDEMPOTENCY_SUFFIX } from "./constants.js";
 import type { McpPublishRenderMode, McpToolName } from "./schemas.js";
-
-/** Reserved for hashed idempotency encodings; direct keys with this shape are re-hashed to stay disjoint (AP-201). */
-const MCP_HASHED_IDEMPOTENCY_BASE = /^h[0-9a-f]{32}$/;
-
-/** Derives the optional share-link create idempotency key from a publish key. */
-export function publishShareLinkIdempotencyKey(publishIdempotencyKey: string): IdempotencyKey {
-  const suffix = MCP_PUBLISH_SHARE_LINK_IDEMPOTENCY_SUFFIX;
-  const direct = `${publishIdempotencyKey}${suffix}`;
-  const directIsSafe = IdempotencyKeySchema.safeParse(direct).success;
-  if (directIsSafe && !MCP_HASHED_IDEMPOTENCY_BASE.test(publishIdempotencyKey)) {
-    return IdempotencyKeySchema.parse(direct);
-  }
-  const hashedBase = `h${fnv1a128Hex(publishIdempotencyKey)}`;
-  return IdempotencyKeySchema.parse(`${hashedBase}${suffix}`);
-}
-
-/** Derives the optional share-link create idempotency key from the publish tool key. */
-export function mcpPublishAccessLinkIdempotencyKey(toolIdempotencyKey: IdempotencyKey): IdempotencyKey {
-  return publishShareLinkIdempotencyKey(toolIdempotencyKey);
-}
 
 const MCP_IDEMPOTENCY_SEGMENT_MAX = 64;
 

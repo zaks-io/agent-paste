@@ -45,7 +45,7 @@ async function fileContent(body: string, over: Partial<ArtifactFileContent> = {}
 
 function outcome(): PublishOutcome {
   return {
-    privateUrl: "https://example.test/v/art_1",
+    url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
     title: "My Doc",
     expiresAt: "2026-02-01T00:00:00.000Z",
     uploadStats: { totalFiles: 1, totalBytes: 1, uploadedFiles: 1, uploadedBytes: 1, reusedFiles: 0, reusedBytes: 0 },

@@ -23,7 +23,7 @@ export async function storeContentCapability(input: {
   if (!configuredDomain) {
     return undefined;
   }
-  const domain = parseContentCapabilityDomain(configuredDomain);
+  parseContentCapabilityDomain(configuredDomain);
   const bucket = input.env.ARTIFACTS;
   const put = bucket?.put;
   if (!put) {
@@ -38,7 +38,18 @@ export async function storeContentCapability(input: {
     artifact_updated_at: input.artifactUpdatedAt,
   };
   await writeLatestManifest(bucket, contentCapabilityObjectKey(input.capabilityId), manifest);
-  return `https://${contentCapabilityHostname(input.capabilityId, domain)}`;
+  return contentCapabilityOrigin(input.env, input.capabilityId);
+}
+
+export function contentCapabilityOrigin(env: Env, capabilityId: string): string | undefined {
+  if (!env.CONTENT_CAPABILITY_DOMAIN) {
+    return undefined;
+  }
+  return `https://${contentCapabilityHostname(
+    capabilityId,
+    parseContentCapabilityDomain(env.CONTENT_CAPABILITY_DOMAIN),
+    env.CONTENT_CAPABILITY_HOST_SUFFIX,
+  )}`;
 }
 
 async function writeLatestManifest(

@@ -26,7 +26,6 @@ import { handleRequest } from "../src/server";
 const env = {
   AGENT_PASTE_ENV: "production",
   API_BASE_URL: "https://api.agent-paste.sh",
-  CONTENT_BASE_URL: "https://usercontent.agent-paste.sh",
   WEB_BASE_URL: "https://app.agent-paste.sh",
   WORKOS_CLIENT_ID: "client",
   WORKOS_API_KEY: "key",

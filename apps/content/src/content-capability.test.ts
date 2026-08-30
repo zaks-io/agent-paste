@@ -11,7 +11,7 @@ import { handleRequest } from "./index.js";
 const workspaceId = "00000000-0000-4000-8000-000000000001";
 const capabilityId = "00112233445566778899aabbccddeeff";
 const capabilityDomain = "content.example.test";
-const capabilityOrigin = `https://${capabilityId}-uc.${capabilityDomain}`;
+const capabilityOrigin = `https://${capabilityId}.${capabilityDomain}`;
 async function capabilityFixture(input?: { accessLinkId?: string; expiresAt?: number | null; manifest?: string }) {
   const paths = ["index.html", "page2.html", "assets/app.js"];
   const token = await mintContentToken(
@@ -75,6 +75,7 @@ async function capabilityFixture(input?: { accessLinkId?: string; expiresAt?: nu
   const env: Env = {
     CONTENT_SIGNING_SECRET: "secret",
     CONTENT_CAPABILITY_DOMAIN: capabilityDomain,
+    CONTENT_BASE_URL: "https://usercontent.example.test",
     AGENT_PASTE_ENV: "production",
     ...testArtifactBytesEncryptionEnv,
     DENYLIST: {
@@ -108,7 +109,7 @@ describe("content capability routing", () => {
     expect(script.status).toBe(200);
     await expect(script.text()).resolves.toContain("loaded");
     expect(pageTwo.headers.get("content-security-policy")).toContain(
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:",
     );
     expect(entrypoint.headers.get("x-frame-options")).toBe("DENY");
     expect(entrypointBody).not.toContain("agent-paste:viewer-height");
@@ -154,10 +155,7 @@ describe("content capability routing", () => {
   it("returns the generic not-found boundary for malformed capability hosts and manifests", async () => {
     const fixture = await capabilityFixture({ manifest: "not-json" });
     const malformedManifest = await handleRequest(new Request(`${capabilityOrigin}/index.html`), fixture.env);
-    const malformedHost = await handleRequest(
-      new Request(`https://invalid-uc.${capabilityDomain}/healthz`),
-      fixture.env,
-    );
+    const malformedHost = await handleRequest(new Request(`https://invalid.${capabilityDomain}/healthz`), fixture.env);
 
     expect(malformedManifest.status).toBe(404);
     expect(malformedHost.status).toBe(404);

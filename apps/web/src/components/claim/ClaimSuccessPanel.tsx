@@ -47,12 +47,8 @@ const CHANGES = [
     detail: (maxDays: number) => `Up to ${maxDays} days instead of ${EPHEMERAL_RETENTION_DAYS} day while unclaimed`,
   },
   {
-    label: "Script execution",
-    detail: () => "JavaScript and interactive HTML now run — ephemeral content stayed inert",
-  },
-  {
     label: "Reads",
-    detail: () => "Share links stay free for your audience — only writes and durability are tiered",
+    detail: () => "Artifact URLs stay free for your audience; only writes and durability are tiered",
   },
 ] as const;
 

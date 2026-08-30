@@ -107,31 +107,12 @@ try {
   );
   assert(published.artifact_id?.startsWith("art_"), "publish returned artifact_id");
   assert(published.revision_id?.startsWith("rev_"), "publish returned revision_id");
-  assert(published.private_url?.includes(`/v/${published.artifact_id}`), "publish returned private viewer URL");
-  assert(published.revision_content_url?.startsWith(contentBaseUrl), "publish returned local revision_content_url");
-  assert(published.agent_view_url?.startsWith(apiBaseUrl), "publish returned local agent_view_url");
+  assert(published.url?.startsWith(contentBaseUrl), "publish returned local Artifact URL");
 
-  const view = await fetch(published.revision_content_url);
-  assert(view.status === 200, `revision_content_url returned ${view.status}`);
+  const view = await fetch(published.url);
+  assert(view.status === 200, `Artifact URL returned ${view.status}`);
   const html = await view.text();
-  assert(html.includes("Agent Paste Local"), "revision_content_url served the published HTML");
-
-  const agentView = await fetchJson(published.agent_view_url);
-  assert(agentView.artifact_id === published.artifact_id, "agent view artifact matches publish result");
-  assert(
-    agentView.files.some((file) => file.path === "index.html" && file.url.startsWith(contentBaseUrl)),
-    "agent view lists index.html",
-  );
-  const nestedFile = agentView.files.find((file) => file.path === "assets/app.js");
-  assert(nestedFile, "agent view lists nested assets/app.js");
-  const nestedView = await fetch(nestedFile.url);
-  assert(nestedView.status === 200, `nested file URL returned ${nestedView.status}`);
-  const browserAgentView = await fetch(published.agent_view_url, { headers: { accept: "text/html" } });
-  assert(browserAgentView.status === 200, `browser agent view returned ${browserAgentView.status}`);
-  assert(browserAgentView.headers.get("content-type")?.includes("text/html"), "browser agent view returns HTML");
-  const browserAgentViewHtml = await browserAgentView.text();
-  assert(browserAgentViewHtml.includes(published.artifact_id), "browser agent view renders artifact id");
-  assert(browserAgentViewHtml.includes("index.html"), "browser agent view renders file list");
+  assert(html.includes("Agent Paste Local"), "Artifact URL served the published HTML");
 
   await assertBytesPurgedAfterDelete(published);
   await assertBytesPurgedAfterExpiry(apiEnv);
@@ -152,9 +133,8 @@ try {
 
   Workspace: ${provisioned.workspace.id}
   Artifact:  ${published.artifact_id}
-  Artifact URL: ${published.private_url}
-  Revision URL: ${published.revision_content_url}
-  Ephemeral: ${ephemeral.artifact_id} ${ephemeral.unlisted_url} (claimed into ${ephemeral.member_workspace_id})
+  Artifact URL: ${published.url}
+  Ephemeral: ${ephemeral.artifact_id} ${ephemeral.url} (claimed into ${ephemeral.member_workspace_id})
 
 `);
 } catch (error) {
@@ -204,15 +184,6 @@ function run(command, args, env) {
   });
 }
 
-async function fetchJson(url, headers) {
-  const init = headers ? { headers } : undefined;
-  const response = await fetch(url, init);
-  if (!response.ok) {
-    throw new Error(`${url} returned ${response.status}`);
-  }
-  return response.json();
-}
-
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
@@ -236,7 +207,7 @@ async function assertBytesPurgedAfterDelete(published) {
     assert(after.length === 0, `R2 prefix ${prefix} still has ${after.length} keys after delete`);
   }
 
-  const deletedView = await fetch(published.revision_content_url);
+  const deletedView = await fetch(published.url);
   assert(deletedView.status === 404, `deleted content URL returned ${deletedView.status}, expected 404`);
 
   const denyKey = await fetchDenylistKey(apiBaseUrl, `ad:${published.artifact_id}`, harnessSecret);
@@ -264,7 +235,7 @@ async function assertBytesPurgedAfterExpiry(apiEnv) {
     assert(after.length === 0, `expiry harness: R2 prefix ${prefix} still has ${after.length} keys after cleanup`);
   }
 
-  const expiredView = await fetch(expiryPublish.revision_content_url);
+  const expiredView = await fetch(expiryPublish.url);
   assert(expiredView.status === 404, `expired content URL returned ${expiredView.status}, expected 404`);
 
   const denyKey = await fetchDenylistKey(apiBaseUrl, `ad:${expiryPublish.artifact_id}`, harnessSecret);

@@ -3,6 +3,10 @@ import { AccessLinkId, ArtifactId, IsoDateTime, PlainTextTitle, RevisionId, UrlS
 import { RenderMode } from "./revisions.js";
 import { z } from "./zod.js";
 
+// Dormant migration contract. No current HTTP, MCP, CLI, or dashboard route
+// exposes Access Links; keep these shapes only while retained rows and codecs
+// still need to compile.
+
 export const AccessLinkPublicId = z
   .string()
   .regex(/^[0-9A-HJKMNP-TV-Z]{16}$/)

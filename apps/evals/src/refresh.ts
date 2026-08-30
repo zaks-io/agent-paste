@@ -43,7 +43,7 @@ async function refreshResult(config: EvalConfig, result: RunResult): Promise<voi
   });
   result.verifier = verifier;
   result.verifier_fingerprint = verifierFingerprint(config);
-  result.unlisted_url = verifier.unlisted_url;
+  result.artifact_url = verifier.artifact_url;
   result.claim_url = verifier.claim_url;
   result.deterministic_pass = verifier.passed;
   appendUnique(result.warnings, verifier.warnings);

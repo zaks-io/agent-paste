@@ -5,7 +5,7 @@ export const BILLING_DOC: DocsPage = {
   slug: "billing",
   title: "Billing and Plans",
   shortTitle: "Billing",
-  summary: "Hosted billing is enabled: your Plan sets write allowance, retention, caps, and Live Updates.",
+  summary: "Hosted billing is enabled: your Plan sets write allowance, retention, and caps.",
   sections: [
     {
       id: "plans",
@@ -46,7 +46,7 @@ export const BILLING_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Reads are always free. Billing changes write allowance and feature limits; it does not meter recipients opening an Artifact or Access Link.",
+          text: "Reads are always free. Billing changes write allowance and feature limits; it does not meter recipients opening an Artifact URL.",
         },
       ],
     },

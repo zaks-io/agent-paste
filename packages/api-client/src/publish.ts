@@ -70,8 +70,8 @@ export type UploadStats = {
 };
 
 export type PublishOutcome = {
-  /** The private viewer link to hand back: a login-walled clean viewer (`/v/<id>`). */
-  privateUrl?: string | undefined;
+  /** The durable top-level Artifact URL to hand back. */
+  url: string;
   title: string;
   expiresAt: string;
   uploadStats: UploadStats;
@@ -105,8 +105,7 @@ export type PublishTransport = {
 /**
  * The one publish path shared by the CLI and the MCP server: create an upload
  * session, upload the files the server does not already have, finalize, and
- * publish the revision. Authenticated publish returns `private_url`; ephemeral
- * publish returns `unlisted_url`.
+ * publish the revision. Every mode returns the Artifact's durable capability URL.
  */
 export async function runPublish(transport: PublishTransport, input: PublishInput): Promise<PublishOutcome> {
   const session = await transport.createUploadSession(buildCreateSessionRequest(input), input.idempotencyKey);
@@ -145,7 +144,7 @@ export async function runPublish(transport: PublishTransport, input: PublishInpu
   const result = await transport.publishRevision(finalized.artifact_id, finalized.revision_id, input.idempotencyKey);
 
   return {
-    ...("private_url" in result ? { privateUrl: result.private_url } : {}),
+    url: result.url,
     title: result.title,
     expiresAt: result.expires_at,
     uploadStats: stats,

@@ -7,7 +7,6 @@ import {
   runPostCommitArtifactDeletionInvalidation,
 } from "../deletion-invalidation.js";
 import type { AppContext, Env } from "../env.js";
-import { notifyLiveUpdateDisconnect } from "../live-updates.js";
 import { readJsonObject } from "../responses.js";
 import { apiDatabase } from "../runtime.js";
 
@@ -130,17 +129,6 @@ export async function deleteSmokeArtifact(context: AppContext): Promise<Response
     },
     { isReplay },
   );
-  if (!invalidation.replaySkipped) {
-    try {
-      await notifyLiveUpdateDisconnect(env, {
-        artifactId: result.artifact_id,
-        audiences: ["share", "dashboard"],
-        reason: "deletion",
-      });
-    } catch (error) {
-      console.warn(`Live update disconnect failed for deleted artifact ${result.artifact_id}.`, error);
-    }
-  }
   return respondJson({
     artifact_id: result.artifact_id,
     deleted_at: result.deleted_at,

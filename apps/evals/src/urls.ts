@@ -1,13 +1,13 @@
 export type ClassifiedUrls = {
-  unlisted?: string;
+  artifact?: string;
   claim?: string;
-  private?: string;
-  revisionContent?: string;
   production: string[];
   all: string[];
 };
 
 const URL_PATTERN = /https?:\/\/[^\s<>"'()[\]{}|\\^`*]+/g;
+const PRODUCTION_ARTIFACT_HOST = /^[0-9a-f]{32}\.agent-paste\.sh$/;
+const PREVIEW_ARTIFACT_HOST = /^[0-9a-f]{32}-preview\.agent-paste\.sh$/;
 
 export function classifyUrls(text: string): ClassifiedUrls {
   const urls = Array.from(new Set(text.match(URL_PATTERN) ?? [])).map(cleanUrl);
@@ -20,17 +20,21 @@ export function classifyUrls(text: string): ClassifiedUrls {
     if (isProductionAgentPasteHost(parsed.hostname)) {
       classified.production.push(url);
     }
-    if (parsed.hostname.startsWith("app.") && parsed.pathname.startsWith("/al/")) {
-      classified.unlisted ??= url;
+    if (isArtifactHost(parsed.hostname)) {
+      classified.artifact ??= url;
     } else if (parsed.hostname.startsWith("app.") && parsed.pathname === "/claim") {
       classified.claim ??= url;
-    } else if (parsed.hostname.startsWith("app.") && parsed.pathname.startsWith("/v/")) {
-      classified.private ??= url;
-    } else if (parsed.hostname.startsWith("usercontent.") && parsed.pathname.startsWith("/v/")) {
-      classified.revisionContent ??= url;
     }
   }
   return classified;
+}
+
+export function isProductionArtifactHost(hostname: string): boolean {
+  return PRODUCTION_ARTIFACT_HOST.test(hostname);
+}
+
+export function isPreviewArtifactHost(hostname: string): boolean {
+  return PREVIEW_ARTIFACT_HOST.test(hostname);
 }
 
 function cleanUrl(url: string): string {
@@ -39,16 +43,10 @@ function cleanUrl(url: string): string {
   if (!parsed) {
     return trimmed;
   }
-
   if (parsed.hostname.startsWith("app.") && parsed.hash) {
-    parsed.hash = sanitizeHash(parsed.pathname, parsed.hash);
+    parsed.hash = parsed.hash.match(/^#[A-Za-z0-9._-]+/)?.[0] ?? "";
   }
   return parsed.toString();
-}
-
-function sanitizeHash(pathname: string, hash: string): string {
-  const allowed = pathname.startsWith("/al/") ? /^#[A-Za-z0-9_-]+/ : /^#[A-Za-z0-9._-]+/;
-  return hash.match(allowed)?.[0] ?? "";
 }
 
 function parseUrl(url: string): URL | null {
@@ -59,6 +57,10 @@ function parseUrl(url: string): URL | null {
   }
 }
 
+function isArtifactHost(hostname: string): boolean {
+  return isProductionArtifactHost(hostname) || isPreviewArtifactHost(hostname);
+}
+
 function isProductionAgentPasteHost(hostname: string): boolean {
   if (hostname === "agent-paste.sh") {
     return true;
@@ -67,5 +69,9 @@ function isProductionAgentPasteHost(hostname: string): boolean {
 }
 
 function isPreviewAgentPasteHost(hostname: string): boolean {
-  return hostname === "preview.agent-paste.sh" || hostname.endsWith(".preview.agent-paste.sh");
+  return (
+    hostname === "preview.agent-paste.sh" ||
+    hostname.endsWith(".preview.agent-paste.sh") ||
+    isPreviewArtifactHost(hostname)
+  );
 }

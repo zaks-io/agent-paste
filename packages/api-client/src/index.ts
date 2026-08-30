@@ -1,12 +1,8 @@
 import {
-  type AccessLinkId,
-  AccessLinkSignedUrl,
   AgentView,
   ArtifactFileContent,
   type ArtifactId,
   type ClaimCode,
-  type CreateAccessLinkRequest,
-  CreateAccessLinkResponse,
   type CreateApiKeyRequest,
   CreateApiKeyResponse,
   type CreateUploadSessionRequest,
@@ -15,8 +11,6 @@ import {
   ErrorEnvelope,
   FinalizeUploadSessionResponse,
   type IdempotencyKey,
-  McpListAccessLinksOutput,
-  McpRevokeAccessLinkOutput,
   PublishResult,
   type PublishRevisionRequest,
   type RevisionId,
@@ -118,39 +112,6 @@ export class ApiClient {
           method: "POST",
           idempotencyKey,
         },
-      ),
-  };
-
-  accessLinks = {
-    // Create an Access Link for an Artifact and mint its signed URL. Two calls:
-    // create the link, then mint its Access Link Signed URL.
-    create: (artifactId: ArtifactId | string, body: CreateAccessLinkRequest, idempotencyKey: string) =>
-      this.request(
-        CreateAccessLinkResponse,
-        this.apiBaseUrl,
-        `/v1/artifacts/${encodeURIComponent(artifactId)}/access-links`,
-        {
-          method: "POST",
-          body,
-          idempotencyKey,
-        },
-      ),
-    mint: (accessLinkId: AccessLinkId | string) =>
-      this.request(AccessLinkSignedUrl, this.apiBaseUrl, `/v1/access-links/${encodeURIComponent(accessLinkId)}/mint`, {
-        method: "POST",
-      }),
-    list: (artifactId: ArtifactId | string) =>
-      this.request(
-        McpListAccessLinksOutput,
-        this.apiBaseUrl,
-        `/v1/artifacts/${encodeURIComponent(artifactId)}/access-links`,
-      ),
-    revoke: (accessLinkId: AccessLinkId | string) =>
-      this.request(
-        McpRevokeAccessLinkOutput,
-        this.apiBaseUrl,
-        `/v1/access-links/${encodeURIComponent(accessLinkId)}/revoke`,
-        { method: "POST" },
       ),
   };
 

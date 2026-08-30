@@ -11,7 +11,7 @@ containing any number of OpenRouter models, and the tool:
 2. Starts cached coding-harness infrastructure in each sandbox.
 3. Sends the configured copied prompt to the selected harness.
 4. Routes Agent Paste publishes to preview through env vars.
-5. Verifies each final `unlisted_url` returns HTTP 200 without auth.
+5. Verifies each final `artifact_url` returns HTTP 200 without auth.
 6. Stores every transcript, event stream, verifier result, judge result, and
    aggregate report locally.
 7. Prints a model-by-model succeeded/failed list.
@@ -134,7 +134,7 @@ Then run:
 
 1. `verifier`
    Extract URLs, classify them, reject wrong-environment handoff URLs in the
-   preview suite, require at least one `unlisted_url`, fetch it without auth,
+   preview suite, require at least one `artifact_url`, fetch it without auth,
    scan the fetched artifact for production handoff links, and write the
    artifact snapshot when configured. Only HTTP 200 is deterministic pass
    evidence.
@@ -349,11 +349,11 @@ Keep deterministic verification narrow:
 
 - Extract URLs from final answer and transcript.
 - Classify Agent Paste URL types.
-- Require a preview `unlisted_url`.
+- Require a preview `artifact_url`.
 - Fail wrong-environment production handoff URLs when
   `reject_production_urls` is true.
 - Keep production docs and example URLs informational.
-- Fetch the `unlisted_url` without auth.
+- Fetch the `artifact_url` without auth.
 - Pass deterministic verification only on HTTP 200.
 
 No keyword checks. No subjective artifact-quality checks in the verifier.
@@ -395,7 +395,7 @@ Retry infra errors three times:
 - Judge 429/5xx/network errors.
 
 Do not retry model behavior failures, bad final answers, wrong URL type, or HTTP
-4xx from an otherwise reachable `unlisted_url`.
+4xx from an otherwise reachable `artifact_url`.
 
 ## Secrets
 

@@ -17,8 +17,8 @@ describe("smoke-mcp-harness", () => {
     expect(config.authorizationServers[0]).toContain("authkit.app");
   });
 
-  it("lists the twelve ADR 0061 tool names", () => {
-    expect(MCP_TOOL_NAMES).toHaveLength(12);
+  it("lists the current MCP tool names", () => {
+    expect(MCP_TOOL_NAMES).toHaveLength(10);
     expect(MCP_TOOL_NAMES).toContain("whoami");
     expect(MCP_TOOL_NAMES).toContain("publish_artifact");
   });

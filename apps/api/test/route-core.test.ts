@@ -198,10 +198,10 @@ describe("AP-91 shared API route helpers", () => {
     const { verifyContentToken } = await import("@agent-paste/tokens/content");
     const payload = await verifyContentToken(token, "content-secret");
     expect(payload?.noindex).toBe(true);
-    expect(payload?.script_disabled).toBeUndefined();
+    expect(payload?.script_disabled).toBe(false);
   });
 
-  it("omits the retired script_disabled bit for claimed tenants", async () => {
+  it("explicitly enables scripts for claimed tenants", async () => {
     const signed = (await signAgentViewContentUrls(
       {
         workspace_id: workspaceId,
@@ -218,7 +218,7 @@ describe("AP-91 shared API route helpers", () => {
     const token = decodeURIComponent(signed.revision_content_url.split("/v/")[1]?.split("/")[0] ?? "");
     const { verifyContentToken } = await import("@agent-paste/tokens/content");
     const payload = await verifyContentToken(token, "content-secret");
-    expect(payload?.script_disabled).toBeUndefined();
+    expect(payload?.script_disabled).toBe(false);
   });
 
   it("signs Agent View content URLs without leaking internal workspace fields", async () => {
@@ -236,7 +236,7 @@ describe("AP-91 shared API route helpers", () => {
         bundle: { status: "ready", url: "old-bundle" },
       },
       { CONTENT_SIGNING_SECRET: "content-secret", CONTENT_BASE_URL: "https://content.test" },
-      { workspaceId, accessLinkId: "al_1" },
+      { workspaceId },
     )) as {
       workspace_id?: string;
       revision_content_url: string;
@@ -253,22 +253,20 @@ describe("AP-91 shared API route helpers", () => {
     expect(signed.bundle.url).toContain("https://content.test/");
   });
 
-  it("falls back to public Agent View URLs when no Agent View signer is configured", async () => {
+  it("requires durable capability hosting outside development", async () => {
     await expect(verifyAgentViewTokenForEnv("bad", {})).resolves.toBeNull();
     expect(await signAgentViewContentUrls(null, {})).toBeNull();
-    const signed = (await signPublishResult(
-      {
-        artifact_id: "art_1",
-        revision_id: "rev_1",
-        revision_content_url: "https://old.test/v/art.rev/docs%2Findex.html",
-      },
-      { API_BASE_URL: "https://api.test", CONTENT_BASE_URL: "https://content.test", WEB_BASE_URL: "https://app.test" },
-      // Publish is always by an authenticated member, so the result carries the member private_url.
-      { workspaceId: "00000000-0000-4000-8000-000000000001" },
-    )) as { private_url: string; revision_content_url: string; agent_view_url: string };
-    expect(signed.private_url).toBe("https://app.test/v/art_1");
-    expect(signed.revision_content_url).toBe("https://content.test/v/art_1.rev_1/docs/index.html");
-    expect(signed.agent_view_url).toBe("https://api.test/v1/public/agent-view/art_1.rev_1");
+    await expect(
+      signPublishResult(
+        {
+          artifact_id: "art_1",
+          revision_id: "rev_1",
+          revision_content_url: "https://old.test/v/art.rev/docs%2Findex.html",
+        },
+        { AGENT_PASTE_ENV: "production", CONTENT_BASE_URL: "https://content.test" },
+        { workspaceId: "00000000-0000-4000-8000-000000000001" },
+      ),
+    ).rejects.toThrow("durable content capability URL");
     expect(entrypointPathFromContentUrl("not-a-content-url")).toBe("index.html");
   });
 

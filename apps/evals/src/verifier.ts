@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { EvalConfig, VerifierResult } from "./types";
-import { classifyUrls } from "./urls";
+import { classifyUrls, isPreviewArtifactHost, isProductionArtifactHost } from "./urls";
 
 export async function verifyRunOutput(params: {
   config: EvalConfig;
@@ -11,14 +11,12 @@ export async function verifyRunOutput(params: {
 }): Promise<VerifierResult> {
   const finalAnswerUrls = classifyUrls(params.finalAnswer ?? "");
   const urls = classifyUrls(params.text);
-  const unlistedUrl = finalAnswerUrls.unlisted ?? urls.unlisted;
+  const artifactUrl = finalAnswerUrls.artifact ?? urls.artifact;
   const sourceProduction = groupProductionUrls(urls.production);
   const result: VerifierResult = {
     passed: false,
-    ...(unlistedUrl ? { unlisted_url: unlistedUrl } : {}),
+    ...(artifactUrl ? { artifact_url: artifactUrl } : {}),
     ...(urls.claim ? { claim_url: urls.claim } : {}),
-    ...(urls.private ? { private_url: urls.private } : {}),
-    ...(urls.revisionContent ? { revision_content_url: urls.revisionContent } : {}),
     production_handoff_url_detected: sourceProduction.handoff.length > 0,
     production_artifact_url_detected: false,
     production_url_details: {
@@ -35,27 +33,27 @@ export async function verifyRunOutput(params: {
     }
   }
   result.errors.push(...handoffEnvironmentErrors(params.config, urls.all));
-  if (params.config.verification.require_final_answer_url && !finalAnswerUrls.unlisted) {
-    result.errors.push("missing_final_answer_unlisted_url");
+  if (params.config.verification.require_final_answer_url && !finalAnswerUrls.artifact) {
+    result.errors.push("missing_final_answer_artifact_url");
   }
-  if (params.config.verification.require_unlisted_url && !unlistedUrl) {
-    result.errors.push("missing_unlisted_url");
+  if (params.config.verification.require_artifact_url && !artifactUrl) {
+    result.errors.push("missing_artifact_url");
     return result;
   }
-  if (!unlistedUrl) {
+  if (!artifactUrl) {
     result.passed = result.errors.length === 0;
     return result;
   }
   if (result.errors.length > 0) {
     return result;
   }
-  const hostError = unlistedUrlHostError(params.config, unlistedUrl);
+  const hostError = artifactUrlHostError(params.config, artifactUrl);
   if (hostError) {
     result.errors.push(hostError);
     return result;
   }
 
-  const response = await fetch(unlistedUrl, {
+  const response = await fetch(artifactUrl, {
     redirect: "follow",
     signal: AbortSignal.timeout(params.config.timeouts.verification_timeout_ms),
   });
@@ -115,38 +113,30 @@ function groupProductionUrls(urls: string[]): ProductionUrlGroups {
 }
 
 function handoffEnvironmentErrors(config: EvalConfig, urls: string[]): string[] {
-  const expectedWebHost = hostFromUrl(config.environment.env.AGENT_PASTE_WEB_URL);
-  if (!expectedWebHost) {
-    return [];
-  }
-
   const errors = new Set<string>();
   for (const url of urls) {
     const parsed = parseUrl(url);
     if (!parsed || !isAgentPasteWebHandoffUrl(parsed)) {
       continue;
     }
-    if (parsed.hostname !== expectedWebHost) {
+    if (config.environment.target === "preview" && !isPreviewArtifactHost(parsed.hostname)) {
       errors.add(`wrong_environment_url:${parsed.hostname}`);
     }
   }
   return Array.from(errors);
 }
 
-function unlistedUrlHostError(config: EvalConfig, url: string): string | undefined {
+function artifactUrlHostError(config: EvalConfig, url: string): string | undefined {
   const parsed = parseUrl(url);
   if (!parsed) {
-    return `invalid_unlisted_url:${url}`;
+    return `invalid_artifact_url:${url}`;
   }
-  const expectedWebHost = hostFromUrl(config.environment.env.AGENT_PASTE_WEB_URL);
-  if (expectedWebHost) {
-    return parsed.hostname === expectedWebHost ? undefined : `wrong_environment_url:${parsed.hostname}`;
+  if (config.environment.target === "preview") {
+    return isPreviewArtifactHost(parsed.hostname) ? undefined : `wrong_environment_url:${parsed.hostname}`;
   }
-  return isAllowedAgentPasteDomain(parsed.hostname) ? undefined : `unallowed_unlisted_url_host:${parsed.hostname}`;
-}
-
-function isAllowedAgentPasteDomain(hostname: string): boolean {
-  return hostname === "agent-paste.sh" || hostname.endsWith(".agent-paste.sh");
+  return isProductionArtifactHost(parsed.hostname) || parsed.hostname.endsWith(".artifact.test")
+    ? undefined
+    : `unallowed_artifact_url_host:${parsed.hostname}`;
 }
 
 function isAgentPasteDocsUrl(url: URL): boolean {
@@ -164,17 +154,7 @@ function isAgentPasteDocsUrl(url: URL): boolean {
 }
 
 function isAgentPasteWebHandoffUrl(url: URL): boolean {
-  return (
-    url.hostname.startsWith("app.") &&
-    (url.pathname.startsWith("/al/") || url.pathname === "/claim" || url.pathname.startsWith("/v/"))
-  );
-}
-
-function hostFromUrl(value: string | undefined): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-  return parseUrl(value)?.hostname;
+  return isProductionArtifactHost(url.hostname) || isPreviewArtifactHost(url.hostname);
 }
 
 function parseUrl(value: string): URL | undefined {

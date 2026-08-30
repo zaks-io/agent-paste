@@ -15,8 +15,6 @@ vi.mock("@tanstack/react-router", () => ({
   Outlet: () => null,
   Scripts: () => null,
   useRouter: () => ({}),
-  useRouterState: ({ select }: { select: (state: { location: { pathname: string } }) => unknown }) =>
-    select({ location: { pathname: "/" } }),
 }));
 
 vi.mock("../src/lib/sentry-browser", () => ({
@@ -69,24 +67,5 @@ describe("__root route head", () => {
 
     expect(metaContent(head, "sentry-trace")).toBe("0011223344556677889900aabbccddee-1122334455667788-1");
     expect(metaContent(head, "baggage")).toBe("sentry-environment=test");
-  });
-
-  it("omits trace meta on Access Link routes, which opt out of external observability", () => {
-    const head = Route.head({
-      loaderData,
-      matches: [{ routeId: "__root__", loaderData }, { routeId: "/al/$publicId" }],
-    });
-
-    expect(metaContent(head, "sentry-trace")).toBeUndefined();
-    expect(metaContent(head, "baggage")).toBeUndefined();
-  });
-
-  it("omits analytics scripts on Access Link routes", () => {
-    const head = Route.head({
-      loaderData,
-      matches: [{ routeId: "__root__", loaderData }, { routeId: "/al/$publicId" }],
-    });
-
-    expect(head.scripts).toEqual([]);
   });
 });

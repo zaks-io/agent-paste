@@ -13,7 +13,7 @@ export type ContentTokenPayload = {
   paths?: string[];
   /** When true, content responses must not be indexed (ephemeral tier). */
   noindex?: boolean;
-  /** Legacy signed routes use this while the dashboard iframe remains in service. */
+  /** False opts current direct content URLs into interactive HTML; omitted legacy tokens fail closed. */
   script_disabled?: boolean;
   /** Null is the explicit signed no-expiration value for pinned Artifact capabilities. */
   exp: number | null;

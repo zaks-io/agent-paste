@@ -1,17 +1,9 @@
 import type { QueryClient } from "@tanstack/react-query";
-import {
-  createRootRouteWithContext,
-  HeadContent,
-  Outlet,
-  Scripts,
-  useRouter,
-  useRouterState,
-} from "@tanstack/react-router";
+import { createRootRouteWithContext, HeadContent, Outlet, Scripts, useRouter } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
 import { NavigationProgress } from "../components/chrome/NavigationProgress";
 import { ThemeProvider } from "../components/theme-provider";
 import { analyticsScripts } from "../lib/analytics-scripts";
-import { isExternalObservabilityBlockedRoute } from "../lib/external-observability";
 import { buildPageMeta, SITE_NAME } from "../lib/page-meta";
 import { captureBrowserException, initBrowserSentry } from "../lib/sentry-browser";
 import { loadRootEnvFn, type RootLoaderData } from "../rpc/web-loaders";
@@ -19,15 +11,8 @@ import "../styles/globals.css";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   // The head context carries loaderData at runtime (the public type omits it).
-  head: ({
-    loaderData,
-    matches,
-  }: {
-    loaderData?: RootLoaderData;
-    matches?: ReadonlyArray<{ routeId?: string; loaderData?: unknown }>;
-  }) => {
-    const observabilityBlocked = isExternalObservabilityBlockedRoute(matches);
-    const scripts = observabilityBlocked ? [] : analyticsScripts(loaderData?.analyticsToken);
+  head: ({ loaderData }: { loaderData?: RootLoaderData }) => {
+    const scripts = analyticsScripts(loaderData?.analyticsToken);
     return {
       meta: [
         { charSet: "utf-8" },
@@ -35,9 +20,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         { name: "color-scheme", content: "light dark" },
         ...buildPageMeta({ title: SITE_NAME }).meta,
         // Handoff for the browser SDK: it reads these on pageload so the client
-        // transaction joins the Worker trace that rendered this document. Omitted
-        // on access-link routes, which opt out of external observability entirely.
-        ...(observabilityBlocked ? [] : traceMeta(loaderData?.traceMeta)),
+        // transaction joins the Worker trace that rendered this document.
+        ...traceMeta(loaderData?.traceMeta),
       ],
       links: [
         { rel: "icon", type: "image/png", href: "/favicon.png" },
@@ -78,10 +62,9 @@ function traceMeta(trace: RootLoaderData["traceMeta"] | undefined): Array<{ name
 function RootComponent() {
   const { sentry } = Route.useLoaderData();
   const router = useRouter();
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
   useEffect(() => {
-    initBrowserSentry(sentry, router, pathname);
-  }, [sentry, router, pathname]);
+    initBrowserSentry(sentry, router);
+  }, [sentry, router]);
   return (
     <RootDocument>
       <ThemeProvider>

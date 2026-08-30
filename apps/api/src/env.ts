@@ -55,7 +55,6 @@ export type Env = {
   DB?: Repository | HyperdriveBinding;
   ARTIFACTS?: R2Bucket;
   SMOKE_HARNESS_SECRET?: string;
-  STREAM_INTERNAL_SECRET?: string;
   API_KEY_PEPPER_V1?: string;
   API_KEY_PEPPER_V2?: string;
   API_KEY_PEPPER_CURRENT_KID?: string;
@@ -65,6 +64,7 @@ export type Env = {
   API_BASE_URL?: string;
   CONTENT_BASE_URL?: string;
   CONTENT_CAPABILITY_DOMAIN?: string;
+  CONTENT_CAPABILITY_HOST_SUFFIX?: string;
   WEB_BASE_URL?: string;
   CONTENT_SIGNING_SECRET?: string;
   ARTIFACT_BYTES_ENCRYPTION_KEY?: string;
@@ -91,10 +91,6 @@ export type Env = {
   SYNC_BYTE_PURGE_DELETED_OBJECTS?: number;
   LOCAL_MVP_REPOSITORY?: {
     revisions: Map<string, { bytes_purge_enqueued_at?: string | null }>;
-  };
-  ARTIFACT_LIVE?: {
-    idFromName(name: string): DurableObjectId;
-    get(id: DurableObjectId): { fetch(request: Request): Promise<Response> };
   };
   WRITE_ALLOWANCE?: {
     idFromName(name: string): DurableObjectId;

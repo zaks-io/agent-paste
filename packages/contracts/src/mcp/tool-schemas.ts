@@ -1,12 +1,8 @@
 import type { z } from "../zod.js";
 import {
   McpAddRevisionInput,
-  McpCreateRevisionLinkInput,
-  McpCreateRevisionLinkOutput,
   McpDeleteArtifactInput,
   McpDeleteArtifactOutput,
-  McpListAccessLinksInput,
-  McpListAccessLinksOutput,
   McpListArtifactsInput,
   McpListArtifactsOutput,
   McpListRevisionsInput,
@@ -18,10 +14,6 @@ import {
   McpReadArtifactOutput,
   McpReadFileInput,
   McpReadFileOutput,
-  McpRevokeAccessLinkInput,
-  McpRevokeAccessLinkOutput,
-  McpSetVisibilityInput,
-  McpSetVisibilityOutput,
   type McpToolName,
   McpUpdateDisplayMetadataInput,
   McpUpdateDisplayMetadataOutput,
@@ -39,10 +31,6 @@ export const mcpToolInputSchemas = {
   list_revisions: McpListRevisionsInput,
   delete_artifact: McpDeleteArtifactInput,
   update_display_metadata: McpUpdateDisplayMetadataInput,
-  set_visibility: McpSetVisibilityInput,
-  create_revision_link: McpCreateRevisionLinkInput,
-  list_access_links: McpListAccessLinksInput,
-  revoke_access_link: McpRevokeAccessLinkInput,
   whoami: McpWhoamiInput,
 } as const satisfies Record<McpToolName, z.ZodTypeAny>;
 
@@ -56,10 +44,6 @@ export const mcpToolOutputSchemas = {
   list_revisions: McpListRevisionsOutput,
   delete_artifact: McpDeleteArtifactOutput,
   update_display_metadata: McpUpdateDisplayMetadataOutput,
-  set_visibility: McpSetVisibilityOutput,
-  create_revision_link: McpCreateRevisionLinkOutput,
-  list_access_links: McpListAccessLinksOutput,
-  revoke_access_link: McpRevokeAccessLinkOutput,
   whoami: McpWhoamiResponse,
 } as const satisfies Record<McpToolName, z.ZodTypeAny>;
 

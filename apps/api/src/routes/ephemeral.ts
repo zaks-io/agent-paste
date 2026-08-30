@@ -1,6 +1,7 @@
 import { ClaimCode } from "@agent-paste/contracts";
 import { parseClaimToken, type Repository } from "@agent-paste/db";
 import { getBoundResponders, writeFunnelEvent } from "@agent-paste/worker-runtime";
+import { refreshClaimedArtifactCapabilities } from "../artifact-capability.js";
 import type { AppContext } from "../env.js";
 import {
   consumeEphemeralProvisionGate,
@@ -93,6 +94,7 @@ export async function ephemeralClaimRoute(
         claimTokenSecret: guard.body.claim_token,
         idempotencyKey: guard.idempotencyKey,
       });
+      await refreshClaimedArtifactCapabilities(db, context.env, actor, result.artifact_ids);
       if (!isReplay) {
         writeFunnelEvent(context.env.FUNNEL_EVENTS, {
           kind: "link_claimed",

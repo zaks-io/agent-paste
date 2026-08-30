@@ -17,9 +17,9 @@ enforcement source for those routes.
 
 The first implementation pass should import schemas from this package instead of creating local route-only shapes. Hono/OpenAPI route definitions can wrap these schemas, but they should not re-declare them.
 
-The registry now includes Access Link REST entries, dashboard/auth schemas,
-Bundle schemas, multi-Revision lifecycle schemas, billing schemas, MCP schemas,
-and app-layer encryption metadata beyond the original MVP baseline.
+The registry includes publish, dashboard/auth, Bundle, multi-Revision lifecycle,
+billing, MCP, and app-layer encryption contracts. Access Link and viewer routes
+are retired and are not registered.
 
 ## Wire Rules
 
@@ -29,11 +29,9 @@ and app-layer encryption metadata beyond the original MVP baseline.
 - Mutating routes that create durable state require `Idempotency-Key` unless the route registry marks them otherwise.
 - List routes use cursor pagination with `cursor`, `limit`, and a response-level `page_info`.
 - All success responses echo `X-Request-Id`.
-- Public or link-scoped Agent View surfaces fail closed under active Platform
-  Lockdown or Access Link Lockdown: callers receive the same generic
-  `not_found` envelope as any missing or invalid target, and no Artifact
-  metadata is returned. Public route contracts use `PublicAgentView`, which omits
-  lockdown metadata.
+- Public Artifact reads fail closed under active Platform Lockdown: callers
+  receive the same generic `not_found` response as any missing or invalid
+  target, and no Artifact metadata is returned.
 - Authenticated Workspace Member Agent View reads may include explicit lockdown
   metadata so dashboard surfaces can explain why content is dark. Signed content
   URLs still carry workspace and Artifact identifiers so the `content` Worker
@@ -55,16 +53,17 @@ and app-layer encryption metadata beyond the original MVP baseline.
 
 ULID text is uppercase Crockford base32 excluding ambiguous characters.
 
-Future identifier families:
+Historical identifier families:
 
-- `AccessLinkId` and `AccessLinkPublicId` for Phase 4 link lifecycle.
+- `AccessLinkId` and `AccessLinkPublicId` remain only in dormant migration data;
+  current routes do not expose them.
 - `WorkspaceMemberId` for Phase 3 OAuth/self-serve workspace membership.
 - `AuditEventId` if `operation_events` graduates into a fuller audit log.
 - Bundle availability shapes for Phase 4 bundle generation.
 
 ## Change Control
 
-Adding an optional response field is non-breaking. Removing a field, changing a field type, renaming an enum value, changing an ID format, or changing an error code is breaking and requires a `/v2` route family.
+Adding an optional response field is non-breaking. Removing a field, changing a field type, renaming an enum value, changing an ID format, or changing an error code is breaking and requires a `/v2` route family. The one early-alpha exception is the explicit contract reset accepted in ADR 0094, which removes the viewer and Access Link vocabulary instead of preserving a second publish contract.
 
 When adding a new route:
 

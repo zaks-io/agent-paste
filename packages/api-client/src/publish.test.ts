@@ -9,11 +9,8 @@ function publishResult(overrides: Record<string, unknown> = {}) {
     artifact_id: ARTIFACT_ID,
     revision_id: REVISION_ID,
     title: "Report",
-    private_url: "https://app.test/v/art_1",
-    revision_content_url: "https://usercontent.test/v/token/index.md",
-    agent_view_url: "https://api.test/v1/public/agent-view/token",
+    url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
     expires_at: "2026-01-01T00:00:00.000Z",
-    bundle: { status: "disabled" },
     ...overrides,
   } as never;
 }
@@ -104,7 +101,7 @@ describe("runPublish", () => {
     expect(outcome.uploadStats).toMatchObject({ reusedFiles: 1, reusedBytes: 11, uploadedFiles: 0, totalFiles: 1 });
   });
 
-  it("publishes the revision with no body (content-only, private)", async () => {
+  it("publishes the revision with no body", async () => {
     const publishRevision = vi.fn(async () => publishResult());
     const { transport } = fakeTransport({ publishRevision });
 
@@ -112,10 +109,10 @@ describe("runPublish", () => {
     expect(publishRevision).toHaveBeenLastCalledWith(ARTIFACT_ID, REVISION_ID, "cli_publish_1");
   });
 
-  it("returns the server private_url as the private viewer link", async () => {
+  it("returns the server URL as the Artifact link", async () => {
     const { transport } = fakeTransport();
     const outcome = await runPublish(transport, input());
-    expect(outcome.privateUrl).toBe("https://app.test/v/art_1");
+    expect(outcome.url).toBe("https://0123456789abcdef0123456789abcdef.agent-paste.sh/");
     expect(outcome).not.toHaveProperty("shared");
   });
 

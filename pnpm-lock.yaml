@@ -527,9 +527,6 @@ importers:
       '@agent-paste/plans':
         specifier: workspace:*
         version: link:../../packages/plans
-      '@agent-paste/tokens':
-        specifier: workspace:*
-        version: link:../../packages/tokens
       '@agent-paste/worker-runtime':
         specifier: workspace:*
         version: link:../../packages/worker-runtime

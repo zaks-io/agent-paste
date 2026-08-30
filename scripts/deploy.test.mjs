@@ -330,14 +330,7 @@ describe("deploy secret planning", () => {
     it("re-provisions SMOKE_HARNESS_SECRET when --smoke is set even if it already exists", async () => {
       const allSecretsPresent = async (worker) => {
         if (worker === workerName("api", "preview")) {
-          return [
-            "CONTENT_SIGNING_SECRET",
-            "API_KEY_PEPPER_V1",
-            "ACCESS_LINK_SIGNING_KEY_V1",
-            "STREAM_INTERNAL_SECRET",
-            "WORKOS_API_KEY",
-            "SMOKE_HARNESS_SECRET",
-          ];
+          return ["CONTENT_SIGNING_SECRET", "API_KEY_PEPPER_V1", "WORKOS_API_KEY", "SMOKE_HARNESS_SECRET"];
         }
         if (worker === workerName("jobs", "preview")) {
           return ["CONTENT_SIGNING_SECRET", "ARTIFACT_BYTES_ENCRYPTION_KEY", "SMOKE_HARNESS_SECRET"];
@@ -386,14 +379,7 @@ describe("deploy secret planning", () => {
     it("rotates and binds SMOKE_HARNESS_SECRET on api+jobs for --app=apex --smoke while deploying only apex", async () => {
       const allSecretsPresent = async (worker) => {
         if (worker === workerName("api", "preview")) {
-          return [
-            "CONTENT_SIGNING_SECRET",
-            "API_KEY_PEPPER_V1",
-            "ACCESS_LINK_SIGNING_KEY_V1",
-            "STREAM_INTERNAL_SECRET",
-            "WORKOS_API_KEY",
-            "SMOKE_HARNESS_SECRET",
-          ];
+          return ["CONTENT_SIGNING_SECRET", "API_KEY_PEPPER_V1", "WORKOS_API_KEY", "SMOKE_HARNESS_SECRET"];
         }
         if (worker === workerName("jobs", "preview")) {
           return ["CONTENT_SIGNING_SECRET", "ARTIFACT_BYTES_ENCRYPTION_KEY", "SMOKE_HARNESS_SECRET"];

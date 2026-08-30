@@ -66,7 +66,7 @@ export async function accountlessProvisionProbe(params: {
   emit: ProbeEmit;
   timeoutSeconds?: number;
 }): Promise<void> {
-  if (!params.config.verification.require_unlisted_url) {
+  if (!params.config.verification.require_artifact_url) {
     return;
   }
   params.emit("info", "accountless provision preflight starting");

@@ -230,7 +230,10 @@ class MemoryDb {
     });
     return {
       artifact_id: session.artifact_id,
+      capability_id: "00112233445566778899aabbccddeeff",
       revision_id: session.revision_id,
+      revision_number: revisionNumber,
+      artifact_updated_at: "2026-01-01T00:00:00.000Z",
       title: session.title,
       revision_content_url: revisionContentUrl,
       agent_view_url: `http://api.local/v1/public/agent-view/${session.artifact_id}.${session.revision_id}`,
@@ -401,28 +404,23 @@ describe("local MVP vertical slice", () => {
       {
         AUTH: auth,
         DB: db,
+        ARTIFACTS: artifacts,
         ...rateLimitEnv,
+        AGENT_PASTE_ENV: "dev",
+        CONTENT_CAPABILITY_DOMAIN: "artifact.test",
         CONTENT_BASE_URL: "http://content.local",
         CONTENT_SIGNING_SECRET: "content-secret",
         API_BASE_URL: "http://api.local",
       },
     );
     expect(publishResponse.status).toBe(200);
-    const published = (await publishResponse.json()) as { revision_content_url: string; agent_view_url: string };
-    const agentViewResponse = await apiWorker.fetch(new Request(published.agent_view_url), {
-      AUTH: auth,
-      DB: db,
-      ...rateLimitEnv,
-      CONTENT_BASE_URL: "http://content.local",
-      CONTENT_SIGNING_SECRET: "content-secret",
-    });
-    expect(agentViewResponse.status).toBe(200);
-    await expect(agentViewResponse.json()).resolves.toMatchObject({ title: "demo", files: [{ path: "index.html" }] });
-
-    const contentResponse = await contentWorker.fetch(new Request(published.revision_content_url), {
+    const published = (await publishResponse.json()) as { url: string };
+    expect(published.url).toBe("https://00112233445566778899aabbccddeeff.artifact.test");
+    const contentResponse = await contentWorker.fetch(new Request(published.url), {
       ARTIFACTS: artifacts,
       DENYLIST: new MemoryKv(),
       ...rateLimitEnv,
+      CONTENT_CAPABILITY_DOMAIN: "artifact.test",
       CONTENT_SIGNING_SECRET: "content-secret",
       ...artifactBytesEncryptionEnv,
     });
@@ -436,7 +434,10 @@ describe("local MVP vertical slice", () => {
       {
         AUTH: auth,
         DB: db,
+        ARTIFACTS: artifacts,
         ...rateLimitEnv,
+        AGENT_PASTE_ENV: "dev",
+        CONTENT_CAPABILITY_DOMAIN: "artifact.test",
         CONTENT_BASE_URL: "http://content.local",
       },
     );
@@ -530,7 +531,10 @@ describe("local MVP vertical slice", () => {
       {
         AUTH: auth,
         DB: db,
+        ARTIFACTS: artifacts,
         ...rateLimitEnv,
+        AGENT_PASTE_ENV: "dev",
+        CONTENT_CAPABILITY_DOMAIN: "artifact.test",
         CONTENT_BASE_URL: "http://content.local",
         CONTENT_SIGNING_SECRET: "content-secret",
         API_BASE_URL: "http://api.local",

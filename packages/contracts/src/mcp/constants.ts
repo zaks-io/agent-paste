@@ -23,7 +23,6 @@ export const MCP_AUTHKIT_OAUTH_SCOPES = ["openid", "profile", "email", "offline_
 export const MCP_REJECTED_AUTH_REQUIREMENTS = ["api_key", "workos_access_token"] as const;
 
 /** Suffix for publish-chain share-link idempotency records. */
-export const MCP_PUBLISH_SHARE_LINK_IDEMPOTENCY_SUFFIX = ":share-link" as const;
 
 export const MCP_JSONRPC_VERSION = "2.0" as const;
 export const MCP_JSONRPC_APPLICATION_ERROR = -32_000;

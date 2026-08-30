@@ -5,14 +5,14 @@ lives in `packages/contracts`.
 
 ## Hosts
 
-| Surface   | Host                                                                   | Owns                                                                                                                 |
-| --------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `api`     | `https://api.agent-paste.sh`                                           | Authenticated CLI/MCP control plane, Agent View, artifact metadata, web/operator routes, billing, and ephemeral API. |
-| `upload`  | `https://upload.agent-paste.sh`                                        | Upload Sessions, signed upload-worker PUT URLs, R2 writes, and finalize validation.                                  |
-| `content` | `https://{id}-uc.agent-paste.sh`, `https://usercontent.agent-paste.sh` | Capability and legacy signed file reads, plus signed Bundle reads, from private R2.                                  |
-| `web`     | `https://app.agent-paste.sh`                                           | Dashboard, Access Link viewer, WorkOS auth, claim, and billing UI.                                                   |
-| `mcp`     | `https://mcp.agent-paste.sh`                                           | OAuth-only Streamable HTTP MCP.                                                                                      |
-| `apex`    | `https://agent-paste.sh`                                               | Marketing, legal, install scripts, agent text surfaces, and public docs.                                             |
+| Surface   | Host                                                                | Owns                                                                                                                 |
+| --------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `api`     | `https://api.agent-paste.sh`                                        | Authenticated CLI/MCP control plane, Agent View, artifact metadata, web/operator routes, billing, and ephemeral API. |
+| `upload`  | `https://upload.agent-paste.sh`                                     | Upload Sessions, signed upload-worker PUT URLs, R2 writes, and finalize validation.                                  |
+| `content` | `https://{id}.agent-paste.sh`, `https://usercontent.agent-paste.sh` | Capability websites and legacy signed file reads from private R2.                                                    |
+| `web`     | `https://app.agent-paste.sh`                                        | Dashboard, WorkOS auth, claim, and billing UI.                                                                       |
+| `mcp`     | `https://mcp.agent-paste.sh`                                        | OAuth-only Streamable HTTP MCP.                                                                                      |
+| `apex`    | `https://agent-paste.sh`                                            | Marketing, legal, install scripts, agent text surfaces, and public docs.                                             |
 
 Preview hosts use the same path contracts with preview-specific hostnames and secrets.
 
@@ -145,7 +145,7 @@ Authenticated `api` and `upload` routes enforce guards in a fixed order
 
 `PublicAgentView` is public to anyone with the signed token. It resolves one exact Revision and returns full per-file signed URLs for that Revision, not `content_prefix`; those links stay on the legacy content route during the serialized rollout so later capability-manifest updates cannot make the files disagree with the returned metadata. It does not include lockdown metadata. Authenticated owner/member Agent View routes use the same exact-Revision file-link rule and may include explicit lockdown metadata for dashboard-visible locked Artifacts.
 
-The authenticated member `AgentView` additionally carries `private_url` — the login-walled clean viewer (`/v/<artifactId>`) for the Workspace Member ([ADR 0091](../adr/0091-client-side-revise-engine-and-literal-edit-tools.md)). It is **member-only**: it is absent from `PublicAgentView`, and the access-link resolve path (a public/Share-Link viewer, which still passes a `workspaceId` to sign content tokens) does not emit it — the API gates it on an explicit `includePrivateUrl` opt-in set only by the authenticated member route, so a private viewer link never reaches an anonymous viewer.
+The authenticated member `AgentView` additionally carries `url`, the same stable top-level capability URL returned by publish. `PublicAgentView` remains an exact-Revision metadata contract and does not carry that moving Artifact URL.
 
 `file-content` reads one stored file's decrypted plaintext for the owning Workspace Member so an agent can diff against it and revise with a unified-diff patch ([ADR 0090](../adr/0090-agent-file-read-back-api-decrypts-member-plaintext.md)). Inputs: `?path=` (required; query, not a path segment, since a file path may contain `/`) and `?revision_id=` (optional; defaults to latest). The response `ArtifactFileContent` is `{ path, sha256, size_bytes, content_type, is_binary, body? }`: `body` is the decoded UTF-8 text and is present only when the file is text and `≤ 10 MiB`. `is_binary` is byte-derived (true binary only); a text file over the inline cap returns `is_binary: false` with `body` absent (the agent fetches it via the content URL or uploads a whole blob), and an oversize file is returned as metadata **without reading R2**. This is the only `api` route that decrypts artifact bytes; the blob key is derived from the RLS-scoped row's plaintext `sha256` plus the actor's workspace, never from client input, and a missing/undecryptable blob is `storage_unavailable` (503), never `not_found`. `AgentView` file entries also carry an optional plaintext `sha256` so an agent can detect what changed before reading a file back.
 
@@ -296,14 +296,8 @@ even while the session is still open.
   "artifact_id": "art_...",
   "revision_id": "rev_...",
   "title": "demo",
-  "private_url": "https://app.agent-paste.sh/v/art_...",
-  "revision_content_url": "https://{capability_id}-uc.agent-paste.sh/index.html",
-  "agent_view_url": "https://api.agent-paste.sh/v1/public/agent-view/{agent_view_token}",
-  "expires_at": "2026-06-19T12:00:00.000Z",
-  "bundle": {
-    "status": "pending",
-    "retry_after_seconds": 5
-  }
+  "url": "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+  "expires_at": "2026-06-19T12:00:00.000Z"
 }
 ```
 
@@ -311,46 +305,16 @@ Finalize verifies every expected file exists in R2 and returns a draft Revision
 summary. Publishing the finalized Revision creates or updates the published
 Artifact state, signs the URLs, and returns `PublishResult`.
 
-Authenticated publish is **content-only and private-first**. `PublishResult`
-carries no visibility input and no `shared` field, and there is no
-`access_link_url` member. Human-facing output still leads with the login-walled
-Private Link; in capability-routed environments, the JSON result also exposes
-the no-login bearer capability under the transitional `revision_content_url`
-field.
-`private_url` is the **Private Link** — the login-walled clean viewer at
-`/v/<artifactId>` for the owning **Workspace Member** — and is the default
-authenticated handoff link publish returns. It is **permanent and stable**: the URL is derived only
-from the Artifact id with no token, signature, or expiry, and `add_revision`
-republishes into the same id, so the link never changes across revisions and
-live-updates to the latest Published Revision. It is **always private** (member
-only) and stops resolving only when the
-Artifact itself is deleted or swept by Auto Deletion — a property of the
-Artifact's lifetime, not the link. The `expires_at` in `PublishResult` is the
-Artifact's content lifetime, not a link expiry. The dashboard-only **Artifact
-Console** at `/artifacts/<artifactId>` is never returned by publish.
-`revision_content_url` is a transitional field during the serialized rollout.
-When `CONTENT_CAPABILITY_DOMAIN` is configured, it contains the durable
-per-Artifact capability URL for the entrypoint, stays stable across publishes,
-and advances to the latest Published Revision. Preview and local environments
-without capability routing retain the legacy expiring signed Content Origin URL
-for the exact `revision_id`. Step 5 replaces this field with the single `url`
-publish contract. MCP publish tools (`publish_artifact`,
-`add_revision`) and CLI `publish` run the same publish path and return the same
-shape before each surface applies its documented output projection. Creating a
-managed unlisted Share Link is a separate explicit step: `set_visibility` with
-`visibility: "unlisted"` on MCP, or
-`agent-paste set-visibility <artifact-id> unlisted` on the CLI. It mints or
-reuses the one revocable **Share Link** and returns `unlisted_url`, its no-login
-**Access Link Signed URL**. Accountless `--ephemeral` publish is the exception:
-because it has no human in the loop to run `set-visibility`, the coordinator
-auto-creates the unlisted Share Link at finalize and returns `unlisted_url`
-alongside the claim fields.
-Creating a `share` Access Link is
-idempotent on the Artifact, not just on the request key: if the Artifact already
-has an active (non-revoked, unexpired) Share Link, create returns that same link
-instead of minting a duplicate, so an Artifact has at most one live Share Link.
-Revoking it lets the next `set_visibility unlisted` mint a fresh one. `revision`
-Access Links are never deduped — each pins a specific Revision.
+`url` is the only recipient link. It opens without login as a top-level website,
+uses a durable per-Artifact capability hostname, and advances to the latest
+Published Revision when the same Artifact is revised. The `expires_at` field is
+the Artifact content lifetime. The dashboard-only Artifact Console at
+`/artifacts/{artifact_id}` is never returned by publish.
+
+There is no visibility input, `shared` bit, private viewer URL, Access Link URL,
+or second sharing command. CLI, MCP, authenticated publish, and ephemeral
+publish all use this contract. Ephemeral provisioning may additionally return
+claim fields, but it does not replace or wrap `url`.
 
 ## Content Routes
 
@@ -384,20 +348,14 @@ Human operators and rotation agents use WorkOS operator auth or Cloudflare Acces
 4. CLI or MCP calls `POST upload /v1/upload-sessions/{session_id}/finalize`.
 5. `upload` verifies files and returns the finalized draft Revision.
 6. CLI or MCP calls `POST api /v1/artifacts/{artifact_id}/revisions/{revision_id}/publish`.
-7. CLI human output prints `View` with the `private_url` (`/v/<artifactId>` clean viewer); CLI JSON output returns `PublishResult`.
+7. CLI human output prints `View` with `url`; CLI JSON output returns `PublishResult`.
 
 Publishing without `--artifact-id` creates a new Artifact. Publishing with an
 existing `artifact_id` creates and publishes a new Revision for that Artifact.
-In capability-routed environments, a previous `revision_content_url` advances to
-the newly Published Revision without changing. In preview and local fallback,
-the previous signed URL continues to point at the older Revision.
-Authenticated publish does not create an Access Link. In capability-routed
-environments its transitional `revision_content_url` is itself a no-login bearer
-URL; a managed Share Link is created only by the separate MCP `set_visibility` /
-CLI `agent-paste set-visibility <artifact-id> unlisted` step. Accountless
-`--ephemeral` publish auto-creates that Share Link and returns its Access Link
-Signed URL as the user-facing `unlisted_url`. The `private_url` remains the
-authenticated clean-viewer link for Workspace members.
+The Artifact's existing capability URL advances to the new Published Revision
+without changing. A production or preview publish fails loudly if the API cannot
+write and return the capability URL. Local development may use its configured
+artifact test domain.
 
 Workspace-wide publish deduplication starts only for new hash-aware uploads after
 the digest-manifest contract shipped. There is no historical backfill of legacy

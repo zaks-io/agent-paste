@@ -5,11 +5,8 @@ import {
   deriveMcpIdempotencyKey,
   MCP_API_ERROR_HTTP_STATUS,
   McpAddRevisionInput,
-  McpListAccessLinksOutput,
   McpMultiEditInput,
   McpPublishArtifactInput,
-  McpSetVisibilityInput,
-  McpSetVisibilityOutput,
   McpToolName,
   McpUpdateDisplayMetadataInput,
   mapApiErrorToMcp,
@@ -17,10 +14,10 @@ import {
   mcpEntrypointForRenderMode,
   mcpIdempotencySegment,
   mcpProtectedResourceMetadata,
-  mcpPublishAccessLinkIdempotencyKey,
   mcpTokenHasRequiredScopes,
   mcpToolContractByName,
   mcpToolContracts,
+  mcpToolOutputSchemas,
   mcpWwwAuthenticateHeader,
   resolveMcpForwardedCall,
   toMcpJsonRpcError,
@@ -41,10 +38,6 @@ describe("MCP tool registry", () => {
       "list_revisions",
       "delete_artifact",
       "update_display_metadata",
-      "set_visibility",
-      "create_revision_link",
-      "list_access_links",
-      "revoke_access_link",
       "whoami",
     ]);
   });
@@ -59,28 +52,28 @@ describe("MCP tool registry", () => {
     expect(listed.tools.every((tool) => tool.inputSchema.type === "object")).toBe(true);
   });
 
-  it("does not tell agents publish outputs include omitted IDs", () => {
-    const listed = buildMcpToolList();
-    const publishDescriptions = JSON.stringify(
-      listed.tools.filter((tool) => ["publish_artifact", "add_revision", "multi_edit"].includes(tool.name)),
-    );
-
-    expect(publishDescriptions).toContain("data[].id");
-    expect(publishDescriptions).not.toMatch(/artifact_id from (each )?(publish_artifact )?response/);
-    expect(publishDescriptions).not.toContain("from a publish_artifact response");
-    expect(publishDescriptions).not.toContain("or read_artifact");
-    expect(publishDescriptions).not.toContain("read_artifact artifact_id");
+  it("requires Artifact and Revision ids plus the stable URL in every publish output", () => {
+    const output = {
+      artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      title: "Demo",
+      url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+      expires_at: "2099-01-01T00:00:00.000Z",
+    };
+    for (const toolName of ["publish_artifact", "add_revision", "multi_edit"] as const) {
+      expect(mcpToolOutputSchemas[toolName].safeParse(output).success).toBe(true);
+      expect(mcpToolOutputSchemas[toolName].safeParse({ ...output, artifact_id: undefined }).success).toBe(false);
+      expect(mcpToolOutputSchemas[toolName].safeParse({ ...output, revision_id: undefined }).success).toBe(false);
+      expect(mcpToolOutputSchemas[toolName].safeParse({ ...output, url: undefined }).success).toBe(false);
+    }
   });
 
-  it("puts follow-up output field names in list and link descriptions", () => {
+  it("puts follow-up output field names in list descriptions", () => {
     const listed = buildMcpToolList();
     const descriptions = new Map(listed.tools.map((tool) => [tool.name, tool.description]));
 
     expect(descriptions.get("list_artifacts")).toContain("data[].id");
     expect(descriptions.get("list_revisions")).toContain("items[].revision_id");
-    expect(descriptions.get("list_access_links")).toContain("items[].id");
-    expect(descriptions.get("create_revision_link")).toContain("url");
-    expect(descriptions.get("create_revision_link")).toContain("list_access_links");
   });
 
   it("exposes no share input on publish tools (content-only, private)", () => {
@@ -103,59 +96,13 @@ describe("MCP tool registry", () => {
     ).toBe(false);
   });
 
-  it("advertises only shipped set_visibility values", () => {
-    const listed = buildMcpToolList();
-    const tool = listed.tools.find((entry) => entry.name === "set_visibility");
-    const serializedSchema = JSON.stringify(tool?.inputSchema ?? {});
-
-    expect(serializedSchema).toContain('"private"');
-    expect(serializedSchema).toContain('"unlisted"');
-    expect(serializedSchema).not.toContain('"public"');
-    expect(
-      McpSetVisibilityInput.safeParse({
-        artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-        visibility: "private",
-      }).success,
-    ).toBe(true);
-    expect(
-      McpSetVisibilityInput.safeParse({
-        artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-        visibility: "public",
-      }).success,
-    ).toBe(false);
-  });
-
-  it("allows set_visibility private to report every revoked access link", () => {
-    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const accessLinkIds = Array.from({ length: 101 }, (_, index) => `al_${String(index).padStart(26, "0")}`);
-    const accessLinkRows = accessLinkIds.map((id) => ({
-      id,
-      type: "share",
-      artifact_id: artifactId,
-      revision_id: null,
-      created_at: "2026-01-01T00:00:00.000Z",
-      expires_at: null,
-      revoked_at: null,
-    }));
-
-    expect(McpListAccessLinksOutput.safeParse({ artifact_id: artifactId, items: accessLinkRows }).success).toBe(true);
-    expect(
-      McpSetVisibilityOutput.safeParse({
-        artifact_id: artifactId,
-        visibility: "private",
-        private_url: "https://app.example/v/art_1",
-        revoked_access_link_ids: accessLinkIds,
-      }).success,
-    ).toBe(true);
-  });
-
   it("requires publish and read for publish tools", () => {
     expect(mcpToolContractByName("publish_artifact").requiredScopes).toEqual(["publish", "read"]);
     expect(mcpToolContractByName("add_revision").requiredScopes).toEqual(["publish", "read"]);
   });
 
-  it("advertises Access Link failures on publish tools", () => {
-    for (const toolName of ["publish_artifact", "add_revision"] as const) {
+  it("advertises publish failures on publish tools", () => {
+    for (const toolName of ["publish_artifact", "add_revision", "multi_edit"] as const) {
       const tool = mcpToolContractByName(toolName);
       expect(tool.errors).toContain("forbidden");
       expect(tool.errors).toContain("not_found");
@@ -332,39 +279,6 @@ describe("MCP auth and idempotency helpers", () => {
     expect(mcpTokenHasRequiredScopes(["read"], ["publish"])).toBe(false);
   });
 
-  it("derives the optional publish share-link idempotency key from the tool key", () => {
-    const toolKey = IdempotencyKey.parse("mcp:user_01:42:publish_artifact");
-    expect(mcpPublishAccessLinkIdempotencyKey(toolKey)).toBe("mcp:user_01:42:publish_artifact:share-link");
-  });
-
-  it("derives valid share-link keys for max-length publish tool idempotency keys", () => {
-    const maxToolKey = IdempotencyKey.parse("a".repeat(200));
-    const shareKey = mcpPublishAccessLinkIdempotencyKey(maxToolKey);
-
-    expect(shareKey.length).toBeLessThanOrEqual(200);
-    expect(IdempotencyKey.safeParse(shareKey).success).toBe(true);
-    expect(shareKey).toMatch(/:share-link$/);
-  });
-
-  it("keeps hashed and direct share-link idempotency keyspaces disjoint", () => {
-    // A tool key already shaped like a hashed base (h<32 hex>) must be re-hashed
-    // rather than passed through, so it can never collide with the hashed form of
-    // a different (too-long-to-pass-through) tool key (AP-201).
-    const longToolKey = IdempotencyKey.parse(`${"x".repeat(190)}${"0".repeat(10)}`);
-    const hashedBaseToolKey = IdempotencyKey.parse(`h${"a".repeat(32)}`);
-    expect(`${longToolKey}:share-link`.length).toBeGreaterThan(200);
-
-    const hashedBaseShareKey = mcpPublishAccessLinkIdempotencyKey(hashedBaseToolKey);
-    const longShareKey = mcpPublishAccessLinkIdempotencyKey(longToolKey);
-
-    // Both took the hashed path, so both match the hashed share-link shape...
-    expect(hashedBaseShareKey).toMatch(/^h[0-9a-f]{32}:share-link$/);
-    expect(longShareKey).toMatch(/^h[0-9a-f]{32}:share-link$/);
-    // ...but they are distinct, and the already-hashed base was NOT passed through verbatim.
-    expect(hashedBaseShareKey).not.toBe(longShareKey);
-    expect(hashedBaseShareKey).not.toBe(`${hashedBaseToolKey}:share-link`);
-  });
-
   it("accepts max-length idempotency_key on publish and add_revision inputs", () => {
     const maxKey = "a".repeat(200);
     expect(
@@ -535,7 +449,6 @@ describe("MCP auth and idempotency helpers", () => {
     });
     expect(key.length).toBeLessThanOrEqual(200);
     expect(IdempotencyKey.safeParse(key).success).toBe(true);
-    expect(IdempotencyKey.safeParse(mcpPublishAccessLinkIdempotencyKey(key)).success).toBe(true);
   });
 
   it("parameterizes the WWW-Authenticate error while defaulting to invalid_token", () => {

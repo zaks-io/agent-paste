@@ -50,7 +50,7 @@ export function PricingPage() {
               <span className="text-h1 text-foreground">{proPrice?.amount ?? "—"}</span>
               <span className="text-sm text-subtle">{proPrice?.per ?? "/ mo"}</span>
             </p>
-            <p className="text-base leading-normal text-muted">Higher allowance, longer retention, and Live Updates.</p>
+            <p className="text-base leading-normal text-muted">Higher allowance and longer retention.</p>
             <ButtonAnchor className="mt-1 justify-self-start" href={BILLING_URL} size="lg">
               Upgrade to Pro
             </ButtonAnchor>

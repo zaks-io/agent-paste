@@ -251,7 +251,7 @@ describe("ApiClient", () => {
     );
   });
 
-  it("publishes a revision with no request body (content-only, private)", async () => {
+  it("publishes a revision with no request body", async () => {
     const calls: Request[] = [];
     const client = authedClient({
       apiBaseUrl: "https://api.example.test/",
@@ -267,8 +267,7 @@ describe("ApiClient", () => {
     expect(calls[0]?.method).toBe("POST");
     expect(calls[0]?.headers.get("idempotency-key")).toBe("idem_publish");
     await expect(calls[0]?.text()).resolves.toBe("");
-    expect("private_url" in result && result.private_url.endsWith(`/v/${artifactId}`)).toBe(true);
-    expect(result).not.toHaveProperty("access_link_url");
+    expect(result.url).toBe("https://0123456789abcdef0123456789abcdef.agent-paste.sh/");
   });
 
   it("applies default headers to public API requests", async () => {
@@ -452,11 +451,8 @@ function publishResult() {
     artifact_id: artifactId,
     revision_id: revisionId,
     title: "Demo",
-    private_url: `https://app.example.test/v/${artifactId}`,
-    revision_content_url: "https://content.example.test/v/token/index.html",
-    agent_view_url: "https://api.example.test/v1/agent-view/token",
+    url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
     expires_at: "2026-02-01T00:00:00.000Z",
-    bundle: { status: "pending", retry_after_seconds: 5 },
   };
 }
 

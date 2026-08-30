@@ -1,15 +1,6 @@
 import { cn } from "@agent-paste/ui";
 import { Link } from "@tanstack/react-router";
-import {
-  CreditCard,
-  FileStack,
-  KeyRound,
-  LayoutGrid,
-  Link as LinkIcon,
-  ScrollText,
-  ShieldAlert,
-  SlidersHorizontal,
-} from "lucide-react";
+import { CreditCard, FileStack, KeyRound, LayoutGrid, ScrollText, ShieldAlert, SlidersHorizontal } from "lucide-react";
 import type { ComponentType } from "react";
 
 type Item = {
@@ -34,7 +25,6 @@ const SECTIONS: ReadonlyArray<Section> = [
     items: [
       { to: "/dashboard", label: "Overview", Icon: LayoutGrid, exact: true },
       { to: "/artifacts", label: "Artifacts", Icon: FileStack },
-      { to: "/access-links", label: "Access Links", Icon: LinkIcon },
     ],
   },
   {

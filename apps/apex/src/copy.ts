@@ -73,21 +73,15 @@ export const INSTALL_PS1_CMD = "irm https://agent-paste.sh/install.ps1 | iex";
 // (client.ts reveals lines one by one); it renders fully static for no-JS visitors,
 // crawlers, and reduced-motion.
 
-// The transcript prints a realistic Access Link in its "Link …" output line, the
-// same string a real ephemeral publish returns. The demo's payoff is an inline
-// preview (a mini access-link viewer) rendered as the final beat — it does NOT
-// link out to a separate page, so there is no static `/a/<id>` asset and no URL
-// shown in the preview's brand bar (the real collapsed /al brand bar shows only
-// the wordmark). The fragment is a realistic-looking opaque token; nothing here
-// resolves to real data.
-const EXAMPLE_ARTIFACT_ID = "art_8KQ2WSDIEGO7XR";
-export const EXAMPLE_ACCESS_LINK_URL = `app.agent-paste.sh/al/${EXAMPLE_ARTIFACT_ID}#AQEAAAGJk2YAAAEC9XQrStUvWxYz0123456789AbCdEfGhIjKlMnOpQrStUvWxYz0`;
+// The transcript prints a realistic capability hostname in its output. The
+// example is static and does not resolve to real data.
+export const EXAMPLE_ARTIFACT_URL = "8b31c2a4f20d4a86a53bfe8d06ce9d17.agent-paste.sh";
 // The published artifact's title, shown in the success line and echoed as the
 // title inside the inline preview so the two read as one artifact.
 export const EXAMPLE_ARTIFACT_TITLE = "Ways you could use agent-paste";
 // The handed-back link, as a browser shows it (no fragment). Used for both the
 // "here's your link" line and the preview's address bar so they read as one URL.
-export const PREVIEW_URL = `https://${EXAMPLE_ACCESS_LINK_URL.split("#")[0]}`;
+export const PREVIEW_URL = `https://${EXAMPLE_ARTIFACT_URL}`;
 
 // The body of the artifact the agent published in answer to EXAMPLE_PROMPT.
 // It reads like a tailored answer, but stays public-safe: broad work patterns,
@@ -179,10 +173,9 @@ export type TranscriptLine = {
   // preview opens below it. Not clickable (the demo opens nothing); it is the link
   // the agent reports, echoed by the preview's address bar.
   | { kind: "link"; url: string }
-  // The payoff: an inline "mini access-link viewer" reveal that mirrors the real
-  // /al viewer in miniature (browser address bar + bottom-left wordmark brand bar),
-  // rendering the published page (`title` + `rows`) instead of linking out. `url`
-  // is the access link shown in the fake address bar (no fragment).
+  // The payoff: a miniature top-level Artifact website with its capability URL
+  // in the fake address bar. The marketing demo stays inline, but the product
+  // URL itself opens as a separate website.
   | { kind: "preview"; title: string; rows: string[]; url: string }
   // A trailing dim comment.
   | { kind: "comment"; text: string }
@@ -234,7 +227,7 @@ export const TRANSCRIPT: TranscriptLine[] = [
   // The real CLI ephemeral output block (publish-format.ts: success → Link →
   // Expires → Upload → Claim), bursting in together.
   { kind: "success", wait: 1900, text: `Published "${EXAMPLE_ARTIFACT_TITLE}"` },
-  { kind: "output", wait: 250, text: `Link     ${EXAMPLE_ACCESS_LINK_URL.split("#")[0]}…` },
+  { kind: "output", wait: 250, text: `Link     ${PREVIEW_URL}` },
   // Relative, not a literal date: the real CLI prints a calendar date, but a
   // hardcoded one ages out of the demo. "in 24 hours" is truthful to the ephemeral
   // TTL and never goes stale.
@@ -246,7 +239,7 @@ export const TRANSCRIPT: TranscriptLine[] = [
   { kind: "link", wait: 350, url: PREVIEW_URL },
   // The rows are the agent's published report (EXAMPLE_REPORT_ROWS): concrete ways
   // to use agent-paste, in the agent's voice answering the prompt. The address-bar
-  // URL is the same access link (no fragment), the way a browser shows it.
+  // URL is the same capability hostname the agent hands back.
   {
     kind: "preview",
     wait: 250,
@@ -278,11 +271,11 @@ export const FEATURES: Feature[] = [
   },
   {
     title: "The link stays current, until you cut it",
-    body: "Leave the link open and every viewer advances to the newest Revision on its own, no reload, no re-send. Share through a revocable Access Link and pull it back any time without deleting the work. Artifacts expire under your Workspace Auto Deletion policy: a handoff, not a vault.",
+    body: "Revise the Artifact and the same URL shows the newest Revision on refresh, so there is nothing new to send. Delete it when the handoff is done, or let Workspace Auto Deletion expire it: a handoff, not a vault.",
   },
   {
     title: "Safe to open what your agent wrote",
-    body: "Generated pages are untrusted by construction, so they run from an isolated Content Origin: private storage, short-lived signed tokens, platform-derived MIME types, a strict execution policy, and per-artifact lockdown. You can host what an agent generated without it touching your account.",
+    body: "Generated pages are untrusted by construction, so each runs top-level on its own capability origin with private encrypted storage, signed authorization, platform-derived MIME types, and deny controls. The dashboard auth cookie never reaches Artifact hosts.",
   },
 ];
 

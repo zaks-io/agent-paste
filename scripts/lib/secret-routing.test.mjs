@@ -51,11 +51,9 @@ describe("secret-routing", () => {
 
   it("required sets match the wrangler.jsonc secrets.required declarations", () => {
     expect(requiredSecretsForApp("api", "preview")).toEqual([
-      "ACCESS_LINK_SIGNING_KEY_V1",
       "API_KEY_PEPPER_V1",
       "ARTIFACT_BYTES_ENCRYPTION_KEY",
       "CONTENT_SIGNING_SECRET",
-      "STREAM_INTERNAL_SECRET",
       "WORKOS_API_KEY",
     ]);
     expect(requiredSecretsForApp("mcp", "preview")).toEqual(["WORKOS_API_KEY"]);

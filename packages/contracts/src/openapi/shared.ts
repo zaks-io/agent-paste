@@ -1,10 +1,4 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import {
-  AccessLinkResolveRequest,
-  AccessLinkSignedUrl,
-  CreateAccessLinkRequest,
-  CreateAccessLinkResponse,
-} from "../accessLinks.js";
 import { RevokeApiKeyResponse } from "../admin.js";
 import { AgentView, PublicAgentView } from "../agentView.js";
 import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../apiKeys.js";
@@ -41,8 +35,7 @@ import {
 } from "../ephemeral.js";
 import { LockdownDetail, LockdownListResponse, SetLockdownRequest } from "../lockdown.js";
 import { McpWhoamiResponse } from "../mcp.js";
-import { PlainTextTitle, UrlString } from "../primitives.js";
-import { PublishRevisionRequest, RenderMode, RevisionListResponse, RevisionSummary } from "../revisions.js";
+import { PublishRevisionRequest, RevisionListResponse, RevisionSummary } from "../revisions.js";
 import {
   CreateUploadSessionRequest,
   CreateUploadSessionResponse,
@@ -51,8 +44,6 @@ import {
 } from "../uploadSessions.js";
 import {
   UpdateWebSettingsRequest,
-  WebAccessLinkListResponse,
-  WebAccessLinkRow,
   WebApiKeyListResponse,
   WebArtifactDetailResponse,
   WebArtifactListResponse,
@@ -62,7 +53,6 @@ import {
   WebAuthCallbackResponse,
   WebOperatorEventListResponse,
   WebOperatorEventRow,
-  WebRevokeAccessLinkResponse,
   WebSettingsResponse,
   WebWorkspaceResponse,
   WorkspaceMemberSummary,
@@ -93,23 +83,13 @@ export function registerApiSchemas(registry: OpenAPIRegistry, options: RegisterA
   registry.register("McpWhoamiResponse", McpWhoamiResponse);
   registry.register("UsagePolicy", UsagePolicy);
   registry.register("CliVersionResponse", CliVersionResponse);
-  const registeredPublicAgentView = registry.register("PublicAgentView", PublicAgentView);
+  registry.register("PublicAgentView", PublicAgentView);
   registry.register("AgentView", AgentView);
   registry.register("ArtifactFileContent", ArtifactFileContent);
-  registry.register("AccessLinkResolveRequest", AccessLinkResolveRequest);
   registry.register("EphemeralProvisionRequest", EphemeralProvisionRequest);
   registry.register("EphemeralProvisionResponse", EphemeralProvisionResponse);
   registry.register("EphemeralClaimRequest", EphemeralClaimRequest);
   registry.register("EphemeralClaimResponse", EphemeralClaimResponse);
-  registry.register(
-    "AccessLinkResolveResponse",
-    z.object({
-      agent_view: registeredPublicAgentView,
-      render_mode: RenderMode,
-      iframe_src: UrlString,
-      title: PlainTextTitle,
-    }),
-  );
   registry.register("CreateApiKeyRequest", CreateApiKeyRequest);
   registry.register("CreateApiKeyResponse", CreateApiKeyResponse);
   registry.register("ApiKeySummary", ApiKeySummary);
@@ -126,12 +106,6 @@ export function registerApiSchemas(registry: OpenAPIRegistry, options: RegisterA
   registry.register("WebArtifactListResponse", WebArtifactListResponse);
   registry.register("WebArtifactDetailResponse", WebArtifactDetailResponse);
   registry.register("WebApiKeyListResponse", WebApiKeyListResponse);
-  registry.register("CreateAccessLinkRequest", CreateAccessLinkRequest);
-  registry.register("CreateAccessLinkResponse", CreateAccessLinkResponse);
-  registry.register("AccessLinkSignedUrl", AccessLinkSignedUrl);
-  registry.register("WebAccessLinkRow", WebAccessLinkRow);
-  registry.register("WebAccessLinkListResponse", WebAccessLinkListResponse);
-  registry.register("WebRevokeAccessLinkResponse", WebRevokeAccessLinkResponse);
   registry.register("RevisionSummary", RevisionSummary);
   registry.register("RevisionListResponse", RevisionListResponse);
   registry.register("PublishRevisionRequest", PublishRevisionRequest);
@@ -193,13 +167,6 @@ export const securitySchemes = {
     bearerFormat: "Agent Paste signed Agent View token",
     description:
       "Signed Agent View token carried in the `{token}` path parameter. Modeled as bearer-equivalent because OpenAPI security schemes do not support path parameters.",
-  },
-  SignedAccessLinkRequest: {
-    type: "http",
-    scheme: "bearer",
-    bearerFormat: "Agent Paste Access Link Signed URL",
-    description:
-      "Access Link Signed URL supplied in the JSON request body. Modeled as bearer-equivalent because OpenAPI security schemes do not support body-carried credentials.",
   },
   SignedUploadToken: {
     type: "apiKey",

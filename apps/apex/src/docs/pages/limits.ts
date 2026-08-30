@@ -21,7 +21,6 @@ export const LIMITS_DOC: DocsPage = {
             ["Default TTL", "24h", "3d", "30d"],
             ["Max TTL", "24h", "7d", "90d"],
             ["Live Artifacts", "low-cap unclaimed Workspace", "50", "1000"],
-            ["Live Updates", "No", "No", "Yes"],
           ],
         },
       ],

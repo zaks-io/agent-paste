@@ -29,7 +29,7 @@ const usagePolicy = {
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const uploadSessionId = "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-const accessLinkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+const artifactUrl = "https://0123456789abcdef0123456789abcdef-preview.agent-paste.sh/";
 
 // Sandbox the per-artifact manifest cache (ADR 0090) so publish tests do
 // not write to the developer's real ~/.config/agent-paste.
@@ -146,9 +146,7 @@ describe("cli command dispatch", () => {
     expect(outputs).toHaveLength(2);
     for (const help of outputs) {
       expect(help).toContain("agent-paste publish <path>");
-      expect(help).toContain("agent-paste set-visibility <artifact_id> unlisted --json");
-      expect(help).toContain("private_url");
-      expect(help).toContain("unlisted_url");
+      expect(help).toContain("url");
     }
   });
 
@@ -160,17 +158,10 @@ describe("cli command dispatch", () => {
     const help = stdoutValues(stdout).join("");
     expect(help).toContain("agent-paste publish <path>");
     expect(help).toContain("agent-paste publish <path> --ephemeral --json");
-    expect(help).toContain("agent-paste set-visibility <artifact_id> unlisted --json");
-    expect(help).toContain("private_url");
-    expect(help).toContain("revision_content_url");
-    expect(help).toContain("agent_view_url");
-    expect(help).toContain("bundle");
+    expect(help).toContain("url");
     expect(help).toContain("upload_stats");
     expect(help).toContain("claim_url");
-    expect(help).toContain("access_link_id");
-    expect(help).toContain("unlisted_url");
-    expect(help).toContain("multi-file directory has no inferred entrypoint");
-    expect(help).toContain("pass\n  --entrypoint <path>");
+    expect(help).toContain("--entrypoint <path>");
     expect(help).not.toContain("--share");
   });
 
@@ -340,9 +331,7 @@ describe("cli command dispatch", () => {
         artifact_id: artifactId,
         revision_id: revisionId,
         title: "Published",
-        private_url: "https://app.test/v/art_1",
-        revision_content_url: "https://content.test/v/token/index.html",
-        agent_view_url: "https://api.test/agent-view",
+        url: artifactUrl,
         expires_at: "2026-02-01T00:00:00.000Z",
       });
       const putFile = vi.fn().mockResolvedValue(undefined);
@@ -378,15 +367,10 @@ describe("cli command dispatch", () => {
       expect(finalize).toHaveBeenCalledWith(uploadSessionId, idempotencyKey);
       // Publish is content-only: the revision-publish body is always omitted (undefined).
       expect(publish).toHaveBeenCalledWith(artifactId, revisionId, idempotencyKey, undefined);
-      // Human output defaults to the private/authenticated app View, and surfaces
-      // the artifact id only as the --artifact-id revise handle (so the agent edits
-      // in place instead of republishing). The revision id and snapshot URLs stay
-      // on the JSON surface.
       const out = stdoutValues(stdout).join("");
-      expect(out).toContain("https://app.test/v/art_1");
+      expect(out).toContain(artifactUrl);
       expect(out).toContain(`--artifact-id ${artifactId}`);
       expect(out).not.toContain(revisionId);
-      expect(out).not.toContain("https://content.test/v/token/index.html");
       // Upload summary surfaces the count uploaded and that nothing was reused —
       // assert the facts, not the exact label/spacing/byte rendering.
       expect(out).toMatch(/1\/1/);
@@ -394,104 +378,6 @@ describe("cli command dispatch", () => {
     } finally {
       await removePublishFixture(root);
     }
-  });
-
-  it("set-visibility unlisted creates and mints a Share Link for an artifact", async () => {
-    const stdout = mockStdout();
-    const accessLinkCreate = vi.fn().mockResolvedValue({
-      id: accessLinkId,
-      type: "share",
-      artifact_id: artifactId,
-      revision_id: null,
-      created_at: "2026-01-01T00:00:00.000Z",
-    });
-    const accessLinkMint = vi.fn().mockResolvedValue({ url: "https://app.test/al/PUBLICLINK123456#secret" });
-    const client = fakeClient({
-      accessLinks: { create: accessLinkCreate, mint: accessLinkMint },
-    });
-
-    await main(["set-visibility", artifactId, "unlisted", "--json"], client);
-
-    expect(accessLinkCreate).toHaveBeenCalledWith(
-      artifactId,
-      { type: "share" },
-      expect.stringMatching(/^cli_set_visibility_/),
-    );
-    expect(accessLinkMint).toHaveBeenCalledWith(accessLinkId);
-    const payload = JSON.parse(stdoutValues(stdout).join("")) as {
-      artifact_id: string;
-      visibility: string;
-      access_link_id: string;
-      unlisted_url: string;
-    };
-    expect(payload.artifact_id).toBe(artifactId);
-    expect(payload.visibility).toBe("unlisted");
-    expect(payload.access_link_id).toBe(accessLinkId);
-    expect(payload.unlisted_url).toBe("https://app.test/al/PUBLICLINK123456#secret");
-  });
-
-  it("set-visibility private revokes active access links and returns private_url", async () => {
-    const stdout = mockStdout();
-    const shareLinkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const revisionLinkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8ZA";
-    const revokedLinkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8ZB";
-    const getAgentView = vi.fn().mockResolvedValue({ private_url: "https://app.test/v/art_1" });
-    const accessLinkList = vi.fn().mockResolvedValue({
-      artifact_id: artifactId,
-      items: [
-        { id: shareLinkId, revoked_at: null },
-        { id: revisionLinkId, revoked_at: null },
-        { id: revokedLinkId, revoked_at: "2026-01-01T00:00:00.000Z" },
-      ],
-    });
-    const accessLinkRevoke = vi.fn().mockResolvedValue({ revoked_at: "2026-01-01T00:00:01.000Z" });
-    const client = fakeClient({
-      artifacts: { getAgentView },
-      accessLinks: { list: accessLinkList, revoke: accessLinkRevoke },
-    });
-
-    await main(["set-visibility", artifactId, "private", "--json"], client);
-
-    expect(getAgentView).toHaveBeenCalledWith(artifactId);
-    expect(accessLinkList).toHaveBeenCalledWith(artifactId);
-    expect(accessLinkRevoke).toHaveBeenCalledTimes(2);
-    expect(accessLinkRevoke).toHaveBeenNthCalledWith(1, shareLinkId);
-    expect(accessLinkRevoke).toHaveBeenNthCalledWith(2, revisionLinkId);
-    const payload = JSON.parse(stdoutValues(stdout).join("")) as {
-      artifact_id: string;
-      visibility: string;
-      private_url: string;
-      revoked_access_link_ids: string[];
-    };
-    expect(payload).toMatchObject({
-      artifact_id: artifactId,
-      visibility: "private",
-      private_url: "https://app.test/v/art_1",
-      revoked_access_link_ids: [shareLinkId, revisionLinkId],
-    });
-  });
-
-  it("set-visibility rejects unsupported visibility values", async () => {
-    mockStdout();
-    const getAgentView = vi.fn();
-    const create = vi.fn();
-    const list = vi.fn();
-    const mint = vi.fn();
-    const revoke = vi.fn();
-    const client = fakeClient({
-      artifacts: { getAgentView },
-      accessLinks: { create, list, mint, revoke },
-    });
-
-    await expect(main(["set-visibility", artifactId, "public", "--json"], client)).rejects.toMatchObject({
-      code: "invalid_request",
-      message: "visibility must be one of: private, unlisted",
-    });
-    expect(getAgentView).not.toHaveBeenCalled();
-    expect(create).not.toHaveBeenCalled();
-    expect(list).not.toHaveBeenCalled();
-    expect(mint).not.toHaveBeenCalled();
-    expect(revoke).not.toHaveBeenCalled();
   });
 
   it("skips reused upload targets and reports upload stats", async () => {
@@ -521,9 +407,7 @@ describe("cli command dispatch", () => {
         artifact_id: artifactId,
         revision_id: revisionId,
         title: "Published",
-        private_url: "https://app.test/v/art_1",
-        revision_content_url: "https://content.test/v/token/index.html",
-        agent_view_url: "https://api.test/agent-view",
+        url: artifactUrl,
         expires_at: "2026-02-01T00:00:00.000Z",
       });
       const putFile = vi.fn().mockResolvedValue(undefined);
@@ -539,7 +423,7 @@ describe("cli command dispatch", () => {
       expect(putFile).not.toHaveBeenCalled();
       const payload = JSON.parse(stdoutValues(stdout).join("")) as {
         upload_stats: unknown;
-        private_url: string;
+        url: string;
       };
       expect(payload.upload_stats).toEqual({
         total_files: 1,
@@ -549,10 +433,7 @@ describe("cli command dispatch", () => {
         reused_files: 1,
         reused_bytes: 14,
       });
-      // Content-only, private publish surface: one private viewer link (`/v/<id>`),
-      // the same shape MCP returns. No `shared` bit, and the old `access_link_url`
-      // / `artifact_url` / `viewer_url` fields must not leak.
-      expect(payload.private_url.endsWith("/v/art_1")).toBe(true);
+      expect(payload.url).toBe(artifactUrl);
       expect(payload).not.toHaveProperty("shared");
       expect(payload).not.toHaveProperty("viewer_url");
       expect(payload).not.toHaveProperty("access_link_url");
@@ -596,9 +477,7 @@ describe("cli command dispatch", () => {
         artifact_id: artifactId,
         revision_id: revisionId,
         title: "Published",
-        private_url: "https://app.test/v/art_1",
-        revision_content_url: "https://content.test/v/token/index.html",
-        agent_view_url: "https://api.test/agent-view",
+        url: artifactUrl,
         expires_at: "2026-02-01T00:00:00.000Z",
       });
       const client = fakeClient({
@@ -694,9 +573,7 @@ describe("cli command dispatch", () => {
         artifact_id: artifactId,
         revision_id: revisionId,
         title: "Published",
-        private_url: "https://app.test/v/art_1",
-        revision_content_url: "https://content.test/v/token/index.html",
-        agent_view_url: "https://api.test/agent-view",
+        url: artifactUrl,
         expires_at: "2026-02-01T00:00:00.000Z",
       });
       const client = fakeClient({
@@ -752,9 +629,7 @@ describe("cli command dispatch", () => {
         artifact_id: artifactId,
         revision_id: revisionId,
         title: "Original Report",
-        private_url: "https://app.test/v/art_1",
-        revision_content_url: "https://content.test/v/token/index.html",
-        agent_view_url: "https://api.test/agent-view",
+        url: artifactUrl,
         expires_at: "2026-02-01T00:00:00.000Z",
       });
       const getAgentView = vi.fn().mockResolvedValue({
@@ -765,7 +640,7 @@ describe("cli command dispatch", () => {
         files: [],
         safety_warnings: [],
         bundle: { status: "pending", retry_after_seconds: 5 },
-        private_url: "https://app.test/v/art_1",
+        url: artifactUrl,
       });
       const client = fakeClient({
         artifacts: { getAgentView },
@@ -844,9 +719,7 @@ describe("cli command dispatch", () => {
         artifact_id: artifactId,
         revision_id: revisionId,
         title: "Published",
-        private_url: "https://app.test/v/art_1",
-        revision_content_url: "https://content.test/v/token/index.html",
-        agent_view_url: "https://api.test/agent-view",
+        url: artifactUrl,
         expires_at: "2026-02-01T00:00:00.000Z",
       });
       const client = fakeClient({
@@ -918,9 +791,7 @@ describe("cli command dispatch", () => {
         artifact_id: artifactId,
         revision_id: revisionId,
         title: "Published",
-        private_url: "https://app.test/v/art_1",
-        revision_content_url: "https://content.test/v/token/index.html",
-        agent_view_url: "https://api.test/agent-view",
+        url: artifactUrl,
         expires_at: "2026-02-01T00:00:00.000Z",
       });
       const client = fakeClient({
@@ -1118,7 +989,7 @@ function fakeClient(overrides: Record<string, unknown> = {}): NonNullable<Parame
         files: [],
         safety_warnings: [],
         bundle: { status: "pending", retry_after_seconds: 5 },
-        private_url: "https://app.test/v/art_1",
+        url: artifactUrl,
       }),
       readFile: vi.fn(),
     },

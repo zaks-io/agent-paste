@@ -97,13 +97,13 @@ describe("agent view capability origins", () => {
       },
       env,
       { workspaceId },
-    )) as { revision_content_url: string };
+    )) as { url: string };
 
-    expect(signed.revision_content_url.length).toBeLessThan(200);
-    expect(signed.revision_content_url).not.toContain("/v/");
+    expect(signed.url.length).toBeLessThan(200);
+    expect(signed.url).not.toContain("/v/");
     expect(writes.size).toBe(1);
     const manifest = parseContentCapabilityManifest(
-      writes.get(contentCapabilityObjectKey(capabilityIdFromUrl(signed.revision_content_url))) ?? "",
+      writes.get(contentCapabilityObjectKey(capabilityIdFromUrl(signed.url))) ?? "",
     );
     const payload = await verifyContentToken(manifest?.signed_token ?? "", "content-secret");
     expect(payload?.paths).toHaveLength(101);

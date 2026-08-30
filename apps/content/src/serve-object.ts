@@ -10,21 +10,12 @@ import {
   parseWorkspaceBlobObjectKey,
   plaintextByteLengthFromStoredObject,
   servedContentForPath,
-  TAILWIND_CDN_SCRIPT_SOURCE,
-  withFrameAncestors,
-  withScriptSrcHash,
 } from "@agent-paste/storage";
 import type { ContentTokenPayload } from "@agent-paste/tokens/content";
 import { BASELINE_SECURITY_HEADERS, getBoundResponders, writeArtifactEvent } from "@agent-paste/worker-runtime";
 import { isContentCapabilityRequest } from "./content-capability.js";
 import type { AppContext, Env, R2ObjectBody } from "./env.js";
 import { contentEtag, etagMatches } from "./etag.js";
-import { frameAncestorsForEnv } from "./frame-ancestors.js";
-import {
-  injectViewerResizeReporter,
-  VIEWER_RESIZE_REPORTER_TRANSFORM_ID,
-  viewerResizeReporterScriptSha256,
-} from "./viewer-resize.js";
 
 export const BUNDLE_FILENAME = "bundle.zip";
 const securityHeaders = { ...BASELINE_SECURITY_HEADERS, ...CONTENT_SECURITY_HEADERS };
@@ -105,37 +96,19 @@ export async function serveSignedObject(
     return getBoundResponders(context).respondError("not_found");
   }
 
-  const frameAncestors = capabilityRequest ? [] : frameAncestorsForEnv(env);
-  const representationKey = contentRepresentationKey(path, payload, request, frameAncestors, capabilityRequest);
+  const representationKey = contentRepresentationKey(path, payload, capabilityRequest);
   const etag = await contentEtag(payload.revision_id, path, representationKey);
   // Only short-circuit when the 200 path would actually serve: a workspace-less
   // token 404s below (prepareEncryptedObjectResponse), so a conditional request
   // must 404 too, not return a 304 the client could never have a 200 for.
   if (payload.workspace_id && etagMatches(request.headers.get("if-none-match"), etag)) {
-    // Validate against the exact headers the 200 would carry (per-path CSP
-    // including the inline frame-ancestors relaxation, content-type,
-    // cache-control) so the 304 cannot weaken them: RFC 9111 §4.3.4 lets a 304
+    // Validate against the exact headers the 200 would carry (per-path CSP,
+    // content-type, and cache-control) so the 304 cannot weaken them: RFC 9111 §4.3.4 lets a 304
     // replace the cached response's headers.
-    const trustedViewerFrame = !capabilityRequest && isTrustedViewerFrameRequest(request, frameAncestors);
-    const scriptDisabled =
-      !capabilityRequest && (payload.script_disabled !== false || (isHtmlPath(path) && !trustedViewerFrame));
-    const injectsResizeReporter = !capabilityRequest && isHtmlPath(path) && trustedViewerFrame;
-    const resizeReporterScriptHash = injectsResizeReporter
-      ? await resizeReporterScriptHashForPolicy(scriptDisabled)
-      : undefined;
     return notModifiedResponse(
       context,
       payload,
-      responseHeadersForPath(
-        path,
-        0,
-        payload,
-        etag,
-        frameAncestors,
-        request,
-        resizeReporterScriptHash,
-        capabilityRequest,
-      ),
+      responseHeadersForPath(path, 0, payload, etag, request, capabilityRequest),
     );
   }
 
@@ -158,36 +131,15 @@ export async function serveSignedObject(
   }
 
   const injectsNoindex = payload.noindex === true && isHtmlPath(path);
-  const trustedViewerFrame = !capabilityRequest && isTrustedViewerFrameRequest(request, frameAncestors);
-  const scriptDisabled =
-    !capabilityRequest && (payload.script_disabled !== false || (isHtmlPath(path) && !trustedViewerFrame));
-  const injectsResizeReporter = !capabilityRequest && isHtmlPath(path) && trustedViewerFrame;
-  const resizeReporterScriptHash = injectsResizeReporter
-    ? await resizeReporterScriptHashForPolicy(scriptDisabled)
-    : undefined;
   const bytes =
-    served.bytes && (injectsNoindex || injectsResizeReporter)
-      ? transformViewerHtmlBytes(served.bytes, {
-          noindex: injectsNoindex,
-          resizeReporter: injectsResizeReporter,
-        })
-      : served.bytes;
+    served.bytes && injectsNoindex ? transformHtmlBytes(served.bytes, { noindex: injectsNoindex }) : served.bytes;
   const size = bytes ? bytes.byteLength : served.plaintextSize;
 
-  const headers = responseHeadersForPath(
-    path,
-    size,
-    payload,
-    etag,
-    frameAncestors,
-    request,
-    resizeReporterScriptHash,
-    capabilityRequest,
-  );
+  const headers = responseHeadersForPath(path, size, payload, etag, request, capabilityRequest);
   // A HEAD has no body to measure, so it reports the arithmetic plaintext size.
   // When HTML injection would grow the GET body, that size is wrong, so drop
   // content-length rather than advertise a length the GET would not match.
-  if (!bytes && (injectsNoindex || injectsResizeReporter)) {
+  if (!bytes && injectsNoindex) {
     headers.delete("content-length");
   }
   headers.set(REQUEST_ID_HEADER, getRequestId(context));
@@ -423,32 +375,17 @@ export function responseHeadersForPath(
   size: number,
   payload: ContentTokenPayload,
   etag: string,
-  frameAncestorsOrRequest: readonly string[] | Request = [],
   request?: Request,
-  resizeReporterScriptHash?: string,
   capabilityRequest = false,
 ): Headers {
-  const frameAncestors = frameAncestorsOrRequest instanceof Request ? [] : frameAncestorsOrRequest;
-  request ??= frameAncestorsOrRequest instanceof Request ? frameAncestorsOrRequest : undefined;
-  const trustedViewerFrame = !capabilityRequest && isTrustedViewerFrameRequest(request, frameAncestors);
-  const scriptDisabled =
-    !capabilityRequest && (payload.script_disabled !== false || (isHtmlPath(path) && !trustedViewerFrame));
+  const scriptDisabled = !capabilityRequest && payload.script_disabled !== false;
   const served = servedContentForPath(path, { scriptDisabled, capability: capabilityRequest });
   const headers = new Headers(securityHeaders);
   headers.set("cache-control", CONTENT_CACHE_CONTROL);
   headers.set("etag", etag);
   headers.set("content-length", String(size));
   headers.set("content-type", served.contentType);
-  let csp = served.csp;
-  if (resizeReporterScriptHash) {
-    csp = withScriptSrcHash(csp, [resizeReporterScriptHash], [TAILWIND_CDN_SCRIPT_SOURCE]);
-  }
-  if (served.disposition === "inline" && trustedViewerFrame) {
-    headers.set("content-security-policy", withFrameAncestors(csp, frameAncestors));
-    headers.delete("x-frame-options");
-  } else {
-    headers.set("content-security-policy", csp);
-  }
+  headers.set("content-security-policy", served.csp);
   if (served.disposition === "attachment") {
     headers.set("content-disposition", `attachment; filename="${attachmentFilename(path)}"`);
   }
@@ -457,14 +394,6 @@ export function responseHeadersForPath(
   }
   applyOpaqueOriginCors(headers, request);
   return headers;
-}
-
-export function isTrustedViewerFrameRequest(request: Request | undefined, frameAncestors: readonly string[]): boolean {
-  if (!request || frameAncestors.length === 0) return false;
-  const destination = request.headers.get("sec-fetch-dest")?.toLowerCase();
-  if (destination !== "iframe" && destination !== "frame") return false;
-  const mode = request.headers.get("sec-fetch-mode")?.toLowerCase();
-  return !mode || mode === "navigate";
 }
 
 function applyOpaqueOriginCors(headers: Headers, request?: Request): void {
@@ -520,21 +449,15 @@ function notModifiedResponse(context: AppContext, payload: ContentTokenPayload, 
   return new Response(null, { status: 304, headers });
 }
 
-function transformViewerHtmlBytes(
-  bytes: Uint8Array,
-  options: { noindex: boolean; resizeReporter: boolean },
-): Uint8Array {
+function transformHtmlBytes(bytes: Uint8Array, options: { noindex: boolean }): Uint8Array {
   let html = new TextDecoder().decode(bytes);
   if (options.noindex) html = injectNoindexMeta(html);
-  if (options.resizeReporter) html = injectViewerResizeReporter(html);
   return new TextEncoder().encode(html);
 }
 
 export function contentRepresentationKey(
   path: string,
   payload: ContentTokenPayload,
-  request?: Request,
-  frameAncestors: readonly string[] = [],
   capabilityRequest = false,
 ): string | undefined {
   if (!isHtmlPath(path)) {
@@ -543,18 +466,12 @@ export function contentRepresentationKey(
   if (capabilityRequest) {
     return payload.noindex === true ? "capability:noindex" : "capability";
   }
-  const trustedViewerFrame = isTrustedViewerFrameRequest(request, frameAncestors);
-  const scriptDisabled = payload.script_disabled !== false || !trustedViewerFrame;
+  const scriptDisabled = payload.script_disabled !== false;
   const parts: string[] = [];
   if (payload.noindex === true) parts.push("noindex");
-  parts.push(trustedViewerFrame ? "viewer" : "direct");
-  if (trustedViewerFrame) parts.push(`resize-${VIEWER_RESIZE_REPORTER_TRANSFORM_ID}`);
-  parts.push(scriptDisabled ? (trustedViewerFrame ? "script-none-hash" : "script-none") : "script-on");
+  parts.push("direct");
+  parts.push(scriptDisabled ? "script-none" : "script-on");
   return parts.join(":");
-}
-
-async function resizeReporterScriptHashForPolicy(scriptDisabled: boolean): Promise<string | undefined> {
-  return scriptDisabled ? viewerResizeReporterScriptSha256() : undefined;
 }
 
 export function injectNoindexMeta(html: string): string {

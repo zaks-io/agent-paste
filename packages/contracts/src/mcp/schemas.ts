@@ -1,9 +1,7 @@
-import { AccessLinkSignedUrl, AccessLinkType } from "../accessLinks.js";
 import { AgentView, DisplayMetadata } from "../agentView.js";
 import { ArtifactFileContent, ArtifactListResponse, DeleteArtifactResponse } from "../artifacts.js";
 import { Mebibytes, PaginationRequest } from "../common.js";
 import {
-  AccessLinkId,
   ArtifactId,
   Cursor,
   FilePath,
@@ -56,7 +54,7 @@ export type McpPublishArtifactInput = z.infer<typeof McpPublishArtifactInput>;
 export const McpAddRevisionInput = z
   .object({
     artifact_id: ArtifactId.describe(
-      "The existing Artifact to revise. Get it from list_artifacts data[].id. The new Revision publishes under this Artifact's stable private_url, which live-updates any already-open viewer.",
+      "The existing Artifact to revise. Get it from list_artifacts data[].id. The new Revision publishes under this Artifact's stable url.",
     ),
     body: mcpTextBody,
     render_mode: McpPublishRenderMode,
@@ -88,7 +86,7 @@ export type McpEdit = z.infer<typeof McpEdit>;
 export const McpMultiEditInput = z
   .object({
     artifact_id: ArtifactId.describe(
-      "The existing Artifact to edit. Get it from list_artifacts data[].id. The edited Revision publishes under this Artifact's stable private_url, which live-updates any already-open viewer.",
+      "The existing Artifact to edit. Get it from list_artifacts data[].id. The edited Revision publishes under this Artifact's stable url.",
     ),
     path: FilePath.describe(
       "The stored file to edit within the Artifact (e.g. the entrypoint). Read it first with read_file to get the exact base text the edits must match.",
@@ -133,26 +131,6 @@ export const McpUpdateDisplayMetadataInput = z
   .strict();
 export type McpUpdateDisplayMetadataInput = z.infer<typeof McpUpdateDisplayMetadataInput>;
 
-export const McpVisibility = z.enum(["private", "unlisted"]);
-export type McpVisibility = z.infer<typeof McpVisibility>;
-
-export const McpSetVisibilityInput = z.object({ artifact_id: ArtifactId, visibility: McpVisibility }).strict();
-export type McpSetVisibilityInput = z.infer<typeof McpSetVisibilityInput>;
-
-export const McpCreateRevisionLinkInput = z
-  .object({
-    artifact_id: ArtifactId,
-    revision_id: RevisionId,
-  })
-  .strict();
-export type McpCreateRevisionLinkInput = z.infer<typeof McpCreateRevisionLinkInput>;
-
-export const McpListAccessLinksInput = z.object({ artifact_id: ArtifactId }).strict();
-export type McpListAccessLinksInput = z.infer<typeof McpListAccessLinksInput>;
-
-export const McpRevokeAccessLinkInput = z.object({ access_link_id: AccessLinkId }).strict();
-export type McpRevokeAccessLinkInput = z.infer<typeof McpRevokeAccessLinkInput>;
-
 export const McpWhoamiInput = z.object({}).strict();
 export type McpWhoamiInput = z.infer<typeof McpWhoamiInput>;
 
@@ -168,16 +146,14 @@ export const McpUploadStats = z
   .strict();
 export type McpUploadStats = z.infer<typeof McpUploadStats>;
 
-// Publishing returns one link to hand back to the user: private_url. It opens the
-// Artifact in a login-walled browser viewer (`/v/<id>`). Publish is content-only
-// and private, with no visibility input. This matches the CLI, which runs the
-// same publish path. To change unauthenticated access, call set_visibility.
-// Artifact/Revision IDs and content URLs remain available through explicit
-// list/read/link tools.
+// Publishing returns one top-level capability URL. It is stable across revisions
+// and is the only browser link the agent needs to hand back.
 export const McpPublishArtifactOutput = z
   .object({
+    artifact_id: ArtifactId,
+    revision_id: RevisionId,
     title: PlainTextTitle,
-    private_url: UrlString,
+    url: UrlString,
     expires_at: IsoDateTime,
     upload_stats: McpUploadStats.optional(),
   })
@@ -202,64 +178,6 @@ export type McpDeleteArtifactOutput = z.infer<typeof McpDeleteArtifactOutput>;
 export const McpUpdateDisplayMetadataOutput = DisplayMetadata;
 export type McpUpdateDisplayMetadataOutput = z.infer<typeof McpUpdateDisplayMetadataOutput>;
 
-export const McpSetVisibilityPrivateOutput = z
-  .object({
-    artifact_id: ArtifactId,
-    visibility: z.literal("private"),
-    private_url: UrlString,
-    revoked_access_link_ids: z.array(AccessLinkId),
-  })
-  .strict();
-export type McpSetVisibilityPrivateOutput = z.infer<typeof McpSetVisibilityPrivateOutput>;
-
-export const McpSetVisibilityUnlistedOutput = z
-  .object({
-    artifact_id: ArtifactId,
-    visibility: z.literal("unlisted"),
-    access_link_id: AccessLinkId,
-    unlisted_url: UrlString,
-  })
-  .strict();
-export type McpSetVisibilityUnlistedOutput = z.infer<typeof McpSetVisibilityUnlistedOutput>;
-
-export const McpSetVisibilityOutput = z.discriminatedUnion("visibility", [
-  McpSetVisibilityPrivateOutput,
-  McpSetVisibilityUnlistedOutput,
-]);
-export type McpSetVisibilityOutput = z.infer<typeof McpSetVisibilityOutput>;
-
-export const McpCreateRevisionLinkOutput = AccessLinkSignedUrl;
-export type McpCreateRevisionLinkOutput = z.infer<typeof McpCreateRevisionLinkOutput>;
-
-export const McpAccessLinkRow = z
-  .object({
-    id: AccessLinkId,
-    type: AccessLinkType,
-    artifact_id: ArtifactId,
-    revision_id: RevisionId.nullable(),
-    created_at: z.string().datetime({ offset: true }),
-    expires_at: z.string().datetime({ offset: true }).nullable(),
-    revoked_at: z.string().datetime({ offset: true }).nullable(),
-  })
-  .strict();
-export type McpAccessLinkRow = z.infer<typeof McpAccessLinkRow>;
-
-export const McpListAccessLinksOutput = z
-  .object({
-    artifact_id: ArtifactId,
-    items: z.array(McpAccessLinkRow),
-  })
-  .strict();
-export type McpListAccessLinksOutput = z.infer<typeof McpListAccessLinksOutput>;
-
-export const McpRevokeAccessLinkOutput = z
-  .object({
-    access_link_id: AccessLinkId,
-    revoked_at: z.string().datetime({ offset: true }),
-  })
-  .strict();
-export type McpRevokeAccessLinkOutput = z.infer<typeof McpRevokeAccessLinkOutput>;
-
 export const McpWhoamiResponse = z
   .object({
     workspace_member: z.object({
@@ -282,10 +200,6 @@ export const McpToolName = z.enum([
   "list_revisions",
   "delete_artifact",
   "update_display_metadata",
-  "set_visibility",
-  "create_revision_link",
-  "list_access_links",
-  "revoke_access_link",
   "whoami",
 ]);
 export type McpToolName = z.infer<typeof McpToolName>;

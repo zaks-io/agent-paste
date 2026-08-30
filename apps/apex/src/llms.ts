@@ -2,8 +2,7 @@ import { API_BASE_URL, APP_BASE_URL } from "./copy";
 
 const LLMS_TXT_BASE = `# agent-paste
 
-> Publish agent-generated files or directories and return private, unlisted, or
-> accountless links.
+> Publish agent-generated files or directories and return one top-level Artifact URL.
 
 Start with the agent guide unless you are implementing a protocol client.
 
@@ -19,7 +18,7 @@ Start with the agent guide unless you are implementing a protocol client.
 
 ## Human Entry Points
 
-- [Dashboard](${APP_BASE_URL}): Workspaces, Artifacts, Access Links, and billing.
+- [Dashboard](${APP_BASE_URL}): Workspaces, Artifacts, and billing.
 - [Human docs](/docs): Product docs for humans and agents.
 - [Markdown docs](/docs.md): Markdown index of public docs.
 `;

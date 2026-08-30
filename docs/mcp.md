@@ -2,8 +2,8 @@
 
 The hosted MCP server is the path for agents that can connect to remote MCP
 servers but cannot run the `agent-paste` CLI. It gives those agents the same
-Artifact handoff model: publish generated work, read Agent Views, add Revisions,
-and create or revoke Access Links without shell access.
+Artifact handoff model: publish generated work, read Agent Views, and add
+Revisions without shell access.
 
 Production endpoint:
 
@@ -59,12 +59,12 @@ Host-specific OAuth and redirect notes live in
 
 ## What Agents Can Do
 
-MCP exposes fourteen tools:
+MCP exposes ten tools:
 
 | Tool                      | Purpose                                                                                                    |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `whoami`                  | Return the authenticated member, Workspace, and derived scopes.                                            |
-| `publish_artifact`        | Publish a new text-only Artifact. Content-only and private.                                                |
+| `publish_artifact`        | Publish a new text-only Artifact and return its top-level capability URL.                                  |
 | `add_revision`            | Revise an Artifact in place: publish a text-only Revision under the same stable link. Preserves the title. |
 | `multi_edit`              | Edit one file in an Artifact with literal find/replace (the Claude Edit model), publish it as a Revision.  |
 | `list_artifacts`          | List Artifacts in the Workspace.                                                                           |
@@ -73,24 +73,12 @@ MCP exposes fourteen tools:
 | `list_revisions`          | List Revisions for an Artifact.                                                                            |
 | `delete_artifact`         | Delete an Artifact.                                                                                        |
 | `update_display_metadata` | Update an Artifact display title.                                                                          |
-| `set_visibility`          | Set visibility: `private` revokes active Access Links; `unlisted` returns `unlisted_url`.                  |
-| `create_revision_link`    | Create and mint a snapshot Access Link for a specific Revision.                                            |
-| `list_access_links`       | List Share Links and Revision Links for an Artifact.                                                       |
-| `revoke_access_link`      | Revoke a Share Link or Revision Link.                                                                      |
 
-Publishing tools are content-only and private: they take no visibility input and
-return one link, `private_url` — the login-walled clean viewer at
-`/v/<artifactId>` for the owning Workspace Member. There is no `share` input and
-no `shared` output, and the result carries no `access_link_url`. To make an
-Artifact reachable without login, call `set_visibility` with
-`visibility: "unlisted"` as a separate step; it mints or reuses the one Share
-Link and returns `unlisted_url`. To remove no-login access, call `set_visibility`
-with `visibility: "private"`.
-MCP publish output intentionally omits Artifact IDs, Revision IDs,
-`revision_content_url`, and `agent_view_url`; use `list_artifacts`,
-`read_artifact`, `list_revisions`, or explicit link tools when those fields are
-needed. Use `create_revision_link` only when the reader must see one exact
-Revision.
+Publishing tools return one `url`: the unguessable, no-login, top-level
+Artifact capability URL. It has no app viewer or iframe and stays stable across
+Revisions. MCP publish output intentionally omits Artifact and Revision IDs;
+use `list_artifacts`, `read_artifact`, or `list_revisions` when those fields are
+needed.
 
 Output shapes to keep straight:
 
@@ -99,20 +87,15 @@ Output shapes to keep straight:
   `files[].url`, and optional `bundle`.
 - `list_revisions` returns `items[]`; the Revision ID field is
   `items[].revision_id`.
-- `list_access_links` returns `items[]`; the Access Link ID field is
-  `items[].id`.
-- `create_revision_link` returns the minted snapshot `url`. To revoke that link
-  later, call `list_access_links` and pass the matching `items[].id` to
-  `revoke_access_link`.
 
 `add_revision` runs through the shared revise engine (`@agent-paste/revise-core`,
 [ADR 0091](../adr/0091-client-side-revise-engine-and-literal-edit-tools.md)): it
 reads the base Revision and **preserves the existing title** (it takes no title
 parameter and no longer overwrites the title with the literal `"Revision"`; rename
 explicitly via `update_display_metadata`), and publishes the new body as a verified
-patch under the Artifact's stable `private_url` so already-open viewers live-update
-in place. When the new body's `sha256` equals the stored bytes it is a **no-op** —
-no Revision is minted and the call echoes the unchanged link, title, and expiry. A
+patch under the Artifact's stable `url`. When the new body's `sha256` equals the
+stored bytes it is a **no-op**: no Revision is minted and the call echoes the
+unchanged link, title, and expiry. A
 `render_mode` change publishes a whole-file fresh-entrypoint Revision (the one
 meaningful whole-body replace). When the call's entrypoint is not in the base tree
 it falls back to a whole-file publish under the same Artifact. The Revision inherits
@@ -123,7 +106,7 @@ CLI `edit` verb. It takes an `artifact_id`, a `path`, and an ordered `edits` arr
 of `{ old_string, new_string, replace_all? }` — the same shape as Claude's Edit
 tool — and runs through the same `@agent-paste/revise-core` engine: it reads the
 named file, applies the literal edits client-side, and publishes the result as a
-Revision under the Artifact's stable `private_url`, preserving the title. Matching
+Revision under the Artifact's stable `url`, preserving the title. Matching
 is **literal and fail-loud**: each `old_string` must be non-empty and match exactly
 once (set `replace_all` to change every occurrence); a not-found or ambiguous match
 returns an `invalid_request` (HTTP 400) naming the offending edit index instead of
@@ -138,10 +121,10 @@ the source of product authorization. Capabilities come from the authenticated
 Workspace Member in `api`, using one shared scope vocabulary (the same names the
 API uses); MCP scopes are the member's stored API scopes verbatim, no translation:
 
-| Scope     | Grants                                                     | Tools                                                                                                                                                          |
-| --------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `read`    | View your own Artifacts and links                          | `whoami`, `list_artifacts`, `read_artifact`, `read_file`, `list_revisions`, `list_access_links`                                                                |
-| `publish` | Change your own content and manage visibility/access links | `publish_artifact`, `add_revision`, `multi_edit`, `delete_artifact`, `update_display_metadata`, `set_visibility`, `create_revision_link`, `revoke_access_link` |
+| Scope     | Grants                  | Tools                                                                                          |
+| --------- | ----------------------- | ---------------------------------------------------------------------------------------------- |
+| `read`    | View your own Artifacts | `whoami`, `list_artifacts`, `read_artifact`, `read_file`, `list_revisions`                     |
+| `publish` | Change your own content | `publish_artifact`, `add_revision`, `multi_edit`, `delete_artifact`, `update_display_metadata` |
 
 `admin` exists but is dashboard-only (account/workspace management); no MCP tool
 needs it. Today, normal Workspace members are provisioned with `read`, `publish`,
@@ -156,23 +139,17 @@ the MCP host connection.
 - MCP is not an anonymous publish path. Agents with no account and no OAuth host
   should first check CLI auth with `agent-paste whoami --json`; if no login is
   available, they can use `agent-paste publish --ephemeral` through the CLI for
-  restricted accountless non-interactive handoffs such as text, images,
-  markdown, or static HTML/CSS. That path returns `unlisted_url` for immediate
-  no-login viewing and `claim_url` only for optional keep/upgrade. Interactive
-  HTML/JS requires authenticated publish.
+  restricted accountless handoffs such as text, images, markdown, or static
+  sites. That path returns `url` for immediate no-login viewing and `claim_url`
+  only for optional keep/upgrade.
 - Artifact lifetime follows Workspace Auto Deletion policy. MCP callers do not
   choose TTL.
 
-## Removed tool names
+## Retired tools
 
-`make_public` was removed without an alias or deprecation window. Update agent
-prompts, host tool allowlists, and automation to call `set_visibility` instead:
-
-- No-login Share Link: `{ "artifact_id": "...", "visibility": "unlisted" }` —
-  response field is `unlisted_url` (not `public_url`).
-- Revoke no-login access: `{ "artifact_id": "...", "visibility": "private" }`.
-
-The MCP registry no longer advertises `make_public`; no legacy alias exists.
+Visibility and Access Link tools are gone. Every successful publish already
+returns the no-login capability `url`, so agents do not need a second sharing
+step.
 
 ## Deeper References
 

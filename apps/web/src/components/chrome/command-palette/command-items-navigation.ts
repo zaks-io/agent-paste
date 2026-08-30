@@ -3,7 +3,6 @@ import {
   FileStack,
   KeyRound,
   LayoutGrid,
-  Link as LinkIcon,
   ScrollText,
   ShieldAlert,
   SlidersHorizontal,
@@ -35,13 +34,6 @@ const NAVIGATION_ROUTES: NavigationRoute[] = [
     keywords: ["files", "publish"],
     route: "/artifacts",
     Icon: FileStack,
-  },
-  {
-    id: "access-links",
-    label: "Access Links",
-    keywords: ["links", "share"],
-    route: "/access-links",
-    Icon: LinkIcon,
   },
   {
     id: "keys",

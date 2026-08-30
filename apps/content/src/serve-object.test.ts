@@ -20,7 +20,6 @@ import {
   responseHeadersForPath,
   serveSignedObject,
 } from "./serve-object.js";
-import { VIEWER_RESIZE_REPORTER_TRANSFORM_ID } from "./viewer-resize.js";
 
 const ETAG = '"test-etag"';
 const workspaceId = "00000000-0000-4000-8000-000000000001";
@@ -45,16 +44,6 @@ function objectServingApp(payload: ContentTokenPayload, path = "index.html") {
   app.use("*", boundRespondersMiddleware({ defaultErrorHeaders: () => ({}) }));
   app.get("/file", (context) => serveSignedObject(context as AppContext, payload, path));
   return app;
-}
-
-function viewerFrameRequest(): Request {
-  return new Request("https://usercontent.agent-paste.sh/v/token/index.html", {
-    headers: {
-      "sec-fetch-dest": "iframe",
-      "sec-fetch-mode": "navigate",
-      "sec-fetch-site": "same-site",
-    },
-  });
 }
 
 describe("serve-object path allowlist", () => {
@@ -177,7 +166,6 @@ describe("serve-object response headers", () => {
       4,
       basePayload(),
       ETAG,
-      [],
       new Request("https://usercontent.agent-paste.sh/v/token/data/latest.json", {
         headers: { origin: "null" },
       }),
@@ -190,7 +178,6 @@ describe("serve-object response headers", () => {
       4,
       basePayload(),
       ETAG,
-      [],
       new Request("https://usercontent.agent-paste.sh/v/token/data/latest.json", {
         headers: { origin: "https://app.agent-paste.sh" },
       }),
@@ -215,108 +202,16 @@ describe("serve-object response headers", () => {
     expect(CONTENT_CACHE_CONTROL).toBe("private, no-cache");
   });
 
-  it("opens framing to the app origin for viewer iframe requests and drops XFO", () => {
+  it("always denies framing, including iframe requests", () => {
     const headers = responseHeadersForPath(
       "index.html",
       3,
       basePayload({ script_disabled: false }),
       ETAG,
-      ["https://app.agent-paste.sh"],
-      viewerFrameRequest(),
-    );
-    expect(headers.get("content-security-policy")).toContain("frame-ancestors https://app.agent-paste.sh");
-    expect(headers.get("content-security-policy")).not.toContain("frame-ancestors 'none'");
-    expect(headers.get("content-security-policy")).toContain("unsafe-eval");
-    expect(headers.get("x-frame-options")).toBeNull();
-  });
-
-  it("keeps sandboxed follow-on iframe navigations frameable when fetch metadata is cross-site", () => {
-    const headers = responseHeadersForPath(
-      "page-2.html",
-      3,
-      basePayload({ script_disabled: false }),
-      ETAG,
-      ["https://app.agent-paste.sh"],
-      new Request("https://usercontent.agent-paste.sh/v/token/page-2.html", {
-        headers: {
-          "sec-fetch-dest": "iframe",
-          "sec-fetch-mode": "navigate",
-          "sec-fetch-site": "cross-site",
-        },
-      }),
-    );
-    expect(headers.get("content-security-policy")).toContain("frame-ancestors https://app.agent-paste.sh");
-    expect(headers.get("content-security-policy")).toContain("unsafe-eval");
-    expect(headers.get("x-frame-options")).toBeNull();
-  });
-
-  it("supports multiple framing origins", () => {
-    const headers = responseHeadersForPath(
-      "index.html",
-      3,
-      basePayload({ script_disabled: false }),
-      ETAG,
-      ["https://app.agent-paste.sh", "https://app.preview.agent-paste.sh"],
-      viewerFrameRequest(),
-    );
-    expect(headers.get("content-security-policy")).toContain(
-      "frame-ancestors https://app.agent-paste.sh https://app.preview.agent-paste.sh",
-    );
-  });
-
-  it("downgrades script-enabled tokens on direct usercontent navigations", () => {
-    const headers = responseHeadersForPath(
-      "index.html",
-      3,
-      basePayload({ script_disabled: false }),
-      ETAG,
-      ["https://app.agent-paste.sh"],
       new Request("https://usercontent.agent-paste.sh/v/token/index.html", {
-        headers: {
-          "sec-fetch-dest": "document",
-          "sec-fetch-mode": "navigate",
-          "sec-fetch-site": "none",
-        },
+        headers: { "sec-fetch-dest": "iframe", "sec-fetch-mode": "navigate" },
       }),
     );
-    expect(headers.get("content-security-policy")).toContain("script-src 'none'");
-    expect(headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
-    expect(headers.get("content-security-policy")).not.toContain("unsafe-eval");
-    expect(headers.get("x-frame-options")).toBe("DENY");
-  });
-
-  it("does not downgrade non-HTML byte responses", () => {
-    const headers = responseHeadersForPath("app.js", 3, basePayload({ script_disabled: false }), ETAG, [
-      "https://app.agent-paste.sh",
-    ]);
-    expect(headers.get("content-security-policy")).toContain("unsafe-eval");
-    expect(headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
-    expect(headers.get("x-frame-options")).toBe("DENY");
-  });
-
-  it("keeps viewer-framed script-disabled content inert", () => {
-    const headers = responseHeadersForPath(
-      "index.html",
-      3,
-      basePayload({ script_disabled: true }),
-      ETAG,
-      ["https://app.agent-paste.sh"],
-      viewerFrameRequest(),
-    );
-    expect(headers.get("content-security-policy")).toContain("script-src 'none'");
-    expect(headers.get("content-security-policy")).toContain("frame-ancestors https://app.agent-paste.sh");
-    expect(headers.get("x-frame-options")).toBeNull();
-  });
-
-  it("keeps attachments frame-denied even when framing origins are provided", () => {
-    const headers = responseHeadersForPath("payload.bin", 6, basePayload(), ETAG, ["https://app.agent-paste.sh"]);
-    expect(headers.get("content-disposition")).toBe('attachment; filename="payload.bin"');
-    expect(headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
-    expect(headers.get("x-frame-options")).toBe("DENY");
-  });
-
-  it("stays frame-denied for inline content when no framing origins are provided", () => {
-    const headers = responseHeadersForPath("index.html", 3, basePayload({ script_disabled: false }), ETAG);
     expect(headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     expect(headers.get("x-frame-options")).toBe("DENY");
   });
@@ -536,31 +431,14 @@ describe("content etag", () => {
 
   it("differs when the HTML representation variant changes", async () => {
     const base = await contentEtag("rev_1", "index.html");
-    const viewer = await contentEtag(
-      "rev_1",
-      "index.html",
-      `viewer:resize-${VIEWER_RESIZE_REPORTER_TRANSFORM_ID}:script-on`,
-    );
-    expect(viewer).not.toBe(base);
+    const interactive = await contentEtag("rev_1", "index.html", "direct:script-on");
+    expect(interactive).not.toBe(base);
   });
 });
 
 describe("contentRepresentationKey", () => {
-  function viewerFrameRequest(): Request {
-    return new Request("https://usercontent.agent-paste.sh/v/token/index.html", {
-      headers: {
-        "sec-fetch-dest": "iframe",
-        "sec-fetch-mode": "navigate",
-        "sec-fetch-site": "same-site",
-      },
-    });
-  }
-
-  it("includes the reporter transform id for viewer-framed HTML", () => {
-    const key = contentRepresentationKey("index.html", basePayload({ script_disabled: false }), viewerFrameRequest(), [
-      "https://app.agent-paste.sh",
-    ]);
-    expect(key).toContain(`resize-${VIEWER_RESIZE_REPORTER_TRANSFORM_ID}`);
+  it("distinguishes interactive direct HTML", () => {
+    expect(contentRepresentationKey("index.html", basePayload({ script_disabled: false }))).toBe("direct:script-on");
   });
 });
 

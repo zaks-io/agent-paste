@@ -41,9 +41,8 @@ export function mcpTokenHasRequiredScopes(
 }
 
 // There is ONE scope vocabulary shared by the API and MCP: `read` (look at your
-// stuff), `publish` (change your stuff — create/revise/delete, and manage
-// visibility/access links with set_visibility, list and revoke), and `admin`
-// (account/workspace management — API keys, settings, audit, billing). MCP tools
+// stuff), `publish` (change your stuff: create/revise/delete), and `admin`
+// (account/workspace management: API keys, settings, audit, billing). MCP tools
 // declare and check `requiredScopes` directly in these names, and a member's
 // granted set is their stored API scopes verbatim (ADR 0079). No translation
 // layer, so nothing to keep in sync.

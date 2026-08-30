@@ -93,32 +93,14 @@ export const TAILWIND_CDN_SCRIPT_SOURCE = "https://cdn.tailwindcss.com";
 const ATTACHMENT_EXTENSIONS = new Set<MimeExtension>([".pdf"]);
 
 export const BASE_CONTENT_SECURITY_POLICY = [
-  "default-src 'none'",
-  `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://esm.sh ${TAILWIND_CDN_SCRIPT_SOURCE}`,
-  "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com",
-  "font-src 'self' data: https://fonts.gstatic.com",
-  "img-src 'self' data: blob:",
-  "connect-src 'self'",
-  "media-src 'self' blob:",
-  "frame-src 'none'",
-  "object-src 'none'",
-  "base-uri 'none'",
-  "form-action 'none'",
-  "frame-ancestors 'none'",
-].join("; ");
-
-export const CAPABILITY_CONTENT_SECURITY_POLICY = [
-  "default-src 'none'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
-  "style-src 'self' 'unsafe-inline' https:",
-  "font-src 'self' data: https:",
+  "default-src 'self' data: blob: https:",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:",
+  "style-src 'self' 'unsafe-inline' data: blob: https:",
+  "font-src 'self' data: blob: https:",
   "img-src 'self' data: blob: https:",
-  "connect-src 'self' https:",
-  "media-src 'self' blob: https:",
-  "frame-src 'none'",
-  "object-src 'none'",
-  "base-uri 'none'",
-  "form-action 'none'",
+  "connect-src 'self' data: blob: https: wss:",
+  "media-src 'self' data: blob: https:",
+  "worker-src 'self' blob: https:",
   "frame-ancestors 'none'",
 ].join("; ");
 
@@ -224,9 +206,8 @@ export function servedContentForPath(
 ): ServedContent {
   const extension = path.match(/\.[^./\\]+$/u)?.[0]?.toLowerCase();
   const contentType = contentTypeForPath(path);
-  const baseCsp = options?.capability
-    ? CAPABILITY_CONTENT_SECURITY_POLICY
-    : options?.scriptDisabled
+  const baseCsp =
+    options?.scriptDisabled && !options.capability
       ? SCRIPT_DISABLED_CONTENT_SECURITY_POLICY
       : BASE_CONTENT_SECURITY_POLICY;
   if (contentType === DEFAULT_MIME_TYPE) {

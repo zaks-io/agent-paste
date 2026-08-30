@@ -4,7 +4,7 @@ export const DASHBOARD_DOC: DocsPage = {
   slug: "dashboard",
   title: "Dashboard",
   shortTitle: "Dashboard",
-  summary: "The dashboard is the human control plane for Workspaces, Artifacts, links, billing, and settings.",
+  summary: "The dashboard is the human control plane for Workspaces, Artifacts, billing, and settings.",
   sections: [
     {
       id: "sign-in",
@@ -25,15 +25,11 @@ export const DASHBOARD_DOC: DocsPage = {
           columns: ["Page", "Purpose"],
           rows: [
             ["`/dashboard`", "Workspace overview, Usage Policy, recent Artifacts, and recent Audit Events."],
-            [
-              "`/artifacts`",
-              "Artifact list with status, pinning, Bundle state, Access Link Lockdown, and last publish time.",
-            ],
+            ["`/artifacts`", "Artifact list with status, pinning, Bundle state, URL, and last publish time."],
             [
               "`/artifacts/{artifactId}`",
-              "Artifact detail, viewer, Revisions, Access Links, Bundle state, warnings, and delete action.",
+              "Artifact detail, capability URL, Revisions, Bundle state, warnings, and delete action.",
             ],
-            ["`/access-links`", "Workspace-wide Access Link list and management."],
             ["`/keys`", "Dashboard member credential list, create, and revoke controls."],
             ["`/audit`", "Workspace Audit Event list."],
             ["`/settings`", "Workspace name and default retention settings."],

@@ -1,5 +1,4 @@
 import type { McpScope } from "@agent-paste/contracts";
-import { deriveMcpIdempotencyKey } from "@agent-paste/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { callMcpTool } from "./tools.js";
 
@@ -8,10 +7,6 @@ const auth = { tokenSub: "user_01", bearerToken: "token-read" };
 const ARTIFACT_ID = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const REVISION_ID = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const UPLOAD_SESSION_ID = "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-
-function accessLinkId(index: number) {
-  return `al_${String(index).padStart(26, "0")}`;
-}
 
 /**
  * An upload binding that answers the publish sequence: uploadSessions.create
@@ -57,17 +52,14 @@ function uploadMockForPublish() {
   };
 }
 
-/** The server publish response (full PublishResult); content-only, private viewer link. */
+/** The server publish response with the one stable Artifact link. */
 function serverPublishResult() {
   return {
     artifact_id: ARTIFACT_ID,
     revision_id: REVISION_ID,
     title: "Note",
-    private_url: "https://app.example/v/art_1",
-    revision_content_url: "https://content.example/v/token/content.txt",
-    agent_view_url: "https://api.example/v1/public/agent-view/token",
+    url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
     expires_at: "2026-12-01T00:00:00.000Z",
-    bundle: { status: "disabled" },
   };
 }
 
@@ -80,7 +72,7 @@ function baseAgentView(over: Record<string, unknown> = {}) {
     created_at: "2026-01-01T00:00:00.000Z",
     expires_at: "2026-12-01T00:00:00.000Z",
     entrypoint: "content.txt",
-    private_url: "https://app.example/v/art_1",
+    url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
     revision_content_url: "https://content.example/v/token/content.txt",
     files: [
       { path: "content.txt", size_bytes: 4, content_type: "text/plain", url: "https://content.example/content.txt" },
@@ -232,7 +224,7 @@ describe("callMcpTool", () => {
       created_at: "2026-01-01T00:00:00.000Z",
       expires_at: "2026-12-01T00:00:00.000Z",
       entrypoint: "index.md",
-      private_url: "https://app.example/v/art_1",
+      url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
       revision_content_url: "https://view.example",
       files: [
         {
@@ -301,7 +293,7 @@ describe("callMcpTool", () => {
     expect(url.searchParams.has("revision_id")).toBe(false);
   });
 
-  it("publish_artifact returns the private viewer link (content-only, private)", async () => {
+  it("publish_artifact returns the stable Artifact link", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(null, { status: 200 })),
@@ -316,7 +308,9 @@ describe("callMcpTool", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.result).toMatchObject({
-        private_url: "https://app.example/v/art_1",
+        artifact_id: ARTIFACT_ID,
+        revision_id: REVISION_ID,
+        url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
         title: "Note",
       });
       expect(result.result).not.toHaveProperty("shared");
@@ -402,7 +396,7 @@ describe("callMcpTool", () => {
     }
   });
 
-  it("skips the PUT for a reused upload target and still returns the private viewer link", async () => {
+  it("skips the PUT for a reused upload target and still returns the Artifact link", async () => {
     const putFetch = vi.fn(async () => new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", putFetch);
     const upload = {
@@ -438,7 +432,7 @@ describe("callMcpTool", () => {
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.result).toMatchObject({ private_url: "https://app.example/v/art_1" });
+      expect(result.result).toMatchObject({ url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/" });
       expect(result.result).not.toHaveProperty("shared");
     }
     // Reused target => the signed PUT is never issued.
@@ -461,221 +455,6 @@ describe("callMcpTool", () => {
     expect(result).toEqual({ ok: true, result: revisions });
   });
 
-  it("set_visibility unlisted creates and mints a share link", async () => {
-    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const accessLinkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const api = apiMock(
-      ["read", "publish"],
-      Response.json({
-        id: accessLinkId,
-        type: "share",
-        artifact_id: artifactId,
-        revision_id: null,
-        created_at: "2026-01-01T00:00:00.000Z",
-      }),
-      Response.json({ url: "https://share.example/al" }),
-    );
-    const result = await callMcpTool("set_visibility", { artifact_id: artifactId, visibility: "unlisted" }, auth, {
-      api,
-      upload,
-      bearerToken: "token-share",
-      jsonRpcId: 7,
-    });
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.result).toMatchObject({
-        artifact_id: artifactId,
-        visibility: "unlisted",
-        access_link_id: accessLinkId,
-        unlisted_url: "https://share.example/al",
-      });
-    }
-    const createRequest = routeCall(api, 0);
-    expect(createRequest.headers.get("idempotency-key")).toBe(
-      deriveMcpIdempotencyKey({
-        tokenSub: "user_01",
-        jsonRpcId: 7,
-        toolName: "set_visibility",
-        toolArgs: { artifact_id: artifactId, visibility: "unlisted" },
-      }),
-    );
-    const mintRequest = routeCall(api, 1);
-    expect(mintRequest.url).toBe(`https://agent-paste.internal/v1/access-links/${accessLinkId}/mint`);
-    expect(mintRequest.headers.get("idempotency-key")).toBeNull();
-    await expect(mintRequest.text()).resolves.toBe("");
-  });
-
-  it("set_visibility unlisted retries on a salted key when a replayed create points mint at a revoked link", async () => {
-    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const revokedLinkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const freshLinkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8ZA";
-    const api = apiMock(
-      ["read", "publish"],
-      // First create replays a link that has since been revoked.
-      Response.json({
-        id: revokedLinkId,
-        type: "share",
-        artifact_id: artifactId,
-        revision_id: null,
-        created_at: "2026-01-01T00:00:00.000Z",
-      }),
-      // Mint on the dead link fails.
-      Response.json({ error: { code: "not_found", message: "not_found" } }, { status: 404 }),
-      // Salted retry create mints a fresh active link.
-      Response.json({
-        id: freshLinkId,
-        type: "share",
-        artifact_id: artifactId,
-        revision_id: null,
-        created_at: "2026-01-01T00:00:01.000Z",
-      }),
-      Response.json({ url: "https://share.example/al-fresh" }),
-    );
-    const result = await callMcpTool("set_visibility", { artifact_id: artifactId, visibility: "unlisted" }, auth, {
-      api,
-      upload,
-      bearerToken: "token-share",
-      jsonRpcId: 9,
-    });
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.result).toMatchObject({
-        artifact_id: artifactId,
-        visibility: "unlisted",
-        access_link_id: freshLinkId,
-        unlisted_url: "https://share.example/al-fresh",
-      });
-    }
-    const firstKey = deriveMcpIdempotencyKey({
-      tokenSub: "user_01",
-      jsonRpcId: 9,
-      toolName: "set_visibility",
-      toolArgs: { artifact_id: artifactId, visibility: "unlisted" },
-    });
-    // First create uses the derived key; the retry create salts it so the command runs fresh.
-    expect(routeCall(api, 0).headers.get("idempotency-key")).toBe(firstKey);
-    expect(routeCall(api, 2).headers.get("idempotency-key")).toBe(`${firstKey}:r`);
-    expect(routeCall(api, 3).url).toBe(`https://agent-paste.internal/v1/access-links/${freshLinkId}/mint`);
-  });
-
-  it("set_visibility private revokes all active access links and returns private_url", async () => {
-    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const shareLinkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const revisionLinkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8ZA";
-    const revokedLinkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8ZB";
-    const api = apiMock(
-      ["read", "publish"],
-      Response.json(baseAgentView({ artifact_id: artifactId, private_url: "https://app.example/v/private" })),
-      Response.json({
-        artifact_id: artifactId,
-        items: [
-          {
-            id: shareLinkId,
-            type: "share",
-            artifact_id: artifactId,
-            revision_id: null,
-            created_at: "2026-01-01T00:00:00.000Z",
-            expires_at: null,
-            revoked_at: null,
-          },
-          {
-            id: revisionLinkId,
-            type: "revision",
-            artifact_id: artifactId,
-            revision_id: REVISION_ID,
-            created_at: "2026-01-01T00:00:01.000Z",
-            expires_at: null,
-            revoked_at: null,
-          },
-          {
-            id: revokedLinkId,
-            type: "share",
-            artifact_id: artifactId,
-            revision_id: null,
-            created_at: "2026-01-01T00:00:02.000Z",
-            expires_at: null,
-            revoked_at: "2026-01-01T00:00:03.000Z",
-          },
-        ],
-      }),
-      Response.json({ access_link_id: shareLinkId, revoked_at: "2026-01-01T00:00:04.000Z" }),
-      Response.json({ access_link_id: revisionLinkId, revoked_at: "2026-01-01T00:00:05.000Z" }),
-    );
-    const result = await callMcpTool("set_visibility", { artifact_id: artifactId, visibility: "private" }, auth, {
-      api,
-      upload,
-      bearerToken: "token-share",
-      jsonRpcId: 11,
-    });
-    expect(result).toEqual({
-      ok: true,
-      result: {
-        artifact_id: artifactId,
-        visibility: "private",
-        private_url: "https://app.example/v/private",
-        revoked_access_link_ids: [shareLinkId, revisionLinkId],
-      },
-    });
-    expect(routeCall(api, 0).url).toBe(`https://agent-paste.internal/v1/artifacts/${artifactId}/agent-view`);
-    expect(routeCall(api, 1).url).toBe(`https://agent-paste.internal/v1/artifacts/${artifactId}/access-links`);
-    expect(routeCall(api, 2).url).toBe(`https://agent-paste.internal/v1/access-links/${shareLinkId}/revoke`);
-    expect(routeCall(api, 3).url).toBe(`https://agent-paste.internal/v1/access-links/${revisionLinkId}/revoke`);
-  });
-
-  it("set_visibility private revokes more than 100 active access links", async () => {
-    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const activeLinks = Array.from({ length: 101 }, (_, index) => ({
-      id: accessLinkId(index),
-      type: "share",
-      artifact_id: artifactId,
-      revision_id: null,
-      created_at: "2026-01-01T00:00:00.000Z",
-      expires_at: null,
-      revoked_at: null,
-    }));
-    const api = apiMock(
-      ["read", "publish"],
-      Response.json(baseAgentView({ artifact_id: artifactId, private_url: "https://app.example/v/private" })),
-      Response.json({ artifact_id: artifactId, items: activeLinks }),
-      ...activeLinks.map((link) => Response.json({ access_link_id: link.id, revoked_at: "2026-01-01T00:00:04.000Z" })),
-    );
-
-    const result = await callMcpTool("set_visibility", { artifact_id: artifactId, visibility: "private" }, auth, {
-      api,
-      upload,
-      bearerToken: "token-share",
-      jsonRpcId: 12,
-    });
-
-    expect(result).toEqual({
-      ok: true,
-      result: {
-        artifact_id: artifactId,
-        visibility: "private",
-        private_url: "https://app.example/v/private",
-        revoked_access_link_ids: activeLinks.map((link) => link.id),
-      },
-    });
-    expect(routeCall(api, 2).url).toBe(`https://agent-paste.internal/v1/access-links/${activeLinks[0].id}/revoke`);
-    expect(routeCall(api, 102).url).toBe(`https://agent-paste.internal/v1/access-links/${activeLinks[100].id}/revoke`);
-  });
-
-  it("set_visibility rejects unsupported visibility values before forwarding", async () => {
-    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const api = apiMock(["read", "publish"]);
-    const result = await callMcpTool("set_visibility", { artifact_id: artifactId, visibility: "public" }, auth, {
-      api,
-      upload,
-      bearerToken: "token-share",
-      jsonRpcId: 12,
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe("invalid_params");
-    }
-    expect(routeCall(api, 0)).toBeUndefined();
-  });
-
   it("add_revision reads the base, publishes under it, and preserves the artifact title", async () => {
     vi.stubGlobal(
       "fetch",
@@ -696,7 +475,7 @@ describe("callMcpTool", () => {
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.result).toMatchObject({ private_url: "https://app.example/v/art_1" });
+      expect(result.result).toMatchObject({ url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/" });
     }
     // The create-session request targets the existing artifact, publishes under the base
     // revision, and carries the BASE title — not the literal "Revision" the old code wrote.
@@ -724,7 +503,10 @@ describe("callMcpTool", () => {
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.result).toMatchObject({ title: "Original Title", private_url: "https://app.example/v/art_1" });
+      expect(result.result).toMatchObject({
+        title: "Original Title",
+        url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+      });
     }
     // Byte-identical body: no upload session is ever created.
     expect(upload.fetch).not.toHaveBeenCalled();
@@ -750,7 +532,7 @@ describe("callMcpTool", () => {
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.result).toMatchObject({ private_url: "https://app.example/v/art_1" });
+      expect(result.result).toMatchObject({ url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/" });
     }
     // Publishes under the existing artifact + base revision, preserving the base title.
     const createBody = (await (upload.fetch.mock.calls[0]?.[0] as Request).json()) as {
@@ -783,7 +565,10 @@ describe("callMcpTool", () => {
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.result).toMatchObject({ title: "Original Title", private_url: "https://app.example/v/art_1" });
+      expect(result.result).toMatchObject({
+        title: "Original Title",
+        url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+      });
     }
     expect(upload.fetch).not.toHaveBeenCalled();
   });
@@ -808,110 +593,6 @@ describe("callMcpTool", () => {
     }
     // The edit never matched, so no upload session is created.
     expect(upload.fetch).not.toHaveBeenCalled();
-  });
-
-  it("creates a revision link", async () => {
-    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const api = apiMock(
-      ["read", "publish"],
-      Response.json({
-        id: "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0",
-        type: "revision",
-        artifact_id: artifactId,
-        revision_id: revisionId,
-        created_at: "2026-01-01T00:00:00.000Z",
-      }),
-      Response.json({ url: "https://share.example/rev" }),
-    );
-    const result = await callMcpTool(
-      "create_revision_link",
-      { artifact_id: artifactId, revision_id: revisionId },
-      auth,
-      { api, upload, bearerToken: "token-share", jsonRpcId: 8 },
-    );
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.result).toMatchObject({ url: "https://share.example/rev" });
-    }
-    const createRequest = routeCall(api, 0);
-    expect(createRequest.headers.get("idempotency-key")).toBe(
-      deriveMcpIdempotencyKey({
-        tokenSub: "user_01",
-        jsonRpcId: 8,
-        toolName: "create_revision_link",
-        toolArgs: { artifact_id: artifactId, revision_id: revisionId },
-      }),
-    );
-    const mintRequest = routeCall(api, 1);
-    expect(mintRequest.url).toBe("https://agent-paste.internal/v1/access-links/al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0/mint");
-    expect(mintRequest.headers.get("idempotency-key")).toBeNull();
-    await expect(mintRequest.text()).resolves.toBe("");
-  });
-
-  it("does not retry create_revision_link on mint failure (revision links would duplicate)", async () => {
-    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const api = apiMock(
-      ["read", "publish"],
-      // Create succeeds.
-      Response.json({
-        id: "al_rev_first",
-        type: "revision",
-        artifact_id: artifactId,
-        revision_id: revisionId,
-        created_at: "2026-01-01T00:00:00.000Z",
-      }),
-      // Mint fails.
-      Response.json({ error: { code: "not_found", message: "not_found" } }, { status: 404 }),
-    );
-    const result = await callMcpTool(
-      "create_revision_link",
-      { artifact_id: artifactId, revision_id: revisionId },
-      auth,
-      { api, upload, bearerToken: "token-share", jsonRpcId: 11 },
-    );
-    expect(result.ok).toBe(false);
-    // Exactly one create + one mint: no salted-key retry that would insert a duplicate revision link.
-    const createCalls = api.fetch.mock.calls
-      .map((call) => call[0] as Request)
-      .filter((request) => request.method === "POST" && request.url.endsWith("/access-links"));
-    expect(createCalls).toHaveLength(1);
-  });
-
-  it("lists and revokes access links", async () => {
-    const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const linkId = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-    const api = apiMock(
-      ["read", "publish"],
-      Response.json({
-        artifact_id: artifactId,
-        items: [
-          {
-            id: linkId,
-            type: "share",
-            artifact_id: artifactId,
-            revision_id: null,
-            created_at: "2026-01-01T00:00:00.000Z",
-            expires_at: null,
-            revoked_at: null,
-          },
-        ],
-      }),
-      Response.json({ access_link_id: linkId, revoked_at: "2026-01-02T00:00:00.000Z" }),
-    );
-    const listResult = await callMcpTool("list_access_links", { artifact_id: artifactId }, auth, {
-      api,
-      upload,
-      bearerToken: "token-share",
-    });
-    expect(listResult.ok).toBe(true);
-    const revokeResult = await callMcpTool("revoke_access_link", { access_link_id: linkId }, auth, {
-      api,
-      upload,
-      bearerToken: "token-share",
-    });
-    expect(revokeResult.ok).toBe(true);
   });
 
   it("rejects update_display_metadata calls that include description", async () => {

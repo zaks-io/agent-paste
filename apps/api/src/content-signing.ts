@@ -7,7 +7,6 @@ import type { Env } from "./env.js";
 import { contentBaseUrl } from "./runtime.js";
 
 export type ContentSigningAuth = {
-  accessLinkId?: string;
   workspaceId?: string;
   noindex?: boolean;
 };
@@ -129,8 +128,8 @@ function contentTokenPayload(
   return {
     artifact_id: artifactId,
     revision_id: revisionId,
+    script_disabled: false,
     ...(auth?.workspaceId ? { workspace_id: auth.workspaceId } : {}),
-    ...(auth?.accessLinkId ? { access_link_id: auth.accessLinkId } : {}),
     ...(auth?.noindex ? { noindex: true } : {}),
     ...(Array.isArray(options.paths) ? { paths: options.paths } : {}),
     ...(options.objectKey ? { object_key: options.objectKey } : {}),

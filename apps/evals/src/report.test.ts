@@ -52,7 +52,7 @@ function sampleResult(): RunResult {
     cost_usd: 0.012345,
     deterministic_pass: false,
     duration_ms: 65_000,
-    failures: ["missing_unlisted_url"],
+    failures: ["missing_artifact_url"],
     finished_at: "2026-06-21T18:01:05.000Z",
     harness_id: "pi-rpc",
     judge: {

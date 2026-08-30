@@ -56,14 +56,10 @@ import { verifyTurnstileToken } from "../src/server/turnstile";
 import {
   claimEphemeral,
   completeAgentAuthClaim,
-  createAccessLink,
   createKey,
   liftLockdown,
-  mintAccessLink,
-  revokeAccessLink,
   revokeKey,
   saveSettings,
-  setAccessLinkLockdown,
   setLockdown,
 } from "../src/server/web-mutations";
 
@@ -255,7 +251,32 @@ describe("web server mutations", () => {
       },
       error: null,
     });
-    expect(state.apiFetch).toHaveBeenCalledWith("/v1/ephemeral/claim", expect.objectContaining({ method: "POST" }));
+    expect(state.apiFetch).toHaveBeenCalledWith(
+      "/v1/ephemeral/claim",
+      expect.objectContaining({
+        method: "POST",
+        headers: { "idempotency-key": expect.stringMatching(/^claim:[0-9a-f]{64}$/) },
+      }),
+    );
+
+    const firstKey = (state.apiFetch.mock.calls[0]?.[1] as { headers: Record<string, string> }).headers[
+      "idempotency-key"
+    ];
+    state.apiFetch.mockClear();
+    state.apiFetch.mockResolvedValueOnce({
+      destination_workspace_id: "00000000-0000-4000-8000-000000000001",
+      source_workspace_id: "00000000-0000-4000-8000-000000000099",
+      artifact_ids: ["art_test"],
+      claim_token_id: "ct_test",
+    });
+    await claimEphemeral({
+      claim_token: "ap_ct_preview_testsecret000000_abc",
+      turnstile_token: "local-turnstile-bypass",
+    });
+    const retryKey = (state.apiFetch.mock.calls[0]?.[1] as { headers: Record<string, string> }).headers[
+      "idempotency-key"
+    ];
+    expect(retryKey).toBe(firstKey);
   });
 
   it("rejects claim attempts when Turnstile verification fails", async () => {
@@ -340,114 +361,6 @@ describe("web server mutations", () => {
     await expect(
       completeAgentAuthClaim({ claim_attempt_token: "ap_agent_claim_attempt", user_code: "12345" }),
     ).resolves.toMatchObject({
-      data: null,
-      error: { status: 400, code: "validation_error" },
-    });
-    expect(state.apiFetch).not.toHaveBeenCalled();
-  });
-
-  const ARTIFACT_ID = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-  const ACCESS_LINK_ID = "al_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-  const REVISION_ID = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-
-  it("creates share and revision access links against the artifact route", async () => {
-    state.apiFetch
-      .mockResolvedValueOnce({ id: ACCESS_LINK_ID, type: "share" })
-      .mockResolvedValueOnce({ id: ACCESS_LINK_ID, type: "revision" });
-
-    await expect(createAccessLink({ artifactId: ARTIFACT_ID, type: "share" })).resolves.toMatchObject({
-      data: { type: "share" },
-      error: null,
-    });
-    await expect(
-      createAccessLink({ artifactId: ARTIFACT_ID, type: "revision", revision_id: REVISION_ID }),
-    ).resolves.toMatchObject({ data: { type: "revision" }, error: null });
-
-    expect(state.apiFetch).toHaveBeenNthCalledWith(
-      1,
-      `/v1/web/artifacts/${ARTIFACT_ID}/access-links`,
-      expect.objectContaining({ method: "POST", accessToken: "access-token", body: JSON.stringify({ type: "share" }) }),
-    );
-    expect(state.apiFetch).toHaveBeenNthCalledWith(
-      2,
-      `/v1/web/artifacts/${ARTIFACT_ID}/access-links`,
-      expect.objectContaining({ body: JSON.stringify({ type: "revision", revision_id: REVISION_ID }) }),
-    );
-  });
-
-  it("mints a signed URL and never logs it", async () => {
-    const url = `https://app.agent-paste.sh/al/AbC123#${"v".repeat(40)}`;
-    state.apiFetch.mockResolvedValueOnce({ url });
-    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
-    await expect(mintAccessLink({ accessLinkId: ACCESS_LINK_ID })).resolves.toMatchObject({
-      data: { url },
-      error: null,
-    });
-    expect(state.apiFetch).toHaveBeenCalledWith(
-      `/v1/web/access-links/${ACCESS_LINK_ID}/mint`,
-      expect.objectContaining({ method: "POST", accessToken: "access-token" }),
-    );
-    for (const call of logSpy.mock.calls) {
-      expect(JSON.stringify(call)).not.toContain("#");
-    }
-    logSpy.mockRestore();
-  });
-
-  it("revokes an access link and toggles lockdown set and lift", async () => {
-    state.apiFetch
-      .mockResolvedValueOnce({ access_link_id: ACCESS_LINK_ID, revoked_at: "2026-01-01T00:00:00.000Z" })
-      .mockResolvedValueOnce({ id: ARTIFACT_ID, lockdown: true })
-      .mockResolvedValueOnce({ id: ARTIFACT_ID, lockdown: false });
-
-    await expect(revokeAccessLink({ accessLinkId: ACCESS_LINK_ID })).resolves.toMatchObject({
-      data: { access_link_id: ACCESS_LINK_ID },
-      error: null,
-    });
-    await expect(setAccessLinkLockdown({ artifactId: ARTIFACT_ID, locked: true })).resolves.toMatchObject({
-      data: { lockdown: true },
-      error: null,
-    });
-    await expect(setAccessLinkLockdown({ artifactId: ARTIFACT_ID, locked: false })).resolves.toMatchObject({
-      data: { lockdown: false },
-      error: null,
-    });
-
-    expect(state.apiFetch).toHaveBeenNthCalledWith(
-      1,
-      `/v1/web/access-links/${ACCESS_LINK_ID}/revoke`,
-      expect.objectContaining({ method: "POST" }),
-    );
-    expect(state.apiFetch).toHaveBeenNthCalledWith(
-      2,
-      `/v1/web/artifacts/${ARTIFACT_ID}/access-link-lockdown`,
-      expect.objectContaining({ method: "POST" }),
-    );
-    expect(state.apiFetch).toHaveBeenNthCalledWith(
-      3,
-      `/v1/web/artifacts/${ARTIFACT_ID}/access-link-lockdown/lift`,
-      expect.objectContaining({ method: "POST" }),
-    );
-  });
-
-  it("validates access link mutation inputs before calling the API", async () => {
-    await expect(createAccessLink({ artifactId: "nope", type: "share" })).resolves.toMatchObject({
-      data: null,
-      error: { status: 400, code: "validation_error" },
-    });
-    await expect(createAccessLink({ artifactId: ARTIFACT_ID, type: "revision" })).resolves.toMatchObject({
-      data: null,
-      error: { status: 400, code: "validation_error" },
-    });
-    await expect(mintAccessLink({ accessLinkId: "nope" })).resolves.toMatchObject({
-      data: null,
-      error: { status: 400, code: "validation_error" },
-    });
-    await expect(revokeAccessLink({ accessLinkId: "nope" })).resolves.toMatchObject({
-      data: null,
-      error: { status: 400, code: "validation_error" },
-    });
-    await expect(setAccessLinkLockdown({ artifactId: "nope", locked: true })).resolves.toMatchObject({
       data: null,
       error: { status: 400, code: "validation_error" },
     });

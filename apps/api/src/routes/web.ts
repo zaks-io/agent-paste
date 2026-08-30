@@ -3,19 +3,12 @@ import type { CreateApiKeyRequest, UpdateWebSettingsRequest } from "@agent-paste
 import type { ApiActor, Repository } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
-import {
-  clearAccessLinkLockdownDenylist,
-  invalidateAccessLinkLockdown,
-  invalidateRevokedAccessLink,
-} from "../access-link-invalidation.js";
 import { signAgentViewContentUrls } from "../agent-view.js";
 import type { AppContext, PaginationInput } from "../env.js";
 import { parsePagination } from "../pagination.js";
 import { webMemberActor } from "../principals.js";
 import { executeRepositoryRoute, runIdempotent } from "../responses.js";
 import type { GuardFor, RouteParams } from "../route-contracts.js";
-import { contentBaseUrl, webBaseUrl } from "../runtime.js";
-import { accessLinkSigningSecret } from "./access-links.js";
 import { CLI_API_KEY_TTL_SECONDS } from "./account.js";
 
 export async function webAuthCallback(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
@@ -113,13 +106,12 @@ export async function webArtifactDetail(
     if (!detail) {
       return respondError("not_found");
     }
-    return respondJson(await signedWebArtifactDetail(context, db, actor, detail));
+    return respondJson(await signedWebArtifactDetail(context, actor, detail));
   });
 }
 
 async function signedWebArtifactDetail(
   context: AppContext,
-  db: Repository,
   actor: ApiActor,
   detail: Awaited<ReturnType<Repository["getWebArtifact"]>>,
 ) {
@@ -127,32 +119,19 @@ async function signedWebArtifactDetail(
     return detail;
   }
   const { capability_view: capabilityView, ...publicDetail } = detail;
-  if (!detail.viewer) {
-    return publicDetail;
+  if (!capabilityView) {
+    return { ...publicDetail, url: null };
   }
-  const view =
-    capabilityView ??
-    (typeof db.getAgentView === "function"
-      ? await db.getAgentView({
-          actor,
-          artifactId: detail.id,
-          contentBaseUrl: contentBaseUrl(context.env),
-        })
-      : null);
-  const signed = (await signAgentViewContentUrls(
-    view ?? {
-      artifact_id: detail.id,
-      revision_id: detail.latest_revision_id,
-      entrypoint: detail.entrypoint,
-      expires_at: detail.auto_delete_at,
-      revision_content_url: detail.viewer.iframe_src,
-    },
-    context.env,
-    { workspaceId: actor.workspace_id, refreshCapabilityManifest: true },
-  )) as { revision_content_url?: unknown };
-  const iframeSrc =
-    typeof signed.revision_content_url === "string" ? signed.revision_content_url : detail.viewer.iframe_src;
-  return { ...publicDetail, viewer: { ...detail.viewer, iframe_src: iframeSrc } };
+  const signed = (await signAgentViewContentUrls(capabilityView, context.env, {
+    workspaceId: actor.workspace_id,
+    refreshCapabilityManifest: true,
+    includeArtifactUrl: true,
+  })) as { url?: unknown };
+  const url = typeof signed.url === "string" ? signed.url : undefined;
+  if (!url && context.env.AGENT_PASTE_ENV !== "dev") {
+    throw new Error("Artifact detail requires a durable content capability URL.");
+  }
+  return { ...publicDetail, url: url ?? capabilityView.revision_content_url };
 }
 
 export async function webPinArtifact(
@@ -170,7 +149,7 @@ export async function webPinArtifact(
     const idempotencyKey = guard.idempotencyKey;
     return runIdempotent(context, async () => {
       const detail = await pinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" });
-      return signedWebArtifactDetail(context, db, actor, detail);
+      return signedWebArtifactDetail(context, actor, detail);
     });
   });
 }
@@ -190,7 +169,7 @@ export async function webUnpinArtifact(
     const idempotencyKey = guard.idempotencyKey;
     return runIdempotent(context, async () => {
       const detail = await unpinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" });
-      return signedWebArtifactDetail(context, db, actor, detail);
+      return signedWebArtifactDetail(context, actor, detail);
     });
   });
 }
@@ -250,22 +229,6 @@ export async function webRevokeApiKey(
   });
 }
 
-export async function webAccessLinks(context: AppContext, principal: Principal, db: Repository): Promise<Response> {
-  return respondWebMemberJson(context, principal, (actor) => db.listWorkspaceAccessLinks(actor));
-}
-
-export async function webArtifactAccessLinks(
-  context: AppContext,
-  principal: Principal,
-  db: Repository,
-  params: RouteParams,
-): Promise<Response> {
-  return runWebMemberRoute(context, principal, async (actor, { respondError, respondJson }) => {
-    const result = await db.listWebArtifactAccessLinks(actor, params.artifactId ?? "");
-    return result ? respondJson(result) : respondError("artifact_not_found");
-  });
-}
-
 export async function webArtifactRevisions(
   context: AppContext,
   principal: Principal,
@@ -275,101 +238,6 @@ export async function webArtifactRevisions(
   return runWebMemberRoute(context, principal, async (actor, { respondError, respondJson }) => {
     const result = await db.listRevisions({ actor, artifactId: params.artifactId ?? "" });
     return result ? respondJson(result) : respondError("artifact_not_found");
-  });
-}
-
-export async function webCreateAccessLink(
-  context: AppContext,
-  principal: Principal,
-  db: Repository,
-  guard: GuardFor<"web.accessLinks.create">,
-  params: RouteParams,
-): Promise<Response> {
-  return runWebMemberRoute(context, principal, (actor) => {
-    const body = guard.body;
-    const idempotencyKey = guard.idempotencyKey;
-    return runIdempotent(
-      context,
-      () =>
-        db.createMemberAccessLink({
-          actor,
-          idempotencyKey,
-          artifactId: params.artifactId ?? "",
-          type: body.type,
-          revisionId: body.revision_id ?? null,
-        }),
-      { successStatus: 201 },
-    );
-  });
-}
-
-export async function webMintAccessLink(
-  context: AppContext,
-  principal: Principal,
-  db: Repository,
-  params: RouteParams,
-): Promise<Response> {
-  return runWebMemberRoute(context, principal, (actor, { respondError }) => {
-    const signing = accessLinkSigningSecret(context.env);
-    if (!signing) {
-      return respondError("database_unavailable");
-    }
-    return runIdempotent(context, () =>
-      db.mintMemberAccessLink({
-        actor,
-        accessLinkId: params.accessLinkId ?? "",
-        appBaseUrl: webBaseUrl(context.env),
-        signingSecret: signing.secret,
-        signingKid: signing.kid,
-      }),
-    );
-  });
-}
-
-export async function webRevokeAccessLink(
-  context: AppContext,
-  principal: Principal,
-  db: Repository,
-  params: RouteParams,
-): Promise<Response> {
-  return runWebMemberRoute(context, principal, (actor) => {
-    const accessLinkId = params.accessLinkId ?? "";
-    return runIdempotent(context, async () => {
-      const result = await db.revokeMemberAccessLink({
-        actor,
-        accessLinkId,
-      });
-      await invalidateRevokedAccessLink(context.env, result.access_link_id);
-      return result;
-    });
-  });
-}
-
-export async function webSetAccessLinkLockdown(
-  context: AppContext,
-  principal: Principal,
-  db: Repository,
-  guard: GuardFor<"web.accessLinks.lockdown.set">,
-  params: RouteParams,
-  locked: boolean,
-): Promise<Response> {
-  return runWebMemberRoute(context, principal, (actor) => {
-    const idempotencyKey = guard.idempotencyKey;
-    const artifactId = params.artifactId ?? "";
-    return runIdempotent(context, async () => {
-      const result = await db.setMemberAccessLinkLockdown({
-        actor,
-        idempotencyKey,
-        artifactId,
-        locked,
-      });
-      if (locked) {
-        await invalidateAccessLinkLockdown(context.env, artifactId);
-      } else {
-        await clearAccessLinkLockdownDenylist(context.env, db, artifactId);
-      }
-      return result;
-    });
   });
 }
 

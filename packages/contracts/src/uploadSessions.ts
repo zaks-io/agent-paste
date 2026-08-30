@@ -1,4 +1,3 @@
-import { BundleAvailability } from "./bundle.js";
 import { Mebibytes } from "./common.js";
 import { UploadSessionStatus } from "./enums.js";
 import {
@@ -154,31 +153,15 @@ export const CreateUploadSessionResponse = z.object({
 });
 export type CreateUploadSessionResponse = z.infer<typeof CreateUploadSessionResponse>;
 
-const PublishResultBase = z.object({
-  artifact_id: ArtifactId,
-  revision_id: RevisionId,
-  title: PlainTextTitle,
-  revision_content_url: UrlString,
-  agent_view_url: UrlString,
-  expires_at: IsoDateTime,
-  bundle: BundleAvailability,
-});
-
-export const AuthenticatedPublishResult = PublishResultBase.extend({
-  // The private viewer link authenticated publish returns: a login-walled clean
-  // viewer for the owning workspace member (`/v/<artifactId>`).
-  private_url: UrlString,
-}).strict();
-export type AuthenticatedPublishResult = z.infer<typeof AuthenticatedPublishResult>;
-
-export const EphemeralPublishResult = PublishResultBase.extend({
-  // Accountless ephemeral publish auto-creates the public no-login Share Link so
-  // the agent hands back one URL that works immediately.
-  unlisted_url: UrlString,
-}).strict();
-export type EphemeralPublishResult = z.infer<typeof EphemeralPublishResult>;
-
-export const PublishResult = z.union([AuthenticatedPublishResult, EphemeralPublishResult]);
+export const PublishResult = z
+  .object({
+    artifact_id: ArtifactId,
+    revision_id: RevisionId,
+    title: PlainTextTitle,
+    url: UrlString,
+    expires_at: IsoDateTime,
+  })
+  .strict();
 export type PublishResult = z.infer<typeof PublishResult>;
 
 export const FinalizeUploadSessionResponse = z.object({

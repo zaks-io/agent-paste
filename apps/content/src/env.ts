@@ -37,6 +37,7 @@ export type Env = {
   ARTIFACT_BYTES_ENCRYPTION_KID?: string;
   CONTENT_BASE_URL?: string;
   CONTENT_CAPABILITY_DOMAIN?: string;
+  CONTENT_CAPABILITY_HOST_SUFFIX?: string;
   DOCS_BASE_URL?: string;
   AGENT_PASTE_ENV?: string;
   SENTRY_DSN?: string;

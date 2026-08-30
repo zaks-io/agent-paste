@@ -1,23 +1,16 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import type { ApiActor, Repository } from "@agent-paste/db";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { Env } from "./env.js";
-import * as liveUpdates from "./live-updates.js";
 import { createPublishCoordinator } from "./publish-coordinator.js";
 
 const actor = { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] } as ApiActor;
-const claimCode = "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD";
-
 const publishInput = {
   actor,
   idempotencyKey: "idem_publish",
   artifactId: "art_1",
   revisionId: "rev_1",
 };
-
-afterEach(() => {
-  vi.restoreAllMocks();
-});
 
 function fakeWriteAllowance() {
   const calls: string[] = [];
@@ -66,7 +59,28 @@ function coordinatorFixture(
     },
     ...overrides,
   } as unknown as Repository;
-  const env = { WRITE_ALLOWANCE: writeAllowance, ...envOverrides } as unknown as Env;
+  const manifests = new Map<string, string>();
+  const env = {
+    WRITE_ALLOWANCE: writeAllowance,
+    AGENT_PASTE_ENV: "production",
+    CONTENT_SIGNING_SECRET: "content-secret",
+    CONTENT_CAPABILITY_DOMAIN: "agent-paste.sh",
+    ARTIFACTS: {
+      async get(key: string) {
+        const body = manifests.get(key);
+        return body ? { body, etag: "1" } : null;
+      },
+      async put(key: string, body: string) {
+        manifests.set(key, body);
+        return {};
+      },
+      async delete() {},
+      async list() {
+        return { objects: [], truncated: false };
+      },
+    },
+    ...envOverrides,
+  } as unknown as Env;
   return { coordinator: createPublishCoordinator({ db, env }), writeAllowance };
 }
 
@@ -75,6 +89,9 @@ function publishedResult(overrides: Record<string, unknown> = {}) {
     artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
     revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
     title: "Demo",
+    capability_id: "00112233445566778899aabbccddeeff",
+    revision_number: 1,
+    artifact_updated_at: "2026-01-01T00:00:00.000Z",
     entrypoint: "index.html",
     render_mode: "markdown",
     revision_content_url:
@@ -126,7 +143,7 @@ describe("publish coordinator write-allowance reservation", () => {
     expect(publishCalls).toEqual([]);
   });
 
-  it("publishes content-only: returns the private viewer link and never an access_link_url", async () => {
+  it("returns the one top-level Artifact URL", async () => {
     const { coordinator } = coordinatorFixture({
       async peekPublishWriteGate() {
         return { is_already_published: true, is_new_artifact: false };
@@ -138,110 +155,10 @@ describe("publish coordinator write-allowance reservation", () => {
 
     const result = await coordinator.publishRevision(publishInput);
 
-    expect(result).toHaveProperty("private_url");
-    expect(result).not.toHaveProperty("access_link_url");
-  });
-
-  it("auto-creates the unlisted Share Link and returns unlisted_url for an ephemeral publish", async () => {
-    const writeDataPoint = vi.fn();
-    const createMemberAccessLink = vi.fn().mockResolvedValue({
-      id: "al_ephemeral",
-      type: "share",
-      artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-      revision_id: null,
-      created_at: "2026-01-01T00:00:00.000Z",
-    });
-    const mintMemberAccessLink = vi.fn().mockResolvedValue({ url: "https://app.test/al/PUBLIC#sig" });
-    const { coordinator } = coordinatorFixture(
-      {
-        async peekPublishWriteGate() {
-          return { is_already_published: true, is_new_artifact: false };
-        },
-        async publishRevision() {
-          return publishedResult({ ephemeral_tier: true });
-        },
-        createMemberAccessLink,
-        mintMemberAccessLink,
-      },
-      { ACCESS_LINK_SIGNING_KEY_V1: "al-test-secret", FUNNEL_EVENTS: { writeDataPoint } },
-    );
-
-    const result = await coordinator.publishRevision({ ...publishInput, claimCode });
-
-    expect(result).toHaveProperty("unlisted_url", "https://app.test/al/PUBLIC#sig");
-    expect(writeDataPoint).toHaveBeenCalledWith({
-      indexes: [claimCode],
-      blobs: ["ephemeral_publish_created", "api", claimCode, "w_1", "art_1", "", "", ""],
-      doubles: [1, 0],
-    });
-    expect(createMemberAccessLink).toHaveBeenCalledWith(
-      expect.objectContaining({ artifactId: "art_1", type: "share" }),
-    );
-    // Dedup-keyed so an idempotent publish replay reuses the one active link.
-    expect(createMemberAccessLink.mock.calls[0]?.[0]?.idempotencyKey).toBe("ephemeral-unlist:art_1");
-    expect(mintMemberAccessLink).toHaveBeenCalledWith(expect.objectContaining({ accessLinkId: "al_ephemeral" }));
-  });
-
-  it("fails ephemeral publish output when the public Share Link cannot be minted", async () => {
-    const { coordinator } = coordinatorFixture({
-      async peekPublishWriteGate() {
-        return { is_already_published: true, is_new_artifact: false };
-      },
-      async publishRevision() {
-        return publishedResult({ ephemeral_tier: true });
-      },
-    });
-
-    await expect(coordinator.publishRevision(publishInput)).rejects.toThrow(
-      "ephemeral_access_link_signing_unavailable",
-    );
-  });
-
-  it("does not create a Share Link or return unlisted_url for a standard authenticated publish", async () => {
-    const createMemberAccessLink = vi.fn();
-    const { coordinator } = coordinatorFixture(
-      {
-        async peekPublishWriteGate() {
-          return { is_already_published: true, is_new_artifact: false };
-        },
-        async publishRevision() {
-          return publishedResult();
-        },
-        createMemberAccessLink,
-      },
-      { ACCESS_LINK_SIGNING_KEY_V1: "al-test-secret" },
-    );
-
-    const result = await coordinator.publishRevision(publishInput);
-
+    expect(result).toHaveProperty("url", "https://00112233445566778899aabbccddeeff.agent-paste.sh");
+    expect(result).toHaveProperty("artifact_id");
+    expect(result).not.toHaveProperty("private_url");
     expect(result).not.toHaveProperty("unlisted_url");
-    expect(createMemberAccessLink).not.toHaveBeenCalled();
-  });
-
-  it("notifies live updates with persisted render_mode after add_revision publish", async () => {
-    const notifyLiveUpdatePublish = vi.spyOn(liveUpdates, "notifyLiveUpdatePublish").mockResolvedValue();
-    const { coordinator } = coordinatorFixture({
-      async peekPublishWriteGate() {
-        return { is_already_published: true, is_new_artifact: false };
-      },
-      async publishRevision() {
-        return publishedResult();
-      },
-    });
-
-    await coordinator.publishRevision(publishInput);
-
-    expect(notifyLiveUpdatePublish).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-        revision: expect.objectContaining({
-          revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
-          entrypoint: "index.html",
-          render_mode: "markdown",
-          title: "Demo",
-        }),
-      }),
-    );
+    expect(result).not.toHaveProperty("access_link_url");
   });
 });

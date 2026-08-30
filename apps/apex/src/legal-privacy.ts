@@ -20,7 +20,7 @@ export const PRIVACY: LegalDocument = {
           kind: "list",
           items: [
             "account and Workspace data, such as your email address, authentication provider identifiers, Workspace membership, settings, and Plan",
-            "Artifact data, such as uploaded files, file paths, display metadata, Revision records, Bundle state, Access Link state, and claim or expiration state",
+            "Artifact data, such as uploaded files, file paths, display metadata, Revision records, Bundle state, capability state, and claim or expiration state",
             "credential metadata, such as credential name, public identifier, scopes, creation time, expiration, revocation state, and last-used timestamps, but not recoverable credential secrets",
             "usage and security data, such as request metadata, IP address, user agent, route, status code, rate-limit state, audit events, abuse signals, and operational diagnostics",
             "billing data when paid features are enabled, generally handled by a payment provider rather than stored directly by agent-paste",
@@ -34,7 +34,7 @@ export const PRIVACY: LegalDocument = {
       blocks: [
         {
           kind: "paragraph",
-          text: "We use service data to authenticate users, provision Workspaces, publish and serve Artifacts, resolve Access Links, enforce limits, maintain audit records, provide support, detect abuse, protect the service, improve reliability, and comply with legal obligations.",
+          text: "We use service data to authenticate users, provision Workspaces, publish and serve Artifacts, resolve capability URLs, enforce limits, maintain audit records, provide support, detect abuse, protect the service, improve reliability, and comply with legal obligations.",
         },
         {
           kind: "paragraph",
@@ -48,7 +48,7 @@ export const PRIVACY: LegalDocument = {
       blocks: [
         {
           kind: "paragraph",
-          text: "We share information only as needed to operate the service, comply with law, protect users and the platform, complete business transactions, or with your direction through features such as Access Links.",
+          text: "We share information only as needed to operate the service, comply with law, protect users and the platform, complete business transactions, or with your direction when you provide an Artifact URL to a recipient.",
         },
         {
           kind: "paragraph",
@@ -69,9 +69,9 @@ export const PRIVACY: LegalDocument = {
           items: [
             "Workspace data is isolated by tenant controls, application authorization, and database-level access rules.",
             "Artifact bytes are stored in private object storage and encrypted at the application layer before durable storage. The public content path does not expose direct object-store URLs.",
-            "Untrusted Content is served from an isolated content origin with restrictive browser security headers and sandboxing appropriate to the content and trust tier.",
+            "Untrusted Content is served top-level from a per-Artifact capability origin, separate from the dashboard and its host-only authentication cookie.",
             "Credential secrets are shown only when created, stored in non-recoverable verifier form, and must be replaced if lost.",
-            "Access Links use signed, revocable URLs. Sensitive link material is designed to avoid normal server-side logs where practical.",
+            "Artifact URLs use random 128-bit capability hostnames backed by signed authorization. Full bearer URLs are designed to stay out of normal server-side logs.",
             "Operational logs and audit summaries are designed to exclude request bodies, credential secrets, full signed URLs, and other high-risk values.",
             "Human access uses a dedicated authentication provider. Abuse-response controls are separated from normal credential access.",
             "Security-sensitive secrets are handled through managed secret storage and rotation procedures, not committed to the repository.",
@@ -90,7 +90,7 @@ export const PRIVACY: LegalDocument = {
       blocks: [
         {
           kind: "paragraph",
-          text: "When you publish an Artifact or share an Access Link, people or agents with the relevant link may be able to view the content until the link or Artifact expires, is revoked, is deleted, or is locked down. Treat shared links as sensitive.",
+          text: "When you publish an Artifact, people or agents with its URL may be able to view the content until the Artifact expires, is deleted, or is locked down. Treat Artifact URLs as sensitive.",
         },
         {
           kind: "paragraph",
@@ -132,7 +132,7 @@ export const PRIVACY: LegalDocument = {
       blocks: [
         {
           kind: "paragraph",
-          text: "You can manage credentials, Access Links, Workspace settings, Artifact lifecycle settings, and optional web analytics in the dashboard where those features are available. You can also delete content or revoke links when you no longer want them accessible.",
+          text: "You can manage credentials, Workspace settings, Artifact lifecycle settings, and optional web analytics in the dashboard. Delete an Artifact when you no longer want its URL accessible.",
         },
         {
           kind: "paragraph",

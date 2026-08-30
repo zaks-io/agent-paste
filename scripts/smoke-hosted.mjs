@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { assertApexServes, assertWebServes } from "./lib/smoke-readonly.mjs";
+import { waitForStatus } from "./lib/smoke-wait.mjs";
 import {
   deleteSmokeArtifact,
   fetchDenylistKey as fetchHarnessDenylistKey,
@@ -50,43 +51,14 @@ const userEnv = {
 const published = await runCliJson(["publish", smokePath, "--title", config.title, "--json"], userEnv);
 assert(published.artifact_id?.startsWith("art_"), "publish returned artifact_id");
 assert(published.revision_id?.startsWith("rev_"), "publish returned revision_id");
-const viewerUrl = parseRequiredUrl(published.private_url, "publish returned valid private_url");
-if (config.webBaseUrl) {
-  const webUrl = parseRequiredUrl(config.webBaseUrl, `${target} webBaseUrl is valid`);
-  assert(viewerUrl.origin === webUrl.origin, `publish returned ${target} private_url`);
-}
-assert(viewerUrl.pathname === `/v/${published.artifact_id}`, "publish returned private viewer URL for live viewer");
-const revisionContentUrl = parseRequiredUrl(
-  published.revision_content_url,
-  "publish returned valid revision_content_url",
-);
-const contentUrl = parseRequiredUrl(config.contentBaseUrl, `${target} contentBaseUrl is valid`);
-assert(
-  revisionContentUrl.origin === contentUrl.origin && revisionContentUrl.pathname.startsWith("/v/"),
-  `publish returned ${target} revision_content_url`,
-);
-const agentViewUrl = parseRequiredUrl(published.agent_view_url, "publish returned valid agent_view_url");
-const apiUrl = parseRequiredUrl(config.apiBaseUrl, `${target} apiBaseUrl is valid`);
-assert(
-  agentViewUrl.origin === apiUrl.origin && agentViewUrl.pathname.startsWith("/v1/public/agent-view/"),
-  `publish returned ${target} agent_view_url`,
-);
+const artifactUrl = parseRequiredUrl(published.url, "publish returned valid url");
+assert(artifactUrl.protocol === "https:", "publish returned an HTTPS Artifact URL");
+assert(artifactUrl.pathname === "/", "publish returned the Artifact root URL");
+const expectedArtifactHost =
+  target === "production" ? /^[0-9a-f]{32}\.agent-paste\.sh$/ : /^[0-9a-f]{32}-preview\.agent-paste\.sh$/;
+assert(expectedArtifactHost.test(artifactUrl.hostname), `publish returned ${target} capability hostname`);
 
-const agentViewJson = await fetchJson(published.agent_view_url);
-assert(agentViewJson.artifact_id === published.artifact_id, "Agent View JSON artifact id matches");
-assert(
-  Array.isArray(agentViewJson.files) && agentViewJson.files.some((file) => file.path === "index.html"),
-  "Agent View JSON lists index.html",
-);
-
-const agentViewHtml = await fetch(published.agent_view_url, { headers: { accept: "text/html" } });
-assert(agentViewHtml.status === 200, `Agent View HTML returned ${agentViewHtml.status}`);
-assert(agentViewHtml.headers.get("content-type")?.includes("text/html"), "Agent View HTML content type is text/html");
-const agentHtmlText = await agentViewHtml.text();
-assert(agentHtmlText.includes(published.artifact_id), "Agent View HTML renders artifact id");
-assert(agentHtmlText.includes("index.html"), "Agent View HTML renders file list");
-
-const content = await fetch(published.revision_content_url);
+const content = await fetch(published.url, { redirect: "manual" });
 assert(content.status === 200, `content HTML returned ${content.status}`);
 assert(content.headers.get("content-type")?.includes("text/html"), "content response is HTML");
 assert((await content.text()).includes("Agent Paste Local"), "content response includes smoke fixture HTML");
@@ -104,9 +76,7 @@ process.stdout.write(`${config.label} smoke passed.
 
 Workspace:      ${provisioned.workspaceId}
 Artifact:       ${published.artifact_id}
-Artifact URL:   ${published.private_url}
-Agent View URL: ${published.agent_view_url}
-Revision URL:   ${published.revision_content_url}
+Artifact URL:   ${published.url}
 Apex:           ${config.apexBaseUrl}
 ${config.webBaseUrl ? `Web:            ${config.webBaseUrl}\n` : ""}`);
 
@@ -166,13 +136,6 @@ function run(command, args, commandEnv) {
   });
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url);
-  assert(response.status === 200, `${url} returned ${response.status}`);
-  assert(response.headers.get("content-type")?.includes("application/json"), `${url} did not return JSON`);
-  return response.json();
-}
-
 async function waitForR2Empty(prefix, label) {
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
@@ -184,20 +147,6 @@ async function waitForR2Empty(prefix, label) {
   }
   const keys = await listR2Keys(prefix);
   throw new Error(`${label}: R2 prefix ${prefix} still has ${keys.length} keys after waiting`);
-}
-
-async function waitForStatus(url, expectedStatus, label) {
-  const deadline = Date.now() + 30_000;
-  let lastStatus = 0;
-  while (Date.now() < deadline) {
-    const response = await fetch(url, { cache: "no-store" });
-    lastStatus = response.status;
-    if (response.status === expectedStatus) {
-      return;
-    }
-    await sleep(1000);
-  }
-  throw new Error(`${label} returned ${lastStatus}, expected ${expectedStatus}`);
 }
 
 function sleep(ms) {
@@ -451,7 +400,7 @@ async function assertBytesPurgedAfterDelete(publishedArtifact) {
       `purge-recovery deleted_r2_objects=${purgeRecovery.deleted_r2_objects}, expected at least ${before.length} for prefix ${prefix}: ${JSON.stringify(purgeRecovery)}`,
     );
   }
-  await waitForStatus(publishedArtifact.revision_content_url, 404, "deleted content");
+  await waitForStatus(publishedArtifact.url, 404, "deleted content");
 
   if (before.length > 0) {
     await waitForR2Empty(prefix, "delete purge");
@@ -481,7 +430,7 @@ async function assertBytesPurgedAfterExpiry(userEnv) {
     );
   }
 
-  await waitForStatus(expiryPublish.revision_content_url, 404, "expired content");
+  await waitForStatus(expiryPublish.url, 404, "expired content");
 
   if (before.length > 0) {
     await waitForR2Empty(prefix, "expiry cleanup purge");

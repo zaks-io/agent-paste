@@ -2,13 +2,13 @@ import { GPC_SUPPORT_BODY, GPC_SUPPORT_PATH } from "@agent-paste/brand";
 import { generateCspNonce, sentryOptions } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import handler from "@tanstack/react-start/server-entry";
-import { applyAccessLinkSecurityHeaders, applyDashboardSecurityHeaders } from "./security-headers";
+import { applyDashboardSecurityHeaders } from "./security-headers";
 import { runWithCspNonce } from "./server/csp-nonce";
 import type { WebEnv } from "./server/env";
 
 const WEB_HEALTH_PAYLOAD = { ok: true, app: "web" } as const;
 
-export async function handleRequest(request: Request, env: WebEnv): Promise<Response> {
+export async function handleRequest(request: Request, _env: WebEnv): Promise<Response> {
   const nonce = generateCspNonce();
   const staticResponse = wellKnownGpcResponse(request);
   const response =
@@ -16,8 +16,7 @@ export async function handleRequest(request: Request, env: WebEnv): Promise<Resp
     (isHealthRequest(request)
       ? Response.json(WEB_HEALTH_PAYLOAD)
       : await runWithCspNonce(nonce, () => handler.fetch(request)));
-  const baselined = applyDashboardSecurityHeaders(response, env, nonce);
-  return applyAccessLinkSecurityHeaders(request, baselined, env, nonce);
+  return applyDashboardSecurityHeaders(response, nonce);
 }
 
 const worker = {

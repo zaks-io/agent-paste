@@ -24,10 +24,6 @@ function formatLiveArtifacts(policy: UsagePolicyConfig, ephemeral = false): stri
   return String(policy.live_artifacts_cap);
 }
 
-function formatLiveUpdates(policy: UsagePolicyConfig): string {
-  return policy.live_update_enabled ? "Yes" : "No";
-}
-
 function policyTableRow(
   planLabel: string,
   policy: UsagePolicyConfig,
@@ -43,7 +39,6 @@ function policyTableRow(
     formatMegabytes(policy.artifact_size_cap_bytes),
     ttl,
     formatLiveArtifacts(policy, ephemeral),
-    formatLiveUpdates(policy),
   ];
 }
 
@@ -54,7 +49,6 @@ export const BILLING_PLANS_TABLE_COLUMNS = [
   "Artifact and Bundle cap",
   "TTL",
   "Live Artifacts",
-  "Live Updates",
 ] as const;
 
 /** Rows for the `/docs/billing` plans table (Ephemeral, Free, Pro). */
@@ -109,11 +103,6 @@ export function pricingComparisonRows(): PricingComparisonRow[] {
       feature: "Live Artifacts",
       free: String(free.live_artifacts_cap),
       pro: String(pro.live_artifacts_cap),
-    },
-    {
-      feature: "Live Updates",
-      free: formatLiveUpdates(free),
-      pro: formatLiveUpdates(pro),
     },
   ];
 }

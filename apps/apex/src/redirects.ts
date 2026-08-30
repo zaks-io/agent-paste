@@ -1,6 +1,6 @@
 export const APP_ORIGIN = "https://app.agent-paste.sh";
 
-const PRODUCT_PREFIXES = ["/dashboard", "/artifacts", "/keys", "/audit", "/settings", "/admin", "/al/", "/r/"] as const;
+const PRODUCT_PREFIXES = ["/dashboard", "/artifacts", "/keys", "/audit", "/settings", "/admin", "/r/"] as const;
 
 // Vanity auth paths typed against the apex domain. The app has no /login or
 // /logout route, so map them to its real auth entry points rather than

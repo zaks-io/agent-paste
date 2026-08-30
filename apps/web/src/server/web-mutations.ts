@@ -1,13 +1,8 @@
 import "@tanstack/react-start/server-only";
 
 import {
-  AccessLinkId,
-  type AccessLinkSignedUrl,
   ApiKeyId,
-  ArtifactId,
   type CheckoutSessionResponse,
-  CreateAccessLinkRequest,
-  type CreateAccessLinkResponse,
   CreateApiKeyRequest,
   type CreateApiKeyResponse,
   CreateCheckoutSessionRequest,
@@ -19,8 +14,6 @@ import {
   type RevokeApiKeyResponse,
   SetLockdownRequest,
   UpdateWebSettingsRequest,
-  type WebArtifactDetailResponse,
-  type WebRevokeAccessLinkResponse,
   type WebSettingsResponse,
 } from "@agent-paste/contracts";
 import type { ApiErrorInfo, MutationResult } from "../lib/api-error";
@@ -53,6 +46,11 @@ function parseInput<T>(
       requestId: undefined,
     },
   };
+}
+
+async function claimIdempotencyKey(claimToken: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(claimToken));
+  return `claim:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }
 
 async function runMutation<T>(invoke: (accessToken: string) => Promise<T>): Promise<MutationResult<T>> {
@@ -104,70 +102,6 @@ export function revokeKey(data: { apiKeyId: string }): Promise<MutationResult<Re
   if (input.error) return Promise.resolve({ data: null, error: input.error });
   return runMutation<RevokeApiKeyResponse>((accessToken) =>
     apiFetch<RevokeApiKeyResponse>(`/v1/web/keys/${encodeURIComponent(input.value)}/revoke`, {
-      method: "POST",
-      accessToken,
-      headers: { "idempotency-key": crypto.randomUUID() },
-    }),
-  );
-}
-
-export function createAccessLink(data: {
-  artifactId: string;
-  type: "share" | "revision";
-  revision_id?: string;
-}): Promise<MutationResult<CreateAccessLinkResponse>> {
-  const artifact = parseInput(ArtifactId, data?.artifactId);
-  if (artifact.error) return Promise.resolve({ data: null, error: artifact.error });
-  const body = parseInput(CreateAccessLinkRequest, {
-    type: data.type,
-    ...(data.revision_id ? { revision_id: data.revision_id } : {}),
-  });
-  if (body.error) return Promise.resolve({ data: null, error: body.error });
-  return runMutation<CreateAccessLinkResponse>((accessToken) =>
-    apiFetch<CreateAccessLinkResponse>(`/v1/web/artifacts/${encodeURIComponent(artifact.value)}/access-links`, {
-      method: "POST",
-      accessToken,
-      headers: { "idempotency-key": crypto.randomUUID() },
-      body: JSON.stringify(body.value),
-    }),
-  );
-}
-
-// The minted Access Link Signed URL carries the credential in its fragment. It is
-// returned to the caller verbatim and never logged or persisted here.
-export function mintAccessLink(data: { accessLinkId: string }): Promise<MutationResult<AccessLinkSignedUrl>> {
-  const input = parseInput(AccessLinkId, data?.accessLinkId);
-  if (input.error) return Promise.resolve({ data: null, error: input.error });
-  return runMutation<AccessLinkSignedUrl>((accessToken) =>
-    apiFetch<AccessLinkSignedUrl>(`/v1/web/access-links/${encodeURIComponent(input.value)}/mint`, {
-      method: "POST",
-      accessToken,
-    }),
-  );
-}
-
-export function revokeAccessLink(data: { accessLinkId: string }): Promise<MutationResult<WebRevokeAccessLinkResponse>> {
-  const input = parseInput(AccessLinkId, data?.accessLinkId);
-  if (input.error) return Promise.resolve({ data: null, error: input.error });
-  return runMutation<WebRevokeAccessLinkResponse>((accessToken) =>
-    apiFetch<WebRevokeAccessLinkResponse>(`/v1/web/access-links/${encodeURIComponent(input.value)}/revoke`, {
-      method: "POST",
-      accessToken,
-    }),
-  );
-}
-
-export function setAccessLinkLockdown(data: {
-  artifactId: string;
-  locked: boolean;
-}): Promise<MutationResult<WebArtifactDetailResponse>> {
-  const input = parseInput(ArtifactId, data?.artifactId);
-  if (input.error) return Promise.resolve({ data: null, error: input.error });
-  const path = data.locked
-    ? `/v1/web/artifacts/${encodeURIComponent(input.value)}/access-link-lockdown`
-    : `/v1/web/artifacts/${encodeURIComponent(input.value)}/access-link-lockdown/lift`;
-  return runMutation<WebArtifactDetailResponse>((accessToken) =>
-    apiFetch<WebArtifactDetailResponse>(path, {
       method: "POST",
       accessToken,
       headers: { "idempotency-key": crypto.randomUUID() },
@@ -302,11 +236,12 @@ export async function claimEphemeral(data: {
   const input = parseInput(EphemeralClaimRequest, { claim_token: data.claim_token });
   if (input.error) return { data: null, error: input.error };
 
+  const idempotencyKey = await claimIdempotencyKey(input.value.claim_token);
   return runMutation<EphemeralClaimResponse>((accessToken) =>
     apiFetch<EphemeralClaimResponse>("/v1/ephemeral/claim", {
       method: "POST",
       accessToken,
-      headers: { "idempotency-key": crypto.randomUUID() },
+      headers: { "idempotency-key": idempotencyKey },
       body: JSON.stringify(input.value),
     }),
   );

@@ -64,10 +64,16 @@
         {
           "pattern": "usercontent.preview.agent-paste.sh",
           "custom_domain": true
+        },
+        {
+          "pattern": "*-preview.agent-paste.sh/*",
+          "zone_name": "agent-paste.sh"
         }
       ],
       "vars": {
         "AGENT_PASTE_ENV": "preview",
+        "CONTENT_CAPABILITY_DOMAIN": "agent-paste.sh",
+        "CONTENT_CAPABILITY_HOST_SUFFIX": "-preview",
         "CONTENT_SIGNING_KID": "v1",
         "DOCS_BASE_URL": ""
       },
@@ -112,9 +118,9 @@
           "custom_domain": true
         },
         {
-          // The suffix keeps this route away from app/api/etc. Custom Domains.
-          // The Worker accepts only {32 lowercase hex}-uc capability labels.
-          "pattern": "*-uc.agent-paste.sh/*",
+          // Exact product routes win over this wildcard. The Worker accepts only
+          // a bare 32-character lowercase hexadecimal capability label.
+          "pattern": "*.agent-paste.sh/*",
           "zone_name": "agent-paste.sh"
         }
       ],
