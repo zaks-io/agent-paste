@@ -35,7 +35,9 @@ describe("smoke-readonly readonlyConfig", () => {
   });
 
   it("exposes a jobs URL for preview", () => {
-    expect(readonlyConfig("preview").jobsBaseUrl).toContain("agent-paste-jobs-preview");
+    const config = readonlyConfig("preview");
+    expect(config.jobsBaseUrl).toContain("agent-paste-jobs-preview");
+    expect(config.contentBaseUrl).toBe("https://usercontent.preview.agent-paste.sh");
   });
 
   it("honors AGENT_PASTE_<ENV>_<SURFACE>_URL overrides", () => {

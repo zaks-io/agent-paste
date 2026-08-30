@@ -26,7 +26,7 @@ This runbook is the operator checklist for the first deploy of an agent-paste en
   ```
 
 - Confirm workspace isolation is enforced by the repository queries for this MVP.
-- Confirm the migration credential (`platform_admin`, `DATABASE_URL_MIGRATIONS_*`)
+- Confirm the migration credential (`neondb_owner`, `DATABASE_URL_MIGRATIONS_*`)
   and Hyperdrive runtime credential (`app_role`, `DATABASE_URL_RUNTIME_*`) are
   separate. See [`runbook-neon-database-roles.md`](./runbook-neon-database-roles.md).
 

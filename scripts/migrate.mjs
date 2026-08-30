@@ -67,7 +67,7 @@ function usage() {
   node scripts/migrate.mjs production
 
 Migration URLs use DATABASE_URL_MIGRATIONS_PREVIEW or DATABASE_URL_MIGRATIONS_PRODUCTION
-(platform_admin direct connection). Hyperdrive Workers use DATABASE_URL_RUNTIME_* (app_role).
+(neondb_owner direct connection). Hyperdrive Workers use DATABASE_URL_RUNTIME_* (app_role).
 
 Before migrating, the target Neon branch is checked against the Hyperdrive binding's
 origin (apps/api/wrangler.jsonc). Migrations are refused when they diverge so changes

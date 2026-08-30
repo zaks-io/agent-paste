@@ -15,7 +15,7 @@ import {
 describe("database credentials", () => {
   it("exposes stable role names", () => {
     expect(APP_RUNTIME_ROLE).toBe("app_role");
-    expect(MIGRATION_ROLE).toBe("platform_admin");
+    expect(MIGRATION_ROLE).toBe("neondb_owner");
   });
 
   it("prefers canonical migration env vars", () => {
@@ -119,15 +119,15 @@ describe("database credentials", () => {
 
   it("resolves migration URLs and flags legacy env names", () => {
     const resolved = resolveMigrationDatabaseUrl("production", {
-      PRODUCTION_DATABASE_URL: "postgres://platform_admin@host/db",
+      PRODUCTION_DATABASE_URL: "postgres://neondb_owner@host/db",
     });
-    expect(resolved.url).toContain("platform_admin");
+    expect(resolved.url).toContain("neondb_owner");
     expect(usesLegacyMigrationEnv("production", resolved.envName)).toBe(true);
     expect(
       usesLegacyMigrationEnv(
         "production",
         resolveMigrationDatabaseUrl("production", {
-          DATABASE_URL_MIGRATIONS_PRODUCTION: "postgres://platform_admin@host/db",
+          DATABASE_URL_MIGRATIONS_PRODUCTION: "postgres://neondb_owner@host/db",
         }).envName,
       ),
     ).toBe(false);

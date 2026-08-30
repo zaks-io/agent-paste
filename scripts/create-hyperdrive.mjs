@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Hyperdrive must use the app_role connection string (DATABASE_URL_RUNTIME_* /
-// PR runtime Neon URL). Never pass migration URLs (platform_admin) here.
+// PR runtime Neon URL). Never pass migration URLs (neondb_owner) here.
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { maskConnectionUri } from "../packages/db/scripts/credentials.mjs";

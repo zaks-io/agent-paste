@@ -1,5 +1,5 @@
 // @ts-check
-// Migrations run against DATABASE_URL_MIGRATIONS_* (platform_admin, direct Neon
+// Migrations run against DATABASE_URL_MIGRATIONS_* (neondb_owner, direct Neon
 // connection). The Workers read through a Hyperdrive binding whose origin is set
 // independently. Nothing ties the two together, so a migration URL pointing at one
 // Neon branch while Hyperdrive points at another means migrations silently land on a

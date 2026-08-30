@@ -35,7 +35,7 @@ Local development (`docker-compose`) may keep using the single `DATABASE_URL` su
 
 ## Hosted bootstrap order
 
-1. Run migrations once with a role that can create roles (Neon `neondb_owner` or existing `platform_admin` URL) so `0010_db_roles.sql` applies.
+1. Run migrations with the Neon `neondb_owner` direct URL so ownership-only DDL and `0010_db_roles.sql` can apply.
 2. In the Neon console, set passwords for `app_role` and `platform_admin` on the target branch (or rely on inherited branch passwords after they exist on `main`).
 3. Store the `neondb_owner` direct URL in GitHub Environment secrets as `PRODUCTION_DATABASE_URL` / `PREVIEW_DATABASE_URL` (the migration runner per [ADR 0077](../adr/0077-migrations-run-as-neondb-owner-not-platform-admin.md)). The canonical `DATABASE_URL_MIGRATIONS_*` names are reserved for if/when migrations move to a dedicated owner role; if set, they must point at the same branch as that environment's Hyperdrive.
 4. Store `app_role` direct URLs locally for Hyperdrive maintenance as `DATABASE_URL_RUNTIME_*` (not required in GitHub unless a workflow updates Hyperdrive).
