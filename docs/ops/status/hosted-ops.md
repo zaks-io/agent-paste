@@ -124,7 +124,8 @@ Launch-readiness secret notes:
 - Neon compute cost control (2026-09-01): every Neon compute uses the default
   5-minute scale-to-zero (the Launch plan cannot shorten it), so wake frequency
   is the only lever. Preview `jobs` runs hourly and daily crons only, PR preview
-  `jobs` runs none, PR Neon branches carry a 7-day `expires_at` set at deploy
+  `jobs` runs hourly only (the hourly sweep includes Upload Cleanup), PR Neon
+  branches carry a 7-day `expires_at` set at deploy
   time, and the project's default endpoint settings plus the `preview` endpoint
   cap autoscaling at 2 CU. The `main` endpoint keeps its 8 CU cap.
 - `NEON_PRODUCTION_BRANCH_ID` is optional safety metadata and not active.
@@ -305,3 +306,11 @@ called with incorrect this reference`. Example failed revisions:
 - Revisit GitHub Production environment reviewer/wait-timer/admin-bypass posture
   after launch/users. Do not add hard production deploy limits as part of
   AP-236.
+- Full PR previews (`full-pr-preview` label) fail at the hosted ephemeral
+  publish smoke since the capability-URL redesign (ADR 0094). The PR api Worker
+  is deployed without `CONTENT_CAPABILITY_DOMAIN` /
+  `CONTENT_CAPABILITY_HOST_SUFFIX` (`scripts/deploy-pr-preview.mjs`), and the
+  `<id>-preview.agent-paste.sh` capability host is zone-routed to the standing
+  preview content Worker, which signs tokens with a different secret. Either
+  wire a per-PR capability domain and content route, or narrow the `pr` target
+  in `scripts/smoke-ephemeral-harness.mjs`. Seen first on PR #619 (2026-09-01).

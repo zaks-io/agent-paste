@@ -85,8 +85,8 @@
       },
       "workers_dev": true,
       // Overrides the top-level crons. The 15-minute upload-cleanup tick woke the
-      // preview Neon compute 96 times a day and defeated scale-to-zero; preview
-      // smoke drives cleanup through /__test__/run-cleanup instead.
+      // preview Neon compute 96 times a day and defeated scale-to-zero. The hourly
+      // sweep also runs upload cleanup (src/cron.ts), so nothing is skipped.
       "triggers": {
         "crons": ["0 * * * *", "0 6 * * *"]
       },
