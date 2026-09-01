@@ -265,7 +265,9 @@ function jobsConfig() {
   return baseConfig("jobs", {
     main: workspacePath("apps/jobs/src/index.ts"),
     compatibility_flags: ["nodejs_compat"],
-    triggers: { crons: ["*/15 * * * *", "0 * * * *"] },
+    // No crons: each tick woke the PR's Neon branch compute and defeated
+    // scale-to-zero. PR smoke drives cleanup through /__test__/run-cleanup.
+    triggers: { crons: [] },
     vars: {
       AGENT_PASTE_ENV: "preview",
       JOBS_ENABLED: "true",

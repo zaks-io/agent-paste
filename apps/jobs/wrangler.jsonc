@@ -84,6 +84,12 @@
         "required": ["ARTIFACT_BYTES_ENCRYPTION_KEY", "CONTENT_SIGNING_SECRET"]
       },
       "workers_dev": true,
+      // Overrides the top-level crons. The 15-minute upload-cleanup tick woke the
+      // preview Neon compute 96 times a day and defeated scale-to-zero; preview
+      // smoke drives cleanup through /__test__/run-cleanup instead.
+      "triggers": {
+        "crons": ["0 * * * *", "0 6 * * *"]
+      },
       "vars": {
         "AGENT_PASTE_ENV": "preview",
         "JOBS_ENABLED": "true",

@@ -27,6 +27,8 @@ Only `bundle-generate-dlq` has a consumer because terminal bundle failure must u
 
 Retention is implemented from day one, but the default `revision_retention_days` is null, so it keeps all Revisions unless a policy value is later set.
 
+The table is the production schedule. Every cron tick opens a Postgres connection, and each connection restarts Neon's 5-minute scale-to-zero timer, so non-production environments run fewer ticks: the standing preview `jobs` Worker omits the 15-minute Upload Cleanup cron (`apps/jobs/wrangler.jsonc` `env.preview.triggers`), and PR preview `jobs` Workers run no crons at all (`scripts/deploy-pr-preview.mjs`). Preview smoke drives Upload Cleanup and purge recovery synchronously through the `/__test__/run-cleanup` and `/__test__/purge-recovery` routes.
+
 ## Kill Switch
 
 `JOBS_ENABLED=false` skips cron sweeps and makes queue consumers retry (never

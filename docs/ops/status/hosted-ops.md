@@ -121,6 +121,12 @@ Launch-readiness secret notes:
   secrets and variables when the PR carries the `full-pr-preview` label. Runtime
   resources are still PR-scoped Cloudflare Workers, Neon branches, Hyperdrive
   configs, and queues.
+- Neon compute cost control (2026-09-01): every Neon compute uses the default
+  5-minute scale-to-zero (the Launch plan cannot shorten it), so wake frequency
+  is the only lever. Preview `jobs` runs hourly and daily crons only, PR preview
+  `jobs` runs none, PR Neon branches carry a 7-day `expires_at` set at deploy
+  time, and the project's default endpoint settings plus the `preview` endpoint
+  cap autoscaling at 2 CU. The `main` endpoint keeps its 8 CU cap.
 - `NEON_PRODUCTION_BRANCH_ID` is optional safety metadata and not active.
 - `NPM_TOKEN` is needed for future real CLI releases; the npm namespace is
   already reserved by `@zaks-io/agent-paste@0.0.0`.
