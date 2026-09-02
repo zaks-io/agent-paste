@@ -102,6 +102,10 @@ import {
   startCheckoutFn,
 } from "../src/rpc/web-mutations";
 
+// The RPC wrappers load these shared implementations lazily. Preload them
+// during collection so their transform cost is not charged to the first test.
+await Promise.all([import("../src/server/web-loaders"), import("../src/server/web-mutations")]);
+
 const ARTIFACT_ID = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 
 describe("web RPC bridge", () => {
