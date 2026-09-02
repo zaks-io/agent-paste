@@ -123,6 +123,15 @@ vi.mock("../src/server/runtime", () => ({
 // Loaders migrated to TanStack Query read context.queryClient.ensureQueryData.
 const queryContext = () => ({ context: { queryClient: { ensureQueryData: state.ensureQueryData } } });
 
+// Whichever dynamic import runs first in this file pays to transform the entire
+// TanStack route graph: ~6s warm, and past 15s on a CPU-starved CI runner during
+// a cold turbo build. Inside a test body that cost is charged to testTimeout, so
+// the first test kept failing while the other eight ran in single-digit ms.
+// Loading the graph once at module scope moves it into collection, where it
+// belongs. Raising testTimeout instead (AP-140, 5s -> 15s) only moved the cliff.
+// vi.mock factories are hoisted above this, so the mocks still apply. AP-431.
+const authedLayout = await import("../src/routes/_authed");
+
 describe("web routes", () => {
   beforeEach(() => {
     state.loaderData = undefined;
@@ -147,8 +156,7 @@ describe("web routes", () => {
   });
 
   it("resolves the authenticated layout identity without blocking on the API", async () => {
-    const authed = await import("../src/routes/_authed");
-    const loader = authed.Route.loader as (input: {
+    const loader = authedLayout.Route.loader as (input: {
       location: { pathname: string; searchStr: string };
     }) => Promise<unknown>;
 
