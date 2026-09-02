@@ -12,12 +12,12 @@ export const SHARING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Publish returns `url`, the complete unguessable capability URL that opens without login. Its hostname is the 32-character capability ID under `agent-paste.link`. It is the Artifact itself, not an app viewer or redirect.",
+          text: "Publish returns `url`, the complete unguessable capability URL that opens without login. Its hostname is the 23-character capability ID under `agent-paste.link`. It is the Artifact itself, not an app viewer or redirect.",
         },
         {
           kind: "code",
           language: "text",
-          code: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
+          code: "https://01234-56789-abcde-fghjd.agent-paste.link/",
         },
         {
           kind: "paragraph",
@@ -41,7 +41,7 @@ export const SHARING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "The 32-character hostname contains 128 bits of random entropy and acts as the bearer locator. The content Worker validates its manifest, signed authorization, expiry, denylist, and requested path before serving encrypted R2 bytes.",
+          text: "The 23-character hostname contains 95 bits of random entropy and acts as the bearer locator. The content Worker validates its manifest, signed authorization, expiry, denylist, and requested path before serving encrypted R2 bytes.",
         },
       ],
     },

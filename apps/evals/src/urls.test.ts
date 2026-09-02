@@ -51,4 +51,12 @@ describe("classifyUrls", () => {
     expect(urls.artifact).toBe(artifactUrl);
     expect(urls.production).toEqual([artifactUrl, signedUrl]);
   });
+
+  it("detects new production and preview artifact URL shapes", () => {
+    const productionUrl = "https://01234-56789-abcde-fghjd.agent-paste.link/";
+    const previewUrl = "https://01234-56789-abcde-fghjd-preview.agent-paste.link/";
+
+    expect(classifyUrls(productionUrl)).toMatchObject({ artifact: productionUrl, production: [productionUrl] });
+    expect(classifyUrls(previewUrl)).toMatchObject({ artifact: previewUrl, production: [] });
+  });
 });

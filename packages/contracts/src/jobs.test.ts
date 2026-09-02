@@ -19,6 +19,23 @@ describe("jobs queue messages", () => {
     expect(parseJobsQueueMessage(body)).toEqual(BytePurgeMessage.parse(body));
   });
 
+  it("accepts both capability ID shapes in byte purge payloads", () => {
+    for (const capabilityId of ["00112233445566778899aabbccddeeff", "01234-56789-abcde-fghje"]) {
+      expect(
+        BytePurgeMessage.parse({
+          type: "byte.purge.v1",
+          workspace_id: workspaceId,
+          artifact_id: artifactId,
+          revision_id: revisionId,
+          upload_session_id: null,
+          capability_id: capabilityId,
+          prefixes: ["content-capabilities/v1/example.json"],
+          reason: "deletion",
+        }).capability_id,
+      ).toBe(capabilityId);
+    }
+  });
+
   it("parses safety scan payloads", () => {
     const body = {
       type: "safety.scan.v1",

@@ -76,12 +76,12 @@ Directory publish preserves relative paths. Entrypoint inference is
   "artifact_id": "art_...",
   "revision_id": "rev_...",
   "title": "report",
-  "url": "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
+  "url": "https://01234-56789-abcde-fghjd.agent-paste.link/",
   "expires_at": "<ISO 8601 expiration timestamp>"
 }
 \`\`\`
 
-The URL is an unguessable 128-bit bearer locator. It opens without login and
+The URL is an unguessable 95-bit bearer locator. It opens without login and
 serves the latest Published Revision. Authenticated publishes can use inline
 scripts, external HTTPS dependencies, root-relative assets, fetch, secure
 WebSockets, and dedicated workers. Service workers are blocked on every

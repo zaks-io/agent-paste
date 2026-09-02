@@ -1,5 +1,9 @@
-const CONTENT_CAPABILITY_BYTES = 16;
-const CONTENT_CAPABILITY_ID_PATTERN = /^[a-f0-9]{32}$/;
+const CONTENT_CAPABILITY_BYTES = 19;
+const CONTENT_CAPABILITY_ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz";
+const NEW_CONTENT_CAPABILITY_ID_PATTERN = /^[0-9a-hj-kmnp-tv-z]{5}(?:-[0-9a-hj-kmnp-tv-z]{5}){3}$/;
+const LEGACY_CONTENT_CAPABILITY_ID_PATTERN = /^[a-f0-9]{32}$/;
+export const CONTENT_CAPABILITY_ID_PATTERN_SOURCE: string =
+  "(?:[a-f0-9]{32}|[0-9a-hj-kmnp-tv-z]{5}(?:-[0-9a-hj-kmnp-tv-z]{5}){3})";
 const CONTENT_CAPABILITY_DOMAIN_PATTERN =
   /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const MAX_CONTENT_CAPABILITY_DOMAIN_LENGTH = 217;
@@ -21,11 +25,29 @@ export function mintContentCapabilityId(randomBytes?: Uint8Array): string {
   if (bytes.byteLength !== CONTENT_CAPABILITY_BYTES) {
     throw new Error(`Content capability IDs require exactly ${CONTENT_CAPABILITY_BYTES} random bytes.`);
   }
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const randomSymbols = Array.from(bytes, (byte) => CONTENT_CAPABILITY_ALPHABET[byte & 31]).join("");
+  const checkSymbol = CONTENT_CAPABILITY_ALPHABET[contentCapabilityCheckValue(randomSymbols)];
+  const symbols = `${randomSymbols}${checkSymbol}`;
+  return `${symbols.slice(0, 5)}-${symbols.slice(5, 10)}-${symbols.slice(10, 15)}-${symbols.slice(15)}`;
 }
 
 export function isContentCapabilityId(value: string): boolean {
-  return CONTENT_CAPABILITY_ID_PATTERN.test(value);
+  // Legacy hex stays accepted because published URLs are permanent; the check symbol lets the edge reject typos and truncation before an R2 read.
+  if (LEGACY_CONTENT_CAPABILITY_ID_PATTERN.test(value)) {
+    return true;
+  }
+  if (!NEW_CONTENT_CAPABILITY_ID_PATTERN.test(value)) {
+    return false;
+  }
+  const symbols = value.replaceAll("-", "");
+  return CONTENT_CAPABILITY_ALPHABET.indexOf(symbols[19] ?? "") === contentCapabilityCheckValue(symbols.slice(0, 19));
+}
+
+function contentCapabilityCheckValue(symbols: string): number {
+  return Array.from(symbols).reduce(
+    (sum, symbol, index) => (sum + CONTENT_CAPABILITY_ALPHABET.indexOf(symbol) * (index % 2 === 0 ? 1 : 3)) % 32,
+    0,
+  );
 }
 
 export function contentCapabilityObjectKey(capabilityId: string): string {

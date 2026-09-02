@@ -1,3 +1,4 @@
+import { CONTENT_CAPABILITY_ID_PATTERN_SOURCE } from "@agent-paste/tokens";
 import * as Sentry from "@sentry/cloudflare";
 
 export type WorkerLogLevel = "info" | "warn" | "error" | "fatal";
@@ -53,9 +54,16 @@ const SECRET_ASSIGNMENT_PATTERN =
 const JSON_SECRET_ASSIGNMENT_PATTERN =
   /"((?:content_signing_secret|upload_signing_secret|api_key_pepper_v1|smoke_harness_secret|access_link_blob|content_token|idempotency[-_]?key|signature|token|kid|expires))"\s*:\s*"(?:\\.|[^"\\])*"/giu;
 const URL_PATTERN = /https?:\/\/[^\s"'<>]+/giu;
-const CONTENT_CAPABILITY_HOSTNAME_PATTERN = /[0-9a-f]{32}(?:-(?:uc|preview))?(?:\.[a-z0-9-]+){2,}/iu;
-const CONTENT_CAPABILITY_HOSTNAME_GLOBAL_PATTERN = /[0-9a-f]{32}(?:-(?:uc|preview))?(?:\.[a-z0-9-]+){2,}/giu;
-const CONTENT_CAPABILITY_ID_GLOBAL_PATTERN = /\b[0-9a-f]{32}\b/giu;
+const CONTENT_CAPABILITY_HOSTNAME_PATTERN = new RegExp(
+  `${CONTENT_CAPABILITY_ID_PATTERN_SOURCE}(?:-(?:uc|preview))?(?:\\.[a-z0-9-]+){2,}`,
+  "iu",
+);
+const CONTENT_CAPABILITY_HOSTNAME_GLOBAL_PATTERN = new RegExp(
+  `${CONTENT_CAPABILITY_ID_PATTERN_SOURCE}(?:-(?:uc|preview))?(?:\\.[a-z0-9-]+){2,}`,
+  "giu",
+);
+const CONTENT_CAPABILITY_ID_GLOBAL_PATTERN = new RegExp(`\\b${CONTENT_CAPABILITY_ID_PATTERN_SOURCE}\\b`, "giu");
+const CONTENT_CAPABILITY_ID_PREFIX_PATTERN = new RegExp(`^${CONTENT_CAPABILITY_ID_PATTERN_SOURCE}`, "iu");
 
 export function emitWorkerLog(input: WorkerLogInput): void {
   const attributes = workerLogAttributes(input);
@@ -241,7 +249,7 @@ export function containsContentCapabilityId(value: string): boolean {
 
 export function contentCapabilityIdFromValue(value: string): string | undefined {
   const hostname = value.match(CONTENT_CAPABILITY_HOSTNAME_PATTERN)?.[0];
-  return hostname?.slice(0, 32).toLowerCase();
+  return hostname?.match(CONTENT_CAPABILITY_ID_PREFIX_PATTERN)?.[0].toLowerCase();
 }
 
 export function pathFromUrl(raw: string): string {

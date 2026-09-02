@@ -60,6 +60,16 @@ describe("smoke-ephemeral-harness", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("accepts a new-shape capability hostname for preview smoke", async () => {
+    await expect(
+      assertPublishOutput(samplePublishResult({ url: "https://01234-56789-abcde-fghjd-preview.agent-paste.link/" }), {
+        target: "preview",
+        claimWebOrigin: "https://app.preview.agent-paste.sh",
+        expectedClaimTokenPrefix: "ap_ct_preview_",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it("rejects the standing preview capability hostname for PR smoke", async () => {
     await expect(
       assertPublishOutput(samplePublishResult(), {

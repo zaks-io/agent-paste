@@ -132,6 +132,7 @@ describe("worker logging", () => {
   });
 
   it("redacts token-bearing path segments", () => {
+    const newCapabilityId = "01234-56789-abcde-fghjd";
     expect(pathFromUrl("https://content.test/v/payload.signature/index.html?expires=1")).toBe(
       "/v/[redacted_content_token]/index.html",
     );
@@ -148,6 +149,11 @@ describe("worker logging", () => {
     expect(sanitizeString("content-capabilities/v1/00112233445566778899aabbccddeeff.json")).toBe(
       "content-capabilities/v1/[redacted_capability_id].json",
     );
+    expect(pathFromUrl(`https://${newCapabilityId}-preview.content.test/private/customer.html`)).toBe(
+      "/[redacted_capability_path]",
+    );
+    expect(sanitizeString(`capability=${newCapabilityId}`)).toBe("capability=[redacted_capability_id]");
+    expect(sanitizeString("capability=ilou0-ilou0-ilou0-ilou0")).toBe("capability=ilou0-ilou0-ilou0-ilou0");
   });
 
   it("redacts JSON-style secret assignments before truncating", () => {

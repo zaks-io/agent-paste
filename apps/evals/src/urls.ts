@@ -6,9 +6,11 @@ export type ClassifiedUrls = {
 };
 
 const URL_PATTERN = /https?:\/\/[^\s<>"'()[\]{}|\\^`*]+/g;
-const PRODUCTION_ARTIFACT_HOST = /^[0-9a-f]{32}\.agent-paste\.link$/;
-const PREVIEW_ARTIFACT_HOST =
-  /^[0-9a-f]{32}-(?:(?:preview|pr-[1-9][0-9]*)\.agent-paste\.link|preview\.agent-paste\.sh)$/;
+const CAPABILITY_ID_PATTERN = "(?:[a-f0-9]{32}|[0-9a-hj-kmnp-tv-z]{5}(?:-[0-9a-hj-kmnp-tv-z]{5}){3})";
+const PRODUCTION_ARTIFACT_HOST = new RegExp(`^${CAPABILITY_ID_PATTERN}\\.agent-paste\\.link$`);
+const PREVIEW_ARTIFACT_HOST = new RegExp(
+  `^${CAPABILITY_ID_PATTERN}-(?:(?:preview|pr-[1-9][0-9]*)\\.agent-paste\\.link|preview\\.agent-paste\\.sh)$`,
+);
 
 export function classifyUrls(text: string): ClassifiedUrls {
   const urls = Array.from(new Set(text.match(URL_PATTERN) ?? [])).map(cleanUrl);

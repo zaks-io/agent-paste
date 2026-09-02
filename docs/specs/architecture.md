@@ -18,15 +18,16 @@ publish flow calls it.
 
 1. A client uploads files and finalizes a Revision through `api` and `upload`.
 2. `api` commits the Revision and writes the latest capability manifest to R2.
-3. The manifest binds a random 128-bit capability ID to a signed exact-Revision
+3. The manifest binds a random 95-bit capability ID to a signed exact-Revision
    content token and entrypoint.
 4. `api` returns the capability origin as `url`.
 5. The browser opens that origin directly. `content` resolves the hostname,
    loads the manifest, verifies the signed token, and serves decrypted bytes.
 
 Production hosts are `{capabilityId}.agent-paste.link`. Preview hosts are
-`{capabilityId}-preview.agent-paste.link`. The capability ID is exactly 32
-lowercase hexadecimal characters. It is the bearer secret, so logs retain only
+`{capabilityId}-preview.agent-paste.link`. New capability IDs are 23-character
+grouped base32 strings with a check symbol. Legacy 32-character lowercase
+hexadecimal IDs remain valid. The ID is the bearer secret, so logs retain only
 redacted host metadata.
 
 ## Routing

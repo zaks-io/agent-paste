@@ -93,11 +93,11 @@ npx skills add https://github.com/zaks-io/agent-paste/tree/main/skills/agent-pas
 
 ## Browser architecture
 
-Each Artifact gets a cryptographically random 128-bit capability hostname:
+Each Artifact gets a cryptographically random 95-bit capability hostname:
 
 ```text
-production  {32-lowercase-hex}.agent-paste.link
-preview     {32-lowercase-hex}-preview.agent-paste.link
+production  {xxxxx-xxxxx-xxxxx-xxxxx}.agent-paste.link
+preview     {xxxxx-xxxxx-xxxxx-xxxxx}-preview.agent-paste.link
 ```
 
 The API stores a private capability manifest in R2. The content Worker validates
@@ -107,6 +107,8 @@ decrypting bytes. Revising an Artifact rewrites that manifest in place.
 Artifact origins live on a separate registrable domain from product hosts such
 as `app.agent-paste.sh`, `api.agent-paste.sh`, and `mcp.agent-paste.sh`. The
 content Worker rejects any hostname that is not exactly the capability shape.
+New IDs contain 19 random base32 symbols plus a check symbol. Legacy 32-character
+lowercase hexadecimal IDs remain valid and are never rewritten.
 
 Previously issued signed `usercontent.agent-paste.sh/v/...` URLs continue until
 their normal expiry. Previously issued capability URLs map directly from

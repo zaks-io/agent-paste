@@ -4,8 +4,8 @@ The `content` Worker serves each Artifact as a top-level website on one
 capability-scoped origin:
 
 ```text
-production  https://{32-lowercase-hex-id}.agent-paste.link/
-preview     https://{32-lowercase-hex-id}-preview.agent-paste.link/
+production  https://{xxxxx-xxxxx-xxxxx-xxxxx}.agent-paste.link/
+preview     https://{xxxxx-xxxxx-xxxxx-xxxxx}-preview.agent-paste.link/
 ```
 
 There is no application viewer, iframe, sandbox, brand-bar wrapper, or separate
@@ -13,11 +13,13 @@ sharing step. The capability hostname is the URL returned by every publish.
 
 ## Capability routing
 
-The API generates 16 cryptographically random bytes on an Artifact's first
-publish and stores the 32-character lowercase hexadecimal ID with it. Revise,
-pin, and unpin keep that ID. Revocation clears it, and the next publish mints a
-new random ID. The ID is independent of the Artifact and Revision IDs. It is an
-unguessable bearer locator.
+The API generates 19 random Crockford-base32 symbols on an Artifact's first
+publish, appends a check symbol, and stores the 23-character
+`xxxxx-xxxxx-xxxxx-xxxxx` ID with it. The random symbols carry 95 bits of
+entropy. Revise, pin, and unpin keep that ID. Revocation clears it, and the next
+publish mints a new random ID. The ID is independent of the Artifact and
+Revision IDs. It is an unguessable bearer locator. Legacy 32-character
+lowercase hexadecimal IDs remain valid and are never rewritten.
 
 The API writes an R2 manifest at `content-capabilities/v1/{id}.json`. The
 manifest contains the entrypoint and a signed content token with the Artifact,

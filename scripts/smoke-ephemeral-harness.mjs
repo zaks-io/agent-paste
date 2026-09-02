@@ -171,14 +171,15 @@ export async function assertPublishOutput(
   if (target === "pr") {
     assertBoundary(/^[1-9][0-9]*$/.test(expectedPrNumber ?? ""), "publish", "PR smoke has an exact expected PR number");
   }
+  const capabilityIdPattern = "(?:[a-f0-9]{32}|[0-9a-hj-kmnp-tv-z]{5}(?:-[0-9a-hj-kmnp-tv-z]{5}){3})";
   const expectedHost =
     target === "production"
-      ? /^[0-9a-f]{32}\.agent-paste\.link$/
+      ? new RegExp(`^${capabilityIdPattern}\\.agent-paste\\.link$`)
       : target === "preview"
-        ? /^[0-9a-f]{32}-preview\.agent-paste\.link$/
+        ? new RegExp(`^${capabilityIdPattern}-preview\\.agent-paste\\.link$`)
         : target === "pr"
-          ? new RegExp(`^[0-9a-f]{32}-pr-${expectedPrNumber}\\.agent-paste\\.link$`)
-          : /^(?:[0-9a-f]{32}\.artifact\.test|127\.0\.0\.1|localhost)$/;
+          ? new RegExp(`^${capabilityIdPattern}-pr-${expectedPrNumber}\\.agent-paste\\.link$`)
+          : new RegExp(`^(?:${capabilityIdPattern}\\.artifact\\.test|127\\.0\\.0\\.1|localhost)$`);
   assertBoundary(expectedHost.test(artifactUrl.hostname), "publish", `url targets ${target} Artifact host`);
   assertBoundary(
     published.claim_url === `${claimWebOrigin}/claim#${published.claim_token}`,

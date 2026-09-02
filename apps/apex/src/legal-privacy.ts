@@ -71,7 +71,7 @@ export const PRIVACY: LegalDocument = {
             "Artifact bytes are stored in private object storage and encrypted at the application layer before durable storage. The public content path does not expose direct object-store URLs.",
             "Untrusted Content is served top-level from a per-Artifact capability origin, separate from the dashboard and its host-only authentication cookie.",
             "Credential secrets are shown only when created, stored in non-recoverable verifier form, and must be replaced if lost.",
-            "Artifact URLs use random 128-bit capability hostnames backed by signed authorization. Full bearer URLs are designed to stay out of normal server-side logs.",
+            "Artifact URLs use random 95-bit capability hostnames backed by signed authorization. Full bearer URLs are designed to stay out of normal server-side logs.",
             "Operational logs and audit summaries are designed to exclude request bodies, credential secrets, full signed URLs, and other high-risk values.",
             "Human access uses a dedicated authentication provider. Abuse-response controls are separated from normal credential access.",
             "Security-sensitive secrets are handled through managed secret storage and rotation procedures, not committed to the repository.",
