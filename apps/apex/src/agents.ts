@@ -1,5 +1,5 @@
 // Public /agents.md source. Keep this focused on using the shipped product.
-import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL } from "./copy";
+import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL, SKILL_INSTALL_CMD } from "./copy";
 
 export const AGENTS_MD = `# agent-paste for agents
 
@@ -13,6 +13,12 @@ the same Artifact keeps the URL.
 
 Default to the CLI. Use MCP only when the host can connect to remote MCP but
 cannot run commands.
+
+## Install the skill
+
+\`\`\`sh
+${SKILL_INSTALL_CMD}
+\`\`\`
 
 ## CLI
 

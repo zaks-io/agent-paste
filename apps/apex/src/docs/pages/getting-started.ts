@@ -1,3 +1,4 @@
+import { SKILL_INSTALL_CMD } from "../../copy";
 import type { DocsPage } from "../types";
 
 export const GETTING_STARTED_DOC: DocsPage = {
@@ -28,6 +29,21 @@ export const GETTING_STARTED_DOC: DocsPage = {
         {
           kind: "paragraph",
           text: "`whoami --json` exits 0 when signed out, so inspect `authenticated`. If false and browser auth is possible, run `agent-paste login` before publishing.",
+        },
+      ],
+    },
+    {
+      id: "agent-skill",
+      title: "Install the agent skill",
+      blocks: [
+        {
+          kind: "paragraph",
+          text: "Install the repository's portable skill directly into Claude Code and Codex. It teaches agents the CLI-first publish, revise, ephemeral, and MCP workflows.",
+        },
+        {
+          kind: "code",
+          language: "sh",
+          code: SKILL_INSTALL_CMD,
         },
       ],
     },

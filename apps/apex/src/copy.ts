@@ -66,6 +66,8 @@ export const PUBLISH_CMD = `${CLI} publish ./report`;
 export const PUBLISH_EPHEMERAL_CMD = `${CLI} publish ./report --ephemeral`;
 export const INSTALL_SH_CMD = "curl -fsSL https://agent-paste.sh/install.sh | sh";
 export const INSTALL_PS1_CMD = "irm https://agent-paste.sh/install.ps1 | iex";
+export const SKILL_INSTALL_CMD =
+  "npx skills add https://github.com/zaks-io/agent-paste/tree/main/skills/agent-paste --agent claude-code codex";
 
 // The home demo: a flat, hairline transcript shell showing an agent publish
 // session (style-guide §8.1 sanctions the transcript; the terminal *look* is
