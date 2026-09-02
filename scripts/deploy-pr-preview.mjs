@@ -265,7 +265,9 @@ function jobsConfig() {
   return baseConfig("jobs", {
     main: workspacePath("apps/jobs/src/index.ts"),
     compatibility_flags: ["nodejs_compat"],
-    triggers: { crons: ["*/15 * * * *", "0 * * * *"] },
+    // Hourly only: the 15-minute tick woke the PR's Neon branch compute 96
+    // times a day. The hourly sweep also runs upload cleanup (apps/jobs/src/cron.ts).
+    triggers: { crons: ["0 * * * *"] },
     vars: {
       AGENT_PASTE_ENV: "preview",
       JOBS_ENABLED: "true",

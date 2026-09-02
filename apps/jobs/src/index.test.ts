@@ -166,6 +166,47 @@ describe("jobs worker", () => {
     expect(executor.query).toHaveBeenCalled();
   });
 
+  it("runs upload cleanup inside the hourly sweep so envs without the 15-minute cron stay covered", async () => {
+    const send = vi.fn(async () => ({}));
+    const executor = createTransactionalSqlExecutor(async (sql: string) => {
+      if (sql.includes("upload_sessions") && sql.trimStart().startsWith("select")) {
+        return {
+          rows: [
+            {
+              id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+              workspace_id: workspaceId,
+              artifact_id: artifactId,
+              revision_id: revisionId,
+            },
+          ],
+        };
+      }
+      if (sql.includes("upload_session_files")) {
+        return { rows: [{ r2_key: "env/live/ws/a/file.txt" }] };
+      }
+      if (sql.trimStart().startsWith("update upload_sessions")) {
+        return { rows: [{ id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" }] };
+      }
+      return { rows: [] };
+    });
+    await runScheduledJobs(
+      { scheduledTime: Date.now(), cron: CRON_HOURLY_DISCOVERY },
+      { DB: executor, BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() } },
+    );
+    const expireCalls = executor.query.mock.calls.filter(([sql]: [string, (readonly unknown[])?]) =>
+      sql.trimStart().startsWith("update upload_sessions"),
+    );
+    expect(expireCalls).toHaveLength(1);
+    expect(expireCalls[0]?.[1]?.[0]).toBe("upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9");
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "byte.purge.v1",
+        reason: "upload_cleanup",
+        upload_session_id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+      }),
+    );
+  });
+
   it("purges byte prefixes and acks messages", async () => {
     const deleted: string[][] = [];
     const env: Env = {

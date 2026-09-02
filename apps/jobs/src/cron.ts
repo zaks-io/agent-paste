@@ -53,7 +53,12 @@ export async function runScheduledJobs(event: ScheduledEvent, env: Env): Promise
 }
 
 async function runHourlyDiscovery(executor: SqlExecutor, env: Env, now: string): Promise<void> {
+  // Upload cleanup also rides the hourly tick so environments that omit the
+  // 15-minute cron (preview, PR previews; see apps/jobs/wrangler.jsonc) still
+  // expire stale sessions. expireUploadSession wins the pending -> expired
+  // transition, so overlapping with the 15-minute sweep at :00 is safe.
   const tasks: Array<{ name: string; run: () => Promise<unknown> }> = [
+    { name: "upload_cleanup", run: () => runUploadCleanupOnHourly(executor, env, now) },
     { name: "auto_deletion", run: () => runAutoDeletionDiscovery(executor, env, now) },
     { name: "purge_recovery", run: () => runPurgeRecoveryDiscovery(executor, env) },
     { name: "retention", run: () => runRetentionDiscovery(executor, env, now) },
@@ -71,4 +76,12 @@ async function runHourlyDiscovery(executor: SqlExecutor, env: Env, now: string):
       });
     }
   }
+}
+
+async function runUploadCleanupOnHourly(executor: SqlExecutor, env: Env, now: string): Promise<void> {
+  if (!env.BYTE_PURGE_QUEUE) {
+    logOpError("cron.queue_binding_missing", { cron: CRON_HOURLY_DISCOVERY, queue: "BYTE_PURGE_QUEUE" });
+    return;
+  }
+  await runUploadCleanupDiscovery(executor, env.BYTE_PURGE_QUEUE, now);
 }

@@ -16,16 +16,19 @@ Only `bundle-generate-dlq` has a consumer because terminal bundle failure must u
 
 ## Cron Triggers
 
-| Cron            |          Cadence |             Sweep Cap | Work                                                                                                                                                   |
-| --------------- | ---------------: | --------------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Upload Cleanup  | every 15 minutes |                   200 | Expire stale Upload Sessions and enqueue orphan-byte purge.                                                                                            |
-| Auto Deletion   |           hourly |                   200 | Expire unpinned published Artifacts past `auto_deletion_days`, then write denylist and enqueue byte purge.                                             |
-| Purge Recovery  |           hourly |                   200 | Rediscover deleted or expired Artifacts whose current Revision lacks `bytes_purge_enqueued_at`; write denylist and enqueue byte purge.                 |
-| Retention       |           hourly |                   500 | Mark non-current Revisions retained when `revision_retention_days` is set.                                                                             |
-| Content Blob GC |           hourly |                   500 | Delete unreferenced `content_blobs` rows after active Artifact and live pending upload-session checks; v1 leaves deterministic R2 blob bytes in place. |
-| Maintenance GC  |           hourly | 5000 idempotency rows | Delete old idempotency rows; archive audit events past Audit Retention to R2 (`audit/` NDJSON under `ARTIFACTS`), then delete from Postgres.           |
+| Cron              |           Cadence |             Sweep Cap | Work                                                                                                                                                     |
+| ----------------- | ----------------: | --------------------: | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Upload Cleanup    |  every 15 minutes |                   200 | Expire stale Upload Sessions and enqueue orphan-byte purge. Also runs first in the hourly sweep so environments without the 15-minute cron stay covered. |
+| Auto Deletion     |            hourly |                   200 | Expire unpinned published Artifacts past `auto_deletion_days`, then write denylist and enqueue byte purge.                                               |
+| Purge Recovery    |            hourly |                   200 | Rediscover deleted or expired Artifacts whose current Revision lacks `bytes_purge_enqueued_at`; write denylist and enqueue byte purge.                   |
+| Retention         |            hourly |                   500 | Mark non-current Revisions retained when `revision_retention_days` is set.                                                                               |
+| Content Blob GC   |            hourly |                   500 | Delete unreferenced `content_blobs` rows after active Artifact and live pending upload-session checks; v1 leaves deterministic R2 blob bytes in place.   |
+| Maintenance GC    |            hourly | 5000 idempotency rows | Delete old idempotency rows; archive audit events past Audit Retention to R2 (`audit/` NDJSON under `ARTIFACTS`), then delete from Postgres.             |
+| Billing Reconcile | daily (06:00 UTC) |                   500 | Reconcile Stripe subscription state into workspace plans (ADR 0074). No-op unless `BILLING_ENABLED` is `true` and Stripe secrets are present.            |
 
 Retention is implemented from day one, but the default `revision_retention_days` is null, so it keeps all Revisions unless a policy value is later set.
+
+The table is the production schedule. Each enabled, database-backed sweep opens a Postgres connection, and each connection restarts Neon's 5-minute scale-to-zero timer, so non-production environments run fewer sweeps: the standing preview `jobs` Worker runs the hourly and daily crons only (`apps/jobs/wrangler.jsonc` `env.preview.triggers`), and PR preview `jobs` Workers run the hourly cron only (`scripts/deploy-pr-preview.mjs`). Because Upload Cleanup also runs inside the hourly sweep, those environments expire stale Upload Sessions hourly instead of every 15 minutes.
 
 ## Kill Switch
 
