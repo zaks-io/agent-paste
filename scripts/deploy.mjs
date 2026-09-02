@@ -454,9 +454,10 @@ export function contentRoutingProbeUrls(target) {
   };
 }
 
-export async function probeContentRouting(urls, fetchFn = fetch) {
-  const healthResponse = await fetchFn(urls.health, { cache: "no-store" });
-  const capabilityResponse = await fetchFn(urls.capability, { cache: "no-store" });
+export async function probeContentRouting(urls, fetchFn = fetch, signal) {
+  const requestInit = /** @type {RequestInit} */ ({ cache: "no-store", ...(signal ? { signal } : {}) });
+  const healthResponse = await fetchFn(urls.health, requestInit);
+  const capabilityResponse = await fetchFn(urls.capability, requestInit);
   let capabilityCode = null;
   try {
     const body = await capabilityResponse.json();
@@ -482,15 +483,23 @@ async function verifyContentRouting(target) {
   const deadline = Date.now() + 60_000;
   let lastResult = null;
   while (Date.now() < deadline) {
+    const attemptTimeoutMs = Math.min(5000, deadline - Date.now());
+    const controller = new AbortController();
+    const abortTimer = setTimeout(() => controller.abort(), attemptTimeoutMs);
     try {
-      lastResult = await probeContentRouting(urls);
+      lastResult = await probeContentRouting(urls, fetch, controller.signal);
       if (lastResult.ready) {
         return;
       }
     } catch {
       lastResult = null;
+    } finally {
+      clearTimeout(abortTimer);
     }
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const retryDelayMs = Math.min(2000, deadline - Date.now());
+    if (retryDelayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    }
   }
   const lastResponse = lastResult
     ? `health=${lastResult.healthStatus}, capability=${lastResult.capabilityStatus}/${lastResult.capabilityCode ?? "unknown"}`

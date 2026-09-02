@@ -178,14 +178,15 @@ describe("content routing readiness", () => {
 
   it("requires the Content Worker not-found envelope from the wildcard route", async () => {
     const urls = contentRoutingProbeUrls("production");
+    const signal = new AbortController().signal;
     const readyFetch = vi
       .fn()
       .mockResolvedValueOnce(new Response("ok", { status: 200 }))
       .mockResolvedValueOnce(Response.json({ error: { code: "not_found" } }, { status: 404 }));
 
-    await expect(probeContentRouting(urls, readyFetch)).resolves.toMatchObject({ ready: true });
-    expect(readyFetch).toHaveBeenNthCalledWith(1, urls.health, { cache: "no-store" });
-    expect(readyFetch).toHaveBeenNthCalledWith(2, urls.capability, { cache: "no-store" });
+    await expect(probeContentRouting(urls, readyFetch, signal)).resolves.toMatchObject({ ready: true });
+    expect(readyFetch).toHaveBeenNthCalledWith(1, urls.health, { cache: "no-store", signal });
+    expect(readyFetch).toHaveBeenNthCalledWith(2, urls.capability, { cache: "no-store", signal });
 
     const generic404Fetch = vi
       .fn()
