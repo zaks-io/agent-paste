@@ -36,8 +36,9 @@ export function textAssets(opts: { origin: string; billingEnabled: boolean }): T
 }
 
 // Verbatim boilerplate from the Content Signals Policy generator at
-// https://contentsignals.org/. It is the licence text the signals below point
-// at, so it is reproduced as-published rather than paraphrased.
+// https://contentsignals.org/. It is the human-readable policy text that
+// defines the signals below, so it is reproduced as-published rather than
+// paraphrased.
 const CONTENT_SIGNALS_PREAMBLE = `# As a condition of accessing this website, you agree to
 # abide by the following content signals:
 
