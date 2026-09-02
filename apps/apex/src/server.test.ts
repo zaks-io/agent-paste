@@ -155,6 +155,16 @@ describe("text and data assets", () => {
     expect(body).toContain("Sitemap: https://agent-paste.sh/sitemap.xml");
   });
 
+  it("reserves training rights in /robots.txt via a content signal", async () => {
+    const body = await (await get("/robots.txt")).text();
+    expect(body).toContain("Content-Signal: search=yes, ai-input=yes, ai-train=no");
+    // The signals are only an Article 4 reservation if the policy text they
+    // reference travels with them.
+    expect(body).toContain("ARTICLE 4 OF THE EUROPEAN");
+    // Directive must sit inside the user-agent group it applies to.
+    expect(body.indexOf("User-agent: *")).toBeLessThan(body.indexOf("Content-Signal:"));
+  });
+
   it("serves /.well-known/security.txt with public contact metadata", async () => {
     const response = await get("/.well-known/security.txt");
     expect(response.status).toBe(200);
