@@ -1,6 +1,6 @@
 import { OPERATING_COMPANY } from "@agent-paste/brand";
 import { ButtonAnchor, THEME_ICON_CLASS, THEME_TOGGLE_CLASS, Wordmark } from "@agent-paste/ui";
-import { FOOTER, type FooterColumn, INSTALL_LINKS, SIGN_IN_URL, WORDMARK } from "../copy";
+import { type FooterColumn, footerColumns, INSTALL_LINKS, SIGN_IN_URL, WORDMARK } from "../copy";
 
 // One wrapper width for topbar + footer, straight from the mockup: 1280px max,
 // fluid clamp gutter.
@@ -60,20 +60,6 @@ export function Header({ billingEnabled }: { billingEnabled: boolean }) {
         </div>
       </div>
     </header>
-  );
-}
-
-// Inject the Pricing link into the Product column only when billing is on, so the
-// pricing route appears in the footer (and the render contract for >=2 /pricing
-// hrefs holds) without it leaking into the no-billing build.
-function footerColumns(billingEnabled: boolean): FooterColumn[] {
-  if (!billingEnabled) {
-    return FOOTER;
-  }
-  return FOOTER.map((column) =>
-    column.heading === "Product"
-      ? { ...column, links: [{ label: "Pricing", href: "/pricing" }, ...column.links] }
-      : column,
   );
 }
 

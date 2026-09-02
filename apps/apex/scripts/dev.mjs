@@ -102,19 +102,24 @@ async function handleRequest(server, req, res, next) {
   res.statusCode = 200;
   setNodeHeaders(res, devSecurityHeaders(apexSecurityHeaders()));
   res.setHeader("content-type", "text/html; charset=utf-8");
+  // A page with a Markdown twin serves two representations at one URL, so the HTML
+  // half advertises the negotiation. Gated on the same predicate the worker uses.
+  const { markdownTwinPath } = await server.ssrLoadModule("/src/markdown-twins.ts");
+  if (markdownTwinPath(routePath)) {
+    res.setHeader("vary", "accept");
+  }
   res.end(req.method === "HEAD" ? undefined : html);
 }
 
 async function serveWorkerOnlyRoute(server, req, res, url) {
-  const [{ handleRequest: handleWorkerRequest, isTextAssetPath }, { productRedirect }] = await Promise.all([
-    server.ssrLoadModule("/src/server.ts"),
-    server.ssrLoadModule("/src/redirects.ts"),
-  ]);
+  const [{ handleRequest: handleWorkerRequest, isTextAssetPath, negotiatedMarkdownPath }, { productRedirect }] =
+    await Promise.all([server.ssrLoadModule("/src/server.ts"), server.ssrLoadModule("/src/redirects.ts")]);
   const method = req.method ?? "GET";
   const workerOwnsRoute =
     (method !== "GET" && method !== "HEAD") ||
     url.pathname === "/healthz" ||
     isTextAssetPath(url.pathname) ||
+    Boolean(negotiatedMarkdownPath(url.pathname, req.headers.accept ?? null)) ||
     Boolean(productRedirect(url));
   if (!workerOwnsRoute) {
     return false;

@@ -73,7 +73,7 @@ function markdownForBlock(block: DocsBlock): string[] {
   }
 }
 
-function markdownTable(columns: string[], rows: string[][]): string[] {
+export function markdownTable(columns: string[], rows: string[][]): string[] {
   return [
     `| ${columns.join(" | ")} |`,
     `| ${columns.map(() => "---").join(" | ")} |`,

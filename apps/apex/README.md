@@ -7,6 +7,29 @@ published separately at `/.well-known/agent-skills/`; see [Agent skills discover
 
 The apex never hosts authenticated state, never receives WorkOS callbacks, and never sets cookies. Any request that resolves to a product surface (`/dashboard`, `/artifacts/*`, `/keys`, `/audit`, `/settings`, `/admin/*`, `/al/*`, `/r/*`, `/login`, `/logout`, `/auth/*`) returns a 308 redirect to the equivalent path on `app.agent-paste.sh`.
 
+## Markdown for agents
+
+Every HTML page has a Markdown twin at a stable `.md` path (`/index.md`,
+`/about.md`, `/how-it-works.md`, `/pricing.md`, `/docs.md`, `/docs/{slug}.md`,
+`/terms.md`, `/privacy.md`; `/pricing.md` only where the billing routes exist).
+Requesting the HTML URL with `Accept: text/markdown`
+returns that twin, so an agent reads clean text instead of scraping the layout,
+and HTML stays the default for browsers.
+
+Both renderings read the same copy modules (`src/copy.ts`, `src/about.ts`,
+`src/how-it-works.ts`, `src/legal-*.ts`, `src/docs/`), so there is no second
+source of page text to keep in sync. `src/markdown-twins.ts` owns the
+page-to-twin mapping used by the worker, the asset table, and the sitemap;
+`src/accept.ts` owns the negotiation rule (Markdown wins only when the client
+names `text/markdown` or `text/x-markdown` explicitly and ranks it at least as
+high as HTML, so a browser's `*/*` tail never triggers it). Negotiated responses and the HTML pages
+that have twins send `Vary: Accept`.
+
+Cloudflare's zone-level [Markdown for
+Agents](https://developers.cloudflare.com/fundamentals/reference/markdown-for-agents/)
+converts HTML at the edge and is deliberately not used here: it needs a paid zone
+plan, and a hand-rendered twin beats a converted layout.
+
 Local preview with hot reload:
 
 ```sh

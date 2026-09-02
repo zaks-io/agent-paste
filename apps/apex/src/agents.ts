@@ -98,6 +98,12 @@ Connect to \`${MCP_BASE_URL}\`, complete OAuth, and call \`whoami\`.
 
 MCP text publish and CLI folder publish return the same \`url\` contract.
 
+## Reading this site
+
+Every page on https://agent-paste.sh answers \`Accept: text/markdown\` with a clean
+Markdown twin of that page. Each twin also has a direct address: /index.md,
+/docs.md, /docs/{slug}.md, /about.md, /how-it-works.md, /terms.md, /privacy.md.
+
 ## Links
 
 - Dashboard: ${APP_BASE_URL}

@@ -328,3 +328,16 @@ export const FOOTER: FooterColumn[] = [
     ],
   },
 ];
+
+// The Pricing link only belongs in the footer when billing routes exist, so both
+// the rendered footer and the Markdown twin of a page read this instead of FOOTER.
+export function footerColumns(billingEnabled: boolean): FooterColumn[] {
+  if (!billingEnabled) {
+    return FOOTER;
+  }
+  return FOOTER.map((column) =>
+    column.heading === "Product"
+      ? { ...column, links: [{ label: "Pricing", href: "/pricing" }, ...column.links] }
+      : column,
+  );
+}
