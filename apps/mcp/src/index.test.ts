@@ -49,6 +49,30 @@ describe("mcp worker", () => {
     });
   });
 
+  it("serves an MCP Server Card with the configured transport endpoint", async () => {
+    const response = await request("/.well-known/mcp/server-card.json", {
+      MCP_RESOURCE: "https://mcp.preview.agent-paste.sh/",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    await expect(response.json()).resolves.toEqual({
+      serverInfo: {
+        name: "agent-paste",
+        version: "0.1.0",
+      },
+      transport: {
+        type: "streamable-http",
+        endpoint: "https://mcp.preview.agent-paste.sh",
+      },
+      capabilities: {
+        tools: true,
+        resources: false,
+        prompts: false,
+      },
+    });
+  });
+
   it("serves configured OAuth authorization-server metadata", async () => {
     const response = await request("/.well-known/oauth-authorization-server", {
       MCP_RESOURCE: "https://mcp.preview.agent-paste.sh/",
@@ -99,6 +123,7 @@ describe("mcp worker", () => {
     expect(doc.info.title).toBe("Agent Paste MCP API");
     expect(doc.paths).toHaveProperty("/");
     expect(doc.paths).toHaveProperty("/healthz");
+    expect(doc.paths).toHaveProperty("/.well-known/mcp/server-card.json");
     expect(doc.paths).toHaveProperty("/.well-known/oauth-protected-resource");
     expect(protectedResourceSchema(doc)?.required).not.toContain("resource_name");
   });
