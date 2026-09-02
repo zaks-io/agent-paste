@@ -7,6 +7,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "vite";
+import { agentSkillsAssets, readSkills } from "./lib/agent-skills.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const clientOut = resolve(root, "dist/client");
@@ -77,4 +78,16 @@ for (const path of ROUTE_PATHS) {
   count += 1;
 }
 
+// 5) Publish the repo's skills at /.well-known/agent-skills/ (Agent Skills
+//    Discovery RFC v0.2.0). Copied from skills/ at build time so the published
+//    SKILL.md and its advertised digest are the same bytes agents install from
+//    GitHub, with no second copy to drift.
+const skillAssets = agentSkillsAssets(await readSkills(resolve(root, "../../skills")));
+for (const asset of skillAssets) {
+  const outFile = resolve(clientOut, asset.path.replace(/^\//, ""));
+  await mkdir(dirname(outFile), { recursive: true });
+  await writeFile(outFile, asset.body, "utf8");
+}
+
 console.log(`apex: prerendered ${count} routes to dist/client (css=${assets.cssHref}, js=${assets.jsHref})`);
+console.log(`apex: published ${skillAssets.length - 1} agent skill(s) to dist/client/.well-known/agent-skills`);

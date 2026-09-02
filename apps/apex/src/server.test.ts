@@ -70,6 +70,21 @@ describe("text and data assets", () => {
     }
   });
 
+  it("grants cross-origin reads on the agent-skills discovery documents", async () => {
+    const paths = ["/.well-known/agent-skills/index.json", "/.well-known/agent-skills/agent-paste/SKILL.md"];
+    for (const path of paths) {
+      const response = await get(path);
+      expect(response.status).toBe(200);
+      expect(response.headers.get("access-control-allow-origin")).toBe("*");
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    }
+  });
+
+  it("leaves other static assets same-origin", async () => {
+    const response = await get("/.well-known/agent-skills-decoy/index.json");
+    expect(response.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
   it("keeps claim-code query strings out of public agent docs", async () => {
     for (const path of [
       "/llms.txt",
