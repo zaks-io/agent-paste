@@ -165,6 +165,9 @@ importers:
 
   apps/apex:
     dependencies:
+      '@agent-paste/auth-md':
+        specifier: workspace:*
+        version: link:../../packages/auth-md
       '@agent-paste/brand':
         specifier: workspace:*
         version: link:../../packages/brand
@@ -226,6 +229,9 @@ importers:
       '@agent-paste/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@agent-paste/auth-md':
+        specifier: workspace:*
+        version: link:../../packages/auth-md
       '@agent-paste/billing':
         specifier: workspace:*
         version: link:../../packages/billing
@@ -648,6 +654,15 @@ importers:
         specifier: 'catalog:'
         version: 4.1.7(@opentelemetry/api@1.9.1)(@types/node@24.12.4)(@vitest/coverage-v8@4.1.7)(jsdom@26.1.0)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.3)(yaml@2.9.0))
 
+  packages/auth-md:
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.7(@opentelemetry/api@1.9.1)(@types/node@24.12.4)(@vitest/coverage-v8@4.1.7)(jsdom@26.1.0)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.3)(yaml@2.9.0))
+
   packages/billing:
     dependencies:
       '@agent-paste/commands':
@@ -691,6 +706,9 @@ importers:
 
   packages/contracts:
     dependencies:
+      '@agent-paste/auth-md':
+        specifier: workspace:*
+        version: link:../auth-md
       '@agent-paste/config':
         specifier: workspace:*
         version: link:../config

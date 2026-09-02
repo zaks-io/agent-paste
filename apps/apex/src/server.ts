@@ -1,3 +1,4 @@
+import { AUTH_MD_PATH } from "@agent-paste/auth-md";
 import { GPC_SUPPORT_PATH, shouldDisableOptionalAnalytics } from "@agent-paste/brand";
 import { isBillingEnabled } from "@agent-paste/config";
 import { type AnalyticsEngineDataset, sentryOptions, writeFunnelEvent } from "@agent-paste/worker-runtime";
@@ -29,6 +30,7 @@ const TEXT_ASSET_PATHS = new Set([
   "/llms.txt",
   "/llms-full.txt",
   "/agents.md",
+  AUTH_MD_PATH,
   "/install.sh",
   "/install.ps1",
   "/robots.txt",

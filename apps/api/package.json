@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@agent-paste/auth": "workspace:*",
+    "@agent-paste/auth-md": "workspace:*",
     "@agent-paste/billing": "workspace:*",
     "@agent-paste/commands": "workspace:*",
     "@agent-paste/config": "workspace:*",

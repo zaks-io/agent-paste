@@ -63,6 +63,15 @@ describe("text and data assets", () => {
     expect(body.length).toBeGreaterThan(0);
   });
 
+  it("serves /auth.md as an agent-registration skill scanners can identify", async () => {
+    const response = await get("/auth.md");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+    const body = await response.text();
+    expect(body.split("\n")[0]).toMatch(/^# .*auth\.md/);
+    expect(body).toContain("/.well-known/oauth-authorization-server");
+  });
+
   it("exposes the repository skill through every public agent docs entry point", async () => {
     const skillPath = "github.com/zaks-io/agent-paste/tree/main/skills/agent-paste";
     for (const path of ["/agents.md", "/llms.txt", "/docs/getting-started.md", "/llms-full.txt"]) {
@@ -520,6 +529,7 @@ it("never sets cookies on any apex response", async () => {
     "/llms.txt",
     "/llms-full.txt",
     "/agents.md",
+    "/auth.md",
     "/install.sh",
     "/install.ps1",
     "/robots.txt",

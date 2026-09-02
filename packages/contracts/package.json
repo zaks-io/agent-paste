@@ -21,6 +21,7 @@
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@agent-paste/auth-md": "workspace:*",
     "@agent-paste/config": "workspace:*",
     "@asteasolutions/zod-to-openapi": "^8.5.0",
     "zod": "catalog:"
