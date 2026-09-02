@@ -193,6 +193,11 @@ describe("jobs worker", () => {
       { scheduledTime: Date.now(), cron: CRON_HOURLY_DISCOVERY },
       { DB: executor, BYTE_PURGE_QUEUE: { send, sendBatch: vi.fn() } },
     );
+    const expireCalls = executor.query.mock.calls.filter(([sql]: [string, (readonly unknown[])?]) =>
+      sql.trimStart().startsWith("update upload_sessions"),
+    );
+    expect(expireCalls).toHaveLength(1);
+    expect(expireCalls[0]?.[1]?.[0]).toBe("upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9");
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "byte.purge.v1",
