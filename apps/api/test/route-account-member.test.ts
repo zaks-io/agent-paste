@@ -130,10 +130,11 @@ describe("AP-91 member artifact route modules", () => {
       revision_id: null,
       deleted_at: "2026-01-01T00:00:00.000Z",
     }));
+    const putDenylist = vi.fn(async () => undefined);
     const ok = await deleteMemberArtifactRoute(
       contextFor({
         params: { artifact_id: "art_1" },
-        env: { DENYLIST: { put: vi.fn(async () => undefined) } } as never,
+        env: { DENYLIST: { put: putDenylist } } as never,
       }),
       apiPrincipal(),
       { deleteMemberArtifact } as never,
@@ -141,6 +142,7 @@ describe("AP-91 member artifact route modules", () => {
     );
     expect(ok.status).toBe(200);
     expect(deleteMemberArtifact).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: "mcp-delete:art_1" }));
+    expect(putDenylist).toHaveBeenCalledWith("ad:art_1", expect.any(String), expect.any(Object));
     await expect(responseJson(ok)).resolves.toEqual({
       artifact_id: "art_1",
       deleted_at: "2026-01-01T00:00:00.000Z",

@@ -70,7 +70,8 @@ Pulled from each `apps/*/wrangler.jsonc` `env.production.routes`:
 | `agent-paste.com`              | AAAA | `agent-paste-apex-production`    | `apps/apex/wrangler.jsonc`               |
 | `www.agent-paste.com`          | AAAA | `agent-paste-apex-production`    | `apps/apex/wrangler.jsonc`               |
 
-Verify in Cloudflare dashboard -> `agent-paste.sh` -> Workers Routes / DNS:
+Verify the `agent-paste.sh`, `agent-paste.link`, and `agent-paste.com` zones in
+Cloudflare dashboard -> Workers Routes / DNS:
 
 - [x] Production rows above show status `Active` with proxy `Workers` (orange-cloud). **Codex verified** public DNS/TLS/Worker responses on 2026-05-22; Isaac can use the dashboard if API access is unavailable.
 - [x] No `CNAME` pointing at `*.workers.dev` for any production hostname (Wrangler should be managing direct routes). **Codex verified** production hostnames resolve through Cloudflare AAAA records on 2026-05-22.

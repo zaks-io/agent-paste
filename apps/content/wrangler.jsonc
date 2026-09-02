@@ -72,6 +72,10 @@
         {
           "pattern": "*-preview.agent-paste.sh/*",
           "zone_name": "agent-paste.sh"
+        },
+        {
+          "pattern": "usercontent.preview.agent-paste.sh/*",
+          "zone_name": "agent-paste.sh"
         }
       ],
       "vars": {

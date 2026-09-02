@@ -130,6 +130,9 @@ describe("content capability routing", () => {
     expect(response.headers.get("content-security-policy")).toContain("connect-src 'none'");
     expect(response.headers.get("content-security-policy")).toContain("worker-src 'none'");
     expect(response.headers.get("content-security-policy")).toContain("form-action 'none'");
+    expect(response.headers.get("content-security-policy")).toContain("frame-src 'none'");
+    expect(response.headers.get("content-security-policy")).toContain("object-src 'none'");
+    expect(response.headers.get("content-security-policy")).toContain("base-uri 'none'");
   });
 
   it("retires service workers on every current and legacy artifact host without reading storage", async () => {

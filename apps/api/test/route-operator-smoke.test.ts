@@ -292,10 +292,11 @@ describe("AP-91 smoke route modules", () => {
   });
 
   it("deletes and force-expires smoke artifacts through the smoke harness", async () => {
+    const putDenylist = vi.fn(async () => undefined);
     const env = {
       AGENT_PASTE_ENV: "preview",
       SMOKE_HARNESS_SECRET: "smoke-secret",
-      DENYLIST: { put: vi.fn(async () => undefined) },
+      DENYLIST: { put: putDenylist },
       DB: {
         getWhoami: vi.fn(),
         getArtifactDetail: vi.fn(async () => null),
@@ -315,6 +316,7 @@ describe("AP-91 smoke route modules", () => {
       contextFor({ env, headers: smokeHeaders, body: { artifact_id: "art_1" } }),
     );
     expect(deleted.status).toBe(200);
+    expect(putDenylist).toHaveBeenCalledWith("ad:art_1", expect.any(String), expect.any(Object));
     await expect(responseJson(deleted)).resolves.toMatchObject({ artifact_id: "art_1", deleted_r2_objects: 0 });
 
     const unsupported = await forceExpire(contextFor({ env, headers: smokeHeaders, body: { artifact_id: "art_1" } }));

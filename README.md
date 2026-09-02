@@ -109,7 +109,10 @@ as `app.agent-paste.sh`, `api.agent-paste.sh`, and `mcp.agent-paste.sh`. The
 content Worker rejects any hostname that is not exactly the capability shape.
 
 Previously issued signed `usercontent.agent-paste.sh/v/...` URLs continue until
-their normal expiry. New publish results never return them.
+their normal expiry. Previously issued capability URLs map directly from
+`{id}[-preview].agent-paste.sh/{path}` to
+`{id}[-preview].agent-paste.link/{path}` with a permanent redirect that preserves
+the path and query. New publish results return only `.agent-paste.link` URLs.
 
 ## Repository
 

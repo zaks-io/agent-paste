@@ -64,8 +64,9 @@ Hosted completion additionally requires:
 2. Publish `examples/csp-proof` through the authenticated preview API.
 3. Confirm its `.agent-paste.link` URL loads top-level and Tailwind, inline
    script, and eval proof execute without a CSP console error.
-4. Publish the same proof through the ephemeral path and confirm its script,
-   fetch, form submission, and workers stay blocked while static content renders.
+4. Publish the same proof through the ephemeral path and confirm its scripts,
+   fetch, form submission, frames, objects, base URL changes, and workers stay
+   blocked while static content renders.
 5. Confirm both responses include `frame-ancestors 'none'` and
    `X-Frame-Options: DENY`.
 6. Request an uploaded JavaScript path with `Service-Worker: script` and confirm

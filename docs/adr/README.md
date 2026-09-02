@@ -86,7 +86,7 @@ These practices are part of the current architecture, not optional implementatio
 
 - Uploaded files, paths, display metadata, manifest-derived values, and audit-visible agent data are all untrusted until escaped for the specific output context per [ADR 0024](./0024-treat-agent-provided-data-as-untrusted.md).
 - Untrusted content is served only from the isolated content origin. Direct R2 read URLs are never returned per [ADR 0001](./0001-private-artifact-storage-behind-controlled-origin.md).
-- Capability responses retain non-restrictive hardening headers but do not use an iframe sandbox. Their CSP allows normal uploaded application behavior, including inline scripts and external HTTPS dependencies. Legacy signed content URLs retain their old policy until they expire.
+- Claimed capability responses retain non-restrictive hardening headers but do not use an iframe sandbox. Their CSP allows normal uploaded application behavior, including inline scripts and external HTTPS dependencies. Ephemeral capability responses use the static execution policy in [ADR 0095](./0095-isolate-active-content-and-restore-ephemeral-execution-policy.md). Legacy signed content URLs retain their old policy until they expire.
 - Served content type is derived from a fixed extension allowlist, not the agent-provided upload MIME type. Unknown extensions download as `application/octet-stream`.
 - Application-layer encryption for Artifact bytes is active per [ADR 0063](./0063-application-layer-encryption-for-artifact-bytes.md) and the current specs. The original CLI-first MVP deferral in [ADR 0066](./0066-cli-first-mvp-contract-narrowing.md) is historical; private R2, isolated content serving, signed content tokens, and no direct R2 URLs remain part of the safety baseline.
 

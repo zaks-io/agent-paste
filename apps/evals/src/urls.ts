@@ -74,6 +74,7 @@ function isProductionAgentPasteHost(hostname: string): boolean {
 function isPreviewAgentPasteHost(hostname: string): boolean {
   return (
     hostname === "preview.agent-paste.sh" ||
+    hostname === "preview.agent-paste.link" ||
     hostname.endsWith(".preview.agent-paste.sh") ||
     hostname.endsWith(".preview.agent-paste.link") ||
     isPreviewArtifactHost(hostname)

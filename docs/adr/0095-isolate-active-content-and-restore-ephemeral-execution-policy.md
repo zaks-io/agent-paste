@@ -43,7 +43,9 @@ work are deferred until usage justifies them.
 ## Consequences
 
 - Anonymous static Artifacts keep the direct top-level URL model without gaining
-  script, network, form-submission, or persistent-worker behavior.
+  script, fetch/XHR/WebSocket, form-submission, frame/object embedding, base-URL
+  changes, or persistent-worker behavior. External static assets such as images,
+  styles, fonts, and media remain allowed.
 - Claimed Artifacts retain broad browser compatibility, except for service
   workers. Authentication provides attribution, not a claim that uploaded code
   is safe.

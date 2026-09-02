@@ -205,7 +205,8 @@ email, or this runbook.
 1. **Confirm the target** — Collect `artifact_id`, public Access Link Signed URL, and report time. Do not ask
    the reporter for their **Claim Token**.
 2. **Assess tier** — Fetch public **Agent View** or content headers (above). Ephemeral content
-   should carry `noindex`; its scripts, connections, workers, and forms must be blocked.
+   should carry `noindex`; its scripts, connections, workers, forms, frames, objects, and base
+   URL changes must be blocked.
 3. **Check advisory signals** — Review Agent View **Safety Warnings** and queue logs. Treat
    warnings as hints, not proof of safety or harm.
 4. **Lock down** — Apply **Platform Lockdown** at artifact or workspace scope via operator APIs/UI.

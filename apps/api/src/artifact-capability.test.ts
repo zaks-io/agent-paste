@@ -60,6 +60,7 @@ describe("claimed Artifact capability refresh", () => {
       workspace_id: destinationWorkspaceId,
       artifact_id: "art_claimed",
       revision_id: "rev_claimed",
+      script_disabled: false,
       object_keys: {
         "index.html": `workspaces/${destinationWorkspaceId}/blobs/claimed-index`,
       },

@@ -33,7 +33,8 @@ Previously issued `usercontent.agent-paste.sh/v/...` URLs continue to resolve di
    ```
 
    Preview uses `usercontent.preview.agent-paste.link`,
-   `*-preview.agent-paste.link/*`, and the matching legacy `.sh` route.
+   `*-preview.agent-paste.link/*`, and matching legacy `.sh` routes for both
+   capability hosts and `usercontent.preview.agent-paste.sh/*`.
 
 5. Confirm API, upload, and content Worker `CONTENT_BASE_URL` values use `.link`.
    Confirm API and content `CONTENT_CAPABILITY_DOMAIN` values use `.link`.

@@ -13,7 +13,7 @@ describe("classifyUrls", () => {
 
   it("does not classify preview apex docs as production", () => {
     const urls = classifyUrls(
-      "Read https://preview.agent-paste.sh/agents.md, MCP https://mcp.preview.agent-paste.sh, and content https://usercontent.preview.agent-paste.link/v/token/index.html",
+      "Read https://preview.agent-paste.sh/agents.md, https://preview.agent-paste.link/agents.md, MCP https://mcp.preview.agent-paste.sh, and content https://usercontent.preview.agent-paste.link/v/token/index.html",
     );
     expect(urls.production).toEqual([]);
   });
