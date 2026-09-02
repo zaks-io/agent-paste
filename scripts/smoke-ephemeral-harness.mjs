@@ -66,7 +66,10 @@ export function ephemeralHostedConfig(target) {
       allowClaim: true,
     };
   }
-  const prNumber = process.env.PR_NUMBER ?? process.env.GITHUB_EVENT_NUMBER ?? "unknown";
+  const prNumber = process.env.PR_NUMBER ?? process.env.GITHUB_EVENT_NUMBER;
+  if (!/^[1-9][0-9]*$/.test(prNumber ?? "")) {
+    throw new Error("PR_NUMBER or GITHUB_EVENT_NUMBER must be a positive integer for PR smoke.");
+  }
   return {
     label: `PR ${prNumber}`,
     slug: `pr-${prNumber}-ephemeral-smoke`,

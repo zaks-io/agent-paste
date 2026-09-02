@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   assertContentPolicy,
   assertNoClaimTokenLeakage,
@@ -11,6 +11,10 @@ import {
 } from "./smoke-ephemeral-harness.mjs";
 
 describe("smoke-ephemeral-harness", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("normalizes hosted ephemeral smoke targets", () => {
     expect(normalizeEphemeralHostedTarget()).toBe("preview");
     expect(normalizeEphemeralHostedTarget("live")).toBe("production");
@@ -33,7 +37,13 @@ describe("smoke-ephemeral-harness", () => {
   });
 
   it("requires PR URLs for pr target", () => {
+    vi.stubEnv("PR_NUMBER", "621");
     expect(() => ephemeralHostedConfig("pr")).toThrow(/AGENT_PASTE_PR_API_URL/);
+  });
+
+  it("rejects a missing or invalid PR number before publishing", () => {
+    vi.stubEnv("PR_NUMBER", "not-a-pr");
+    expect(() => ephemeralHostedConfig("pr")).toThrow(/must be a positive integer/);
   });
 
   it("accepts a PR-scoped capability hostname for PR smoke", async () => {
