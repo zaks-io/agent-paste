@@ -36,14 +36,27 @@ describe("smoke-ephemeral-harness", () => {
     expect(() => ephemeralHostedConfig("pr")).toThrow(/AGENT_PASTE_PR_API_URL/);
   });
 
-  it("accepts a preview capability hostname for PR smoke", async () => {
+  it("accepts a PR-scoped capability hostname for PR smoke", async () => {
+    await expect(
+      assertPublishOutput(
+        samplePublishResult({ url: "https://0123456789abcdef0123456789abcdef-pr-621.agent-paste.link/" }),
+        {
+          target: "pr",
+          claimWebOrigin: "https://app.preview.agent-paste.sh",
+          expectedClaimTokenPrefix: "ap_ct_preview_",
+        },
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects the standing preview capability hostname for PR smoke", async () => {
     await expect(
       assertPublishOutput(samplePublishResult(), {
         target: "pr",
         claimWebOrigin: "https://app.preview.agent-paste.sh",
         expectedClaimTokenPrefix: "ap_ct_preview_",
       }),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow(/url targets pr Artifact host/);
   });
 
   it("accepts the signed content path used by the local harness", async () => {

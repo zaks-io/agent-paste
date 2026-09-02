@@ -164,9 +164,11 @@ export async function assertPublishOutput(published, { target = "local", claimWe
   const expectedHost =
     target === "production"
       ? /^[0-9a-f]{32}\.agent-paste\.link$/
-      : target === "preview" || target === "pr"
+      : target === "preview"
         ? /^[0-9a-f]{32}-preview\.agent-paste\.link$/
-        : /^(?:[0-9a-f]{32}\.artifact\.test|127\.0\.0\.1|localhost)$/;
+        : target === "pr"
+          ? /^[0-9a-f]{32}-pr-[1-9][0-9]*\.agent-paste\.link$/
+          : /^(?:[0-9a-f]{32}\.artifact\.test|127\.0\.0\.1|localhost)$/;
   assertBoundary(expectedHost.test(artifactUrl.hostname), "publish", `url targets ${target} Artifact host`);
   assertBoundary(
     published.claim_url === `${claimWebOrigin}/claim#${published.claim_token}`,
