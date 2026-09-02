@@ -21,8 +21,8 @@ Both renderings read the same copy modules (`src/copy.ts`, `src/about.ts`,
 source of page text to keep in sync. `src/markdown-twins.ts` owns the
 page-to-twin mapping used by the worker, the asset table, and the sitemap;
 `src/accept.ts` owns the negotiation rule (Markdown wins only when the client
-names `text/markdown` explicitly and ranks it at least as high as HTML, so a
-browser's `*/*` tail never triggers it). Negotiated responses and the HTML pages
+names `text/markdown` or `text/x-markdown` explicitly and ranks it at least as
+high as HTML, so a browser's `*/*` tail never triggers it). Negotiated responses and the HTML pages
 that have twins send `Vary: Accept`.
 
 Cloudflare's zone-level [Markdown for

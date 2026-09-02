@@ -129,10 +129,13 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
     const asset = textAssets({ origin: url.origin, billingEnabled }).find((entry) => entry.path === assetPath);
     if (asset) {
       const cacheControl = asset.contentType.startsWith("application/xml") ? CACHE_XML : CACHE_TEXT;
-      const headers = new Headers({ "content-type": asset.contentType, "cache-control": cacheControl, ...security });
-      if (markdown) {
-        headers.set("vary", "accept");
-      }
+      // Through the same decoration the HTML gets: a negotiated twin is the same
+      // resource as the page, so it carries the page's discovery headers too.
+      const headers = prerenderedHeaders(
+        new Headers({ "content-type": asset.contentType, "cache-control": cacheControl }),
+        url.pathname,
+        security,
+      );
       return new Response(request.method === "HEAD" ? null : asset.body, { status: 200, headers });
     }
   }

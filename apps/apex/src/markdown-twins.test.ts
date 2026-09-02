@@ -38,6 +38,7 @@ describe("markdownLink", () => {
   it("points an on-site link at the twin and preserves the fragment", () => {
     expect(markdownLink("/about")).toBe("/about.md");
     expect(markdownLink("/docs/cli#publish")).toBe("/docs/cli.md#publish");
+    expect(markdownLink("/about?source=footer")).toBe("/about.md?source=footer");
   });
 
   it("leaves links with no twin alone", () => {

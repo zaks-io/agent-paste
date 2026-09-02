@@ -291,6 +291,16 @@ describe("markdown content negotiation", () => {
     expect((await get("/agent-paste-social.png")).headers.get("vary")).toBe(null);
   });
 
+  it("carries the homepage discovery links on the negotiated representation", async () => {
+    // Same URL, same resource: the client most likely to use the discovery links
+    // is the one asking for Markdown, so the twin must not drop them.
+    const expected = (await get("/")).headers.get("link");
+    expect(expected).not.toBeNull();
+    expect((await fetchAs("/", "text/markdown")).headers.get("link")).toBe(expected);
+    // Inner pages advertise nothing, in either representation.
+    expect((await fetchAs("/about", "text/markdown")).headers.get("link")).toBeNull();
+  });
+
   it("negotiates /pricing only where the billing routes exist", async () => {
     // Production runs BILLING_ENABLED=false, where /pricing is not prerendered at
     // all, so the twin has to 404 with the page rather than outlive it.

@@ -40,8 +40,8 @@ export function requireMarkdownTwin(htmlPath: string): string {
 
 /** Rewrites an on-site HTML link to its Markdown twin; other links pass through. */
 export function markdownLink(href: string): string {
-  const hashIndex = href.indexOf("#");
-  const path = hashIndex === -1 ? href : href.slice(0, hashIndex);
+  const suffixIndex = href.search(/[?#]/);
+  const path = suffixIndex === -1 ? href : href.slice(0, suffixIndex);
   const twin = markdownTwinPath(path);
   return twin ? `${twin}${href.slice(path.length)}` : href;
 }

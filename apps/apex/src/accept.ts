@@ -29,16 +29,22 @@ function parseAccept(header: string): MediaRange[] {
   });
 }
 
+// RFC 9110 weights: at most three decimal places in [0, 1]. The whole token has
+// to match, because `parseFloat` would read `0.9junk` as `0.9` and let a typo
+// quietly reorder the client's preferences.
+//
 // A malformed or out-of-range `q` is ignored rather than treated as a rejection,
 // so a broken parameter can never silently downgrade a type to zero.
+const QUALITY_PATTERN = /^(?:0(?:\.\d{1,3})?|1(?:\.0{1,3})?)$/;
+
 function parseQuality(params: string[]): number {
   for (const param of params) {
     const [name, value] = param.split("=");
     if (name?.trim().toLowerCase() !== "q") {
       continue;
     }
-    const quality = Number.parseFloat(value ?? "");
-    return Number.isFinite(quality) && quality >= 0 && quality <= 1 ? quality : 1;
+    const weight = (value ?? "").trim();
+    return QUALITY_PATTERN.test(weight) ? Number.parseFloat(weight) : 1;
   }
   return 1;
 }

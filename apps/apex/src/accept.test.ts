@@ -13,7 +13,12 @@ describe("prefersMarkdown", () => {
     ["text/markdown, */*;q=0.1", true],
     ["TEXT/MARKDOWN", true],
     ["text/markdown;q=bogus", true],
+    ["text/markdown;q=1.0, text/html", true],
+    // A partially numeric weight is a typo, not a ranking: `parseFloat` alone
+    // would read this as 0.9 and hand the page to HTML.
+    ["text/markdown;q=0.9junk, text/html", true],
     ["text/markdown;q=0", false],
+    ["text/markdown;q=0.0", false],
     ["text/markdown;q=0.4, text/html;q=0.8", false],
     ["text/html, text/markdown;q=0.9", false],
     [BROWSER_ACCEPT, false],
