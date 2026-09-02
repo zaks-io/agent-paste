@@ -17,6 +17,12 @@ Start with the agent guide unless you are implementing a protocol client.
 - [Protocol auth metadata](${API_BASE_URL}/auth.md): auth.md client implementation.
 - [Full docs corpus](/llms-full.txt): Complete public docs.
 
+## Markdown Twins
+
+Every HTML page also answers \`Accept: text/markdown\` with its Markdown twin, and
+each twin has a direct address: /index.md, /about.md, /how-it-works.md, /docs.md,
+/docs/{slug}.md, /terms.md, /privacy.md.
+
 ## Human Entry Points
 
 - [Dashboard](${APP_BASE_URL}): Workspaces, Artifacts, and billing.
@@ -29,6 +35,7 @@ const LLMS_PRICING_SECTION = `
 
 - [Pricing](/pricing): Free vs Pro.
 - [Billing dashboard](${APP_BASE_URL}/billing): Checkout and Portal.
+- [Pricing markdown](/pricing.md): Markdown twin of the pricing page.
 `;
 
 export function renderLlmsTxt(billingEnabled: boolean): string {

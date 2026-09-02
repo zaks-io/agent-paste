@@ -5,7 +5,17 @@ import { renderDocsIndexMarkdown, renderDocsPageMarkdown, renderLlmsFullText } f
 import { docsHtmlPath, docsMarkdownPath, docsPagesForBilling } from "../docs/registry";
 import { INSTALL_PS1 } from "../install-ps1";
 import { INSTALL_SH } from "../install-sh";
+import { PRIVACY } from "../legal-privacy";
+import { TERMS } from "../legal-terms";
 import { renderLlmsTxt } from "../llms";
+import { requireMarkdownTwin } from "../markdown-twins";
+import {
+  renderAboutMarkdown,
+  renderHomeMarkdown,
+  renderHowItWorksMarkdown,
+  renderLegalMarkdown,
+  renderPricingMarkdown,
+} from "../page-markdown";
 
 const TEXT_PLAIN = "text/plain; charset=utf-8";
 const TEXT_MARKDOWN = "text/markdown; charset=utf-8";
@@ -18,6 +28,12 @@ export type TextAsset = { path: string; contentType: string; body: string };
 export function textAssets(opts: { origin: string; billingEnabled: boolean }): TextAsset[] {
   const docsPages = docsPagesForBilling(opts.billingEnabled);
   return [
+    markdownTwin("/", renderHomeMarkdown(opts.billingEnabled)),
+    markdownTwin("/about", renderAboutMarkdown()),
+    markdownTwin("/how-it-works", renderHowItWorksMarkdown()),
+    ...(opts.billingEnabled ? [markdownTwin("/pricing", renderPricingMarkdown())] : []),
+    markdownTwin("/terms", renderLegalMarkdown(TERMS)),
+    markdownTwin("/privacy", renderLegalMarkdown(PRIVACY)),
     { path: "/docs.md", contentType: TEXT_MARKDOWN, body: renderDocsIndexMarkdown(docsPages) },
     ...docsPages.map((page) => ({
       path: docsMarkdownPath(page),
@@ -76,6 +92,12 @@ const CONTENT_SIGNALS_PREAMBLE = `# As a condition of accessing this website, yo
 // reserves the training right we get nothing back for.
 const CONTENT_SIGNAL = "Content-Signal: search=yes, ai-input=yes, ai-train=no";
 
+// The Markdown twin of an HTML page, addressed by the page it mirrors so the
+// asset table and the Accept negotiation can never disagree about its path.
+function markdownTwin(htmlPath: string, body: string): TextAsset {
+  return { path: requireMarkdownTwin(htmlPath), contentType: TEXT_MARKDOWN, body };
+}
+
 function robotsTxt(origin: string): string {
   return `${CONTENT_SIGNALS_PREAMBLE}
 User-agent: *
@@ -105,17 +127,18 @@ function securityTxt(): string {
 const SITEMAP_LASTMOD = "2026-06-16";
 
 function sitemapXml(origin: string, billingEnabled: boolean): string {
-  const docsPages = docsPagesForBilling(billingEnabled);
-  const urls = [
+  const htmlPages = [
     "/",
     "/about",
     "/how-it-works",
     ...(billingEnabled ? ["/pricing"] : []),
     "/docs",
-    "/docs.md",
-    ...docsPages.flatMap((page) => [docsHtmlPath(page), docsMarkdownPath(page)]),
+    ...docsPagesForBilling(billingEnabled).map(docsHtmlPath),
     "/terms",
     "/privacy",
+  ];
+  const urls = [
+    ...htmlPages.flatMap((path) => [path, requireMarkdownTwin(path)]),
     "/llms.txt",
     "/llms-full.txt",
     "/agents.md",

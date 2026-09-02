@@ -244,6 +244,92 @@ describe("text and data assets", () => {
   });
 });
 
+describe("markdown content negotiation", () => {
+  const MARKDOWN = "text/markdown; charset=utf-8";
+  const BROWSER_ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8";
+
+  async function fetchAs(path: string, accept: string, extra: Partial<Env> = {}): Promise<Response> {
+    return handleRequest(new Request(`${APEX}${path}`, { headers: { accept } }), env(extra));
+  }
+
+  it.each([
+    "/",
+    "/about",
+    "/how-it-works",
+    "/docs",
+    "/terms",
+    "/privacy",
+    "/docs/cli",
+  ])("returns the Markdown twin of %s for Accept: text/markdown", async (path) => {
+    const response = await fetchAs(path, "text/markdown");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe(MARKDOWN);
+    expect(response.headers.get("vary")).toBe("accept");
+    expect(await response.text()).toMatch(/^# \S/);
+  });
+
+  it("serves the same body at the page URL and at its Markdown twin", async () => {
+    const negotiated = await (await fetchAs("/about", "text/markdown")).text();
+    const direct = await (await get("/about.md")).text();
+    expect(negotiated).toBe(direct);
+    expect(negotiated.length).toBeGreaterThan(0);
+  });
+
+  it("keeps HTML the default for browsers and unspecific clients", async () => {
+    for (const accept of [BROWSER_ACCEPT, "*/*", "text/plain"]) {
+      const response = await fetchAs("/", accept);
+      expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    }
+    const noAccept = await get("/");
+    expect(noAccept.headers.get("content-type")).toBe("text/html; charset=utf-8");
+  });
+
+  it("tells caches that Accept selects the representation of an HTML page", async () => {
+    expect((await get("/")).headers.get("vary")).toBe("accept");
+    expect((await get("/about")).headers.get("vary")).toBe("accept");
+    // A path with no Markdown twin has one representation and no Accept variance.
+    expect((await get("/agent-paste-social.png")).headers.get("vary")).toBe(null);
+  });
+
+  it("negotiates /pricing only where the billing routes exist", async () => {
+    // Production runs BILLING_ENABLED=false, where /pricing is not prerendered at
+    // all, so the twin has to 404 with the page rather than outlive it.
+    const disabled = await fetchAs("/pricing", "text/markdown", { ASSETS: notFoundAssets });
+    expect(disabled.status).toBe(404);
+    expect(disabled.headers.get("vary")).toBe("accept");
+
+    const enabled = await fetchAs("/pricing", "text/markdown", { BILLING_ENABLED: "true" });
+    expect(enabled.status).toBe(200);
+    expect(enabled.headers.get("content-type")).toBe(MARKDOWN);
+    expect(await enabled.text()).toContain("| Feature |");
+  });
+
+  it("leaves unknown paths to the asset server", async () => {
+    const response = await handleRequest(
+      new Request(`${APEX}/nope`, { headers: { accept: "text/markdown" } }),
+      env({ ASSETS: notFoundAssets }),
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("returns a negotiated Markdown twin with no body for HEAD", async () => {
+    const response = await handleRequest(
+      new Request(`${APEX}/`, { method: "HEAD", headers: { accept: "text/markdown" } }),
+      env(),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe(MARKDOWN);
+    expect(await response.text()).toBe("");
+  });
+
+  it("lists every Markdown twin in the sitemap", async () => {
+    const body = await (await get("/sitemap.xml")).text();
+    for (const loc of ["/index.md", "/about.md", "/how-it-works.md", "/terms.md", "/privacy.md", "/docs/cli.md"]) {
+      expect(body).toContain(`<loc>https://agent-paste.sh${loc}</loc>`);
+    }
+  });
+});
+
 describe("funnel events", () => {
   it("records prompt_copied to Workers Analytics Engine", async () => {
     const writeDataPoint = vi.fn();

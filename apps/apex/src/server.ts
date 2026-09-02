@@ -2,8 +2,10 @@ import { GPC_SUPPORT_PATH, shouldDisableOptionalAnalytics } from "@agent-paste/b
 import { isBillingEnabled } from "@agent-paste/config";
 import { type AnalyticsEngineDataset, sentryOptions, writeFunnelEvent } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
+import { prefersMarkdown } from "./accept";
 import { textAssets } from "./build/text-assets";
 import { API_CATALOG_PATH, DISCOVERY_LINK_HEADER, isHomepagePath } from "./discovery";
+import { markdownTwinPath, PAGE_TWIN_PATHS } from "./markdown-twins";
 import { productRedirect } from "./redirects";
 import { apexSecurityHeaders } from "./security-headers";
 
@@ -25,7 +27,7 @@ const CACHE_XML = "public, max-age=3600, s-maxage=3600";
 // membership check so the markdown/llms corpora are only rendered for the rare
 // request that actually wants one.
 const TEXT_ASSET_PATHS = new Set([
-  "/docs.md",
+  ...PAGE_TWIN_PATHS,
   "/llms.txt",
   "/llms-full.txt",
   "/agents.md",
@@ -56,6 +58,14 @@ const MARKETING_ALIAS_HOSTS = new Set(["agent-paste.com", "www.agent-paste.com"]
 
 export function isTextAssetPath(pathname: string): boolean {
   return TEXT_ASSET_PATHS.has(pathname) || /^\/docs\/[^/]+\.md$/.test(pathname);
+}
+
+// The Markdown twin this request negotiated for, if the client asked for
+// Markdown on a page that has one. Exported so the local dev server routes the
+// same requests to the worker that production does.
+export function negotiatedMarkdownPath(pathname: string, accept: string | null): string | undefined {
+  const twin = markdownTwinPath(pathname);
+  return twin && prefersMarkdown(accept) ? twin : undefined;
 }
 
 const worker = {
@@ -110,42 +120,72 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
     return new Response("ok", { status: 200, headers: { "content-type": TEXT_PLAIN } });
   }
 
-  if (isTextAssetPath(url.pathname)) {
+  // `Accept: text/markdown` on an HTML page serves that page's Markdown twin at
+  // the same URL; HTML stays the default for every other client.
+  const markdown = negotiatedMarkdownPath(url.pathname, request.headers.get("accept"));
+  const assetPath = markdown ?? url.pathname;
+  if (markdown || isTextAssetPath(url.pathname)) {
     const billingEnabled = isBillingEnabled(env.BILLING_ENABLED);
-    const asset = textAssets({ origin: url.origin, billingEnabled }).find((entry) => entry.path === url.pathname);
+    const asset = textAssets({ origin: url.origin, billingEnabled }).find((entry) => entry.path === assetPath);
     if (asset) {
       const cacheControl = asset.contentType.startsWith("application/xml") ? CACHE_XML : CACHE_TEXT;
-      return new Response(request.method === "HEAD" ? null : asset.body, {
-        status: 200,
-        headers: { "content-type": asset.contentType, "cache-control": cacheControl, ...security },
-      });
+      const headers = new Headers({ "content-type": asset.contentType, "cache-control": cacheControl, ...security });
+      if (markdown) {
+        headers.set("vary", "accept");
+      }
+      return new Response(request.method === "HEAD" ? null : asset.body, { status: 200, headers });
     }
   }
 
   const assetResponse = await env.ASSETS.fetch(request);
   if (assetResponse.status !== 404) {
-    const headers = new Headers(assetResponse.headers);
-    for (const [name, value] of Object.entries(security)) {
-      headers.set(name, value as string);
-    }
-    if (isHomepagePath(url.pathname)) {
-      headers.set("link", DISCOVERY_LINK_HEADER);
-    }
-    if (url.pathname.startsWith(AGENT_SKILLS_PREFIX)) {
-      headers.set("access-control-allow-origin", "*");
-    }
     const response = new Response(request.method === "HEAD" ? null : assetResponse.body, {
       status: assetResponse.status,
       statusText: assetResponse.statusText,
-      headers,
+      headers: prerenderedHeaders(assetResponse.headers, url.pathname, security),
     });
     return maybeStripOptionalAnalytics(request, response);
   }
 
-  return new Response("not_found", {
-    status: 404,
-    headers: { "content-type": TEXT_PLAIN, ...security },
-  });
+  // A twin-bearing path can 404 (a billing-gated page in a no-billing build), and
+  // that answer varies by Accept too, so the negative response declares it as well.
+  const notFound = new Headers({ "content-type": TEXT_PLAIN, ...security });
+  if (markdownTwinPath(url.pathname)) {
+    varyOnAccept(notFound);
+  }
+  return new Response("not_found", { status: 404, headers: notFound });
+}
+
+// What the ASSETS binding serves carries the asset server's own headers, so the
+// worker restates everything that describes the resource rather than the file:
+// security policy, agent discovery, the Agent Skills cross-origin grant, and the
+// Accept negotiation.
+function prerenderedHeaders(assetHeaders: Headers, pathname: string, security: Record<string, string>): Headers {
+  const headers = new Headers(assetHeaders);
+  for (const [name, value] of Object.entries(security)) {
+    headers.set(name, value);
+  }
+  if (isHomepagePath(pathname)) {
+    headers.set("link", DISCOVERY_LINK_HEADER);
+  }
+  if (pathname.startsWith(AGENT_SKILLS_PREFIX)) {
+    headers.set("access-control-allow-origin", "*");
+  }
+  if (markdownTwinPath(pathname)) {
+    varyOnAccept(headers);
+  }
+  return headers;
+}
+
+// A page with a Markdown twin has two representations at one URL, so its HTML
+// response has to tell caches the Accept header selects between them.
+function varyOnAccept(headers: Headers): void {
+  const existing = headers.get("vary");
+  const values = existing ? existing.split(",").map((value) => value.trim().toLowerCase()) : [];
+  if (values.includes("accept") || values.includes("*")) {
+    return;
+  }
+  headers.set("vary", existing ? `${existing}, accept` : "accept");
 }
 
 function handleClientConfig(request: Request, env: Env, security: Record<string, string>): Response {
