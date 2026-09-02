@@ -41,7 +41,7 @@ export const SHARING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "The 23-character hostname contains 95 bits of random entropy and acts as the bearer locator. The content Worker validates its manifest, signed authorization, expiry, denylist, and requested path before serving encrypted R2 bytes.",
+          text: "The hostname carries at least 95 bits of random entropy and acts as the bearer locator. The content Worker validates its manifest, signed authorization, expiry, denylist, and requested path before serving encrypted R2 bytes.",
         },
       ],
     },

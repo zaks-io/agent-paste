@@ -207,7 +207,8 @@ return the same contract as CLI and REST.
 - An Artifact belongs to exactly one Workspace.
 - An Artifact has zero or more immutable Revisions.
 - An Artifact has exactly one Published Revision after first Publish.
-- An Artifact has one Artifact URL and one Capability ID.
+- An Artifact has one Artifact URL and one Capability ID while published; both
+  are absent before first Publish and after revocation.
 - Publish returns exactly `artifact_id`, `revision_id`, `title`, `url`, and
   `expires_at` on deployed authenticated surfaces.
 - Ephemeral publish returns the same Artifact URL plus separate claim material.

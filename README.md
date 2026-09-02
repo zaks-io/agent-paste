@@ -93,7 +93,7 @@ npx skills add https://github.com/zaks-io/agent-paste/tree/main/skills/agent-pas
 
 ## Browser architecture
 
-Each Artifact gets a cryptographically random 95-bit capability hostname:
+Each Artifact gets a cryptographically random capability hostname with at least 95 bits of entropy:
 
 ```text
 production  {xxxxx-xxxxx-xxxxx-xxxxx}.agent-paste.link

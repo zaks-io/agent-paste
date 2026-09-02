@@ -81,7 +81,7 @@ Directory publish preserves relative paths. Entrypoint inference is
 }
 \`\`\`
 
-The URL is an unguessable 95-bit bearer locator. It opens without login and
+The URL is an unguessable bearer locator with at least 95 bits of entropy. It opens without login and
 serves the latest Published Revision. Authenticated publishes can use inline
 scripts, external HTTPS dependencies, root-relative assets, fetch, secure
 WebSockets, and dedicated workers. Service workers are blocked on every

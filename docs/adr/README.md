@@ -80,7 +80,7 @@ These practices are part of the current architecture, not optional implementatio
 
 ### Credentials, Links, and Logging
 
-- The 95-bit capability hostname is the no-login bearer locator. Server logs, traces, analytics, audit summaries, and error events never store capability URLs or hostnames, API Key secrets, content-gateway tokens, or full signed URLs.
+- The capability hostname, with at least 95 bits of entropy, is the no-login bearer locator. Server logs, traces, analytics, audit summaries, and error events never store capability URLs or hostnames, API Key secrets, content-gateway tokens, or full signed URLs.
 - API Key secrets use the `ap_pk_{env}_{publicId}_{secret}` shape, HMAC storage with a Worker-secret pepper, environment segregation, and parser rejection of retired `ap_al_*` values per [ADR 0043](./0043-bearer-credential-format-and-storage.md).
 
 ### Untrusted Content
