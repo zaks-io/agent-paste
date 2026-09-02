@@ -7,7 +7,7 @@ export type ClassifiedUrls = {
 
 const URL_PATTERN = /https?:\/\/[^\s<>"'()[\]{}|\\^`*]+/g;
 const PRODUCTION_ARTIFACT_HOST = /^[0-9a-f]{32}\.agent-paste\.link$/;
-const PREVIEW_ARTIFACT_HOST = /^[0-9a-f]{32}-preview\.agent-paste\.link$/;
+const PREVIEW_ARTIFACT_HOST = /^[0-9a-f]{32}-(?:preview|pr-[1-9][0-9]*)\.agent-paste\.link$/;
 
 export function classifyUrls(text: string): ClassifiedUrls {
   const urls = Array.from(new Set(text.match(URL_PATTERN) ?? [])).map(cleanUrl);

@@ -137,10 +137,10 @@ cleanup matters.
 
 Smokes assert, without logging secrets:
 
-- Provision → publish → **Agent View** / content fetch
-- Open artifact `script-src` on the content CSP, `x-robots-tag: noindex, nofollow`
-- The script-tagged fixture is returned intact
-- **Claim Token** not present in `private_url`, `revision_content_url`, **Agent View** JSON/HTML, or stderr
+- Provision → publish → top-level capability URL fetch
+- Restricted content CSP and `x-robots-tag: noindex, nofollow`
+- The script-tagged fixture source is returned intact while execution remains blocked
+- **Claim Token** not present in the Artifact URL, claim URL path/query, served HTML, or stderr
 - Fresh ephemeral **usage-policy** daily allowance = 20
 - Claim redemption when WorkOS member auth is available (local smoke always; hosted optional)
 
@@ -150,24 +150,18 @@ skip message — not a false pass).
 
 ### 3. Public content policy spot-check (no credentials)
 
-Given only a public Access Link Signed URL from a reporter or smoke output (not the Claim Token):
+Given only the top-level ephemeral Artifact URL from a reporter or smoke output (not the Claim Token):
 
 ```sh
-curl -sSI "${VIEW_URL}" | rg -i 'content-security-policy|x-robots-tag'
+curl -sSI "${ARTIFACT_URL}" | rg -i 'content-security-policy|x-robots-tag'
 ```
 
 Expect:
 
-- `content-security-policy` containing `script-src 'self' 'unsafe-inline' 'unsafe-eval' https:`
+- `content-security-policy` containing `default-src 'none'`, `script-src 'none'`,
+  `connect-src 'none'`, `worker-src 'none'`, `frame-src 'none'`, `object-src 'none'`,
+  `base-uri 'none'`, `form-action 'none'`, and `frame-ancestors 'none'`
 - `x-robots-tag: noindex, nofollow`
-
-For HTML **Agent View** in a browser or `curl -H 'accept: text/html'`:
-
-```sh
-curl -sS -H 'accept: text/html' "${AGENT_VIEW_URL}" | head
-```
-
-Expect `noindex` in headers/meta and no **Claim Token** substring in the body.
 
 ### 4. Verify ephemeral vs claimed (operators with DB access)
 
@@ -242,8 +236,9 @@ agent-paste publish <path> --ephemeral [--title <text>] [--json]
   auth is possible, use `agent-paste login` first.
 - Ignores `AGENT_PASTE_API_KEY` and stored login credentials.
 - Not the Free Plan: ephemeral is the unclaimed restricted tier, with low caps,
-  `noindex`, and 24h Auto Deletion. Its isolated capability origin permits
-  interactive HTML and JavaScript.
+  `noindex`, and 24h Auto Deletion. Its isolated capability origin renders static
+  HTML, styles, images, fonts, and media. It blocks scripts, connections, workers,
+  forms, frames, objects, and base URL changes.
 - Auto Deletion is one day for the unclaimed ephemeral Workspace. `--json`
   prints `artifact_id`, `revision_id`, `title`, `url`, `expires_at`,
   `claim_url`, and `claim_token`. The `url` is the Artifact root on its own
