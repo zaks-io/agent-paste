@@ -196,8 +196,9 @@ email, or this runbook.
 
 ## Abuse and takedown
 
-1. **Confirm the target** — Collect `artifact_id`, public Access Link Signed URL, and report time. Do not ask
-   the reporter for their **Claim Token**.
+1. **Confirm the target** — Collect the top-level capability URL or `artifact_id` and the report
+   time. Accept a legacy signed content URL only for migration cases. Do not ask the reporter for
+   their **Claim Token**.
 2. **Assess tier** — Fetch public **Agent View** or content headers (above). Ephemeral content
    should carry `noindex`; its scripts, connections, workers, forms, frames, objects, and base
    URL changes must be blocked.
@@ -212,14 +213,14 @@ email, or this runbook.
 
 ## Support: Claim Token cases
 
-| Situation                                | Guidance                                                                                                                                                                                                                       |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Lost **Claim Token**                     | We cannot recover ownership. The token is one-time and stored hashed; support has no lookup by public URL. The publisher must run **Ephemeral Publish** again and save the new token.                                          |
-| Expired token                            | `POST /v1/ephemeral/claim` returns generic `404`. Content remains until **Auto Deletion**; reclaim requires a new publish + claim.                                                                                             |
-| Already redeemed                         | Same `404` on reuse. Content now lives in the claimer's **Personal Workspace**; only that member's dashboard access applies.                                                                                                   |
-| Token in email/chat leak                 | Treat as compromised. If not yet redeemed, attacker could claim — advise immediate claim by the legitimate member, or republish. Never paste the token into support tickets.                                                   |
-| "I only have the Access Link Signed URL" | Possession of the Access Link Signed URL does **not** grant ownership. Without the **Claim Token**, promotion is impossible by design ([ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md)). |
-| Unclaimed content expired                | After **Auto Deletion**, content is gone. Republish; there is no restore path for anonymous-tier tenants.                                                                                                                      |
+| Situation                                 | Guidance                                                                                                                                                                                                                 |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Lost **Claim Token**                      | We cannot recover ownership. The token is one-time and stored hashed; support has no lookup by public URL. The publisher must run **Ephemeral Publish** again and save the new token.                                    |
+| Expired token                             | `POST /v1/ephemeral/claim` returns generic `404`. Content remains until **Auto Deletion**; reclaim requires a new publish + claim.                                                                                       |
+| Already redeemed                          | Same `404` on reuse. Content now lives in the claimer's **Personal Workspace**; only that member's dashboard access applies.                                                                                             |
+| Token in email/chat leak                  | Treat as compromised. If not yet redeemed, attacker could claim — advise immediate claim by the legitimate member, or republish. Never paste the token into support tickets.                                             |
+| "I only have a legacy signed content URL" | Possession of a signed content URL does **not** grant ownership. Without the **Claim Token**, promotion is impossible by design ([ADR 0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md)). |
+| Unclaimed content expired                 | After **Auto Deletion**, content is gone. Republish; there is no restore path for anonymous-tier tenants.                                                                                                                |
 
 Web redemption: authenticated users open the CLI-printed `claim_url` (`/claim#{token}`). The
 fragment is not sent to the server on normal navigation in all browsers — the web app reads the

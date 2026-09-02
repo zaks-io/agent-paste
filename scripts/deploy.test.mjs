@@ -2,12 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import {
   appsForSecretProvisioning,
   assertDeployScopeAllowed,
+  contentRoutingProbeUrls,
   createSecretPlanner,
   deploymentPhases,
   formatForbiddenProductionSecretsMessage,
   formatMissingProviderSecretsMessage,
   GENERATABLE,
   generatedByteLength,
+  probeContentRouting,
   runDeployPlan,
   selectApps,
   shouldMigrate,
@@ -159,6 +161,37 @@ describe("deploymentPhases", () => {
   it("keeps scoped deploys in one phase when they cannot publish content URLs", () => {
     expect(deploymentPhases(["content"])).toEqual([["content"]]);
     expect(deploymentPhases(["api", "web"])).toEqual([["api", "web"]]);
+  });
+});
+
+describe("content routing readiness", () => {
+  it("probes the exact content host and the environment's wildcard capability route", () => {
+    expect(contentRoutingProbeUrls("preview")).toEqual({
+      health: "https://usercontent.preview.agent-paste.link/healthz",
+      capability: "https://00000000000000000000000000000000-preview.agent-paste.link/__deployment_readiness_probe__",
+    });
+    expect(contentRoutingProbeUrls("production")).toEqual({
+      health: "https://usercontent.agent-paste.link/healthz",
+      capability: "https://00000000000000000000000000000000.agent-paste.link/__deployment_readiness_probe__",
+    });
+  });
+
+  it("requires the Content Worker not-found envelope from the wildcard route", async () => {
+    const urls = contentRoutingProbeUrls("production");
+    const readyFetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("ok", { status: 200 }))
+      .mockResolvedValueOnce(Response.json({ error: { code: "not_found" } }, { status: 404 }));
+
+    await expect(probeContentRouting(urls, readyFetch)).resolves.toMatchObject({ ready: true });
+    expect(readyFetch).toHaveBeenNthCalledWith(1, urls.health, { cache: "no-store" });
+    expect(readyFetch).toHaveBeenNthCalledWith(2, urls.capability, { cache: "no-store" });
+
+    const generic404Fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("ok", { status: 200 }))
+      .mockResolvedValueOnce(new Response("not found", { status: 404 }));
+    await expect(probeContentRouting(urls, generic404Fetch)).resolves.toMatchObject({ ready: false });
   });
 });
 

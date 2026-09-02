@@ -18,6 +18,13 @@ describe("classifyUrls", () => {
     expect(urls.production).toEqual([]);
   });
 
+  it("classifies legacy standing-preview artifact URLs", () => {
+    const artifactUrl = "https://0123456789abcdef0123456789abcdef-preview.agent-paste.sh/";
+    const urls = classifyUrls(artifactUrl);
+    expect(urls.artifact).toBe(artifactUrl);
+    expect(urls.production).toEqual([]);
+  });
+
   it.each(["pr-0", "pr-01", "pr-invalid"])("rejects malformed PR preview suffix %s", (suffix) => {
     const artifactUrl = `https://0123456789abcdef0123456789abcdef-${suffix}.agent-paste.link/`;
     const urls = classifyUrls(artifactUrl);

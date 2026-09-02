@@ -88,6 +88,7 @@ const PACKAGE_NAMES = {
 // apex, web) have no DB, so a scoped deploy of only those never needs a migration.
 const DB_BACKED_APPS = new Set(["api", "upload", "jobs"]);
 const CONTENT_URL_PRODUCERS = new Set(["api", "upload"]);
+const CONTENT_ROUTING_PROBE_ID = "00000000000000000000000000000000";
 const PRODUCTION_SCOPE_ERROR =
   "Production deploys must deploy the full fleet; --app scoping is only supported for preview deploys.";
 
@@ -427,35 +428,75 @@ async function turboDeploy(apps, target) {
   await run("pnpm", turboDeployArgs(apps, target), null, buildSwitchesFor(target));
 }
 
-async function verifyContentRouting(target) {
+export function contentRoutingProbeUrls(target) {
   const env = {};
   loadWranglerEnvVars("apps/content/wrangler.jsonc", {
     cwd: root,
     env,
     envName: target,
-    keys: ["CONTENT_BASE_URL"],
+    keys: ["CONTENT_BASE_URL", "CONTENT_CAPABILITY_DOMAIN", "CONTENT_CAPABILITY_HOST_SUFFIX"],
   });
   const contentBaseUrl = env.CONTENT_BASE_URL;
   if (typeof contentBaseUrl !== "string" || contentBaseUrl.length === 0) {
     throw new Error(`CONTENT_BASE_URL is missing for the ${target} content Worker.`);
   }
-  const healthUrl = `${contentBaseUrl.replace(/\/$/, "")}/healthz`;
+  const capabilityDomain = env.CONTENT_CAPABILITY_DOMAIN;
+  if (typeof capabilityDomain !== "string" || capabilityDomain.length === 0) {
+    throw new Error(`CONTENT_CAPABILITY_DOMAIN is missing for the ${target} content Worker.`);
+  }
+  const capabilitySuffix = env.CONTENT_CAPABILITY_HOST_SUFFIX ?? "";
+  if (typeof capabilitySuffix !== "string") {
+    throw new Error(`CONTENT_CAPABILITY_HOST_SUFFIX is invalid for the ${target} content Worker.`);
+  }
+  return {
+    health: new URL("/healthz", contentBaseUrl).href,
+    capability: `https://${CONTENT_ROUTING_PROBE_ID}${capabilitySuffix}.${capabilityDomain}/__deployment_readiness_probe__`,
+  };
+}
+
+export async function probeContentRouting(urls, fetchFn = fetch) {
+  const healthResponse = await fetchFn(urls.health, { cache: "no-store" });
+  const capabilityResponse = await fetchFn(urls.capability, { cache: "no-store" });
+  let capabilityCode = null;
+  try {
+    const body = await capabilityResponse.json();
+    if (body && typeof body === "object" && "error" in body) {
+      const error = body.error;
+      if (error && typeof error === "object" && "code" in error && typeof error.code === "string") {
+        capabilityCode = error.code;
+      }
+    }
+  } catch {
+    capabilityCode = null;
+  }
+  return {
+    ready: healthResponse.status === 200 && capabilityResponse.status === 404 && capabilityCode === "not_found",
+    healthStatus: healthResponse.status,
+    capabilityStatus: capabilityResponse.status,
+    capabilityCode,
+  };
+}
+
+async function verifyContentRouting(target) {
+  const urls = contentRoutingProbeUrls(target);
   const deadline = Date.now() + 60_000;
-  let lastStatus = 0;
+  let lastResult = null;
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(healthUrl, { cache: "no-store" });
-      lastStatus = response.status;
-      if (response.status === 200) {
+      lastResult = await probeContentRouting(urls);
+      if (lastResult.ready) {
         return;
       }
     } catch {
-      lastStatus = -1;
+      lastResult = null;
     }
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
+  const lastResponse = lastResult
+    ? `health=${lastResult.healthStatus}, capability=${lastResult.capabilityStatus}/${lastResult.capabilityCode ?? "unknown"}`
+    : "transport_error";
   throw new Error(
-    `Content routing did not become ready at ${healthUrl}; last response ${lastStatus === -1 ? "transport_error" : lastStatus}.`,
+    `Content routing did not become ready at ${urls.health} and ${urls.capability}; last response ${lastResponse}.`,
   );
 }
 
