@@ -49,6 +49,19 @@ describe("mcp worker", () => {
     });
   });
 
+  it("serves an MCP Server Card with the default transport endpoint", async () => {
+    const response = await request("/.well-known/mcp/server-card.json");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
+    await expect(response.json()).resolves.toMatchObject({
+      transport: {
+        endpoint: "https://mcp.agent-paste.sh",
+      },
+    });
+  });
+
   it("serves an MCP Server Card with the configured transport endpoint", async () => {
     const response = await request("/.well-known/mcp/server-card.json", {
       MCP_RESOURCE: "https://mcp.preview.agent-paste.sh/",

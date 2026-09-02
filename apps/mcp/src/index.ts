@@ -29,7 +29,10 @@ app.use("*", securityHeadersMiddleware());
 app.get("/healthz", (context) => context.json({ ok: true, app: "mcp" }));
 app.get("/.well-known/oauth-protected-resource", (context) => context.json(protectedResourceMetadata(context.env)));
 app.get("/.well-known/oauth-protected-resource/*", (context) => context.json(protectedResourceMetadata(context.env)));
-app.get("/.well-known/mcp/server-card.json", (context) => context.json(mcpServerCard(context.env)));
+app.get("/.well-known/mcp/server-card.json", (context) => {
+  context.header("Access-Control-Allow-Origin", "*");
+  return context.json(mcpServerCard(context.env));
+});
 app.get("/.well-known/oauth-authorization-server", (context) => authorizationServerMetadataResponse(context));
 app.get("/.well-known/openid-configuration", (context) => authorizationServerMetadataResponse(context));
 app.get("/.well-known/oauth-authorization-server/*", (context) => authorizationServerMetadataResponse(context));
