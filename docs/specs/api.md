@@ -27,6 +27,31 @@ public OpenAPI document, along with their Cloudflare Access service-token scheme
 and operator-only schemas. They remain runtime route contracts and are documented
 only in [admin operations](./admin.md) and ops runbooks.
 
+## API Discovery
+
+`apex` is the discovery root for agents that arrive at `https://agent-paste.sh`
+with no prior knowledge of the product. The homepage response carries an
+[RFC 8288](https://www.rfc-editor.org/rfc/rfc8288) `Link` header with registered
+relations only:
+
+| Relation       | Target                                    | Media type                    |
+| -------------- | ----------------------------------------- | ----------------------------- |
+| `api-catalog`  | `/.well-known/api-catalog`                | `application/linkset+json`    |
+| `service-desc` | `https://api.agent-paste.sh/openapi.json` | `application/json`            |
+| `service-doc`  | `/docs`                                   | `text/html`                   |
+| `describedby`  | `/agents.md`, `/llms.txt`                 | `text/markdown`, `text/plain` |
+
+`GET https://agent-paste.sh/.well-known/api-catalog` returns the
+[RFC 9727](https://www.rfc-editor.org/rfc/rfc9727) API catalog as a
+[Linkset](https://www.rfc-editor.org/rfc/rfc9264) document
+(`application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"`).
+It anchors an `item` list of the two integrable APIs (`api` and `mcp`) and gives
+each one a `service-desc` and `service-doc` target. Both surfaces are generated
+in `apps/apex/src/discovery.ts`, so the catalog and the header cannot drift.
+
+Cross-origin targets are baked from `AGENT_PASTE_ENV`, so the preview build
+advertises the preview hosts.
+
 ## Headers
 
 | Header                      | Direction        | Required                          | Notes                                                                                          |

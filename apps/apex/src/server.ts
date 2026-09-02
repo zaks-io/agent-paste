@@ -3,6 +3,7 @@ import { isBillingEnabled } from "@agent-paste/config";
 import { type AnalyticsEngineDataset, sentryOptions, writeFunnelEvent } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { textAssets } from "./build/text-assets";
+import { API_CATALOG_PATH, DISCOVERY_LINK_HEADER, isHomepagePath } from "./discovery";
 import { productRedirect } from "./redirects";
 import { apexSecurityHeaders } from "./security-headers";
 
@@ -34,6 +35,7 @@ const TEXT_ASSET_PATHS = new Set([
   "/sitemap.xml",
   GPC_SUPPORT_PATH,
   "/.well-known/security.txt",
+  API_CATALOG_PATH,
 ]);
 
 const ANALYTICS_BEACON_SELECTOR = 'script[src="https://static.cloudflareinsights.com/beacon.min.js"]';
@@ -117,6 +119,9 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
     const headers = new Headers(assetResponse.headers);
     for (const [name, value] of Object.entries(security)) {
       headers.set(name, value as string);
+    }
+    if (isHomepagePath(url.pathname)) {
+      headers.set("link", DISCOVERY_LINK_HEADER);
     }
     const response = new Response(request.method === "HEAD" ? null : assetResponse.body, {
       status: assetResponse.status,

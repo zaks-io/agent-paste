@@ -1,5 +1,6 @@
 import { GPC_SUPPORT_BODY, GPC_SUPPORT_PATH } from "@agent-paste/brand";
 import { AGENTS_MD } from "../agents";
+import { API_CATALOG_CONTENT_TYPE, API_CATALOG_PATH, apiCatalogDocument } from "../discovery";
 import { renderDocsIndexMarkdown, renderDocsPageMarkdown, renderLlmsFullText } from "../docs/markdown";
 import { docsHtmlPath, docsMarkdownPath, docsPagesForBilling } from "../docs/registry";
 import { INSTALL_PS1 } from "../install-ps1";
@@ -31,6 +32,7 @@ export function textAssets(opts: { origin: string; billingEnabled: boolean }): T
     { path: "/robots.txt", contentType: TEXT_PLAIN, body: robotsTxt(opts.origin) },
     { path: GPC_SUPPORT_PATH, contentType: APPLICATION_JSON, body: GPC_SUPPORT_BODY },
     { path: "/.well-known/security.txt", contentType: TEXT_PLAIN, body: securityTxt() },
+    { path: API_CATALOG_PATH, contentType: API_CATALOG_CONTENT_TYPE, body: apiCatalogDocument(opts.origin) },
     { path: "/sitemap.xml", contentType: TEXT_XML, body: sitemapXml(opts.origin, opts.billingEnabled) },
   ];
 }
