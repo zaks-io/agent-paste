@@ -15,6 +15,11 @@ Opening that URL directly returns endpoint metadata for humans and agents.
 Protocol calls use `POST /` with Streamable HTTP JSON-RPC and an OAuth bearer
 token; a browser GET is not the tool transport.
 
+MCP clients can discover the transport and supported capability families from
+`https://mcp.agent-paste.sh/.well-known/mcp/server-card.json`. The card reports
+the environment-specific Streamable HTTP endpoint and advertises tools; this
+server does not expose MCP resources or prompts.
+
 ## When To Use MCP
 
 Use MCP when:

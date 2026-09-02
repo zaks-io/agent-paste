@@ -23,6 +23,7 @@ Current endpoints:
 - `POST /` - Streamable HTTP MCP transport (JSON-RPC; optional SSE responses)
 - `GET /` - endpoint metadata for humans and agents opening the MCP URL
 - `GET /healthz`
+- `GET /.well-known/mcp/server-card.json`
 - `GET /.well-known/oauth-protected-resource`
 - `GET /.well-known/oauth-authorization-server`
 - `GET /.well-known/openid-configuration`

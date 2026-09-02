@@ -1,6 +1,7 @@
 import { buildMcpToolList, McpToolCallParams, mapMcpProtocolError } from "@agent-paste/contracts";
 import type { McpAuthContext } from "./auth.js";
 import { type JsonRpcResponse, jsonRpcResult, MCP_PROTOCOL_VERSION } from "./jsonrpc.js";
+import { MCP_SERVER_INFO } from "./server-card.js";
 import { callMcpTool, type McpToolDeps } from "./tools.js";
 
 export type ProtocolHandlerResult =
@@ -33,10 +34,7 @@ export function handleMcpProtocolMethod(input: {
           capabilities: {
             tools: { listChanged: false },
           },
-          serverInfo: {
-            name: "agent-paste",
-            version: "0.1.0",
-          },
+          serverInfo: MCP_SERVER_INFO,
           instructions: MCP_LIFECYCLE_INSTRUCTIONS,
         }),
       };

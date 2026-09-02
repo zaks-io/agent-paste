@@ -9,6 +9,7 @@ import type { CloudflareOptions } from "@sentry/cloudflare";
 import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
 import type { ApiServiceBinding } from "./forward.js";
+import { mcpServerCard } from "./server-card.js";
 import { handleMcpEndpoint } from "./transport.js";
 import type { McpWorkOsEnv } from "./workos.js";
 
@@ -28,6 +29,10 @@ app.use("*", securityHeadersMiddleware());
 app.get("/healthz", (context) => context.json({ ok: true, app: "mcp" }));
 app.get("/.well-known/oauth-protected-resource", (context) => context.json(protectedResourceMetadata(context.env)));
 app.get("/.well-known/oauth-protected-resource/*", (context) => context.json(protectedResourceMetadata(context.env)));
+app.get("/.well-known/mcp/server-card.json", (context) => {
+  context.header("Access-Control-Allow-Origin", "*");
+  return context.json(mcpServerCard(context.env));
+});
 app.get("/.well-known/oauth-authorization-server", (context) => authorizationServerMetadataResponse(context));
 app.get("/.well-known/openid-configuration", (context) => authorizationServerMetadataResponse(context));
 app.get("/.well-known/oauth-authorization-server/*", (context) => authorizationServerMetadataResponse(context));
@@ -205,6 +210,17 @@ function openApiDocument(): Record<string, unknown> {
                   },
                 },
               },
+            },
+          },
+        },
+      },
+      "/.well-known/mcp/server-card.json": {
+        get: {
+          operationId: "mcp.serverCard",
+          responses: {
+            200: {
+              description: "MCP Server Card for transport and capability discovery",
+              content: { "application/json": { schema: { type: "object" } } },
             },
           },
         },
