@@ -120,6 +120,46 @@ vi.mock("../src/server/runtime", () => ({
   }),
 }));
 
+// RPC handlers import their server implementation lazily. Preload that shared
+// module with the route graph so transform cost stays outside per-test timing.
+await import("../src/server/web-loaders");
+
+const [
+  authed,
+  webLoaders,
+  dashboard,
+  artifacts,
+  artifactDetail,
+  audit,
+  keys,
+  settings,
+  admin,
+  health,
+  { ToastProvider },
+  claim,
+  root,
+  signIn,
+  signOut,
+  callback,
+] = await Promise.all([
+  import("../src/routes/_authed"),
+  import("../src/rpc/web-loaders"),
+  import("../src/routes/_authed.dashboard"),
+  import("../src/routes/_authed.artifacts.index"),
+  import("../src/routes/_authed.artifacts.$artifactId"),
+  import("../src/routes/_authed.audit"),
+  import("../src/routes/_authed.keys"),
+  import("../src/routes/_authed.settings"),
+  import("../src/routes/_authed.admin"),
+  import("../src/routes/healthz"),
+  import("../src/components/ui/ToastProvider"),
+  import("../src/routes/_authed.claim"),
+  import("../src/routes/index"),
+  import("../src/routes/api/auth/sign-in"),
+  import("../src/routes/api/auth/sign-out"),
+  import("../src/routes/api/auth/callback"),
+]);
+
 // Loaders migrated to TanStack Query read context.queryClient.ensureQueryData.
 const queryContext = () => ({ context: { queryClient: { ensureQueryData: state.ensureQueryData } } });
 
@@ -147,7 +187,6 @@ describe("web routes", () => {
   });
 
   it("resolves the authenticated layout identity without blocking on the API", async () => {
-    const authed = await import("../src/routes/_authed");
     const loader = authed.Route.loader as (input: {
       location: { pathname: string; searchStr: string };
     }) => Promise<unknown>;
@@ -179,7 +218,6 @@ describe("web routes", () => {
 
   it("provisions the workspace off the critical path via web-session and surfaces the first-run key", async () => {
     state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token", role: "admin" };
-    const { provisionWebMemberSessionFn } = await import("../src/rpc/web-loaders");
     state.apiFetchOrEmpty.mockResolvedValueOnce({
       data: {
         workspace: workspace().workspace,
@@ -190,7 +228,9 @@ describe("web routes", () => {
       empty: false,
       error: null,
     });
-    await expect((provisionWebMemberSessionFn as (input?: unknown) => Promise<unknown>)()).resolves.toMatchObject({
+    await expect(
+      (webLoaders.provisionWebMemberSessionFn as (input?: unknown) => Promise<unknown>)(),
+    ).resolves.toMatchObject({
       data: { default_api_key: { secret: "ap_pk_preview_first_secret" } },
     });
     expect(state.apiFetchOrEmpty).toHaveBeenCalledWith("/v1/auth/web/callback", {
@@ -212,9 +252,9 @@ describe("web routes", () => {
         empty: false,
         error: null,
       });
-    const { Route } = await import("../src/routes/_authed.dashboard");
-
-    await expect((Route.loader as (input: unknown) => Promise<unknown>)(queryContext())).resolves.toMatchObject({
+    await expect(
+      (dashboard.Route.loader as (input: unknown) => Promise<unknown>)(queryContext()),
+    ).resolves.toMatchObject({
       workspace: { data: { workspace: { name: "Demo" } } },
     });
     expect(state.apiFetchOrEmpty).toHaveBeenCalledWith("/v1/web/workspace", { accessToken: "workos-token" });
@@ -242,7 +282,7 @@ describe("web routes", () => {
       },
       error: null,
     };
-    render(<Route.component />);
+    render(<dashboard.Route.component />);
     expect(screen.getByText("Demo")).toBeInTheDocument();
     expect(screen.getByText("Your default API key")).toBeInTheDocument();
     expect(screen.getByText("Reveal secret")).toBeInTheDocument();
@@ -250,14 +290,12 @@ describe("web routes", () => {
   });
 
   it("renders dashboard empty and error states", async () => {
-    const { Route } = await import("../src/routes/_authed.dashboard");
-
     state.loaderData = {
       workspace: { data: null, empty: true, error: null },
       artifacts: { data: null, empty: true, error: null },
       audit: { data: null, empty: true, error: null },
     };
-    const empty = render(<Route.component />);
+    const empty = render(<dashboard.Route.component />);
     expect(screen.getByText("Nothing on record yet.")).toBeInTheDocument();
     empty.unmount();
 
@@ -266,20 +304,11 @@ describe("web routes", () => {
       artifacts: null,
       audit: null,
     };
-    render(<Route.component />);
+    render(<dashboard.Route.component />);
     expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load your workspace");
   });
 
   it("loads and renders artifact list, detail, audit, keys, settings, admin, and health routes", async () => {
-    const artifacts = await import("../src/routes/_authed.artifacts.index");
-    const artifactDetail = await import("../src/routes/_authed.artifacts.$artifactId");
-    const audit = await import("../src/routes/_authed.audit");
-    const keys = await import("../src/routes/_authed.keys");
-    const settings = await import("../src/routes/_authed.settings");
-    const admin = await import("../src/routes/_authed.admin");
-    const health = await import("../src/routes/healthz");
-    const { ToastProvider } = await import("../src/components/ui/ToastProvider");
-
     state.apiFetchOrEmpty.mockResolvedValue({
       data: { items: [artifactRow()], page_info: { next_cursor: null, has_more: false } },
       empty: false,
@@ -436,8 +465,6 @@ describe("web routes", () => {
   }, 30_000);
 
   it("redirects /admin for authenticated users without the WorkOS admin role", async () => {
-    const admin = await import("../src/routes/_authed.admin");
-
     state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token", role: "member" };
 
     await expect(
@@ -453,8 +480,6 @@ describe("web routes", () => {
   });
 
   it("allows /admin when WorkOS roles includes admin", async () => {
-    const admin = await import("../src/routes/_authed.admin");
-
     state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token", roles: ["member", "admin"] };
     state.apiFetchOrEmpty
       .mockResolvedValueOnce({
@@ -485,15 +510,6 @@ describe("web routes", () => {
   });
 
   it("exposes per-route document titles and descriptions", async () => {
-    const dashboard = await import("../src/routes/_authed.dashboard");
-    const artifactDetail = await import("../src/routes/_authed.artifacts.$artifactId");
-    const artifactsIndex = await import("../src/routes/_authed.artifacts.index");
-    const keys = await import("../src/routes/_authed.keys");
-    const audit = await import("../src/routes/_authed.audit");
-    const settings = await import("../src/routes/_authed.settings");
-    const admin = await import("../src/routes/_authed.admin");
-    const claim = await import("../src/routes/_authed.claim");
-    const index = await import("../src/routes/index");
     const rootMatches = [{ routeId: "__root__", loaderData: { webBaseUrl: "https://app.agent-paste.sh" } }];
     const headCtx = { matches: rootMatches };
 
@@ -509,7 +525,7 @@ describe("web routes", () => {
     });
 
     expect(
-      (artifactsIndex.Route.head as (ctx: { matches: Array<{ routeId: string; loaderData?: unknown }> }) => unknown)(
+      (artifacts.Route.head as (ctx: { matches: Array<{ routeId: string; loaderData?: unknown }> }) => unknown)(
         headCtx,
       ),
     ).toEqual({
@@ -590,7 +606,7 @@ describe("web routes", () => {
     });
 
     expect(
-      (index.Route.head as (ctx: { matches: Array<{ routeId: string; loaderData?: unknown }> }) => unknown)(headCtx),
+      (root.Route.head as (ctx: { matches: Array<{ routeId: string; loaderData?: unknown }> }) => unknown)(headCtx),
     ).toEqual({
       meta: expect.arrayContaining([
         { title: "Sign in | agent-paste" },
@@ -603,11 +619,6 @@ describe("web routes", () => {
   });
 
   it("handles root and auth route server handlers", async () => {
-    const root = await import("../src/routes/index");
-    const signIn = await import("../src/routes/api/auth/sign-in");
-    const signOut = await import("../src/routes/api/auth/sign-out");
-    const callback = await import("../src/routes/api/auth/callback");
-
     expect(
       (root.Route.validateSearch as (input: Record<string, unknown>) => unknown)({ auth_error: "failed" }),
     ).toEqual({
