@@ -84,7 +84,7 @@ describe("smoke-readonly assertions", () => {
       const u = String(url);
       if (u.endsWith("/auth.md")) {
         return Promise.resolve(
-          new Response("Supported registration types: anonymous", {
+          new Response("# Agent Paste auth.md\n", {
             status: 200,
             headers: { "content-type": "text/markdown" },
           }),
@@ -115,7 +115,7 @@ describe("smoke-readonly assertions", () => {
       const u = String(url);
       if (u.endsWith("/auth.md")) {
         return Promise.resolve(
-          new Response("Supported registration types: anonymous", {
+          new Response("# Agent Paste auth.md\n", {
             status: 200,
             headers: { "content-type": "text/markdown" },
           }),
@@ -149,7 +149,7 @@ describe("smoke-readonly assertions", () => {
       const u = String(url);
       if (u.endsWith("/auth.md")) {
         return Promise.resolve(
-          new Response("Supported registration types: anonymous, identity_assertion", {
+          new Response("# Agent Paste auth.md\n", {
             status: 200,
             headers: { "content-type": "text/markdown" },
           }),
@@ -193,6 +193,8 @@ describe("smoke-readonly assertions", () => {
       if (u.endsWith("/.well-known/api-catalog")) {
         return Promise.resolve(htmlResponse("{}", { "content-type": "application/linkset+json" }));
       }
+      if (u.endsWith("/auth.md"))
+        return Promise.resolve(htmlResponse("# Agent Paste auth.md\n", { "content-type": "text/markdown" }));
       if (u.endsWith("/.well-known/gpc.json")) return Promise.resolve(jsonResponse({ gpc: true }));
       if (u.endsWith("/dashboard")) return Promise.resolve(new Response(null, { status: 308 }));
       return Promise.resolve(new Response("?", { status: 404 }));

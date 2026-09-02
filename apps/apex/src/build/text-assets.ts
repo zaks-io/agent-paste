@@ -1,5 +1,7 @@
+import { AUTH_MD_CONTENT_TYPE, AUTH_MD_PATH, renderAuthMd } from "@agent-paste/auth-md";
 import { GPC_SUPPORT_BODY, GPC_SUPPORT_PATH } from "@agent-paste/brand";
 import { AGENTS_MD } from "../agents";
+import { API_BASE_URL } from "../copy";
 import { API_CATALOG_CONTENT_TYPE, API_CATALOG_PATH, apiCatalogDocument } from "../discovery";
 import { renderDocsIndexMarkdown, renderDocsPageMarkdown, renderLlmsFullText } from "../docs/markdown";
 import { docsHtmlPath, docsMarkdownPath, docsPagesForBilling } from "../docs/registry";
@@ -43,6 +45,11 @@ export function textAssets(opts: { origin: string; billingEnabled: boolean }): T
     { path: "/llms-full.txt", contentType: TEXT_PLAIN, body: renderLlmsFullText(docsPages) },
     { path: "/llms.txt", contentType: TEXT_PLAIN, body: renderLlmsTxt(opts.billingEnabled) },
     { path: "/agents.md", contentType: TEXT_MARKDOWN, body: AGENTS_MD },
+    // Agents and discovery scanners probe /auth.md at the service root, not on
+    // the API host that agent_auth.skill points at. The API Worker cannot answer
+    // for this hostname (apex holds it as a Cloudflare Custom Domain), so apex
+    // serves the same shared document against the same issuer.
+    { path: AUTH_MD_PATH, contentType: AUTH_MD_CONTENT_TYPE, body: renderAuthMd({ issuer: API_BASE_URL }) },
     { path: "/install.sh", contentType: TEXT_SHELL, body: INSTALL_SH },
     { path: "/install.ps1", contentType: TEXT_PLAIN, body: INSTALL_PS1 },
     { path: "/robots.txt", contentType: TEXT_PLAIN, body: robotsTxt(opts.origin) },
@@ -142,6 +149,7 @@ function sitemapXml(origin: string, billingEnabled: boolean): string {
     "/llms.txt",
     "/llms-full.txt",
     "/agents.md",
+    AUTH_MD_PATH,
   ];
   const entries = urls
     .map((path) => `  <url><loc>${origin}${path}</loc><lastmod>${SITEMAP_LASTMOD}</lastmod></url>`)

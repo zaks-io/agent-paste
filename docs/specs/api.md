@@ -126,6 +126,26 @@ Provider event metadata (`events_endpoint`, `events_supported`, and
 `identity_assertion`) is advertised only with the verified flow; anonymous-only
 deployments must not publish those fields.
 
+`/auth.md` is served as `text/markdown; charset=utf-8` and its first line is an
+H1 containing the literal `auth.md`. Discovery scanners match on that heading to
+confirm the document is an auth.md skill rather than an unrelated page.
+
+Agents and scanners probe `/auth.md` at the service root (`agent-paste.sh`) as
+well as following `agent_auth.skill` to the API host, so the apex Worker serves
+it too, as a text asset alongside `/agents.md`. A Cloudflare Custom Domain claims
+a whole hostname, so `api` cannot answer the apex path; both Workers render the
+same document from `@agent-paste/auth-md` instead of keeping two copies. The
+document is a pure function of the issuer origin: which registration types a
+deployment has actually enabled stays in `agent_auth.identity_types_supported` in
+the Authorization Server Metadata, which the document points at rather than
+restating, because only `api` can compute it.
+
+Discovery field names track the upstream WorkOS auth.md spec; `agent_auth` uses
+`identity_endpoint` / `claim_endpoint` / `events_endpoint`, which replaced the
+v0.1.0 `register_uri` / `claim_uri` / `revocation_uri` names in spec v0.2.0 and
+v0.3.0. The `verified_email` assertion type was removed in v0.6.0. Do not
+reintroduce the old names.
+
 Agent-auth access tokens are short-lived `ap_pk_*` credentials with `read` and
 `publish` scopes. They are issued only by `/oauth2/token`; `/agent/identity`
 returns a service-signed `identity_assertion`, never a bearer credential.

@@ -1,9 +1,14 @@
+import { AGENT_AUTH_ID_JAG_ASSERTION_TYPE } from "@agent-paste/auth-md";
 import { z } from "./zod.js";
 
-export const AGENT_AUTH_ID_JAG_ASSERTION_TYPE = "urn:ietf:params:oauth:token-type:id-jag";
-export const AGENT_AUTH_JWT_BEARER_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:jwt-bearer";
-export const AGENT_AUTH_CLAIM_GRANT_TYPE = "urn:workos:agent-auth:grant-type:claim";
-export const AGENT_AUTH_REVOKED_EVENT = "https://schemas.workos.com/events/agent/auth/identity/assertion/revoked";
+// The protocol URNs are defined alongside the auth.md document that documents
+// them and re-exported here so schema consumers keep one import site.
+export {
+  AGENT_AUTH_CLAIM_GRANT_TYPE,
+  AGENT_AUTH_ID_JAG_ASSERTION_TYPE,
+  AGENT_AUTH_JWT_BEARER_GRANT_TYPE,
+  AGENT_AUTH_REVOKED_EVENT,
+} from "@agent-paste/auth-md";
 
 export const AgentAuthScope = z.enum(["read", "publish"]);
 export type AgentAuthScope = z.infer<typeof AgentAuthScope>;

@@ -1,0 +1,22 @@
+{
+  "name": "@agent-paste/auth-md",
+  "license": "Apache-2.0",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "check": "pnpm typecheck && pnpm test",
+    "lint": "biome lint .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage --config ../../vitest.coverage.node.config.ts",
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

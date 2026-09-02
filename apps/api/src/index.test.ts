@@ -186,6 +186,8 @@ describe("api worker", () => {
     const authMd = await handleRequest(new Request("https://api.test/auth.md"), env);
     expect(authMd.status).toBe(200);
     const body = await authMd.text();
+    expect(authMd.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+    expect(body.split("\n")[0]).toMatch(/^# .*auth\.md/);
     expect(body).toContain('POST /agent/identity with {"type":"anonymous"}');
     expect(body).toContain("grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer");
     expect(body).toContain("claim_url from /agent/identity is the API claim endpoint");

@@ -113,7 +113,8 @@ export async function assertApiAuthDiscoveryServes(c) {
   assert(authMd.status === 200, `api /auth.md returned ${authMd.status}`);
   assert(authMd.headers.get("content-type")?.includes("text/markdown"), "api /auth.md is text/markdown");
   const authMdBody = await authMd.text();
-  assert(authMdBody.includes("Supported registration types:"), "api /auth.md lists registration types");
+  // The H1 is what discovery scanners match on to identify the document.
+  assert(/^# .*auth\.md/.test(authMdBody.split("\n")[0]), "api /auth.md opens with an auth.md H1");
 
   const metadataResponse = await fetch(`${c.apiBaseUrl}/.well-known/oauth-authorization-server`, {
     redirect: "manual",
@@ -192,6 +193,14 @@ export async function assertApexServes(c) {
     "apex /.well-known/api-catalog is application/linkset+json",
   );
   assert(!catalog.headers.get("set-cookie"), "apex /.well-known/api-catalog does not set cookies");
+  // Scanners probe /auth.md at the service root, so apex must answer it directly
+  // rather than deferring to the API host that agent_auth.skill points at.
+  const apexAuthMd = await fetch(`${c.apexBaseUrl}/auth.md`, { redirect: "manual" });
+  assert(apexAuthMd.status === 200, `apex /auth.md returned ${apexAuthMd.status}`);
+  assert(apexAuthMd.headers.get("content-type")?.includes("text/markdown"), "apex /auth.md is text/markdown");
+  assert(!apexAuthMd.headers.get("set-cookie"), "apex /auth.md does not set cookies");
+  const apexAuthMdBody = await apexAuthMd.text();
+  assert(/^# .*auth\.md/.test(apexAuthMdBody.split("\n")[0]), "apex /auth.md opens with an auth.md H1");
 
   const gpc = await fetch(`${c.apexBaseUrl}/.well-known/gpc.json`, { redirect: "manual" });
   assert(gpc.status === 200, `apex /.well-known/gpc.json returned ${gpc.status}`);
