@@ -183,14 +183,32 @@ describe("smoke-readonly assertions", () => {
   it("assertApexServes passes when all routes serve expected content-types", async () => {
     fetchMock.mockImplementation((url) => {
       const u = String(url);
-      if (u.endsWith("/")) return Promise.resolve(htmlResponse());
+      if (u.endsWith("/")) {
+        return Promise.resolve(
+          htmlResponse("agent-paste home", { link: '</.well-known/api-catalog>; rel="api-catalog"' }),
+        );
+      }
       if (u.endsWith("/llms.txt")) return Promise.resolve(htmlResponse("llms", { "content-type": "text/plain" }));
       if (u.endsWith("/agents.md")) return Promise.resolve(htmlResponse("agents", { "content-type": "text/markdown" }));
+      if (u.endsWith("/.well-known/api-catalog")) {
+        return Promise.resolve(htmlResponse("{}", { "content-type": "application/linkset+json" }));
+      }
       if (u.endsWith("/.well-known/gpc.json")) return Promise.resolve(jsonResponse({ gpc: true }));
       if (u.endsWith("/dashboard")) return Promise.resolve(new Response(null, { status: 308 }));
       return Promise.resolve(new Response("?", { status: 404 }));
     });
     await expect(assertApexServes({ apexBaseUrl: "https://apex" })).resolves.toBeUndefined();
+  });
+
+  it("assertApexServes throws when the homepage omits the api-catalog Link header", async () => {
+    fetchMock.mockImplementation((url) => {
+      const u = String(url);
+      if (u.endsWith("/")) return Promise.resolve(htmlResponse());
+      if (u.endsWith("/llms.txt")) return Promise.resolve(htmlResponse("llms", { "content-type": "text/plain" }));
+      if (u.endsWith("/agents.md")) return Promise.resolve(htmlResponse("agents", { "content-type": "text/markdown" }));
+      return Promise.resolve(new Response("?", { status: 404 }));
+    });
+    await expect(assertApexServes({ apexBaseUrl: "https://apex" })).rejects.toThrow(/api-catalog Link header/);
   });
 
   it("assertWebServes requires a 307 sign-in redirect to WorkOS", async () => {
