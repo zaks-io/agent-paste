@@ -1,6 +1,6 @@
 # Capability-Scoped Content Origins on agent-paste.sh
 
-Status: Accepted and amended by [ADR 0094](./0094-capability-url-is-the-artifact-link.md) and [ADR 0095](./0095-isolate-active-content-and-restore-ephemeral-execution-policy.md). Its original hostname suffix and shared registrable-domain decisions are historical.
+Status: Accepted and amended by [ADR 0094](./0094-capability-url-is-the-artifact-link.md), [ADR 0095](./0095-isolate-active-content-and-restore-ephemeral-execution-policy.md), and [ADR 0096](./0096-shorter-base32-capability-ids.md). Its original hostname suffix, shared registrable-domain, and new-ID encoding decisions are historical.
 
 The remainder of this ADR records the original decision and rollout state. Its
 `.agent-paste.sh` hostnames, iframe assumptions, and inactive-rollout statements

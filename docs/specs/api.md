@@ -341,7 +341,7 @@ even while the session is still open.
   "artifact_id": "art_...",
   "revision_id": "rev_...",
   "title": "demo",
-  "url": "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
+  "url": "https://01234-56789-abcde-fghjd.agent-paste.link/",
   "expires_at": "2026-06-19T12:00:00.000Z"
 }
 ```

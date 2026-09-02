@@ -1,6 +1,6 @@
 # The Capability URL Is the Artifact Link
 
-Status: Accepted and implemented. Supersedes the Share Link surface of [ADR 0086](./0086-publish-is-content-only-private-first.md), amends [ADR 0093](./0093-capability-scoped-content-origins.md), and retires the app-wrapped viewer decided in [ADR 0014](./0014-single-domain-with-hardened-content-subdomain.md). Its domain and all-tiers-open-CSP decisions are amended by [ADR 0095](./0095-isolate-active-content-and-restore-ephemeral-execution-policy.md).
+Status: Accepted and implemented. Supersedes the Share Link surface of [ADR 0086](./0086-publish-is-content-only-private-first.md), amends [ADR 0093](./0093-capability-scoped-content-origins.md), and retires the app-wrapped viewer decided in [ADR 0014](./0014-single-domain-with-hardened-content-subdomain.md). Its domain and all-tiers-open-CSP decisions are amended by [ADR 0095](./0095-isolate-active-content-and-restore-ephemeral-execution-policy.md), and its new-ID encoding is amended by [ADR 0096](./0096-shorter-base32-capability-ids.md).
 
 Publishing returns exactly one URL, and that URL is the capability origin itself:
 

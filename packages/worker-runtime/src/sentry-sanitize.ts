@@ -81,7 +81,7 @@ export function sanitizeSentrySpan(span: SentrySpan, knownCapabilityId?: string)
   // Distributed tracing needs the real ids: a trace only joins across the browser,
   // web, and api when every service reports the same trace_id. These are
   // SDK-generated randomness, not caller data, and `sanitizeString` would otherwise
-  // mistake a bare 32-hex trace id for a capability id and redact it.
+  // mistake a bare trace id for a legacy capability id and redact it.
   const traceId = preserveTraceIdentifier(span.trace_id);
   const profileId = span.profile_id ? preserveTraceIdentifier(span.profile_id) : undefined;
   const segmentId = span.segment_id ? preserveTraceIdentifier(span.segment_id) : undefined;
@@ -177,8 +177,8 @@ function sanitizeSentryValue(key: string, value: unknown, depth = 0): unknown {
   return undefined;
 }
 
-// Generic record sanitization redacts bare 32-hex strings as possible capability
-// ids, which would strip the very fields Sentry uses to stitch a distributed
+// Generic record sanitization redacts legacy capability ids that share the trace
+// id shape, which would strip the fields Sentry uses to stitch a distributed
 // trace together. Restore the well-formed ones afterward.
 function preserveTraceIdentifiers(
   safeTrace: SentryTraceContext | undefined,

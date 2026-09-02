@@ -1,3 +1,4 @@
+import { isContentCapabilityId } from "@agent-paste/tokens";
 import { describe, expect, it } from "vitest";
 import {
   type ApiActor,
@@ -1167,11 +1168,9 @@ describe("LocalRepository", () => {
       revisionId: finalized.revision_id,
       now: "2026-01-01T00:00:02.000Z",
     });
-    expect(published).toMatchObject({
-      title: "demo",
-      artifact_id: session.artifact_id,
-      capability_id: expect.stringMatching(/^[a-f0-9]{32}$/),
-    });
+    expect(published).toMatchObject({ title: "demo", artifact_id: session.artifact_id });
+    expect(published.capability_id).toHaveLength(23);
+    expect(isContentCapabilityId(published.capability_id)).toBe(true);
     const replayedPublish = await repo.publishRevision({
       actor,
       idempotencyKey: "idem-publish-retry",

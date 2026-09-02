@@ -128,7 +128,7 @@ CREATE TABLE "artifacts" (
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "artifacts_created_by_type_check" CHECK ("artifacts"."created_by_type" in ('api_key', 'member')),
-	CONSTRAINT "artifacts_capability_id_check" CHECK ("artifacts"."capability_id" is null or "artifacts"."capability_id" ~ '^[a-f0-9]{32}$')
+	CONSTRAINT "artifacts_capability_id_check" CHECK ("artifacts"."capability_id" is null or "artifacts"."capability_id" ~ '^(?:[a-f0-9]{32}|[0-9a-hj-kmnp-tv-z]{5}(?:-[0-9a-hj-kmnp-tv-z]{5}){3})$')
 );
 
 CREATE TABLE "claim_tokens" (

@@ -39,14 +39,16 @@ _Avoid_: share, make public, set visibility
 <a id="artifact-url"></a><a id="artifact-viewer"></a>
 **Artifact URL**:
 The no-login top-level website returned by Publish. Production shape:
-`https://{32-lowercase-hex}.agent-paste.link/`. Preview shape:
-`https://{32-lowercase-hex}-preview.agent-paste.link/`. It keeps the same hostname
+`https://{xxxxx-xxxxx-xxxxx-xxxxx}.agent-paste.link/`. Preview shape:
+`https://{xxxxx-xxxxx-xxxxx-xxxxx}-preview.agent-paste.link/`. It keeps the same hostname
 when the Artifact advances to a new Published Revision.
 _Avoid_: Artifact Viewer, Private Link, Access Link, Share Link, app page
 
 <a id="capability-id"></a>
 **Capability ID**:
-The random 128-bit lowercase-hex hostname label in an Artifact URL. Possession
+The 23-character grouped base32 hostname label in a new Artifact URL. Its 19
+random symbols carry 95 bits of entropy and its final symbol checks for input
+errors. Legacy 32-character lowercase hexadecimal IDs remain valid. Possession
 grants read access, so logs and telemetry treat it as credential material.
 _Avoid_: slug, public id
 
@@ -205,7 +207,8 @@ return the same contract as CLI and REST.
 - An Artifact belongs to exactly one Workspace.
 - An Artifact has zero or more immutable Revisions.
 - An Artifact has exactly one Published Revision after first Publish.
-- An Artifact has one Artifact URL and one Capability ID.
+- An Artifact has one Artifact URL and one Capability ID while published; both
+  are absent before first Publish and after revocation.
 - Publish returns exactly `artifact_id`, `revision_id`, `title`, `url`, and
   `expires_at` on deployed authenticated surfaces.
 - Ephemeral publish returns the same Artifact URL plus separate claim material.

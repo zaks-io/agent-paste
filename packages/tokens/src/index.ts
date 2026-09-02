@@ -14,11 +14,13 @@ export {
   verifyContentToken,
 } from "./content.js";
 export {
+  CONTENT_CAPABILITY_ID_PATTERN_SOURCE,
   type ContentCapabilityManifest,
   contentCapabilityHostname,
   contentCapabilityIdFromHostname,
   contentCapabilityObjectKey,
   isContentCapabilityHostname,
+  isContentCapabilityId,
   mintContentCapabilityId,
   parseContentCapabilityDomain,
   parseContentCapabilityManifest,

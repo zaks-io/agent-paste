@@ -4,6 +4,7 @@ import {
   contentCapabilityIdFromHostname,
   contentCapabilityObjectKey,
   isContentCapabilityHostname,
+  isContentCapabilityId,
   mintContentCapabilityId,
   parseContentCapabilityDomain,
   parseContentCapabilityHostSuffix,
@@ -14,11 +15,47 @@ import {
 const capabilityId = "00112233445566778899aabbccddeeff";
 
 describe("content capabilities", () => {
-  it("encodes exactly 128 bits of random capability entropy", () => {
-    expect(mintContentCapabilityId(Uint8Array.from({ length: 16 }, (_, index) => index))).toBe(
-      "000102030405060708090a0b0c0d0e0f",
+  it("mints a deterministic grouped ID with a check symbol", () => {
+    expect(mintContentCapabilityId(Uint8Array.from({ length: 19 }, (_, index) => index))).toBe(
+      "01234-56789-abcde-fghjd",
     );
-    expect(() => mintContentCapabilityId(new Uint8Array(15))).toThrow(/exactly 16/);
+  });
+
+  it("masks random bytes to base32 symbol values", () => {
+    const bytes = new Uint8Array(19).fill(32);
+    bytes[1] = 255;
+    const symbols = mintContentCapabilityId(bytes).replaceAll("-", "");
+
+    expect(symbols[0]).toBe("0");
+    expect(symbols[1]).toBe("z");
+  });
+
+  it("mints the exact lowercase hostname-safe shape", () => {
+    const capabilityId = mintContentCapabilityId(new Uint8Array(19));
+
+    expect(capabilityId).toHaveLength(23);
+    expect(capabilityId).toMatch(/^[0-9a-hj-kmnp-tv-z]{5}(?:-[0-9a-hj-kmnp-tv-z]{5}){3}$/);
+    expect(capabilityId).not.toMatch(/[ilou]/);
+  });
+
+  it("rejects every single-symbol error in a new ID", () => {
+    const alphabet = "0123456789abcdefghjkmnpqrstvwxyz";
+    const capabilityId = mintContentCapabilityId(Uint8Array.from({ length: 19 }, (_, index) => index));
+    const symbols = capabilityId.replaceAll("-", "");
+
+    for (let index = 0; index < symbols.length; index += 1) {
+      const current = symbols[index] ?? "";
+      const replacement = alphabet[(alphabet.indexOf(current) + 1) % alphabet.length] ?? "";
+      const changed = `${symbols.slice(0, index)}${replacement}${symbols.slice(index + 1)}`;
+      const grouped = `${changed.slice(0, 5)}-${changed.slice(5, 10)}-${changed.slice(10, 15)}-${changed.slice(15)}`;
+      expect(isContentCapabilityId(grouped)).toBe(false);
+    }
+  });
+
+  it("keeps legacy IDs valid and requires exactly 19 random bytes", () => {
+    expect(isContentCapabilityId(capabilityId)).toBe(true);
+    expect(() => mintContentCapabilityId(new Uint8Array(18))).toThrow(/exactly 19/);
+    expect(() => mintContentCapabilityId(new Uint8Array(20))).toThrow(/exactly 19/);
   });
 
   it("builds versioned R2 manifest keys only for valid capability IDs", () => {
@@ -27,6 +64,7 @@ describe("content capabilities", () => {
   });
 
   it("validates canonical capability domains and extracts bare or environment-suffixed capability labels", () => {
+    const newCapabilityId = mintContentCapabilityId(Uint8Array.from({ length: 19 }, (_, index) => index));
     expect(parseContentCapabilityDomain("content.example.test")).toBe("content.example.test");
     expect(contentCapabilityHostname(capabilityId, "content.example.test")).toBe(
       `${capabilityId}.content.example.test`,
@@ -53,6 +91,11 @@ describe("content capabilities", () => {
     expect(isContentCapabilityHostname("content.example.test", "content.example.test")).toBe(false);
     expect(parseContentCapabilityHostSuffix(undefined)).toBe("");
     expect(() => parseContentCapabilityHostSuffix("preview")).toThrow(/HOST_SUFFIX/);
+    expect(contentCapabilityObjectKey(newCapabilityId)).toBe(`content-capabilities/v1/${newCapabilityId}.json`);
+    for (const suffix of [undefined, "-preview", "-uc"]) {
+      const hostname = contentCapabilityHostname(newCapabilityId, "content.example.test", suffix);
+      expect(contentCapabilityIdFromHostname(hostname, "content.example.test", suffix)).toBe(newCapabilityId);
+    }
   });
 
   it.each([

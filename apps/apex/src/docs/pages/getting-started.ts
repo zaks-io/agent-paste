@@ -58,7 +58,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         {
           kind: "code",
           language: "text",
-          code: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
+          code: "https://01234-56789-abcde-fghjd.agent-paste.link/",
         },
         {
           kind: "paragraph",

@@ -454,7 +454,7 @@ export const artifacts = pgTable(
     check("artifacts_created_by_type_check", sql`${table.createdByType} in ('api_key', 'member')`),
     check(
       "artifacts_capability_id_check",
-      sql`${table.capabilityId} is null or ${table.capabilityId} ~ '^[a-f0-9]{32}$'`,
+      sql`${table.capabilityId} is null or ${table.capabilityId} ~ '^(?:[a-f0-9]{32}|[0-9a-hj-kmnp-tv-z]{5}(?:-[0-9a-hj-kmnp-tv-z]{5}){3})$'`,
     ),
   ],
 );

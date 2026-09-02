@@ -54,8 +54,12 @@ assert(published.revision_id?.startsWith("rev_"), "publish returned revision_id"
 const artifactUrl = parseRequiredUrl(published.url, "publish returned valid url");
 assert(artifactUrl.protocol === "https:", "publish returned an HTTPS Artifact URL");
 assert(artifactUrl.pathname === "/", "publish returned the Artifact root URL");
-const expectedArtifactHost =
-  target === "production" ? /^[0-9a-f]{32}\.agent-paste\.sh$/ : /^[0-9a-f]{32}-preview\.agent-paste\.sh$/;
+const capabilityIdPattern = "(?:[a-f0-9]{32}|[0-9a-hj-kmnp-tv-z]{5}(?:-[0-9a-hj-kmnp-tv-z]{5}){3})";
+const expectedArtifactHost = new RegExp(
+  target === "production"
+    ? `^${capabilityIdPattern}\\.agent-paste\\.sh$`
+    : `^${capabilityIdPattern}-preview\\.agent-paste\\.sh$`,
+);
 assert(expectedArtifactHost.test(artifactUrl.hostname), `publish returned ${target} capability hostname`);
 
 const content = await fetch(published.url, { redirect: "manual" });

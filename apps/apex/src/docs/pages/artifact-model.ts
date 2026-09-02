@@ -32,12 +32,12 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Artifact and Revision IDs are management identities. The Artifact URL uses an independent random 128-bit capability ID, so it does not expose either management ID.",
+          text: "Artifact and Revision IDs are management identities. The Artifact URL uses an independent random capability ID, so it does not expose either management ID.",
         },
         {
           kind: "code",
           language: "text",
-          code: "art_01HZ8K2X9NPQR3VW7TYBE5MCDF\nrev_01HZ8K2X9NPQR3VW7TYBE5MCDF\nhttps://0123456789abcdef0123456789abcdef.agent-paste.link/",
+          code: "art_01HZ8K2X9NPQR3VW7TYBE5MCDF\nrev_01HZ8K2X9NPQR3VW7TYBE5MCDF\nhttps://01234-56789-abcde-fghjd.agent-paste.link/",
         },
       ],
     },

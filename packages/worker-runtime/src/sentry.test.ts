@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { sentryOptions } from "./sentry.js";
 
-// A capability id and a trace id are both 32 hex characters but are unrelated
-// values, so they stay distinct here: redacting one must not depend on losing the other.
+// This legacy capability id shares the trace-id shape but is unrelated, so
+// redacting it must not depend on losing the trace.
 const CAPABILITY_ID = "aabbccddeeff00112233445566778899";
+const NEW_CAPABILITY_ID = "01234-56789-abcde-fghjd";
 const TRACE_ID = "00112233445566778899aabbccddeeff";
 const SPAN_ID = "ffeeddccbbaa9988";
 const PARENT_SPAN_ID = "1122334455667788";
@@ -211,6 +212,32 @@ describe("sentryOptions", () => {
     expect(JSON.stringify(event)).not.toContain("private/customer.html");
   });
 
+  it("redacts new capability hosts and bare IDs", () => {
+    const options = sentryOptions({ SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1" });
+    const event = options.beforeSend?.(
+      {
+        type: undefined,
+        request: {
+          url: `https://${NEW_CAPABILITY_ID}-preview.content.test/private/customer.html`,
+          headers: { Host: `${NEW_CAPABILITY_ID}-preview.content.test` },
+        },
+        extra: {
+          capability_ref: NEW_CAPABILITY_ID,
+          unrelated: "ilou0-ilou0-ilou0-ilou0",
+        },
+      },
+      {},
+    );
+
+    expect(event).toMatchObject({
+      request: { url: "/[redacted_capability_path]", headers: { Host: "[redacted_capability_host]" } },
+      extra: {
+        capability_ref: "[redacted_capability_id]",
+        unrelated: "ilou0-ilou0-ilou0-ilou0",
+      },
+    });
+  });
+
   it("removes capability host and path attributes from spans", () => {
     const options = sentryOptions({
       SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1",
@@ -298,7 +325,7 @@ describe("sentryOptions", () => {
     expect(span?.trace_id).not.toContain(CAPABILITY_ID);
   });
 
-  it("does not classify ordinary 32-character IDs as capability requests", () => {
+  it("does not classify ordinary trace IDs as capability requests", () => {
     const options = sentryOptions({
       SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1",
       SENTRY_TRACES_SAMPLE_RATE: "1",

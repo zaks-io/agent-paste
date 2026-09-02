@@ -12,7 +12,7 @@ export const BytePurgeMessage = z.object({
   upload_session_id: z.string().nullable(),
   capability_id: z
     .string()
-    .regex(/^[a-f0-9]{32}$/)
+    .regex(/^(?:[a-f0-9]{32}|[0-9a-hj-kmnp-tv-z]{5}(?:-[0-9a-hj-kmnp-tv-z]{5}){3})$/)
     .nullable()
     .optional(),
   prefixes: z.array(z.string().min(1)).min(1).max(100),
