@@ -42,7 +42,7 @@ export const CLI_DOC: DocsPage = {
         {
           kind: "code",
           language: "text",
-          code: '✓ Published "report"\n\n  View      https://0123456789abcdef0123456789abcdef.agent-paste.link/\n  Expires   <expiration date>\n\n  Update    agent-paste publish ./report --artifact-id art_01H...\n\n  → open https://0123456789abcdef0123456789abcdef.agent-paste.link/',
+          code: '✓ Published "report"\n\n  View      https://01234-56789-abcde-fghjd.agent-paste.link/\n  Expires   <expiration date>\n\n  Update    agent-paste publish ./report --artifact-id art_01H...\n\n  → open https://01234-56789-abcde-fghjd.agent-paste.link/',
         },
       ],
     },

@@ -9,7 +9,7 @@ Publish a file or folder to a real website in one command:
 
 ```sh
 npx @zaks-io/agent-paste publish ./report
-# https://0123456789abcdef0123456789abcdef.agent-paste.link/
+# https://01234-56789-abcde-fghjd.agent-paste.link/
 ```
 
 The returned URL is the Artifact. It opens top-level without login. There is no
@@ -30,14 +30,14 @@ Expected output:
 ```text
 ✓ Published "report"
 
-  View      https://0123456789abcdef0123456789abcdef.agent-paste.link/
+  View      https://01234-56789-abcde-fghjd.agent-paste.link/
   Expires   <expiration date>
   Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached
 
   Update    npx @zaks-io/agent-paste publish ./report --artifact-id art_01H...
             (revises this Artifact; the same link shows the latest revision)
 
-  → open https://0123456789abcdef0123456789abcdef.agent-paste.link/
+  → open https://01234-56789-abcde-fghjd.agent-paste.link/
 ```
 
 Publishing with `--artifact-id` revises the existing Artifact. Its URL stays the
@@ -69,7 +69,7 @@ Every publish JSON result contains:
   "artifact_id": "art_...",
   "revision_id": "rev_...",
   "title": "report",
-  "url": "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
+  "url": "https://01234-56789-abcde-fghjd.agent-paste.link/",
   "expires_at": "<ISO 8601 expiration timestamp>"
 }
 ```
