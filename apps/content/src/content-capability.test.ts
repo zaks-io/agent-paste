@@ -16,6 +16,7 @@ async function capabilityFixture(input?: {
   accessLinkId?: string;
   expiresAt?: number | null;
   manifest?: string;
+  noindex?: boolean;
   scriptDisabled?: boolean;
 }) {
   const paths = ["index.html", "page2.html", "assets/app.js"];
@@ -26,6 +27,7 @@ async function capabilityFixture(input?: {
       revision_id: "rev_1",
       ...(input?.accessLinkId ? { access_link_id: input.accessLinkId } : {}),
       paths,
+      ...(input?.noindex ? { noindex: true } : {}),
       script_disabled: input?.scriptDisabled ?? false,
       exp: input && "expiresAt" in input ? (input.expiresAt ?? null) : Math.floor(Date.now() / 1000) + 60,
     },
@@ -133,6 +135,16 @@ describe("content capability routing", () => {
     expect(response.headers.get("content-security-policy")).toContain("frame-src 'none'");
     expect(response.headers.get("content-security-policy")).toContain("object-src 'none'");
     expect(response.headers.get("content-security-policy")).toContain("base-uri 'none'");
+  });
+
+  it("keeps pre-migration ephemeral capability manifests static", async () => {
+    const { env } = await capabilityFixture({ noindex: true, scriptDisabled: false });
+
+    const response = await handleRequest(new Request(`${capabilityOrigin}/`), env);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-security-policy")).toContain("script-src 'none'");
+    expect(response.headers.get("content-security-policy")).not.toContain("unsafe-eval");
   });
 
   it("retires service workers on every current and legacy artifact host without reading storage", async () => {
@@ -346,6 +358,28 @@ describe("content capability routing", () => {
 
     expect(response.status).toBe(200);
     await expect(response.text()).resolves.toContain("page two");
+  });
+
+  it("keeps pre-migration ephemeral legacy signed URLs static", async () => {
+    const { env } = await capabilityFixture();
+    const token = await mintContentToken(
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["page2.html"],
+        noindex: true,
+        script_disabled: false,
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+
+    const response = await handleRequest(new Request(`https://usercontent.example.test/v/${token}/page2.html`), env);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-security-policy")).toContain("script-src 'none'");
+    expect(response.headers.get("content-security-policy")).not.toContain("unsafe-eval");
   });
 
   it("keeps signed URLs on an explicitly configured legacy base host working", async () => {

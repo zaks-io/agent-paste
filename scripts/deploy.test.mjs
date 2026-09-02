@@ -3,6 +3,7 @@ import {
   appsForSecretProvisioning,
   assertDeployScopeAllowed,
   createSecretPlanner,
+  deploymentPhases,
   formatForbiddenProductionSecretsMessage,
   formatMissingProviderSecretsMessage,
   GENERATABLE,
@@ -40,6 +41,14 @@ function productionEnv(overrides = {}) {
 
 function listNoSecrets() {
   return async () => [];
+}
+
+function deployStepPlanner() {
+  return {
+    reportForbiddenProductionSecrets() {},
+    reportMissingProviderSecrets() {},
+    async bulkSetSecrets() {},
+  };
 }
 
 const FULL_FLEET = ["stream", "api", "upload", "content", "jobs", "mcp", "apex", "web"];
@@ -128,10 +137,28 @@ describe("turboDeployArgs", () => {
     expect(turboDeployArgs(FULL_FLEET, "production")).toEqual(["exec", "turbo", "run", "deploy:production"]);
   });
 
-  it("rejects production filters", () => {
-    expect(() => turboDeployArgs(["api", "web"], "production")).toThrow(
-      /Production deploys must deploy the full fleet/,
-    );
+  it("adds filters for internal production deployment phases", () => {
+    expect(turboDeployArgs(["content"], "production")).toEqual([
+      "exec",
+      "turbo",
+      "run",
+      "deploy:production",
+      "--filter=@agent-paste/content",
+    ]);
+  });
+});
+
+describe("deploymentPhases", () => {
+  it("deploys and verifies content before URL producers", () => {
+    expect(deploymentPhases(FULL_FLEET)).toEqual([
+      ["content"],
+      ["stream", "api", "upload", "jobs", "mcp", "apex", "web"],
+    ]);
+  });
+
+  it("keeps scoped deploys in one phase when they cannot publish content URLs", () => {
+    expect(deploymentPhases(["content"])).toEqual([["content"]]);
+    expect(deploymentPhases(["api", "web"])).toEqual([["api", "web"]]);
   });
 });
 
@@ -203,6 +230,59 @@ describe("runDeployPlan deploy step", () => {
     expect(runFn).not.toHaveBeenCalled();
     expect(deployFn).toHaveBeenCalledOnce();
     expect(deployFn).toHaveBeenCalledWith(["apex"], "preview");
+  });
+
+  it("stops before URL producers when content routing is not ready", async () => {
+    const planner = deployStepPlanner();
+    const provisionPlan = new Map();
+    const deployFn = vi.fn(async () => {});
+    const verifyContentFn = vi.fn(async () => {
+      throw new Error("content route unavailable");
+    });
+
+    await expect(
+      runDeployPlan({
+        target: "production",
+        planner,
+        provisionPlan,
+        apps: FULL_FLEET,
+        runFn: vi.fn(async () => {}),
+        deployFn,
+        verifyContentFn,
+        failFn: () => {
+          throw new Error("should not fail");
+        },
+        write: () => {},
+      }),
+    ).rejects.toThrow("content route unavailable");
+
+    expect(deployFn).toHaveBeenCalledOnce();
+    expect(deployFn).toHaveBeenCalledWith(["content"], "production");
+    expect(verifyContentFn).toHaveBeenCalledWith("production");
+  });
+
+  it("deploys URL producers after content routing is ready", async () => {
+    const planner = deployStepPlanner();
+    const provisionPlan = new Map();
+    const calls = [];
+    const deployFn = vi.fn(async (apps) => calls.push(`deploy:${apps.join("+")}`));
+    const verifyContentFn = vi.fn(async () => calls.push("verify:content"));
+
+    await runDeployPlan({
+      target: "production",
+      planner,
+      provisionPlan,
+      apps: FULL_FLEET,
+      runFn: vi.fn(async () => {}),
+      deployFn,
+      verifyContentFn,
+      failFn: () => {
+        throw new Error("should not fail");
+      },
+      write: () => {},
+    });
+
+    expect(calls).toEqual(["deploy:content", "verify:content", "deploy:stream+api+upload+jobs+mcp+apex+web"]);
   });
 
   it("provisions optional Sentry DSN only when the environment provides it", async () => {

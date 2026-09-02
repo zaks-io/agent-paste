@@ -371,7 +371,7 @@ export function responseHeadersForPath(
   etag: string,
   request?: Request,
 ): Headers {
-  const scriptDisabled = payload.script_disabled !== false;
+  const scriptDisabled = isScriptDisabled(payload);
   const served = servedContentForPath(path, { scriptDisabled });
   const headers = new Headers(securityHeaders);
   headers.set("cache-control", CONTENT_CACHE_CONTROL);
@@ -452,12 +452,19 @@ export function contentRepresentationKey(path: string, payload: ContentTokenPayl
   if (!isHtmlPath(path)) {
     return undefined;
   }
-  const scriptDisabled = payload.script_disabled !== false;
+  const scriptDisabled = isScriptDisabled(payload);
   const parts: string[] = [];
   if (payload.noindex === true) parts.push("noindex");
   parts.push("direct");
   parts.push(scriptDisabled ? "script-none" : "script-on");
   return parts.join(":");
+}
+
+function isScriptDisabled(payload: ContentTokenPayload): boolean {
+  // Before ADR 0095, ephemeral tokens were signed with noindex=true and an
+  // explicit script_disabled=false. Keep that existing tier marker fail-closed
+  // until every pre-migration token and capability manifest has expired.
+  return payload.noindex === true || payload.script_disabled !== false;
 }
 
 export function injectNoindexMeta(html: string): string {

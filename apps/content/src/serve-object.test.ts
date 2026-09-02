@@ -158,6 +158,17 @@ describe("serve-object response headers", () => {
     expect(headers.get("content-security-policy")).not.toContain("unsafe-eval");
   });
 
+  it("fails closed for pre-migration ephemeral tokens that explicitly enabled scripts", () => {
+    const headers = responseHeadersForPath(
+      "index.html",
+      3,
+      basePayload({ noindex: true, script_disabled: false }),
+      ETAG,
+    );
+    expect(headers.get("content-security-policy")).toContain("script-src 'none'");
+    expect(headers.get("content-security-policy")).not.toContain("unsafe-eval");
+  });
+
   it("sets bundle zip headers", () => {
     const headers = bundleResponseHeaders(100, false, ETAG);
     expect(headers.get("content-type")).toBe("application/zip");
@@ -443,6 +454,12 @@ describe("content etag", () => {
 describe("contentRepresentationKey", () => {
   it("distinguishes interactive direct HTML", () => {
     expect(contentRepresentationKey("index.html", basePayload({ script_disabled: false }))).toBe("direct:script-on");
+  });
+
+  it("keeps pre-migration ephemeral HTML in the script-disabled representation", () => {
+    expect(contentRepresentationKey("index.html", basePayload({ noindex: true, script_disabled: false }))).toBe(
+      "noindex:direct:script-none",
+    );
   });
 });
 
