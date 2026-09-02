@@ -40,8 +40,11 @@ function frontmatterField(frontmatter, field, origin) {
   }
   const quote = raw[0];
   if (quote === '"' || quote === "'") {
-    if (raw.length < 2 || !raw.endsWith(quote)) {
-      throw new Error(`${origin}: frontmatter "${field}" has an unterminated ${quote} quote`);
+    // A backslash means YAML escape semantics this parser does not implement.
+    // It also makes the terminal quote ambiguous: in `"Does a thing.\"` that
+    // quote is escaped, not closing, so the value is unterminated. Reject it.
+    if (raw.length < 2 || !raw.endsWith(quote) || raw.includes("\\")) {
+      throw new Error(`${origin}: frontmatter "${field}" is not a plain ${quote}-quoted single-line value`);
     }
     return raw.slice(1, -1);
   }

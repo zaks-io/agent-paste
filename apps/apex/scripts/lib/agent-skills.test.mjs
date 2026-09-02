@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
@@ -62,10 +63,17 @@ describe("parseSkillFrontmatter", () => {
     });
   }
 
-  it("rejects an unterminated quoted value", () => {
-    const source = '---\nname: demo\ndescription: "Does a thing.\n---\nbody\n';
-    expect(() => parseSkillFrontmatter(source, "demo")).toThrow(/unterminated/);
-  });
+  // An escaped terminal quote is not a closing quote, so both of these are
+  // unterminated YAML that used to strip to a plausible-looking description.
+  for (const [label, value] of [
+    ["unterminated", '"Does a thing.'],
+    ["closed only by an escaped quote", '"Does a thing.\\"'],
+  ]) {
+    it(`rejects a description ${label}`, () => {
+      const source = `---\nname: demo\ndescription: ${value}\n---\nbody\n`;
+      expect(() => parseSkillFrontmatter(source, "demo")).toThrow(/"description"/);
+    });
+  }
 });
 
 describe("skillDigest", () => {
@@ -124,6 +132,13 @@ describe("readSkills", () => {
   });
 
   it("throws when a skill directory name and frontmatter name disagree", async () => {
-    await expect(readSkills(resolve(SKILLS_ROOT, "..", "apps"))).rejects.toThrow();
+    const root = await mkdtemp(join(tmpdir(), "agent-skills-"));
+    try {
+      await mkdir(join(root, "foo"));
+      await writeFile(join(root, "foo", "SKILL.md"), "---\nname: bar\ndescription: Does a thing.\n---\nbody\n");
+      await expect(readSkills(root)).rejects.toThrow(/does not match its directory "foo"/);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
