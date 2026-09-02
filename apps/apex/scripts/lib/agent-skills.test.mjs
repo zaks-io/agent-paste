@@ -48,6 +48,24 @@ describe("parseSkillFrontmatter", () => {
     const source = `---\nname: demo\ndescription: ${"x".repeat(1025)}\n---\nbody\n`;
     expect(() => parseSkillFrontmatter(source, "demo")).toThrow(/description/);
   });
+
+  // Both spellings used to parse to a value that passed every check below:
+  // the block scalar to the literal "|", the wrapped scalar to its first line.
+  for (const [label, value] of [
+    ["a block scalar", "|\n  Does a thing.\n  Over two lines."],
+    ["a folded scalar", ">-\n  Does a thing."],
+    ["a wrapped plain scalar", "Does a thing\n  over two lines."],
+  ]) {
+    it(`rejects ${label} description`, () => {
+      const source = `---\nname: demo\ndescription: ${value}\n---\nbody\n`;
+      expect(() => parseSkillFrontmatter(source, "demo")).toThrow(/spans multiple lines/);
+    });
+  }
+
+  it("rejects an unterminated quoted value", () => {
+    const source = '---\nname: demo\ndescription: "Does a thing.\n---\nbody\n';
+    expect(() => parseSkillFrontmatter(source, "demo")).toThrow(/unterminated/);
+  });
 });
 
 describe("skillDigest", () => {

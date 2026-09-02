@@ -21,9 +21,31 @@ const MAX_NAME_LENGTH = 64;
 const MAX_DESCRIPTION_LENGTH = 1024;
 const FRONTMATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/;
 
-function frontmatterField(frontmatter, field) {
-  const match = frontmatter.match(new RegExp(`^${field}:[ \\t]*(.*)$`, "m"));
-  return match ? match[1].trim().replace(/^["']|["']$/g, "") : "";
+// A SKILL.md `name`/`description` is always a single-line scalar, so that is all
+// this parser reads. The multi-line YAML spellings are rejected rather than
+// half-parsed: `description: |` would otherwise yield the literal string "|" and
+// a wrapped plain scalar would yield only its first line, both of which pass
+// every length and pattern check below and ship a nonsense description.
+const BLOCK_SCALAR_PATTERN = /^[|>][+-]?\d*$/;
+
+function frontmatterField(frontmatter, field, origin) {
+  const lines = frontmatter.split(/\r?\n/);
+  const index = lines.findIndex((line) => line.startsWith(`${field}:`));
+  if (index === -1) {
+    return "";
+  }
+  const raw = lines[index].slice(field.length + 1).trim();
+  if (BLOCK_SCALAR_PATTERN.test(raw) || /^[ \t]/.test(lines[index + 1] ?? "")) {
+    throw new Error(`${origin}: frontmatter "${field}" spans multiple lines; it must be a single-line value`);
+  }
+  const quote = raw[0];
+  if (quote === '"' || quote === "'") {
+    if (raw.length < 2 || !raw.endsWith(quote)) {
+      throw new Error(`${origin}: frontmatter "${field}" has an unterminated ${quote} quote`);
+    }
+    return raw.slice(1, -1);
+  }
+  return raw;
 }
 
 /** Extract the `name` and `description` a discovery entry needs from a SKILL.md. */
@@ -32,8 +54,8 @@ export function parseSkillFrontmatter(source, origin) {
   if (!match) {
     throw new Error(`${origin}: missing YAML frontmatter`);
   }
-  const name = frontmatterField(match[1], "name");
-  const description = frontmatterField(match[1], "description");
+  const name = frontmatterField(match[1], "name", origin);
+  const description = frontmatterField(match[1], "description", origin);
   if (!name || name.length > MAX_NAME_LENGTH || !SKILL_NAME_PATTERN.test(name)) {
     throw new Error(
       `${origin}: frontmatter "name" must be 1-64 lowercase alphanumeric/hyphen characters, got ${JSON.stringify(name)}`,
