@@ -1,6 +1,6 @@
 // @ts-check
 
-const ZONE_NAME = "agent-paste.sh";
+const ZONE_NAME = "agent-paste.link";
 const WILDCARD_NAME = `*.${ZONE_NAME}`;
 const WILDCARD_CONTENT = "100::";
 

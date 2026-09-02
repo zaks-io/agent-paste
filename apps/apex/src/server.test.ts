@@ -358,6 +358,20 @@ describe("product redirects", () => {
   });
 });
 
+describe("marketing domain aliases", () => {
+  it.each([
+    "agent-paste.com",
+    "www.agent-paste.com",
+  ])("redirects %s to the exact canonical path and query", async (hostname) => {
+    const response = await handleRequest(new Request(`http://${hostname}/docs/sharing?source=alias`), env());
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe("https://agent-paste.sh/docs/sharing?source=alias");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=3600");
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
+});
+
 describe("method gate and health", () => {
   it("answers OPTIONS preflight with 204 and an Allow header", async () => {
     const response = await handleRequest(new Request(`${APEX}/`, { method: "OPTIONS" }), env());

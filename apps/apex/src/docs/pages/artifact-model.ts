@@ -37,7 +37,7 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
         {
           kind: "code",
           language: "text",
-          code: "art_01HZ8K2X9NPQR3VW7TYBE5MCDF\nrev_01HZ8K2X9NPQR3VW7TYBE5MCDF\nhttps://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+          code: "art_01HZ8K2X9NPQR3VW7TYBE5MCDF\nrev_01HZ8K2X9NPQR3VW7TYBE5MCDF\nhttps://0123456789abcdef0123456789abcdef.agent-paste.link/",
         },
       ],
     },

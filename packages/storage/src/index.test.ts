@@ -71,25 +71,21 @@ describe("storage helpers", () => {
     }
   });
 
-  it("derives script-disabled CSP from base by transforming only script-src", () => {
-    expect(SCRIPT_DISABLED_CONTENT_SECURITY_POLICY).toBe(
-      deriveScriptDisabledContentSecurityPolicy(BASE_CONTENT_SECURITY_POLICY),
-    );
-
+  it("uses a fail-closed policy for script-disabled content", () => {
     const baseDirectives = parseContentSecurityPolicyDirectives(BASE_CONTENT_SECURITY_POLICY);
     const disabledDirectives = parseContentSecurityPolicyDirectives(SCRIPT_DISABLED_CONTENT_SECURITY_POLICY);
 
     expect(baseDirectives.get("script-src")).toContain("https:");
-    expect([...disabledDirectives.keys()]).toEqual([...baseDirectives.keys()]);
-    for (const [name, value] of baseDirectives) {
-      if (name === "script-src") {
-        expect(disabledDirectives.get(name)).toBe("'none'");
-        expect(value).toContain("'unsafe-inline'");
-        expect(value).toContain("'unsafe-eval'");
-      } else {
-        expect(disabledDirectives.get(name)).toBe(value);
-      }
-    }
+    expect(disabledDirectives.get("script-src")).toBe("'none'");
+    expect(disabledDirectives.get("connect-src")).toBe("'none'");
+    expect(disabledDirectives.get("worker-src")).toBe("'none'");
+    expect(disabledDirectives.get("frame-src")).toBe("'none'");
+    expect(disabledDirectives.get("object-src")).toBe("'none'");
+    expect(disabledDirectives.get("form-action")).toBe("'none'");
+    expect(disabledDirectives.get("frame-ancestors")).toBe("'none'");
+    expect(deriveScriptDisabledContentSecurityPolicy(BASE_CONTENT_SECURITY_POLICY)).not.toBe(
+      SCRIPT_DISABLED_CONTENT_SECURITY_POLICY,
+    );
   });
 
   it("uses the script-disabled policy when requested", () => {
@@ -98,7 +94,7 @@ describe("storage helpers", () => {
     );
     expect(servedContentForPath("index.html", { scriptDisabled: false }).csp).toBe(BASE_CONTENT_SECURITY_POLICY);
     expect(servedContentForPath("chart.svg", { scriptDisabled: true }).csp).toBe(
-      "default-src 'none'; style-src 'unsafe-inline'; img-src data:",
+      SCRIPT_DISABLED_CONTENT_SECURITY_POLICY,
     );
   });
 });

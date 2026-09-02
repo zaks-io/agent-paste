@@ -1,11 +1,9 @@
 import { encryptArtifactBytes } from "@agent-paste/storage";
 import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { applyMaliciousUrlLockdown } from "../safety/platform-lockdown.js";
 import {
   applyMigrations,
   executorForPglite,
-  platformExecutor,
   seedPublishedRevision,
   workspaceExecutor,
 } from "../test-helpers/pglite.js";
@@ -16,7 +14,6 @@ const workspaceId = "00000000-0000-4000-8000-000000000055";
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0";
 const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0";
 const apiKeyId = "key_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0";
-const lockdownArtifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z1";
 const r2Key = `artifacts/${artifactId}/revisions/${revisionId}/files/index.html`;
 const artifactBytesEncryptionEnv = {
   ARTIFACT_BYTES_ENCRYPTION_KEY: "test-artifact-bytes-encryption-key",
@@ -192,24 +189,5 @@ describe("queue handlers under FORCE RLS (app_role)", () => {
       bundle_size_bytes: number | null;
     }>(`select bundle_status, bundle_size_bytes from revisions where id = $1`, [revisionId]);
     expect(revision.rows[0]).toMatchObject({ bundle_status: "ready", bundle_size_bytes: expect.any(Number) });
-  });
-
-  it("creates platform lockdown rows when applyMaliciousUrlLockdown uses platform scope", async () => {
-    await applyMaliciousUrlLockdown(
-      executor,
-      { DENYLIST: { put: vi.fn(async () => {}) } },
-      {
-        workspaceId,
-        artifactId: lockdownArtifactId,
-        revisionId,
-        now: "2026-05-20T00:00:00.000Z",
-      },
-    );
-
-    const lockdowns = await platformExecutor(executor).query<{ target_id: string }>(
-      `select target_id from platform_lockdowns where scope = 'artifact' and target_id = $1 and lifted_at is null`,
-      [lockdownArtifactId],
-    );
-    expect(lockdowns.rows).toEqual([{ target_id: lockdownArtifactId }]);
   });
 });

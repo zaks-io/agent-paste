@@ -77,7 +77,7 @@ export const SKILL_INSTALL_CMD =
 
 // The transcript prints a realistic capability hostname in its output. The
 // example is static and does not resolve to real data.
-export const EXAMPLE_ARTIFACT_URL = "8b31c2a4f20d4a86a53bfe8d06ce9d17.agent-paste.sh";
+export const EXAMPLE_ARTIFACT_URL = "8b31c2a4f20d4a86a53bfe8d06ce9d17.agent-paste.link";
 // The published artifact's title, shown in the success line and echoed as the
 // title inside the inline preview so the two read as one artifact.
 export const EXAMPLE_ARTIFACT_TITLE = "Ways you could use agent-paste";

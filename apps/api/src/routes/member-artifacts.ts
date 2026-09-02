@@ -1,13 +1,7 @@
 import type { Repository } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
-import {
-  isHyperdriveDb,
-  MEMBER_ARTIFACT_DELETE_OPERATION,
-  peekMemberArtifactDeleteReplay,
-  resolveDeletionInvalidationExecutor,
-  runPostCommitArtifactDeletionInvalidation,
-} from "../deletion-invalidation.js";
+import { runPostCommitArtifactDeletionInvalidation } from "../deletion-invalidation.js";
 import type { AppContext } from "../env.js";
 import { parsePagination } from "../pagination.js";
 import { workspaceApiActor } from "../principals.js";
@@ -44,35 +38,16 @@ export async function deleteMemberArtifactRoute(
   const idempotencyKey = guard.idempotencyKey ?? `mcp-delete:${artifactId}`;
   const env = context.env;
   return runIdempotent(context, async () => {
-    const executor = resolveDeletionInvalidationExecutor(env);
-    let isReplay = false;
-    if (executor && isHyperdriveDb(env.DB)) {
-      isReplay = await peekMemberArtifactDeleteReplay(executor, {
-        actor,
-        workspaceId: actor.workspace_id,
-        idempotencyKey,
-      });
-    } else {
-      const replay = await db.peekWorkspaceCommandReplay({
-        actor,
-        operation: MEMBER_ARTIFACT_DELETE_OPERATION,
-        idempotencyKey,
-      });
-      isReplay = replay !== null && "result" in replay;
-    }
     const result = await db.deleteMemberArtifact({ actor, idempotencyKey, artifactId });
-    await runPostCommitArtifactDeletionInvalidation(
-      env,
-      {
-        actor,
-        idempotencyKey,
-        workspaceId: result.workspace_id,
-        artifactId: result.artifact_id,
-        revisionId: result.revision_id,
-        capabilityId: result.capability_id,
-      },
-      { isReplay },
-    );
+    const invalidation = await runPostCommitArtifactDeletionInvalidation(env, {
+      workspaceId: result.workspace_id,
+      artifactId: result.artifact_id,
+      revisionId: result.revision_id,
+      capabilityId: result.capability_id,
+    });
+    if (!invalidation.denylistWritten) {
+      throw new Error("Artifact deletion committed, but public-read invalidation failed.");
+    }
     return {
       artifact_id: result.artifact_id,
       deleted_at: result.deleted_at,

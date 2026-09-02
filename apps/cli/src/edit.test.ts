@@ -75,7 +75,7 @@ describe("readEdits", () => {
 
 const ARTIFACT_ID = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const REVISION_ID = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-const ARTIFACT_URL = "https://0123456789abcdef0123456789abcdef.agent-paste.sh/";
+const ARTIFACT_URL = "https://0123456789abcdef0123456789abcdef.agent-paste.link/";
 
 async function sha256Hex(text: string): Promise<string> {
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));

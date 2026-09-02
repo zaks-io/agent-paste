@@ -57,7 +57,7 @@ describe("MCP tool registry", () => {
       artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
       revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
       title: "Demo",
-      url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+      url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
       expires_at: "2099-01-01T00:00:00.000Z",
     };
     for (const toolName of ["publish_artifact", "add_revision", "multi_edit"] as const) {

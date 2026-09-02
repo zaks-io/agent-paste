@@ -37,7 +37,7 @@ const DEFAULT_URLS = {
   preview: {
     api: "https://agent-paste-api-preview.isaac-a46.workers.dev",
     upload: "https://agent-paste-upload-preview.isaac-a46.workers.dev",
-    content: "https://usercontent.preview.agent-paste.sh",
+    content: "https://usercontent.preview.agent-paste.link",
     jobs: "https://agent-paste-jobs-preview.isaac-a46.workers.dev",
     stream: "https://stream.preview.agent-paste.sh",
     mcp: "https://mcp.preview.agent-paste.sh",
@@ -47,7 +47,7 @@ const DEFAULT_URLS = {
   production: {
     api: "https://api.agent-paste.sh",
     upload: "https://upload.agent-paste.sh",
-    content: "https://usercontent.agent-paste.sh",
+    content: "https://usercontent.agent-paste.link",
     jobs: undefined,
     stream: "https://stream.agent-paste.sh",
     mcp: "https://mcp.agent-paste.sh",

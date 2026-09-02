@@ -24,27 +24,25 @@ publish flow calls it.
 5. The browser opens that origin directly. `content` resolves the hostname,
    loads the manifest, verifies the signed token, and serves decrypted bytes.
 
-Production hosts are `{capabilityId}.agent-paste.sh`. Preview hosts are
-`{capabilityId}-preview.agent-paste.sh`. The capability ID is exactly 32
+Production hosts are `{capabilityId}.agent-paste.link`. Preview hosts are
+`{capabilityId}-preview.agent-paste.link`. The capability ID is exactly 32
 lowercase hexadecimal characters. It is the bearer secret, so logs retain only
 redacted host metadata.
 
 ## Routing
 
-The content Worker owns wildcard routes `*.agent-paste.sh/*` in production and
-`*-preview.agent-paste.sh/*` in preview. Because a Cloudflare Route runs before
-a matching Custom Domain, the production Worker forwards the explicit product
-host allowlist and the bounded `pr-{positive integer}.preview.agent-paste.sh`
-web-preview shape to those Custom Domain origins. It rejects every other
-wildcard hostname that does not exactly match the environment's
-capability-host grammar.
+The content Worker owns wildcard routes `*.agent-paste.link/*` in production and
+`*-preview.agent-paste.link/*` in preview. Temporary legacy routes on
+`agent-paste.sh` redirect old capability hosts to `.link` and preserve the
+explicit product-host forwarding required while that wildcard remains. Unknown
+wildcard hosts fail closed.
 
 ## Rendering and CSP
 
 Artifacts are websites, not documents embedded by the management app. The
-capability response uses the compatibility-oriented policy in
-[`content-rendering.md`](./content-rendering.md), always denies framing, and
-does not inject viewer scripts or wrappers.
+capability response uses the tier-selected policies in
+[`content-rendering.md`](./content-rendering.md), always denies framing, blocks
+service workers, and does not inject viewer scripts or wrappers.
 
 Previously issued signed content URLs remain an expiration-only compatibility
 path. New publishes cannot fall back to that path in preview or production.
@@ -57,5 +55,6 @@ KV and Durable Objects are not authority for which Revision a capability host
 serves. A publish is successful only after its durable metadata and manifest
 write succeed.
 
-See [ADR 0094](../adr/0094-capability-url-is-the-artifact-link.md) for the
-decision and migration boundary.
+See [ADR 0094](../adr/0094-capability-url-is-the-artifact-link.md) and
+[ADR 0095](../adr/0095-isolate-active-content-and-restore-ephemeral-execution-policy.md)
+for the direct-origin and isolation decisions.

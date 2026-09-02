@@ -3,6 +3,13 @@ import { captureWorkerError } from "@agent-paste/worker-runtime/logging";
 import { signAgentViewContentUrls } from "./agent-view.js";
 import type { Env } from "./env.js";
 
+export class ClaimedArtifactCapabilityRefreshError extends AggregateError {
+  constructor(errors: unknown[]) {
+    super(errors, `Failed to refresh ${errors.length} claimed Artifact capability manifest(s).`);
+    this.name = "ClaimedArtifactCapabilityRefreshError";
+  }
+}
+
 export async function refreshClaimedArtifactCapabilities(
   db: Repository,
   env: Env,
@@ -39,5 +46,9 @@ export async function refreshClaimedArtifactCapabilities(
       workspaceId: actor.workspace_id,
       attributes: { artifact_id: artifactIds[index] },
     });
+  }
+  const failures = results.filter((result) => result.status === "rejected");
+  if (failures.length > 0) {
+    throw new ClaimedArtifactCapabilityRefreshError(failures.map((failure) => failure.reason));
   }
 }

@@ -24,6 +24,7 @@ import {
 import * as Sentry from "@sentry/cloudflare";
 import { Hono } from "hono";
 import {
+  isArtifactContentHostRequest,
   isContentCapabilityRequest,
   isContentRouteOriginRequest,
   markContentCapabilityRequest,
@@ -45,6 +46,7 @@ export { mintContentToken as signContentToken };
 
 const contractById = routeContractById;
 const securityHeaders = { ...BASELINE_SECURITY_HEADERS, ...CONTENT_SECURITY_HEADERS };
+const SERVICE_WORKER_RETIREMENT_SCRIPT = `self.addEventListener("install",()=>self.skipWaiting());self.addEventListener("activate",event=>event.waitUntil((async()=>{await Promise.all((await caches.keys()).map(key=>caches.delete(key)));await self.registration.unregister();for(const client of await self.clients.matchAll({type:"window"})){await client.navigate(client.url)}})()));`;
 const boundResponderConfig = {
   docsBaseUrl: (context: AppContext) => context.env.DOCS_BASE_URL,
   defaultErrorHeaders: () => securityHeaders,
@@ -135,9 +137,22 @@ export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
 export async function handleRequest(request: Request, env: Env, fetchOrigin: typeof fetch = fetch): Promise<Response> {
   try {
+    if (isServiceWorkerScriptRequest(request) && isArtifactContentHostRequest(request, env)) {
+      return serviceWorkerRetirementResponse(request.method);
+    }
     const capability = await resolveContentCapabilityRequest(request, env);
     if (capability.kind === "request") {
       return await app.fetch(markContentCapabilityRequest(capability.request), env);
+    }
+    if (capability.kind === "redirect") {
+      return new Response(null, {
+        status: 308,
+        headers: {
+          ...securityHeaders,
+          "cache-control": "no-store",
+          location: capability.location,
+        },
+      });
     }
     if (capability.kind === "not_found") {
       if (isContentRouteOriginRequest(request, env)) {
@@ -173,4 +188,20 @@ export async function handleRequest(request: Request, env: Env, fetchOrigin: typ
       },
     );
   }
+}
+
+function isServiceWorkerScriptRequest(request: Request): boolean {
+  return request.headers.get("Service-Worker")?.toLowerCase() === "script";
+}
+
+function serviceWorkerRetirementResponse(method: string): Response {
+  return new Response(method === "HEAD" ? null : SERVICE_WORKER_RETIREMENT_SCRIPT, {
+    status: 200,
+    headers: {
+      ...securityHeaders,
+      "cache-control": "no-store",
+      "clear-site-data": '"cache", "cookies", "storage"',
+      "content-type": "application/javascript; charset=utf-8",
+    },
+  });
 }

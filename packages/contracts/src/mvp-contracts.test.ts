@@ -338,7 +338,7 @@ describe("MVP schemas", () => {
         expires_at: "2026-06-19T12:00:00.000Z",
         entrypoint: "index.html",
         revision_content_url: "https://usercontent.agent-paste.sh/v/token/index.html",
-        url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+        url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
         files: [
           {
             path: "index.html",
@@ -405,7 +405,7 @@ describe("MVP schemas", () => {
         expires_at: "2026-06-19T12:00:00.000Z",
         entrypoint: "index.html",
         revision_content_url: "https://usercontent.agent-paste.sh/v/token/index.html",
-        url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+        url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
         files: [
           {
             path: "index.html",
@@ -473,10 +473,10 @@ describe("MVP schemas", () => {
       artifact_id: artifactId,
       revision_id: revisionId,
       title: "demo",
-      url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+      url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
       expires_at: "2026-06-19T12:00:00.000Z",
     });
-    expect(result).toMatchObject({ title: "demo", url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/" });
+    expect(result).toMatchObject({ title: "demo", url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/" });
     expect(Object.keys(result).sort()).toEqual(["artifact_id", "expires_at", "revision_id", "title", "url"]);
     expect(
       PublishResult.safeParse({

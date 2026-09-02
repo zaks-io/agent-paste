@@ -42,7 +42,7 @@ export const CLI_DOC: DocsPage = {
         {
           kind: "code",
           language: "text",
-          code: '✓ Published "report"\n\n  View      https://0123456789abcdef0123456789abcdef.agent-paste.sh/\n  Expires   <expiration date>\n\n  Update    agent-paste publish ./report --artifact-id art_01H...\n\n  → open https://0123456789abcdef0123456789abcdef.agent-paste.sh/',
+          code: '✓ Published "report"\n\n  View      https://0123456789abcdef0123456789abcdef.agent-paste.link/\n  Expires   <expiration date>\n\n  Update    agent-paste publish ./report --artifact-id art_01H...\n\n  → open https://0123456789abcdef0123456789abcdef.agent-paste.link/',
         },
       ],
     },
@@ -52,7 +52,7 @@ export const CLI_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Run `whoami --json` first. When login is unavailable or explicitly skipped, use `publish <path> --ephemeral --json`. Return `url`; return `claim_url` too when the human wants to keep the upload. Ephemeral HTML uses the same script-enabled top-level behavior.",
+          text: "Run `whoami --json` first. When login is unavailable or explicitly skipped, use `publish <path> --ephemeral --json`. Return `url`; return `claim_url` too when the human wants to keep the upload. Ephemeral HTML is static until claimed.",
         },
       ],
     },

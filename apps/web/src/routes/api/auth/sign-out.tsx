@@ -4,6 +4,10 @@ export const Route = createFileRoute("/api/auth/sign-out")({
   server: {
     handlers: {
       POST: async ({ request }: { request: Request }) => {
+        const origin = request.headers.get("origin");
+        if (origin !== new URL(request.url).origin) {
+          return new Response("forbidden", { status: 403 });
+        }
         const [{ getAuthkit }, { appendAuthkitHeaders, getServerAuth }] = await Promise.all([
           import("@workos/authkit-tanstack-react-start"),
           import("../../../server/authkit"),

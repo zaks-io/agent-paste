@@ -222,6 +222,40 @@ describe("ephemeral claim route", () => {
     expect(getWebArtifact).toHaveBeenCalledTimes(1);
   });
 
+  it("returns a retryable storage error when claimed content cannot be refreshed", async () => {
+    const response = await ephemeralClaimRoute(
+      contextFor({}),
+      {
+        kind: "workos_access_token",
+        identity: { workos_user_id: "user", email: "user@example.test" },
+        actor: {
+          type: "member",
+          id: "mem_test",
+          workspace_id: "00000000-0000-4000-8000-000000000001",
+          email: "user@example.test",
+          scopes: ["publish", "read", "admin"],
+        },
+      },
+      {
+        claimEphemeralWorkspaceWithReplayState: vi.fn(async () => ({
+          result: {
+            destination_workspace_id: "00000000-0000-4000-8000-000000000001",
+            source_workspace_id: "00000000-0000-4000-8000-000000000099",
+            artifact_ids: ["art_missing"],
+            claim_token_id: "ct_test",
+          },
+          isReplay: true,
+        })),
+        getWebArtifact: vi.fn(async () => null),
+      } as never,
+      guardFor({ claim_token: claimTokenWithClaimCode }, "claim-refresh-failure"),
+    );
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Retry-After")).toBe("1");
+    await expect(responseJson(response)).resolves.toMatchObject({ error: { code: "storage_unavailable" } });
+  });
+
   it("maps invalid claim tokens to not_found", async () => {
     const response = await ephemeralClaimRoute(
       contextFor({}),

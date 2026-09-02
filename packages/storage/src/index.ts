@@ -104,6 +104,22 @@ export const BASE_CONTENT_SECURITY_POLICY = [
   "frame-ancestors 'none'",
 ].join("; ");
 
+export const SCRIPT_DISABLED_CONTENT_SECURITY_POLICY = [
+  "default-src 'none'",
+  "script-src 'none'",
+  "style-src 'self' 'unsafe-inline' data: blob: https:",
+  "font-src 'self' data: blob: https:",
+  "img-src 'self' data: blob: https:",
+  "connect-src 'none'",
+  "media-src 'self' data: blob: https:",
+  "worker-src 'none'",
+  "frame-src 'none'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+].join("; ");
+
 function parseContentSecurityPolicyDirectives(csp: string): Map<string, string> {
   const directives = new Map<string, string>();
   for (const segment of csp.split(";")) {
@@ -169,10 +185,6 @@ export function withFrameAncestors(csp: string, ancestors: readonly string[]): s
   return serializeContentSecurityPolicy(order, directives);
 }
 
-export const SCRIPT_DISABLED_CONTENT_SECURITY_POLICY =
-  deriveScriptDisabledContentSecurityPolicy(BASE_CONTENT_SECURITY_POLICY);
-export const SVG_CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; img-src data:";
-
 export const CONTENT_SECURITY_HEADERS = {
   "Content-Security-Policy": BASE_CONTENT_SECURITY_POLICY,
   "Cross-Origin-Opener-Policy": "same-origin",
@@ -200,24 +212,15 @@ export function contentTypeForPath(path: string): string {
   return DEFAULT_MIME_TYPE;
 }
 
-export function servedContentForPath(
-  path: string,
-  options?: { scriptDisabled?: boolean; capability?: boolean },
-): ServedContent {
+export function servedContentForPath(path: string, options?: { scriptDisabled?: boolean }): ServedContent {
   const extension = path.match(/\.[^./\\]+$/u)?.[0]?.toLowerCase();
   const contentType = contentTypeForPath(path);
-  const baseCsp =
-    options?.scriptDisabled && !options.capability
-      ? SCRIPT_DISABLED_CONTENT_SECURITY_POLICY
-      : BASE_CONTENT_SECURITY_POLICY;
+  const baseCsp = options?.scriptDisabled ? SCRIPT_DISABLED_CONTENT_SECURITY_POLICY : BASE_CONTENT_SECURITY_POLICY;
   if (contentType === DEFAULT_MIME_TYPE) {
     return { contentType, disposition: "attachment", csp: baseCsp };
   }
   if (extension !== undefined && ATTACHMENT_EXTENSIONS.has(extension as MimeExtension)) {
     return { contentType, disposition: "attachment", csp: baseCsp };
-  }
-  if (extension === ".svg" && !options?.capability) {
-    return { contentType, disposition: "inline", csp: SVG_CONTENT_SECURITY_POLICY };
   }
   return { contentType, disposition: "inline", csp: baseCsp };
 }

@@ -108,7 +108,7 @@ Use `--print-only` to verify generation shape without calling Wrangler. Use `--s
 Steady-state secret application is folded into the deploy. `scripts/deploy.mjs <local|preview|production>` is the one command:
 
 - For each Worker it lists the secret **names** it already has (`wrangler secret list` — values are never readable) and provisions missing required symmetric secrets plus the optional agent-auth signing secret, generating values in memory and piping them to `wrangler secret bulk` over stdin. No value is ever printed or written to disk in cleartext.
-- It then hands build + deploy to Turbo (`turbo run deploy:<target>`, which dependsOn `build`), so every workspace dependency is built in graph order (cached) before `wrangler deploy` runs. Routing (which secret binds to which Worker) is the single source of truth in `lib/secret-routing.mjs`, and the same data backs each Worker's `secrets.required` in `wrangler.jsonc`, so a missing required secret fails the deploy.
+- It then hands build + deploy to Turbo (`turbo run deploy:<target>`, which dependsOn `build`), so every workspace dependency is built in graph order (cached) before `wrangler deploy` runs. The content Worker deploys and passes readiness checks on both its exact signed-content host and its wildcard capability route before API and upload can mint URLs on that domain. Routing (which secret binds to which Worker) is the single source of truth in `lib/secret-routing.mjs`, and the same data backs each Worker's `secrets.required` in `wrangler.jsonc`, so a missing required secret fails the deploy.
 - Preview-only `--app=<name>` (comma-separated) scopes both provisioning and the Turbo deploy to the selected Worker set (e.g. `--app=apex` for the marketing page); production deploys are full-fleet only. `--no-migrate` skips migrations. Migrations run automatically only when a DB-backed Worker (`api`, `upload`, `jobs`) is in scope.
 - It is **idempotent**: a secret that already exists is left untouched, so re-running never rotates anything. Generation is the only way a value comes into being, and it goes straight from `randomBytes()` to the Worker.
 - A value supplied via the environment (`PRODUCTION_<NAME>` / `PREVIEW_<NAME>`, e.g. GitHub environment secrets) is used in preference to generating one — that is how provider-issued values (`WORKOS_API_KEY`, `CF_ACCESS_AUD`) reach the Workers.
@@ -144,10 +144,11 @@ Postgres roles and RLS without creating a Neon branch or Hyperdrive config.
 ### Deploy build + ordering
 
 `scripts/deploy.mjs` (above) migrates, provisions secrets, ensures shared Cloudflare
-Queues exist (DLQs first), then runs `turbo run deploy:<target>`. Turbo owns the
-build and deploy order via the task graph (`deploy:<target>` dependsOn `build`,
-`build` dependsOn `^build`), so every workspace dependency is built before its
-Worker deploys. Per-env build switches reach only the package builds that need
+Queues exist (DLQs first), then runs phased `turbo run deploy:<target>` commands.
+The content Worker deploys first and must pass its public readiness check before
+the API and upload URL producers deploy. Turbo owns build order via the task graph
+(`deploy:<target>` dependsOn `build`, `build` dependsOn `^build`), so every workspace
+dependency is built before its Worker deploys. Per-env build switches reach only the package builds that need
 them: `apps/apex` declares `AGENT_PASTE_ENV`, `BILLING_ENABLED`, and
 `CF_WEB_ANALYTICS_TOKEN`; `apps/web` declares `CLOUDFLARE_ENV` and
 `SENTRY_AUTH_TOKEN`. `apps/web` is built and deployed with
@@ -204,7 +205,7 @@ Harness secrets (`scripts/smoke-hosted.mjs`):
 Optional endpoint overrides:
 
 - Preview URLs default to the shared preview Workers and domains.
-- Production URLs default to `https://api.agent-paste.sh`, `https://upload.agent-paste.sh`, `https://usercontent.agent-paste.sh`, `https://agent-paste.sh`, and `https://app.agent-paste.sh`.
+- Production URLs default to `https://api.agent-paste.sh`, `https://upload.agent-paste.sh`, `https://usercontent.agent-paste.link`, `https://agent-paste.sh`, and `https://app.agent-paste.sh`.
 - PR preview URLs are provided by GitHub Actions workflow `.github/workflows/pr-preview.yml`.
 - `AGENT_PASTE_SMOKE_PATH` defaults to `examples/local-harness/site`.
 

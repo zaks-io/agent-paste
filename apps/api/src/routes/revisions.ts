@@ -48,7 +48,11 @@ export async function authenticatedAgentView(
   }
 
   return getBoundResponders(context).respondJson(
-    await signAgentViewContentUrls(view, env, { workspaceId: actor.workspace_id, includeArtifactUrl: true }),
+    await signAgentViewContentUrls(view, env, {
+      workspaceId: actor.workspace_id,
+      refreshCapabilityManifest: true,
+      includeArtifactUrl: true,
+    }),
   );
 }
 

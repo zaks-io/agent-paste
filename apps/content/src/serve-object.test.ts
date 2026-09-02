@@ -1,5 +1,9 @@
 import { type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
-import { encryptArtifactBytes, workspaceBlobObjectKeyFor } from "@agent-paste/storage";
+import {
+  encryptArtifactBytes,
+  SCRIPT_DISABLED_CONTENT_SECURITY_POLICY,
+  workspaceBlobObjectKeyFor,
+} from "@agent-paste/storage";
 import type { ContentTokenPayload } from "@agent-paste/tokens/content";
 import { type BoundRespondersVariables, boundRespondersMiddleware } from "@agent-paste/worker-runtime";
 import { Hono } from "hono";
@@ -143,13 +147,24 @@ describe("serve-object response headers", () => {
     expect(headers.get("content-disposition")).toBe('attachment; filename="payload.bin"');
   });
 
-  it("applies strict SVG CSP override", () => {
+  it("applies the script-disabled policy to SVG", () => {
     const headers = responseHeadersForPath("chart.svg", 10, basePayload(), ETAG);
-    expect(headers.get("content-security-policy")).toBe("default-src 'none'; style-src 'unsafe-inline'; img-src data:");
+    expect(headers.get("content-security-policy")).toBe(SCRIPT_DISABLED_CONTENT_SECURITY_POLICY);
   });
 
   it("fails closed to script-disabled when script_disabled is omitted", () => {
     const headers = responseHeadersForPath("index.html", 3, basePayload(), ETAG);
+    expect(headers.get("content-security-policy")).toContain("script-src 'none'");
+    expect(headers.get("content-security-policy")).not.toContain("unsafe-eval");
+  });
+
+  it("fails closed for pre-migration ephemeral tokens that explicitly enabled scripts", () => {
+    const headers = responseHeadersForPath(
+      "index.html",
+      3,
+      basePayload({ noindex: true, script_disabled: false }),
+      ETAG,
+    );
     expect(headers.get("content-security-policy")).toContain("script-src 'none'");
     expect(headers.get("content-security-policy")).not.toContain("unsafe-eval");
   });
@@ -439,6 +454,12 @@ describe("content etag", () => {
 describe("contentRepresentationKey", () => {
   it("distinguishes interactive direct HTML", () => {
     expect(contentRepresentationKey("index.html", basePayload({ script_disabled: false }))).toBe("direct:script-on");
+  });
+
+  it("keeps pre-migration ephemeral HTML in the script-disabled representation", () => {
+    expect(contentRepresentationKey("index.html", basePayload({ noindex: true, script_disabled: false }))).toBe(
+      "noindex:direct:script-none",
+    );
   });
 });
 

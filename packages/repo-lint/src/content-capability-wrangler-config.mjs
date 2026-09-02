@@ -4,18 +4,21 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { readWranglerConfig } from "./wrangler-config.mjs";
 
-const CAPABILITY_DOMAIN = "agent-paste.sh";
-const CAPABILITY_ROUTE = "*.agent-paste.sh/*";
-const PREVIEW_CAPABILITY_ROUTE = "*-preview.agent-paste.sh/*";
+const CAPABILITY_DOMAIN = "agent-paste.link";
+const LEGACY_CAPABILITY_DOMAIN = "agent-paste.sh";
+const CAPABILITY_ROUTE = "*.agent-paste.link/*";
+const LEGACY_CAPABILITY_ROUTE = "*.agent-paste.sh/*";
+const PREVIEW_CAPABILITY_ROUTE = "*-preview.agent-paste.link/*";
+const PREVIEW_LEGACY_CAPABILITY_ROUTE = "*-preview.agent-paste.sh/*";
 const PREVIEW_HOST_SUFFIX = "-preview";
 const PRODUCTION_ORIGIN_HOSTS = ["api", "app", "mcp", "stream", "upload"].map(
-  (label) => `${label}.${CAPABILITY_DOMAIN}`,
+  (label) => `${label}.${LEGACY_CAPABILITY_DOMAIN}`,
 );
 const PREVIEW_ORIGIN_HOSTS = ["api", "app", "mcp", "stream", "upload", "usercontent"]
-  .map((label) => `${label}.preview.${CAPABILITY_DOMAIN}`)
-  .concat(`preview.${CAPABILITY_DOMAIN}`);
+  .map((label) => `${label}.preview.${LEGACY_CAPABILITY_DOMAIN}`)
+  .concat(`preview.${LEGACY_CAPABILITY_DOMAIN}`);
 const ROUTE_ORIGIN_HOSTS = [...PRODUCTION_ORIGIN_HOSTS, ...PREVIEW_ORIGIN_HOSTS];
-const PR_PREVIEW_DOMAIN = `preview.${CAPABILITY_DOMAIN}`;
+const PR_PREVIEW_DOMAIN = `preview.${LEGACY_CAPABILITY_DOMAIN}`;
 
 export function validateContentCapabilityWranglerConfig(repoRoot) {
   const apiConfig = readWranglerConfig(join(repoRoot, "apps/api/wrangler.jsonc"));
@@ -48,6 +51,12 @@ export function validateContentCapabilityWranglerConfig(repoRoot) {
   }
 
   const productionRoutes = contentConfig.env?.production?.routes ?? [];
+  const legacyDomain = contentConfig.env?.production?.vars?.CONTENT_LEGACY_CAPABILITY_DOMAIN;
+  if (legacyDomain !== LEGACY_CAPABILITY_DOMAIN) {
+    errors.push(
+      `apps/content/wrangler.jsonc env.production.vars.CONTENT_LEGACY_CAPABILITY_DOMAIN is ${JSON.stringify(legacyDomain)}; expected ${JSON.stringify(LEGACY_CAPABILITY_DOMAIN)}`,
+    );
+  }
   const productionOriginHosts = contentConfig.env?.production?.vars?.CONTENT_ROUTE_ORIGIN_HOSTS;
   if (productionOriginHosts !== ROUTE_ORIGIN_HOSTS.join(",")) {
     errors.push(
@@ -71,12 +80,22 @@ export function validateContentCapabilityWranglerConfig(repoRoot) {
       `apps/content/wrangler.jsonc production must contain exactly one ${CAPABILITY_ROUTE} route through zone_name ${CAPABILITY_DOMAIN}`,
     );
   }
+  const legacyCapabilityRoutes = productionRoutes.filter((route) => route.pattern === LEGACY_CAPABILITY_ROUTE);
+  if (
+    legacyCapabilityRoutes.length !== 1 ||
+    legacyCapabilityRoutes[0]?.zone_name !== LEGACY_CAPABILITY_DOMAIN ||
+    legacyCapabilityRoutes[0]?.custom_domain === true
+  ) {
+    errors.push(
+      `apps/content/wrangler.jsonc production must contain exactly one ${LEGACY_CAPABILITY_ROUTE} migration route through zone_name ${LEGACY_CAPABILITY_DOMAIN}`,
+    );
+  }
   const unexpectedZoneRoutes = productionRoutes.filter(
     (route) => route.zone_name === CAPABILITY_DOMAIN && route.pattern !== CAPABILITY_ROUTE,
   );
   for (const route of unexpectedZoneRoutes) {
     errors.push(
-      `apps/content/wrangler.jsonc production route ${JSON.stringify(route.pattern)} can capture non-capability agent-paste.sh hosts`,
+      `apps/content/wrangler.jsonc production route ${JSON.stringify(route.pattern)} can capture non-capability agent-paste.link hosts`,
     );
   }
 
@@ -91,12 +110,24 @@ export function validateContentCapabilityWranglerConfig(repoRoot) {
       `apps/content/wrangler.jsonc preview must contain exactly one ${PREVIEW_CAPABILITY_ROUTE} route through zone_name ${CAPABILITY_DOMAIN}`,
     );
   }
+  const previewLegacyCapabilityRoutes = previewRoutes.filter(
+    (route) => route.pattern === PREVIEW_LEGACY_CAPABILITY_ROUTE,
+  );
+  if (
+    previewLegacyCapabilityRoutes.length !== 1 ||
+    previewLegacyCapabilityRoutes[0]?.zone_name !== LEGACY_CAPABILITY_DOMAIN ||
+    previewLegacyCapabilityRoutes[0]?.custom_domain === true
+  ) {
+    errors.push(
+      `apps/content/wrangler.jsonc preview must contain exactly one ${PREVIEW_LEGACY_CAPABILITY_ROUTE} migration route through zone_name ${LEGACY_CAPABILITY_DOMAIN}`,
+    );
+  }
   const unexpectedPreviewZoneRoutes = previewRoutes.filter(
     (route) => route.zone_name === CAPABILITY_DOMAIN && route.pattern !== PREVIEW_CAPABILITY_ROUTE,
   );
   for (const route of unexpectedPreviewZoneRoutes) {
     errors.push(
-      `apps/content/wrangler.jsonc preview route ${JSON.stringify(route.pattern)} can capture non-preview agent-paste.sh hosts`,
+      `apps/content/wrangler.jsonc preview route ${JSON.stringify(route.pattern)} can capture non-preview agent-paste.link hosts`,
     );
   }
 

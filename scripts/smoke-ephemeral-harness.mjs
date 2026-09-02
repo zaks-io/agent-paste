@@ -56,7 +56,7 @@ export function ephemeralHostedConfig(target) {
       slug: "production-ephemeral-smoke",
       apiBaseUrl: env("AGENT_PASTE_PRODUCTION_API_URL", "https://api.agent-paste.sh"),
       uploadBaseUrl: env("AGENT_PASTE_PRODUCTION_UPLOAD_URL", "https://upload.agent-paste.sh"),
-      contentBaseUrl: env("AGENT_PASTE_PRODUCTION_CONTENT_URL", "https://usercontent.agent-paste.sh"),
+      contentBaseUrl: env("AGENT_PASTE_PRODUCTION_CONTENT_URL", "https://usercontent.agent-paste.link"),
       webBaseUrl: env("AGENT_PASTE_PRODUCTION_WEB_URL", "https://app.agent-paste.sh"),
       harnessSecret: undefined,
       expectedClaimTokenPrefix: "ap_ct_production_",
@@ -66,7 +66,10 @@ export function ephemeralHostedConfig(target) {
       allowClaim: true,
     };
   }
-  const prNumber = process.env.PR_NUMBER ?? process.env.GITHUB_EVENT_NUMBER ?? "unknown";
+  const prNumber = process.env.PR_NUMBER ?? process.env.GITHUB_EVENT_NUMBER;
+  if (!/^[1-9][0-9]*$/.test(prNumber ?? "")) {
+    throw new Error("PR_NUMBER or GITHUB_EVENT_NUMBER must be a positive integer for PR smoke.");
+  }
   return {
     label: `PR ${prNumber}`,
     slug: `pr-${prNumber}-ephemeral-smoke`,
@@ -76,6 +79,7 @@ export function ephemeralHostedConfig(target) {
     webBaseUrl: env("AGENT_PASTE_PR_WEB_URL", env("AGENT_PASTE_PREVIEW_WEB_URL", "https://app.preview.agent-paste.sh")),
     harnessSecret: requiredEnv(["AGENT_PASTE_PR_SMOKE_HARNESS_SECRET", "AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET"]),
     expectedClaimTokenPrefix: "ap_ct_preview_",
+    expectedPrNumber: prNumber,
     allowHarnessCleanup: true,
     allowClaim: true,
   };
@@ -150,7 +154,10 @@ export function assertNoClaimTokenLeakage(published, stderrOutput) {
   }
 }
 
-export async function assertPublishOutput(published, { target = "local", claimWebOrigin, expectedClaimTokenPrefix }) {
+export async function assertPublishOutput(
+  published,
+  { target = "local", claimWebOrigin, expectedClaimTokenPrefix, expectedPrNumber },
+) {
   assertBoundary(published.artifact_id?.startsWith("art_"), "publish", "artifact_id returned");
   assertBoundary(published.revision_id?.startsWith("rev_"), "publish", "revision_id returned");
   const artifactUrl = parseSmokeUrl(published.url, "publish", "url is a valid URL");
@@ -161,12 +168,17 @@ export async function assertPublishOutput(published, { target = "local", claimWe
     "publish",
     hostedTarget ? "url opens the Artifact root" : "local url uses the signed content fallback",
   );
+  if (target === "pr") {
+    assertBoundary(/^[1-9][0-9]*$/.test(expectedPrNumber ?? ""), "publish", "PR smoke has an exact expected PR number");
+  }
   const expectedHost =
     target === "production"
-      ? /^[0-9a-f]{32}\.agent-paste\.sh$/
-      : target === "preview" || target === "pr"
-        ? /^[0-9a-f]{32}-preview\.agent-paste\.sh$/
-        : /^(?:[0-9a-f]{32}\.artifact\.test|127\.0\.0\.1|localhost)$/;
+      ? /^[0-9a-f]{32}\.agent-paste\.link$/
+      : target === "preview"
+        ? /^[0-9a-f]{32}-preview\.agent-paste\.link$/
+        : target === "pr"
+          ? new RegExp(`^[0-9a-f]{32}-pr-${expectedPrNumber}\\.agent-paste\\.link$`)
+          : /^(?:[0-9a-f]{32}\.artifact\.test|127\.0\.0\.1|localhost)$/;
   assertBoundary(expectedHost.test(artifactUrl.hostname), "publish", `url targets ${target} Artifact host`);
   assertBoundary(
     published.claim_url === `${claimWebOrigin}/claim#${published.claim_token}`,
@@ -198,16 +210,14 @@ export async function assertContentPolicy(artifactUrl, claimToken) {
   const directives = parseContentSecurityPolicy(csp);
   const scriptSrc = effectiveDirective(directives, "script-src", "default-src");
   const scriptSrcElem = effectiveDirective(directives, "script-src-elem", "script-src", "default-src");
-  assertBoundary(scriptSrc.includes("'unsafe-inline'"), "policy", "content CSP permits inline scripts");
-  assertBoundary(scriptSrc.includes("'unsafe-eval'"), "policy", "content CSP permits runtime script evaluation");
-  assertBoundary(scriptSrc.includes("https:"), "policy", "content CSP permits HTTPS script dependencies");
-  assertBoundary(scriptSrcElem.includes("'unsafe-inline'"), "policy", "content CSP permits inline script elements");
-  assertBoundary(scriptSrcElem.includes("https:"), "policy", "content CSP permits HTTPS script elements");
-  assertBoundary(
-    !scriptSrc.includes("'none'") && !scriptSrcElem.includes("'none'"),
-    "policy",
-    "content CSP does not disable scripts",
-  );
+  assertOnlyNone(scriptSrc, "content CSP blocks scripts");
+  assertOnlyNone(scriptSrcElem, "content CSP blocks script elements");
+  assertOnlyNone(effectiveDirective(directives, "connect-src", "default-src"), "content CSP blocks connections");
+  assertOnlyNone(effectiveDirective(directives, "worker-src", "child-src", "script-src"), "content CSP blocks workers");
+  assertOnlyNone(effectiveDirective(directives, "frame-src", "child-src", "default-src"), "content CSP blocks frames");
+  assertOnlyNone(effectiveDirective(directives, "object-src", "default-src"), "content CSP blocks objects");
+  assertOnlyNone(effectiveDirective(directives, "base-uri"), "content CSP blocks base URL changes");
+  assertOnlyNone(effectiveDirective(directives, "form-action"), "content CSP blocks forms");
   const frameAncestors = effectiveDirective(directives, "frame-ancestors");
   assertBoundary(frameAncestors.length === 1 && frameAncestors[0] === "'none'", "policy", "content CSP blocks framing");
   assertBoundary(
@@ -228,6 +238,10 @@ export async function assertContentPolicy(artifactUrl, claimToken) {
     "policy",
     "Artifact source retains the fixture title",
   );
+}
+
+function assertOnlyNone(sources, detail) {
+  assertBoundary(sources.length === 1 && sources[0] === "'none'", "policy", detail);
 }
 
 function parseContentSecurityPolicy(value) {

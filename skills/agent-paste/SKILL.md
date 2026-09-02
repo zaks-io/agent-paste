@@ -27,7 +27,9 @@ agent-paste publish <path> --ephemeral --json
 
 Preserve a caller-provided `--claim-code <clm_...>`. Return the result's `url`; it is the Artifact
 and opens without login. For ephemeral results, return `claim_url` only for the optional keep and
-ownership step. Do not seek a separate share link, viewer URL, or visibility command.
+ownership step. Ephemeral HTML is static until claimed: scripts, connections, forms, frames,
+objects, and workers are blocked. Service workers remain blocked after claim. Do not seek a
+separate share link, viewer URL, or visibility command.
 
 ## Revise instead of republishing
 

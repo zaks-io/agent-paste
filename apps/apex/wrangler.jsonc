@@ -67,6 +67,14 @@
         {
           "pattern": "agent-paste.sh",
           "custom_domain": true
+        },
+        {
+          "pattern": "agent-paste.com",
+          "custom_domain": true
+        },
+        {
+          "pattern": "www.agent-paste.com",
+          "custom_domain": true
         }
       ],
       "vars": {

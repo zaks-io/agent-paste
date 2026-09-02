@@ -17,7 +17,8 @@
 //      are missing, and pipes them into `wrangler secret bulk` over stdin.
 //   4. Hands build + deploy to Turbo (`turbo run deploy:<target>`), which builds
 //      every workspace dependency in graph order (cached) before wrangler runs.
-//      Scope preview deploys to one Worker with --app; production deploys the whole fleet.
+//      Content deploys and passes readiness before URL-producing Workers. Scope
+//      preview deploys to one Worker with --app; production deploys the whole fleet.
 //
 // Idempotent: a secret that already exists is left untouched, so re-running never
 // rotates anything and is always safe. Generation is the ONLY way a value comes
@@ -65,9 +66,9 @@ export function generatedByteLength(name) {
   return TRANSIENT_32_BYTE_SECRETS.has(name) ? 32 : 48;
 }
 
-// Every deployable app. Build order and per-app deploy order are owned by Turbo's
-// task graph (turbo run deploy:<target>, which dependsOn build); this list is only
-// used for secret provisioning and --app validation.
+// Every deployable app. Build order is owned by Turbo's task graph. Cross-Worker
+// deployment order is owned below by deploymentPhases. This list is also used
+// for secret provisioning and --app validation.
 const APPS = ["stream", "api", "upload", "content", "jobs", "mcp", "apex", "web"];
 
 // Workspace package name per app, for `turbo run ... --filter`.
@@ -86,6 +87,8 @@ const PACKAGE_NAMES = {
 // depend on the schema, so migrations run first. The rest (stream, content, mcp,
 // apex, web) have no DB, so a scoped deploy of only those never needs a migration.
 const DB_BACKED_APPS = new Set(["api", "upload", "jobs"]);
+const CONTENT_URL_PRODUCERS = new Set(["api", "upload"]);
+const CONTENT_ROUTING_PROBE_ID = "00000000000000000000000000000000";
 const PRODUCTION_SCOPE_ERROR =
   "Production deploys must deploy the full fleet; --app scoping is only supported for preview deploys.";
 
@@ -153,7 +156,6 @@ export function assertDeployScopeAllowed(apps, target) {
  * @returns {string[]}
  */
 export function turboDeployArgs(apps, target) {
-  assertDeployScopeAllowed(apps, target);
   const args = ["exec", "turbo", "run", `deploy:${target}`];
   if (apps.length < APPS.length) {
     for (const app of apps) {
@@ -161,6 +163,14 @@ export function turboDeployArgs(apps, target) {
     }
   }
   return args;
+}
+
+export function deploymentPhases(apps) {
+  const requiresContentFirst = apps.includes("content") && apps.some((app) => CONTENT_URL_PRODUCERS.has(app));
+  if (!requiresContentFirst) {
+    return [apps];
+  }
+  return [["content"], apps.filter((app) => app !== "content")];
 }
 
 // --- smoke ----------------------------------------------------------------
@@ -377,16 +387,16 @@ export async function runDeployPlan({
   apps = APPS,
   runFn,
   deployFn,
+  verifyContentFn = verifyContentRouting,
   failFn = fail,
   write = (message) => process.stdout.write(message),
 }) {
   planner.reportForbiddenProductionSecrets(provisionPlan, failFn);
   planner.reportMissingProviderSecrets(provisionPlan, failFn);
 
-  // Bind every planned secret BEFORE deploying: Turbo deploys the set together
-  // (in build-graph order), so all secrets must already be in place when the
-  // first Worker goes live. The plan owns the provisioning scope — it can be
-  // wider than the deploy scope (see appsForSecretProvisioning).
+  // Bind every planned secret before the first deployment phase. The plan owns
+  // the provisioning scope, which can be wider than the deploy scope (see
+  // appsForSecretProvisioning).
   for (const [app, toSet] of provisionPlan) {
     if (toSet.length === 0) {
       continue;
@@ -396,12 +406,18 @@ export async function runDeployPlan({
     await planner.bulkSetSecrets(worker, toSet, runFn);
   }
 
-  // Build + deploy is Turbo's job: `turbo run deploy:<target>` dependsOn build, so
-  // every workspace dependency is built (cached) in graph order before wrangler
-  // runs, and apex/web bake the right per-env URLs from AGENT_PASTE_ENV/CLOUDFLARE_ENV
-  // (set on the env we hand Turbo). A scoped deploy passes one --filter per app.
-  write(`Deploying ${apps.join(", ")} via Turbo...\n`);
-  await deployFn(apps, target);
+  // Content routing must be live before API or upload can mint URLs on that
+  // domain. A failed content deploy or readiness check leaves the existing URL
+  // producers untouched.
+  const phases = deploymentPhases(apps);
+  for (const [index, phase] of phases.entries()) {
+    write(`Deploying ${phase.join(", ")} via Turbo...\n`);
+    await deployFn(phase, target);
+    if (index < phases.length - 1) {
+      write(`Verifying ${target} content routing...\n`);
+      await verifyContentFn(target);
+    }
+  }
   write("\n");
 }
 
@@ -410,6 +426,87 @@ export async function runDeployPlan({
 // tests via runDeployPlan({ deployFn }).
 async function turboDeploy(apps, target) {
   await run("pnpm", turboDeployArgs(apps, target), null, buildSwitchesFor(target));
+}
+
+export function contentRoutingProbeUrls(target) {
+  const env = {};
+  loadWranglerEnvVars("apps/content/wrangler.jsonc", {
+    cwd: root,
+    env,
+    envName: target,
+    keys: ["CONTENT_BASE_URL", "CONTENT_CAPABILITY_DOMAIN", "CONTENT_CAPABILITY_HOST_SUFFIX"],
+  });
+  const contentBaseUrl = env.CONTENT_BASE_URL;
+  if (typeof contentBaseUrl !== "string" || contentBaseUrl.length === 0) {
+    throw new Error(`CONTENT_BASE_URL is missing for the ${target} content Worker.`);
+  }
+  const capabilityDomain = env.CONTENT_CAPABILITY_DOMAIN;
+  if (typeof capabilityDomain !== "string" || capabilityDomain.length === 0) {
+    throw new Error(`CONTENT_CAPABILITY_DOMAIN is missing for the ${target} content Worker.`);
+  }
+  const capabilitySuffix = env.CONTENT_CAPABILITY_HOST_SUFFIX ?? "";
+  if (typeof capabilitySuffix !== "string") {
+    throw new Error(`CONTENT_CAPABILITY_HOST_SUFFIX is invalid for the ${target} content Worker.`);
+  }
+  return {
+    health: new URL("/healthz", contentBaseUrl).href,
+    capability: `https://${CONTENT_ROUTING_PROBE_ID}${capabilitySuffix}.${capabilityDomain}/__deployment_readiness_probe__`,
+  };
+}
+
+export async function probeContentRouting(urls, fetchFn = fetch, signal) {
+  const requestInit = /** @type {RequestInit} */ ({ cache: "no-store", ...(signal ? { signal } : {}) });
+  const healthResponse = await fetchFn(urls.health, requestInit);
+  const capabilityResponse = await fetchFn(urls.capability, requestInit);
+  let capabilityCode = null;
+  try {
+    const body = await capabilityResponse.json();
+    if (body && typeof body === "object" && "error" in body) {
+      const error = body.error;
+      if (error && typeof error === "object" && "code" in error && typeof error.code === "string") {
+        capabilityCode = error.code;
+      }
+    }
+  } catch {
+    capabilityCode = null;
+  }
+  return {
+    ready: healthResponse.status === 200 && capabilityResponse.status === 404 && capabilityCode === "not_found",
+    healthStatus: healthResponse.status,
+    capabilityStatus: capabilityResponse.status,
+    capabilityCode,
+  };
+}
+
+async function verifyContentRouting(target) {
+  const urls = contentRoutingProbeUrls(target);
+  const deadline = Date.now() + 60_000;
+  let lastResult = null;
+  while (Date.now() < deadline) {
+    const attemptTimeoutMs = Math.min(5000, deadline - Date.now());
+    const controller = new AbortController();
+    const abortTimer = setTimeout(() => controller.abort(), attemptTimeoutMs);
+    try {
+      lastResult = await probeContentRouting(urls, fetch, controller.signal);
+      if (lastResult.ready) {
+        return;
+      }
+    } catch {
+      lastResult = null;
+    } finally {
+      clearTimeout(abortTimer);
+    }
+    const retryDelayMs = Math.min(2000, deadline - Date.now());
+    if (retryDelayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    }
+  }
+  const lastResponse = lastResult
+    ? `health=${lastResult.healthStatus}, capability=${lastResult.capabilityStatus}/${lastResult.capabilityCode ?? "unknown"}`
+    : "transport_error";
+  throw new Error(
+    `Content routing did not become ready at ${urls.health} and ${urls.capability}; last response ${lastResponse}.`,
+  );
 }
 
 // Per-env build switches handed to Turbo's deploy run. AGENT_PASTE_ENV/CLOUDFLARE_ENV

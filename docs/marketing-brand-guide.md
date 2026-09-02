@@ -373,13 +373,15 @@ Transient by default. Revocable on demand.
 
 ### Subdomain system (a brand asset in itself: clean, predictable)
 
-| Host                         | Surface                                       |
-| ---------------------------- | --------------------------------------------- |
-| `agent-paste.sh`             | Marketing apex, `/llms.txt`, `/agents.md`     |
-| `app.agent-paste.sh`         | Dashboard for humans                          |
-| `api.agent-paste.sh`         | REST API                                      |
-| `mcp.agent-paste.sh`         | MCP server                                    |
-| `usercontent.agent-paste.sh` | Isolated Content Origin for untrusted content |
+| Host                            | Surface                                    |
+| ------------------------------- | ------------------------------------------ |
+| `agent-paste.sh`                | Marketing apex, `/llms.txt`, `/agents.md`  |
+| `app.agent-paste.sh`            | Dashboard for humans                       |
+| `api.agent-paste.sh`            | REST API                                   |
+| `mcp.agent-paste.sh`            | MCP server                                 |
+| `agent-paste.link`              | Registrable boundary for untrusted content |
+| `usercontent.agent-paste.link`  | Signed Content Origin                      |
+| `{capability}.agent-paste.link` | Top-level Artifact origin                  |
 
 ---
 

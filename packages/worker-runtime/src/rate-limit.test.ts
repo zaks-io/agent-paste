@@ -71,9 +71,10 @@ describe("applyRateLimit", () => {
         artifactContract,
         { kind: "signed_content_token", payload: { artifact_id: "artifact_1" } },
         { artifact: { limit: artifact } },
+        { clientIp: "203.0.113.10" },
       ),
     ).resolves.toEqual({ ok: false, code: "rate_limited_artifact", retryAfter: "60" });
-    expect(artifact).toHaveBeenCalledWith({ key: "artifact_1" });
+    expect(artifact).toHaveBeenCalledWith({ key: "artifact_1:203.0.113.10" });
   });
 
   it("checks artifact buckets for signed public Agent View tokens", async () => {
@@ -87,9 +88,10 @@ describe("applyRateLimit", () => {
           payload: { artifact_id: "art_1", revision_id: "rev_1", exp: 1 },
         },
         { artifact: { limit: artifact } },
+        { clientIp: "203.0.113.11" },
       ),
     ).resolves.toEqual({ ok: false, code: "rate_limited_artifact", retryAfter: "60" });
-    expect(artifact).toHaveBeenCalledWith({ key: "art_1" });
+    expect(artifact).toHaveBeenCalledWith({ key: "art_1:203.0.113.11" });
   });
 
   it("fails closed when actor or workspace bindings are missing or throw", async () => {
