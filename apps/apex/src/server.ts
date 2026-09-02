@@ -36,6 +36,14 @@ const TEXT_ASSET_PATHS = new Set([
   "/.well-known/security.txt",
 ]);
 
+// Agent Skills discovery documents (Agent Skills Discovery RFC v0.2.0). The
+// index and each SKILL.md are emitted into dist/client by scripts/prerender.mjs
+// from the repo's skills/ directory, so they arrive through the ASSETS binding
+// rather than TEXT_ASSET_PATHS. The asset server already types them correctly
+// (application/json and text/markdown); the worker only adds the cross-origin
+// grant the RFC asks for so browser-based clients can read them.
+const AGENT_SKILLS_PREFIX = "/.well-known/agent-skills/";
+
 const ANALYTICS_BEACON_SELECTOR = 'script[src="https://static.cloudflareinsights.com/beacon.min.js"]';
 const CLIENT_CONFIG_PATH = "/__client/config.json";
 const FUNNEL_EVENTS_PATH = "/__funnel/events";
@@ -105,6 +113,9 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
     const headers = new Headers(assetResponse.headers);
     for (const [name, value] of Object.entries(security)) {
       headers.set(name, value as string);
+    }
+    if (url.pathname.startsWith(AGENT_SKILLS_PREFIX)) {
+      headers.set("access-control-allow-origin", "*");
     }
     const response = new Response(request.method === "HEAD" ? null : assetResponse.body, {
       status: assetResponse.status,
