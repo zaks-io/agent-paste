@@ -44,6 +44,7 @@ describe("smoke-ephemeral-harness", () => {
           target: "pr",
           claimWebOrigin: "https://app.preview.agent-paste.sh",
           expectedClaimTokenPrefix: "ap_ct_preview_",
+          expectedPrNumber: "621",
         },
       ),
     ).resolves.toBeUndefined();
@@ -55,7 +56,22 @@ describe("smoke-ephemeral-harness", () => {
         target: "pr",
         claimWebOrigin: "https://app.preview.agent-paste.sh",
         expectedClaimTokenPrefix: "ap_ct_preview_",
+        expectedPrNumber: "621",
       }),
+    ).rejects.toThrow(/url targets pr Artifact host/);
+  });
+
+  it("rejects another PR's capability hostname for PR smoke", async () => {
+    await expect(
+      assertPublishOutput(
+        samplePublishResult({ url: "https://0123456789abcdef0123456789abcdef-pr-622.agent-paste.link/" }),
+        {
+          target: "pr",
+          claimWebOrigin: "https://app.preview.agent-paste.sh",
+          expectedClaimTokenPrefix: "ap_ct_preview_",
+          expectedPrNumber: "621",
+        },
+      ),
     ).rejects.toThrow(/url targets pr Artifact host/);
   });
 

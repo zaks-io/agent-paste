@@ -104,6 +104,7 @@ async function runHostedEphemeralSmoke() {
     target,
     claimWebOrigin,
     expectedClaimTokenPrefix: config.expectedClaimTokenPrefix,
+    expectedPrNumber: config.expectedPrNumber,
   });
   await assertContentPolicy(published.url, published.claim_token);
 

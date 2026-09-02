@@ -76,6 +76,7 @@ export function ephemeralHostedConfig(target) {
     webBaseUrl: env("AGENT_PASTE_PR_WEB_URL", env("AGENT_PASTE_PREVIEW_WEB_URL", "https://app.preview.agent-paste.sh")),
     harnessSecret: requiredEnv(["AGENT_PASTE_PR_SMOKE_HARNESS_SECRET", "AGENT_PASTE_PREVIEW_SMOKE_HARNESS_SECRET"]),
     expectedClaimTokenPrefix: "ap_ct_preview_",
+    expectedPrNumber: prNumber,
     allowHarnessCleanup: true,
     allowClaim: true,
   };
@@ -150,7 +151,10 @@ export function assertNoClaimTokenLeakage(published, stderrOutput) {
   }
 }
 
-export async function assertPublishOutput(published, { target = "local", claimWebOrigin, expectedClaimTokenPrefix }) {
+export async function assertPublishOutput(
+  published,
+  { target = "local", claimWebOrigin, expectedClaimTokenPrefix, expectedPrNumber },
+) {
   assertBoundary(published.artifact_id?.startsWith("art_"), "publish", "artifact_id returned");
   assertBoundary(published.revision_id?.startsWith("rev_"), "publish", "revision_id returned");
   const artifactUrl = parseSmokeUrl(published.url, "publish", "url is a valid URL");
@@ -161,13 +165,16 @@ export async function assertPublishOutput(published, { target = "local", claimWe
     "publish",
     hostedTarget ? "url opens the Artifact root" : "local url uses the signed content fallback",
   );
+  if (target === "pr") {
+    assertBoundary(/^[1-9][0-9]*$/.test(expectedPrNumber ?? ""), "publish", "PR smoke has an exact expected PR number");
+  }
   const expectedHost =
     target === "production"
       ? /^[0-9a-f]{32}\.agent-paste\.link$/
       : target === "preview"
         ? /^[0-9a-f]{32}-preview\.agent-paste\.link$/
         : target === "pr"
-          ? /^[0-9a-f]{32}-pr-[1-9][0-9]*\.agent-paste\.link$/
+          ? new RegExp(`^[0-9a-f]{32}-pr-${expectedPrNumber}\\.agent-paste\\.link$`)
           : /^(?:[0-9a-f]{32}\.artifact\.test|127\.0\.0\.1|localhost)$/;
   assertBoundary(expectedHost.test(artifactUrl.hostname), "publish", `url targets ${target} Artifact host`);
   assertBoundary(
