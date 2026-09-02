@@ -82,8 +82,8 @@ same publish path and return the same `url` contract.
 
 ### Install the agent skill
 
-Install the repository's agent-paste skill for Claude Code, Codex, and other
-compatible agents with the `skills` CLI:
+Install the repository's agent-paste skill for Claude Code and Codex with the
+`skills` CLI:
 
 ```sh
 npx skills add https://github.com/zaks-io/agent-paste/tree/main/skills/agent-paste \
