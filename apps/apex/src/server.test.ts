@@ -63,6 +63,13 @@ describe("text and data assets", () => {
     expect(body.length).toBeGreaterThan(0);
   });
 
+  it("exposes the repository skill through every public agent docs entry point", async () => {
+    const skillPath = "github.com/zaks-io/agent-paste/tree/main/skills/agent-paste";
+    for (const path of ["/agents.md", "/llms.txt", "/docs/getting-started.md", "/llms-full.txt"]) {
+      expect(await (await get(path)).text()).toContain(skillPath);
+    }
+  });
+
   it("keeps claim-code query strings out of public agent docs", async () => {
     for (const path of [
       "/llms.txt",

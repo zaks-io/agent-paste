@@ -80,6 +80,16 @@ Agents without a shell can connect to `https://mcp.agent-paste.sh`, authenticate
 with OAuth, and use `publish_artifact` or `add_revision`. CLI and MCP share the
 same publish path and return the same `url` contract.
 
+### Install the agent skill
+
+Install the repository's agent-paste skill for Claude Code and Codex with the
+`skills` CLI:
+
+```sh
+npx skills add https://github.com/zaks-io/agent-paste/tree/main/skills/agent-paste \
+  --agent claude-code codex
+```
+
 ## Browser architecture
 
 Each Artifact gets a cryptographically random 128-bit capability hostname:

@@ -1,4 +1,4 @@
-import { API_BASE_URL, APP_BASE_URL } from "./copy";
+import { API_BASE_URL, APP_BASE_URL, SKILL_INSTALL_CMD } from "./copy";
 
 const LLMS_TXT_BASE = `# agent-paste
 
@@ -8,6 +8,7 @@ Start with the agent guide unless you are implementing a protocol client.
 
 ## Agent Entry Points
 
+- Agent skill for Claude Code and Codex: \`${SKILL_INSTALL_CMD}\`
 - [Agent guide](/agents.md): CLI-first publish, auth, ephemeral, claim, and MCP.
 - [CLI reference](/docs/cli.md): Commands, publish modes, JSON output, pull, and edit.
 - [Ephemeral publish](/docs/ephemeral.md): Accountless 24h publish and claim.
