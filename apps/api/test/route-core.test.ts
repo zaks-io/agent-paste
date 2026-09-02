@@ -179,7 +179,7 @@ describe("AP-91 shared API route helpers", () => {
     expect(workos).toMatchObject({ ok: true, principal: { identity } });
   });
 
-  it("sets noindex without disabling scripts when the agent view is ephemeral tier", async () => {
+  it("sets noindex and disables scripts when the agent view is ephemeral tier", async () => {
     const signed = (await signAgentViewContentUrls(
       {
         workspace_id: workspaceId,
@@ -198,7 +198,7 @@ describe("AP-91 shared API route helpers", () => {
     const { verifyContentToken } = await import("@agent-paste/tokens/content");
     const payload = await verifyContentToken(token, "content-secret");
     expect(payload?.noindex).toBe(true);
-    expect(payload?.script_disabled).toBe(false);
+    expect(payload?.script_disabled).toBe(true);
   });
 
   it("explicitly enables scripts for claimed tenants", async () => {

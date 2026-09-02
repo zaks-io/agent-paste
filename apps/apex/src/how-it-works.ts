@@ -42,7 +42,7 @@ export const HOW_IT_WORKS_SECTIONS: HowItWorksSection[] = [
     title: "Unclaimed work expires quickly",
     body: [
       "An agent should use the CLI when it can run commands and a Workspace login is available. A hosted tool that cannot run commands should use MCP. Reserve `--ephemeral` for cases where no login is available, with short-lived credentials, low write caps, 24 hour cleanup, and noindex.",
-      "Ephemeral HTML uses the same script-enabled top-level behavior as authenticated content.",
+      "Ephemeral HTML stays static until claimed: scripts, connections, forms, frames, objects, and workers are blocked.",
     ],
   },
   {

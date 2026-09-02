@@ -2,8 +2,8 @@
 
 Project start: 2026-05-18.
 
-Last updated: 2026-08-30 for the top-level Artifact capability-origin
-architecture. See [changelog.md](./status/changelog.md) for older shipped work.
+Last updated: 2026-09-02 for the user-content domain and ephemeral execution
+boundary. See [changelog.md](./status/changelog.md) for older shipped work.
 
 This is the status entrypoint after `AGENTS.md`. Current behavior is specified
 in [`docs/specs/`](../specs/README.md); ADRs and the older ledgers record why the
@@ -15,8 +15,8 @@ The current change removes the app-hosted viewer and makes every successful
 publish return one top-level Artifact URL:
 
 ```text
-Production: https://{capability-id}.agent-paste.sh/
-Preview:    https://{capability-id}-preview.agent-paste.sh/
+Production: https://{capability-id}.agent-paste.link/
+Preview:    https://{capability-id}-preview.agent-paste.link/
 ```
 
 The Content Worker serves the Artifact directly on that host. The app does not
@@ -32,10 +32,11 @@ been modified; deployment requires explicit approval and hosted verification.
   returns `artifact_id`, `revision_id`, `title`, `url`, and `expires_at`.
 - **MCP:** ten OAuth tools cover publish, revise, edit, list, read, delete, and
   display metadata. Publish and revise return the same Artifact `url` contract.
-- **Content:** untrusted files run top-level on a unique capability subdomain.
-  The capability CSP permits ordinary uploaded-site behavior, including inline
-  scripts and eval, while `frame-ancestors 'none'` and `X-Frame-Options: DENY`
-  prevent embedding.
+- **Content:** untrusted files run top-level on a unique `agent-paste.link`
+  capability subdomain, separate from product and authentication origins.
+  Claimed content permits normal uploaded-site behavior. Ephemeral content uses
+  a signed restricted policy with scripts, connections, workers, and forms
+  disabled. Service workers are unsupported on every tier.
 - **Dashboard:** manages the Workspace and opens Artifact URLs directly. It has
   no content viewer, iframe, Access Link viewer, or Live Update proxy.
 - **API:** owns authenticated control-plane operations and capability-manifest
@@ -60,12 +61,15 @@ pnpm verify
 Hosted completion additionally requires:
 
 1. Deploy the branch to preview through the normal workflow.
-2. Publish `examples/csp-proof` through the preview API.
-3. Open the returned capability URL as the top-level page.
-4. Confirm Tailwind CDN, the inline configuration/script, and the eval proof
-   execute without a CSP console error.
-5. Confirm the response includes `frame-ancestors 'none'` and
+2. Publish `examples/csp-proof` through the authenticated preview API.
+3. Confirm its `.agent-paste.link` URL loads top-level and Tailwind, inline
+   script, and eval proof execute without a CSP console error.
+4. Publish the same proof through the ephemeral path and confirm its script,
+   fetch, form submission, and workers stay blocked while static content renders.
+5. Confirm both responses include `frame-ancestors 'none'` and
    `X-Frame-Options: DENY`.
+6. Request an uploaded JavaScript path with `Service-Worker: script` and confirm
+   the response is the platform retirement worker, never uploaded bytes.
 
 Production deployment is handled by the GitHub `Deploy Production` workflow
 and is never run without explicit approval.

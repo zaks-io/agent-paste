@@ -295,6 +295,7 @@ describe("AP-91 smoke route modules", () => {
     const env = {
       AGENT_PASTE_ENV: "preview",
       SMOKE_HARNESS_SECRET: "smoke-secret",
+      DENYLIST: { put: vi.fn(async () => undefined) },
       DB: {
         getWhoami: vi.fn(),
         getArtifactDetail: vi.fn(async () => null),

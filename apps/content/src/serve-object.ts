@@ -13,7 +13,6 @@ import {
 } from "@agent-paste/storage";
 import type { ContentTokenPayload } from "@agent-paste/tokens/content";
 import { BASELINE_SECURITY_HEADERS, getBoundResponders, writeArtifactEvent } from "@agent-paste/worker-runtime";
-import { isContentCapabilityRequest } from "./content-capability.js";
 import type { AppContext, Env, R2ObjectBody } from "./env.js";
 import { contentEtag, etagMatches } from "./etag.js";
 
@@ -89,14 +88,13 @@ export async function serveSignedObject(
 ): Promise<Response> {
   const env = context.env;
   const request = context.req.raw;
-  const capabilityRequest = isContentCapabilityRequest(request);
 
   const key = objectKeyForPayload(payload, path);
   if (!key) {
     return getBoundResponders(context).respondError("not_found");
   }
 
-  const representationKey = contentRepresentationKey(path, payload, capabilityRequest);
+  const representationKey = contentRepresentationKey(path, payload);
   const etag = await contentEtag(payload.revision_id, path, representationKey);
   // Only short-circuit when the 200 path would actually serve: a workspace-less
   // token 404s below (prepareEncryptedObjectResponse), so a conditional request
@@ -105,11 +103,7 @@ export async function serveSignedObject(
     // Validate against the exact headers the 200 would carry (per-path CSP,
     // content-type, and cache-control) so the 304 cannot weaken them: RFC 9111 §4.3.4 lets a 304
     // replace the cached response's headers.
-    return notModifiedResponse(
-      context,
-      payload,
-      responseHeadersForPath(path, 0, payload, etag, request, capabilityRequest),
-    );
+    return notModifiedResponse(context, payload, responseHeadersForPath(path, 0, payload, etag, request));
   }
 
   const object =
@@ -135,7 +129,7 @@ export async function serveSignedObject(
     served.bytes && injectsNoindex ? transformHtmlBytes(served.bytes, { noindex: injectsNoindex }) : served.bytes;
   const size = bytes ? bytes.byteLength : served.plaintextSize;
 
-  const headers = responseHeadersForPath(path, size, payload, etag, request, capabilityRequest);
+  const headers = responseHeadersForPath(path, size, payload, etag, request);
   // A HEAD has no body to measure, so it reports the arithmetic plaintext size.
   // When HTML injection would grow the GET body, that size is wrong, so drop
   // content-length rather than advertise a length the GET would not match.
@@ -376,10 +370,9 @@ export function responseHeadersForPath(
   payload: ContentTokenPayload,
   etag: string,
   request?: Request,
-  capabilityRequest = false,
 ): Headers {
-  const scriptDisabled = !capabilityRequest && payload.script_disabled !== false;
-  const served = servedContentForPath(path, { scriptDisabled, capability: capabilityRequest });
+  const scriptDisabled = payload.script_disabled !== false;
+  const served = servedContentForPath(path, { scriptDisabled });
   const headers = new Headers(securityHeaders);
   headers.set("cache-control", CONTENT_CACHE_CONTROL);
   headers.set("etag", etag);
@@ -455,16 +448,9 @@ function transformHtmlBytes(bytes: Uint8Array, options: { noindex: boolean }): U
   return new TextEncoder().encode(html);
 }
 
-export function contentRepresentationKey(
-  path: string,
-  payload: ContentTokenPayload,
-  capabilityRequest = false,
-): string | undefined {
+export function contentRepresentationKey(path: string, payload: ContentTokenPayload): string | undefined {
   if (!isHtmlPath(path)) {
     return undefined;
-  }
-  if (capabilityRequest) {
-    return payload.noindex === true ? "capability:noindex" : "capability";
   }
   const scriptDisabled = payload.script_disabled !== false;
   const parts: string[] = [];

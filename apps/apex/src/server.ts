@@ -41,6 +41,8 @@ const CLIENT_CONFIG_PATH = "/__client/config.json";
 const FUNNEL_EVENTS_PATH = "/__funnel/events";
 const CLAIM_CODE_PATTERN = /^clm_[0-9A-HJKMNP-TV-Z]{26}$/;
 const PROMPT_VARIANT_PATTERN = /^[a-z0-9][a-z0-9_:-]{0,79}$/;
+const CANONICAL_MARKETING_HOST = "agent-paste.sh";
+const MARKETING_ALIAS_HOSTS = new Set(["agent-paste.com", "www.agent-paste.com"]);
 
 export function isTextAssetPath(pathname: string): boolean {
   return TEXT_ASSET_PATHS.has(pathname) || /^\/docs\/[^/]+\.md$/.test(pathname);
@@ -57,6 +59,16 @@ export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const security = apexSecurityHeaders() as Record<string, string>;
+
+  if (MARKETING_ALIAS_HOSTS.has(url.hostname)) {
+    url.protocol = "https:";
+    url.hostname = CANONICAL_MARKETING_HOST;
+    url.port = "";
+    return new Response(null, {
+      status: 308,
+      headers: { location: url.toString(), "cache-control": "public, max-age=3600", ...security },
+    });
+  }
 
   if (url.pathname === FUNNEL_EVENTS_PATH) {
     return handleFunnelEvent(request, env, security);

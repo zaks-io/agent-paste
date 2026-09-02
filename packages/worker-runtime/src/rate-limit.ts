@@ -32,7 +32,7 @@ export async function applyRateLimit(
     case "actor":
       return applyActorRateLimit(principal, bindings);
     case "artifact":
-      return applyArtifactRateLimit(principal, bindings);
+      return applyArtifactRateLimit(principal, bindings, context.clientIp);
     case "ephemeral_provision":
       return applyEphemeralProvisionRateLimit(bindings, context.clientIp);
   }
@@ -93,18 +93,26 @@ async function applyActorRateLimit(principal: Principal, bindings: RateLimitBind
   return { ok: true } as const;
 }
 
-async function applyArtifactRateLimit(principal: Principal, bindings: RateLimitBindings | undefined) {
+async function applyArtifactRateLimit(
+  principal: Principal,
+  bindings: RateLimitBindings | undefined,
+  clientIp: string | undefined,
+) {
   const artifactId = artifactIdForPrincipal(principal);
   if (!artifactId) {
     return { ok: true } as const;
   }
 
-  const outcome = await checkRateLimit(bindings?.artifact, "artifact", artifactId);
+  const outcome = await checkRateLimit(bindings?.artifact, "artifact", artifactRateLimitKey(artifactId, clientIp));
   if (outcome !== "allowed") {
     return { ok: false, code: "rate_limited_artifact", retryAfter: "60" } as const;
   }
 
   return { ok: true } as const;
+}
+
+export function artifactRateLimitKey(artifactId: string, clientIp: string | undefined): string {
+  return `${artifactId}:${clientIp?.trim() || "unattributed"}`;
 }
 
 function actorForPrincipal(principal: Principal): ScopedActor | null {

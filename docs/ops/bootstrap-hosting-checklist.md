@@ -27,7 +27,8 @@ Prerequisites (pre-stage before starting):
 
 Scope:
 
-- DNS cutover on `agent-paste.sh` (Cloudflare account `a461d640900eb3905d7b6619c8c0da91`).
+- DNS and Worker routing on `agent-paste.sh`, `agent-paste.link`, and redirect-only
+  `agent-paste.com` (Cloudflare account `a461d640900eb3905d7b6619c8c0da91`).
 - Bitwarden capture of every production Worker secret and GitHub Actions secret.
 - GitHub `Production` environment approval policy + branch restriction.
 - End-to-end verification via `pnpm smoke:production`.
@@ -40,13 +41,17 @@ Out of scope:
 - Stable preview custom domains. PR preview lifecycle is tracked separately in [`status/hosted-ops.md`](./status/hosted-ops.md).
 - Secret rotation cadence (covered by [ADR 0045](../adr/0045-secret-rotation-cadence-and-on-demand-tooling.md)).
 
-## 1. DNS on `agent-paste.sh`
+## 1. DNS and Worker routes
 
-Live check on 2026-05-22: production DNS is not a blocker. Public DNS reports Cloudflare nameservers (`kay.ns.cloudflare.com`, `koa.ns.cloudflare.com`), the production hostnames resolve to Cloudflare anycast AAAA records, TLS validates, and these routes return `200`: `https://agent-paste.sh/`, `https://api.agent-paste.sh/openapi.json`, `https://upload.agent-paste.sh/openapi.json`, and `https://usercontent.agent-paste.sh/openapi.json`.
+The 2026-05-22 check confirmed the original `agent-paste.sh` product hosts. The
+`agent-paste.link` content zone and `agent-paste.com` aliases require fresh hosted
+verification before the domain migration is considered deployed.
 
 ### 1a. Confirm nameservers
 
 - [x] Registrar shows Cloudflare nameservers for `agent-paste.sh`. In the Cloudflare dashboard for account `a461d640900eb3905d7b6619c8c0da91`, the zone `agent-paste.sh` must read `Active`. **Codex verified** public nameservers on 2026-05-22; Isaac owns registrar changes if this ever regresses.
+- [ ] Cloudflare zones `agent-paste.link` and `agent-paste.com` read `Active`, with
+      Cloudflare-assigned nameservers configured at the registrar.
 - [ ] If the zone reads `Pending`, copy the two assigned `*.ns.cloudflare.com` hosts from the Cloudflare zone overview into the registrar's nameserver fields and wait for propagation (typically <1h). **Isaac only**.
 
 ### 1b. Custom-domain records
@@ -55,12 +60,15 @@ Wrangler creates these records automatically when `deploy:production` runs again
 
 Pulled from each `apps/*/wrangler.jsonc` `env.production.routes`:
 
-| Record (FQDN)                | Type | Target Worker                    | Source                        |
-| ---------------------------- | ---- | -------------------------------- | ----------------------------- |
-| `agent-paste.sh` (apex)      | AAAA | `agent-paste-apex-production`    | `apps/apex/wrangler.jsonc`    |
-| `api.agent-paste.sh`         | AAAA | `agent-paste-api-production`     | `apps/api/wrangler.jsonc`     |
-| `upload.agent-paste.sh`      | AAAA | `agent-paste-upload-production`  | `apps/upload/wrangler.jsonc`  |
-| `usercontent.agent-paste.sh` | AAAA | `agent-paste-content-production` | `apps/content/wrangler.jsonc` |
+| Record (FQDN)                  | Type | Target Worker                    | Source                                   |
+| ------------------------------ | ---- | -------------------------------- | ---------------------------------------- |
+| `agent-paste.sh` (apex)        | AAAA | `agent-paste-apex-production`    | `apps/apex/wrangler.jsonc`               |
+| `api.agent-paste.sh`           | AAAA | `agent-paste-api-production`     | `apps/api/wrangler.jsonc`                |
+| `upload.agent-paste.sh`        | AAAA | `agent-paste-upload-production`  | `apps/upload/wrangler.jsonc`             |
+| `usercontent.agent-paste.link` | AAAA | `agent-paste-content-production` | `apps/content/wrangler.jsonc`            |
+| `*.agent-paste.link`           | AAAA | `agent-paste-content-production` | `scripts/lib/content-capability-dns.mjs` |
+| `agent-paste.com`              | AAAA | `agent-paste-apex-production`    | `apps/apex/wrangler.jsonc`               |
+| `www.agent-paste.com`          | AAAA | `agent-paste-apex-production`    | `apps/apex/wrangler.jsonc`               |
 
 Verify in Cloudflare dashboard -> `agent-paste.sh` -> Workers Routes / DNS:
 
@@ -73,7 +81,7 @@ External smoke (works once DNS resolves and TLS provisions):
 **Codex can handle** this smoke from the terminal.
 
 ```sh
-for host in agent-paste.sh api.agent-paste.sh upload.agent-paste.sh usercontent.agent-paste.sh; do
+for host in agent-paste.sh api.agent-paste.sh upload.agent-paste.sh usercontent.agent-paste.link agent-paste.com www.agent-paste.com; do
   echo "-- $host"
   dig +short "$host" AAAA
 done
@@ -85,7 +93,7 @@ curl -fsS -o /dev/null -w "api /openapi.json %{http_code} cert=%{ssl_verify_resu
 curl -fsS -o /dev/null -w "upload /openapi.json %{http_code} cert=%{ssl_verify_result}\n" \
   https://upload.agent-paste.sh/openapi.json
 curl -fsS -o /dev/null -w "content /openapi.json %{http_code} cert=%{ssl_verify_result}\n" \
-  https://usercontent.agent-paste.sh/openapi.json
+  https://usercontent.agent-paste.link/openapi.json
 ```
 
 `ssl_verify_result=0` means the cert validates. `200` on apex `/` and the three subdomain `/openapi.json` calls confirms the Cloudflare custom domains, certificates, and Worker routes are wired. The MVP `api`/`upload`/`content` Workers do not expose `/healthz`.
@@ -126,17 +134,17 @@ These come from external consoles and must be entered into Cloudflare / GitHub b
 
 Ownership: Isaac creates or copies `CLOUDFLARE_API_TOKEN` and `PRODUCTION_DATABASE_URL` from vendor consoles. **Codex can handle** fixed IDs, random local generation, GitHub secret mirroring, and verification once the sensitive values are available through the current shell.
 
-| Name                                   | Where used                                                     | How to generate / source                                                                                                                                                                                                                                    |
-| -------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CLOUDFLARE_ACCOUNT_ID`                | GitHub Actions (`deploy-production.yml`)                       | Fixed: `a461d640900eb3905d7b6619c8c0da91`. Org-inherited from `zaks-io`; confirm via `gh secret list --org zaks-io` (token may lack org-secret read; if so, trust the workflow run output).                                                                 |
-| `CLOUDFLARE_API_TOKEN`                 | GitHub Actions (`deploy-production.yml`)                       | Cloudflare dashboard -> My Profile -> API Tokens -> Create. Scopes: `Workers Scripts: Edit`, `Workers Routes: Edit`, `Workers KV Storage: Edit`, `Workers R2 Storage: Edit`, `Hyperdrive: Edit`, `Account Settings: Read`, `Zone:Read` on `agent-paste.sh`. |
-| `DATABASE_URL_MIGRATIONS_PRODUCTION`   | GitHub `Production` env (`deploy-production.yml` migrate step) | Neon console -> production branch -> Connection details -> Direct (NOT pooled), role `neondb_owner`. Legacy name `PRODUCTION_DATABASE_URL` still works until rotated.                                                                                       |
-| `DATABASE_URL_RUNTIME_PRODUCTION`      | Operator / Hyperdrive maintenance only                         | Neon console -> production branch -> Direct, role `app_role`. Used when updating Hyperdrive; not stored in deploy workflows. See [`runbook-neon-database-roles.md`](./runbook-neon-database-roles.md).                                                      |
-| `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY` | GitHub `Production` env (`deploy-production.yml` smoke step)   | Long-lived publish/read API key provisioned for production smoke only (not the harness). Store in Bitwarden and mirror to GitHub.                                                                                                                           |
-| `LINEAR_ACCESS_KEY`                    | GitHub Actions (`deploy-production.yml` release step)          | Linear release pipeline access key scoped to the Agent Paste team. Store in Bitwarden and mirror it to the GitHub repository secret; successful production deploys record the deployed commit SHA as the Linear release version after smoke passes.         |
-| `TURBO_TOKEN`                          | Optional remote cache for trusted CI / deploy workflows        | `zaks-io` org secret when inherited, or repo secret if org inheritance is unavailable. PR validation falls back to local cache when absent; public external PR CI is intentionally disabled until a no-secret path exists.                                  |
-| `TURBO_TEAM`                           | Optional remote cache for trusted CI / deploy workflows        | `zaks-io` org var (`zaks-io`) when inherited, or repo variable if org inheritance is unavailable. PR validation falls back to local cache when absent; public external PR CI is intentionally disabled until a no-secret path exists.                       |
-| `TURBO_REMOTE_CACHE_SIGNATURE_KEY`     | All workflows (remote cache integrity)                         | Generate once: `openssl rand -hex 32`. Set as repo or org secret.                                                                                                                                                                                           |
+| Name                                   | Where used                                                     | How to generate / source                                                                                                                                                                                                                                                                                               |
+| -------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_ACCOUNT_ID`                | GitHub Actions (`deploy-production.yml`)                       | Fixed: `a461d640900eb3905d7b6619c8c0da91`. Org-inherited from `zaks-io`; confirm via `gh secret list --org zaks-io` (token may lack org-secret read; if so, trust the workflow run output).                                                                                                                            |
+| `CLOUDFLARE_API_TOKEN`                 | GitHub Actions (`deploy-production.yml`)                       | Cloudflare dashboard -> My Profile -> API Tokens -> Create. Scopes: `Workers Scripts: Edit`, `Workers Routes: Edit`, `Workers KV Storage: Edit`, `Workers R2 Storage: Edit`, `Hyperdrive: Edit`, `Account Settings: Read`, `Zone:Read`, and `DNS:Edit` on `agent-paste.sh`, `agent-paste.link`, and `agent-paste.com`. |
+| `DATABASE_URL_MIGRATIONS_PRODUCTION`   | GitHub `Production` env (`deploy-production.yml` migrate step) | Neon console -> production branch -> Connection details -> Direct (NOT pooled), role `neondb_owner`. Legacy name `PRODUCTION_DATABASE_URL` still works until rotated.                                                                                                                                                  |
+| `DATABASE_URL_RUNTIME_PRODUCTION`      | Operator / Hyperdrive maintenance only                         | Neon console -> production branch -> Direct, role `app_role`. Used when updating Hyperdrive; not stored in deploy workflows. See [`runbook-neon-database-roles.md`](./runbook-neon-database-roles.md).                                                                                                                 |
+| `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY` | GitHub `Production` env (`deploy-production.yml` smoke step)   | Long-lived publish/read API key provisioned for production smoke only (not the harness). Store in Bitwarden and mirror to GitHub.                                                                                                                                                                                      |
+| `LINEAR_ACCESS_KEY`                    | GitHub Actions (`deploy-production.yml` release step)          | Linear release pipeline access key scoped to the Agent Paste team. Store in Bitwarden and mirror it to the GitHub repository secret; successful production deploys record the deployed commit SHA as the Linear release version after smoke passes.                                                                    |
+| `TURBO_TOKEN`                          | Optional remote cache for trusted CI / deploy workflows        | `zaks-io` org secret when inherited, or repo secret if org inheritance is unavailable. PR validation falls back to local cache when absent; public external PR CI is intentionally disabled until a no-secret path exists.                                                                                             |
+| `TURBO_TEAM`                           | Optional remote cache for trusted CI / deploy workflows        | `zaks-io` org var (`zaks-io`) when inherited, or repo variable if org inheritance is unavailable. PR validation falls back to local cache when absent; public external PR CI is intentionally disabled until a no-secret path exists.                                                                                  |
+| `TURBO_REMOTE_CACHE_SIGNATURE_KEY`     | All workflows (remote cache integrity)                         | Generate once: `openssl rand -hex 32`. Set as repo or org secret.                                                                                                                                                                                                                                                      |
 
 PR-preview-only values (`NEON_API_KEY`, `NEON_PROJECT_ID`, `NEON_PRODUCTION_BRANCH_ID`, `CLOUDFLARE_WORKERS_SUBDOMAIN`) are intentionally not production blockers.
 
@@ -217,7 +225,7 @@ Pass criteria (the script asserts each line; failure throws):
 - `whoami` resolves the smoke workspace.
 - API key is prefixed `ap_pk_production_` (pre-provisioned secret).
 - `publish` returns `artifact_id` (`art_*`), `revision_id` (`rev_*`), `title`,
-  `expires_at`, and `url` on `https://{capability-id}.agent-paste.sh/`.
+  `expires_at`, and `url` on `https://{capability-id}.agent-paste.link/`.
 - The Artifact root returns `200` HTML matching the smoke fixture directly,
   without an app viewer or iframe.
 - Apex `https://agent-paste.sh/` returns `200` HTML with no cookies, plus `/llms.txt` (`text/plain`) and `/agents.md` (`text/markdown`).
@@ -240,7 +248,7 @@ curl -fsS -o /dev/null -w "apex /agents.md %{http_code}\n"   https://agent-paste
 curl -fsS -o /dev/null -w "upload /openapi.json %{http_code}\n" https://upload.agent-paste.sh/openapi.json
 
 # 5. Content sanity (expect 404, NOT 401/500: content rejects unknown tokens with 404)
-curl -fsS -o /dev/null -w "content unknown %{http_code}\n"   https://usercontent.agent-paste.sh/v/invalid/x
+curl -fsS -o /dev/null -w "content unknown %{http_code}\n"   https://usercontent.agent-paste.link/v/invalid/x
 ```
 
 All `%{http_code}` values must be `200` except the final one which must be `404`.

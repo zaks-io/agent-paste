@@ -39,8 +39,8 @@ _Avoid_: share, make public, set visibility
 <a id="artifact-url"></a><a id="artifact-viewer"></a>
 **Artifact URL**:
 The no-login top-level website returned by Publish. Production shape:
-`https://{32-lowercase-hex}.agent-paste.sh/`. Preview shape:
-`https://{32-lowercase-hex}-preview.agent-paste.sh/`. It keeps the same hostname
+`https://{32-lowercase-hex}.agent-paste.link/`. Preview shape:
+`https://{32-lowercase-hex}-preview.agent-paste.link/`. It keeps the same hostname
 when the Artifact advances to a new Published Revision.
 _Avoid_: Artifact Viewer, Private Link, Access Link, Share Link, app page
 
@@ -191,9 +191,12 @@ return the same contract as CLI and REST.
   enforcement needs it.
 - A **Service Binding** is trusted Worker-to-Worker transport, not product
   authority.
-- **CSP** on Artifact websites is compatibility-oriented for generated pages:
-  inline scripts, eval, external HTTPS dependencies, data and blob assets,
-  workers, fetch, and secure WebSockets are allowed.
+- **CSP** on claimed Artifact websites is compatibility-oriented for generated
+  pages: inline scripts, eval, external HTTPS dependencies, data and blob
+  assets, dedicated workers, fetch, and secure WebSockets are allowed.
+- **CSP** on ephemeral Artifact websites is static: scripts, connections,
+  workers, forms, frames, objects, and base-URL changes are blocked until claim.
+- Service workers are unsupported on every Artifact tier.
 - Every Artifact response denies framing with `frame-ancestors 'none'` and
   `X-Frame-Options: DENY`.
 

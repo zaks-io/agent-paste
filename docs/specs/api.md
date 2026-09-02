@@ -5,14 +5,14 @@ lives in `packages/contracts`.
 
 ## Hosts
 
-| Surface   | Host                                                                | Owns                                                                                                                 |
-| --------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `api`     | `https://api.agent-paste.sh`                                        | Authenticated CLI/MCP control plane, Agent View, artifact metadata, web/operator routes, billing, and ephemeral API. |
-| `upload`  | `https://upload.agent-paste.sh`                                     | Upload Sessions, signed upload-worker PUT URLs, R2 writes, and finalize validation.                                  |
-| `content` | `https://{id}.agent-paste.sh`, `https://usercontent.agent-paste.sh` | Capability websites and legacy signed file reads from private R2.                                                    |
-| `web`     | `https://app.agent-paste.sh`                                        | Dashboard, WorkOS auth, claim, and billing UI.                                                                       |
-| `mcp`     | `https://mcp.agent-paste.sh`                                        | OAuth-only Streamable HTTP MCP.                                                                                      |
-| `apex`    | `https://agent-paste.sh`                                            | Marketing, legal, install scripts, agent text surfaces, and public docs.                                             |
+| Surface   | Host                                                                    | Owns                                                                                                                 |
+| --------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `api`     | `https://api.agent-paste.sh`                                            | Authenticated CLI/MCP control plane, Agent View, artifact metadata, web/operator routes, billing, and ephemeral API. |
+| `upload`  | `https://upload.agent-paste.sh`                                         | Upload Sessions, signed upload-worker PUT URLs, R2 writes, and finalize validation.                                  |
+| `content` | `https://{id}.agent-paste.link`, `https://usercontent.agent-paste.link` | Capability websites and legacy signed file reads from private R2.                                                    |
+| `web`     | `https://app.agent-paste.sh`                                            | Dashboard, WorkOS auth, claim, and billing UI.                                                                       |
+| `mcp`     | `https://mcp.agent-paste.sh`                                            | OAuth-only Streamable HTTP MCP.                                                                                      |
+| `apex`    | `https://agent-paste.sh`                                                | Marketing, legal, install scripts, agent text surfaces, and public docs.                                             |
 
 Preview hosts use the same path contracts with preview-specific hostnames and secrets.
 
@@ -296,7 +296,7 @@ even while the session is still open.
   "artifact_id": "art_...",
   "revision_id": "rev_...",
   "title": "demo",
-  "url": "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+  "url": "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
   "expires_at": "2026-06-19T12:00:00.000Z"
 }
 ```

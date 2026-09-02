@@ -1,5 +1,9 @@
 import { type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
-import { encryptArtifactBytes, workspaceBlobObjectKeyFor } from "@agent-paste/storage";
+import {
+  encryptArtifactBytes,
+  SCRIPT_DISABLED_CONTENT_SECURITY_POLICY,
+  workspaceBlobObjectKeyFor,
+} from "@agent-paste/storage";
 import type { ContentTokenPayload } from "@agent-paste/tokens/content";
 import { type BoundRespondersVariables, boundRespondersMiddleware } from "@agent-paste/worker-runtime";
 import { Hono } from "hono";
@@ -143,9 +147,9 @@ describe("serve-object response headers", () => {
     expect(headers.get("content-disposition")).toBe('attachment; filename="payload.bin"');
   });
 
-  it("applies strict SVG CSP override", () => {
+  it("applies the script-disabled policy to SVG", () => {
     const headers = responseHeadersForPath("chart.svg", 10, basePayload(), ETAG);
-    expect(headers.get("content-security-policy")).toBe("default-src 'none'; style-src 'unsafe-inline'; img-src data:");
+    expect(headers.get("content-security-policy")).toBe(SCRIPT_DISABLED_CONTENT_SECURITY_POLICY);
   });
 
   it("fails closed to script-disabled when script_disabled is omitted", () => {

@@ -631,11 +631,22 @@ describe("web routes", () => {
     expect(response.headers.get("location")).toBe("https://workos.example.test/sign-in?return=/dashboard");
 
     const signOutResponse = await signOut.Route.server.handlers.POST({
-      request: new Request("https://app.test/api/auth/sign-out"),
+      request: new Request("https://app.test/api/auth/sign-out", {
+        method: "POST",
+        headers: { origin: "https://app.test" },
+      }),
     });
     expect(signOutResponse.status).toBe(303);
     expect(signOutResponse.headers.get("location")).toBe("https://workos.example.test/sign-out");
     expect(state.signOut).toHaveBeenCalledWith("session_1");
+    const crossOriginSignOut = await signOut.Route.server.handlers.POST({
+      request: new Request("https://app.test/api/auth/sign-out", {
+        method: "POST",
+        headers: { origin: "https://attacker.example" },
+      }),
+    });
+    expect(crossOriginSignOut.status).toBe(403);
+    expect(state.signOut).toHaveBeenCalledTimes(1);
     const callbackResponse = await callback.Route.server.handlers.GET({
       request: new Request("https://app.test/api/auth/callback"),
     });
@@ -695,7 +706,7 @@ function artifactDetailRow() {
     entrypoint: "index.html",
     file_count: 1,
     size_bytes: 1024,
-    url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+    url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
   };
 }
 

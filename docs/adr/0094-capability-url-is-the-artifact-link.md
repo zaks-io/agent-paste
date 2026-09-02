@@ -1,11 +1,11 @@
 # The Capability URL Is the Artifact Link
 
-Status: Accepted and implemented. Supersedes the Share Link surface of [ADR 0086](./0086-publish-is-content-only-private-first.md), amends [ADR 0093](./0093-capability-scoped-content-origins.md), and retires the app-wrapped viewer decided in [ADR 0014](./0014-single-domain-with-hardened-content-subdomain.md).
+Status: Accepted and implemented. Supersedes the Share Link surface of [ADR 0086](./0086-publish-is-content-only-private-first.md), amends [ADR 0093](./0093-capability-scoped-content-origins.md), and retires the app-wrapped viewer decided in [ADR 0014](./0014-single-domain-with-hardened-content-subdomain.md). Its domain and all-tiers-open-CSP decisions are amended by [ADR 0095](./0095-isolate-active-content-and-restore-ephemeral-execution-policy.md).
 
 Publishing returns exactly one URL, and that URL is the capability origin itself:
 
 ```text
-https://{32-lowercase-hex-id}.agent-paste.sh/
+https://{32-lowercase-hex-id}.agent-paste.link/
 ```
 
 The document opens top-level as a first-class page with a real origin. There is no
@@ -35,20 +35,19 @@ routinely did not.
    and encoded as all 32 lowercase hexadecimal characters. The link survives
    revisions; a revise updates the same URL. Revoke deletes the manifest and
    mints a fresh capability on the next publish.
-2. **Top-level serving with scripts enabled.** The content Worker serves
+2. **Top-level serving with tier-selected scripts.** The content Worker serves
    capability-host requests as ordinary top-level documents. The fetch-metadata
    inert-copy mode is removed; a copied URL is the link, not a leak. Capability
    responses still deny framing with `frame-ancestors 'none'` and
    `X-Frame-Options: DENY`, as specified in
-   [Content Rendering](../specs/content-rendering.md). Ephemeral publishes lose
-   the `script_disabled` override and render like any other artifact.
-3. **Fully open content CSP.** Scripts, styles, fonts, images, media, and
+   [Content Rendering](../specs/content-rendering.md). ADR 0095 restores the
+   `script_disabled` override for ephemeral publishes.
+3. **Open claimed-content CSP.** Scripts, styles, fonts, images, media, and
    `connect-src` allow HTTPS sources plus inline and evaluated scripts. Response hardening that
    does not restrict artifact behavior stays: `nosniff`, no-referrer,
    `x-robots-tag: noindex` for ephemeral, the denylist, rate limits, and the
-   generic 404. The SVG-specific strict CSP is removed too; SVG receives the
-   same open artifact CSP as every other inline-served type. Abuse control is
-   the denylist and the scan strategy, not CSP.
+   generic 404. ADR 0095 applies a separate restricted CSP to ephemeral content
+   and blocks service workers on every tier.
 4. **`/al` access links are removed now.** The web route, the resolve endpoint,
    the access-link live-update endpoints, and Share Link minting are deleted.
    Existing `/al` links stop resolving; this is an explicit breaking change for
@@ -81,12 +80,8 @@ routinely did not.
   brand bar and live-update push at the cost of retaining the entire framing
   and sandbox surface this ADR exists to delete, and two ways to view one
   artifact.
-- **Separate registrable usercontent domain.** The standard isolation posture
-  once artifacts execute top-level scripts, because Safe Browsing flags apply to
-  the registrable domain. Deferred, not rejected: capability hosts stay on
-  `*.agent-paste.sh` for now, and the deferred risk is that one abusive
-  artifact can reputation-flag `agent-paste.sh` itself. Revisit before any
-  growth push.
+- **Separate registrable usercontent domain.** Initially deferred, then adopted
+  by ADR 0095 as `agent-paste.link` before a growth push.
 
 ## Consequences
 
@@ -96,9 +91,8 @@ routinely did not.
 - The private-first model of ADR 0086 is superseded: every publish is
   reachable by its unguessable URL without a separate share bit. The member-only
   `/artifacts/{artifact-id}` console remains login-walled for management.
-- Artifacts execute with a real per-capability origin. Nothing sensitive lives
-  on those origins; the host-only session cookie is never sent to them. The
-  parent-scoped theme and analytics preference cookies are non-sensitive.
+- Artifacts execute with a real per-capability origin on the separate
+  `agent-paste.link` site. Product cookies are never sent to them.
 - The capability hostname remains visible to DNS, SNI, and browser history, as
   accepted in ADR 0093. It is now the entire secret rather than defense in
   depth.

@@ -74,6 +74,7 @@ export type {
 export {
   applyEphemeralProvisionRateLimit,
   applyRateLimit,
+  artifactRateLimitKey,
   type RateLimitBinding,
   type RateLimitBindings,
 } from "./rate-limit.js";
@@ -85,6 +86,7 @@ export {
   type Handler,
   type HeaderGuardState,
 } from "./registrar.js";
+export { clientIpFromRequest } from "./registrar-request.js";
 export {
   assertRouteRepositoryErrorsDeclared,
   collectRouteRepositoryDeclarationFailures,

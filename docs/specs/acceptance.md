@@ -9,8 +9,8 @@ An authenticated or ephemeral publish is accepted when all of these are true:
   `url`, and `expires_at`. The `--ephemeral` CLI wrapper adds provisioning and
   optional claim fields around that same publish result.
 - `url` is immediately usable without login.
-- Production uses `https://{32-lowercase-hex}.agent-paste.sh/`.
-- Preview uses `https://{32-lowercase-hex}-preview.agent-paste.sh/`.
+- Production uses `https://{32-lowercase-hex}.agent-paste.link/`.
+- Preview uses `https://{32-lowercase-hex}-preview.agent-paste.link/`.
 - A later publish to the same Artifact keeps the hostname and advances the
   content shown after refresh.
 - Claiming an ephemeral Artifact keeps the same URL and immediately refreshes
@@ -18,8 +18,13 @@ An authenticated or ephemeral publish is accepted when all of these are true:
   retention deadline.
 - HTML opens top-level. No dashboard viewer, iframe, redirect, or visibility
   command is required.
-- Inline scripts, `eval`, Tailwind's browser CDN, external HTTPS dependencies,
-  data and blob assets, workers, fetch, and secure WebSockets are allowed.
+- Claimed Artifacts allow inline scripts, `eval`, Tailwind's browser CDN,
+  external HTTPS dependencies, data and blob assets, dedicated Web Workers,
+  fetch, and secure WebSockets.
+- Ephemeral Artifacts block scripts, connections, workers, forms, frames,
+  objects, and base-URL changes while retaining static styles, images, fonts,
+  and media.
+- Service-worker script requests never serve uploaded bytes on any tier.
 - The response denies framing with `frame-ancestors 'none'` and
   `X-Frame-Options: DENY`.
 - A missing capability domain, signing secret, manifest write binding, or URL is
@@ -41,5 +46,6 @@ contract and cannot be minted by the current publish surface.
 ## Verification
 
 The release gate includes unit and contract tests, OpenAPI goldens, hosted
-publish smoke, capability-host routing checks, CSP checks, and a browser run
-that proves inline JavaScript executes without a CSP console error.
+publish smoke, capability-host routing checks, both tier CSPs, a browser run
+that proves claimed inline JavaScript executes, and an ephemeral browser run
+that proves uploaded scripts and forms cannot execute or submit.

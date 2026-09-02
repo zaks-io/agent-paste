@@ -12,7 +12,12 @@ const workspaceId = "00000000-0000-4000-8000-000000000001";
 const capabilityId = "00112233445566778899aabbccddeeff";
 const capabilityDomain = "content.example.test";
 const capabilityOrigin = `https://${capabilityId}.${capabilityDomain}`;
-async function capabilityFixture(input?: { accessLinkId?: string; expiresAt?: number | null; manifest?: string }) {
+async function capabilityFixture(input?: {
+  accessLinkId?: string;
+  expiresAt?: number | null;
+  manifest?: string;
+  scriptDisabled?: boolean;
+}) {
   const paths = ["index.html", "page2.html", "assets/app.js"];
   const token = await mintContentToken(
     {
@@ -21,7 +26,7 @@ async function capabilityFixture(input?: { accessLinkId?: string; expiresAt?: nu
       revision_id: "rev_1",
       ...(input?.accessLinkId ? { access_link_id: input.accessLinkId } : {}),
       paths,
-      script_disabled: false,
+      script_disabled: input?.scriptDisabled ?? false,
       exp: input && "expiresAt" in input ? (input.expiresAt ?? null) : Math.floor(Date.now() / 1000) + 60,
     },
     "secret",
@@ -113,6 +118,68 @@ describe("content capability routing", () => {
     );
     expect(entrypoint.headers.get("x-frame-options")).toBe("DENY");
     expect(entrypointBody).not.toContain("agent-paste:viewer-height");
+  });
+
+  it("keeps ephemeral capability content static", async () => {
+    const { env } = await capabilityFixture({ scriptDisabled: true });
+
+    const response = await handleRequest(new Request(`${capabilityOrigin}/`), env);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-security-policy")).toContain("script-src 'none'");
+    expect(response.headers.get("content-security-policy")).toContain("connect-src 'none'");
+    expect(response.headers.get("content-security-policy")).toContain("worker-src 'none'");
+    expect(response.headers.get("content-security-policy")).toContain("form-action 'none'");
+  });
+
+  it("retires service workers on every current and legacy artifact host without reading storage", async () => {
+    const { env } = await capabilityFixture();
+    env.CONTENT_LEGACY_CAPABILITY_DOMAIN = "legacy.example.test";
+    env.CONTENT_LEGACY_BASE_URL = "https://usercontent.legacy.example.test";
+    env.ARTIFACTS = { get: vi.fn(async () => null) };
+
+    for (const origin of [
+      capabilityOrigin,
+      `https://${capabilityId}.legacy.example.test`,
+      "https://usercontent.example.test",
+      "https://usercontent.legacy.example.test",
+    ]) {
+      const response = await handleRequest(
+        new Request(`${origin}/sw.js`, { headers: { "Service-Worker": "script" } }),
+        env,
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(response.headers.get("clear-site-data")).toBe('"cache", "cookies", "storage"');
+      await expect(response.text()).resolves.toContain("registration.unregister");
+    }
+    expect(env.ARTIFACTS.get).not.toHaveBeenCalled();
+  });
+
+  it("redirects legacy capability hosts to the same path and query on the content domain", async () => {
+    const { env } = await capabilityFixture();
+    env.CONTENT_LEGACY_CAPABILITY_DOMAIN = "legacy.example.test";
+
+    const response = await handleRequest(
+      new Request(`http://${capabilityId}.legacy.example.test/docs/readme.html?mode=raw`),
+      env,
+    );
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe(
+      `https://${capabilityId}.${capabilityDomain}/docs/readme.html?mode=raw`,
+    );
+    expect(response.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("fails closed when current and legacy capability domains are equal", async () => {
+    const { env } = await capabilityFixture();
+    env.CONTENT_LEGACY_CAPABILITY_DOMAIN = capabilityDomain;
+
+    const response = await handleRequest(new Request(`${capabilityOrigin}/`), env);
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "internal_error" } });
   });
 
   it("accepts non-expiring tokens only after capability-host resolution", async () => {
@@ -273,6 +340,29 @@ describe("content capability routing", () => {
     );
 
     const response = await handleRequest(new Request(`https://usercontent.example.test/v/${token}/page2.html`), env);
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toContain("page two");
+  });
+
+  it("keeps signed URLs on an explicitly configured legacy base host working", async () => {
+    const { env } = await capabilityFixture();
+    env.CONTENT_LEGACY_BASE_URL = "https://usercontent.legacy.example.test";
+    const token = await mintContentToken(
+      {
+        workspace_id: workspaceId,
+        artifact_id: "art_1",
+        revision_id: "rev_1",
+        paths: ["page2.html"],
+        exp: Math.floor(Date.now() / 1000) + 60,
+      },
+      "secret",
+    );
+
+    const response = await handleRequest(
+      new Request(`https://usercontent.legacy.example.test/v/${token}/page2.html`),
+      env,
+    );
 
     expect(response.status).toBe(200);
     await expect(response.text()).resolves.toContain("page two");

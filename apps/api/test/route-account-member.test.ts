@@ -120,11 +120,10 @@ describe("AP-91 member artifact route modules", () => {
     expect(invalidCursor.status).toBe(400);
   });
 
-  it("deletes member artifacts with idempotency fallback and no replay side effects", async () => {
+  it("deletes member artifacts and confirms public-read invalidation", async () => {
     const rejected = await deleteMemberArtifactRoute(contextFor(), nonePrincipal(), {} as never, {});
     expect(rejected.status).toBe(401);
 
-    const peekWorkspaceCommandReplay = vi.fn(async () => null);
     const deleteMemberArtifact = vi.fn(async () => ({
       workspace_id: workspaceId,
       artifact_id: "art_1",
@@ -132,15 +131,16 @@ describe("AP-91 member artifact route modules", () => {
       deleted_at: "2026-01-01T00:00:00.000Z",
     }));
     const ok = await deleteMemberArtifactRoute(
-      contextFor({ params: { artifact_id: "art_1" } }),
+      contextFor({
+        params: { artifact_id: "art_1" },
+        env: { DENYLIST: { put: vi.fn(async () => undefined) } } as never,
+      }),
       apiPrincipal(),
-      { peekWorkspaceCommandReplay, deleteMemberArtifact } as never,
+      { deleteMemberArtifact } as never,
       {},
     );
     expect(ok.status).toBe(200);
-    expect(peekWorkspaceCommandReplay).toHaveBeenCalledWith(
-      expect.objectContaining({ idempotencyKey: "mcp-delete:art_1", operation: "artifact.delete" }),
-    );
+    expect(deleteMemberArtifact).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: "mcp-delete:art_1" }));
     await expect(responseJson(ok)).resolves.toEqual({
       artifact_id: "art_1",
       deleted_at: "2026-01-01T00:00:00.000Z",

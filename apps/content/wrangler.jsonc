@@ -9,11 +9,11 @@
     "enabled": true,
     "logs": {
       "enabled": true,
+      "invocation_logs": false,
       "destinations": ["axiom-logs"]
     },
     "traces": {
-      "enabled": true,
-      "destinations": ["axiom-traces"]
+      "enabled": false
     }
   },
   "upload_source_maps": true,
@@ -62,8 +62,12 @@
       "workers_dev": true,
       "routes": [
         {
-          "pattern": "usercontent.preview.agent-paste.sh",
+          "pattern": "usercontent.preview.agent-paste.link",
           "custom_domain": true
+        },
+        {
+          "pattern": "*-preview.agent-paste.link/*",
+          "zone_name": "agent-paste.link"
         },
         {
           "pattern": "*-preview.agent-paste.sh/*",
@@ -72,8 +76,10 @@
       ],
       "vars": {
         "AGENT_PASTE_ENV": "preview",
-        "CONTENT_BASE_URL": "https://usercontent.preview.agent-paste.sh",
-        "CONTENT_CAPABILITY_DOMAIN": "agent-paste.sh",
+        "CONTENT_BASE_URL": "https://usercontent.preview.agent-paste.link",
+        "CONTENT_LEGACY_BASE_URL": "https://usercontent.preview.agent-paste.sh",
+        "CONTENT_CAPABILITY_DOMAIN": "agent-paste.link",
+        "CONTENT_LEGACY_CAPABILITY_DOMAIN": "agent-paste.sh",
         "CONTENT_CAPABILITY_HOST_SUFFIX": "-preview",
         "CONTENT_SIGNING_KID": "v1",
         "DOCS_BASE_URL": ""
@@ -115,21 +121,26 @@
       "workers_dev": false,
       "routes": [
         {
-          "pattern": "usercontent.agent-paste.sh",
+          "pattern": "usercontent.agent-paste.link",
           "custom_domain": true
         },
         {
-          // Cloudflare Routes run before Custom Domains, including nested preview
-          // product hosts. The forwarding rules below preserve explicit origins
-          // and numeric per-PR web origins while every other host fails closed.
+          "pattern": "*.agent-paste.link/*",
+          "zone_name": "agent-paste.link"
+        },
+        {
+          // Retain the old wildcard only to redirect existing capability URLs and
+          // preserve the explicit product-host forwarding required on this zone.
           "pattern": "*.agent-paste.sh/*",
           "zone_name": "agent-paste.sh"
         }
       ],
       "vars": {
         "AGENT_PASTE_ENV": "production",
-        "CONTENT_BASE_URL": "https://usercontent.agent-paste.sh",
-        "CONTENT_CAPABILITY_DOMAIN": "agent-paste.sh",
+        "CONTENT_BASE_URL": "https://usercontent.agent-paste.link",
+        "CONTENT_LEGACY_BASE_URL": "https://usercontent.agent-paste.sh",
+        "CONTENT_CAPABILITY_DOMAIN": "agent-paste.link",
+        "CONTENT_LEGACY_CAPABILITY_DOMAIN": "agent-paste.sh",
         "CONTENT_ROUTE_ORIGIN_HOSTS": "api.agent-paste.sh,app.agent-paste.sh,mcp.agent-paste.sh,stream.agent-paste.sh,upload.agent-paste.sh,api.preview.agent-paste.sh,app.preview.agent-paste.sh,mcp.preview.agent-paste.sh,stream.preview.agent-paste.sh,upload.preview.agent-paste.sh,usercontent.preview.agent-paste.sh,preview.agent-paste.sh",
         "CONTENT_ROUTE_PR_PREVIEW_DOMAIN": "preview.agent-paste.sh",
         "CONTENT_SIGNING_KID": "v1",

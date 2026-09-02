@@ -9,6 +9,7 @@ import { contentBaseUrl } from "./runtime.js";
 export type ContentSigningAuth = {
   workspaceId?: string;
   noindex?: boolean;
+  scriptDisabled?: boolean;
 };
 
 export type ContentSigningOptions = {
@@ -128,7 +129,7 @@ function contentTokenPayload(
   return {
     artifact_id: artifactId,
     revision_id: revisionId,
-    script_disabled: false,
+    script_disabled: auth?.scriptDisabled !== false,
     ...(auth?.workspaceId ? { workspace_id: auth.workspaceId } : {}),
     ...(auth?.noindex ? { noindex: true } : {}),
     ...(Array.isArray(options.paths) ? { paths: options.paths } : {}),

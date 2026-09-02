@@ -28,7 +28,7 @@ describe("smoke-readonly readonlyConfig", () => {
   it("resolves production custom-domain defaults and leaves jobs undefined", () => {
     const c = readonlyConfig("production");
     expect(c.apiBaseUrl).toBe("https://api.agent-paste.sh");
-    expect(c.contentBaseUrl).toBe("https://usercontent.agent-paste.sh");
+    expect(c.contentBaseUrl).toBe("https://usercontent.agent-paste.link");
     expect(c.streamBaseUrl).toBe("https://stream.agent-paste.sh");
     // jobs has no public route in production — must stay undefined so it is skipped.
     expect(c.jobsBaseUrl).toBeUndefined();
@@ -37,7 +37,7 @@ describe("smoke-readonly readonlyConfig", () => {
   it("exposes a jobs URL for preview", () => {
     const config = readonlyConfig("preview");
     expect(config.jobsBaseUrl).toContain("agent-paste-jobs-preview");
-    expect(config.contentBaseUrl).toBe("https://usercontent.preview.agent-paste.sh");
+    expect(config.contentBaseUrl).toBe("https://usercontent.preview.agent-paste.link");
   });
 
   it("honors AGENT_PASTE_<ENV>_<SURFACE>_URL overrides", () => {

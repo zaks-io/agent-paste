@@ -19,7 +19,7 @@ describe("content-capability-wrangler-config", () => {
       writeFileSync(
         apiPath,
         readFileSync(apiPath, "utf8").replaceAll(
-          '"CONTENT_CAPABILITY_DOMAIN": "agent-paste.sh"',
+          '"CONTENT_CAPABILITY_DOMAIN": "agent-paste.link"',
           '"CONTENT_CAPABILITY_DOMAIN": "content.example.test"',
         ),
       );
@@ -36,7 +36,7 @@ describe("content-capability-wrangler-config", () => {
       const contentPath = join(tempRoot, "apps/content/wrangler.jsonc");
       writeFileSync(
         contentPath,
-        readFileSync(contentPath, "utf8").replace("*.agent-paste.sh/*", "*-uc.agent-paste.sh/*"),
+        readFileSync(contentPath, "utf8").replace("*.agent-paste.link/*", "*-uc.agent-paste.link/*"),
       );
 
       expect(validateContentCapabilityWranglerConfig(tempRoot).join("\n")).toContain("exactly one");
@@ -50,14 +50,14 @@ describe("content-capability-wrangler-config", () => {
     try {
       const contentPath = join(tempRoot, "apps/content/wrangler.jsonc");
       const content = readFileSync(contentPath, "utf8");
-      const capabilityRoute = `          "pattern": "*.agent-paste.sh/*",
-          "zone_name": "agent-paste.sh"
+      const capabilityRoute = `          "pattern": "*.agent-paste.link/*",
+          "zone_name": "agent-paste.link"
         }`;
       writeFileSync(
         contentPath,
         content.replace(
           capabilityRoute,
-          `${capabilityRoute},\n        {\n          "pattern": "*.agent-paste.sh/*",\n          "zone_name": "agent-paste.sh"\n        }`,
+          `${capabilityRoute},\n        {\n          "pattern": "*.agent-paste.link/*",\n          "zone_name": "agent-paste.link"\n        }`,
         ),
       );
 
@@ -109,19 +109,19 @@ describe("content-capability-wrangler-config", () => {
     }
   });
 
-  it("rejects any additional agent-paste.sh route in preview", () => {
+  it("rejects any additional agent-paste.link route in preview", () => {
     const tempRoot = copyConfigs();
     try {
       const contentPath = join(tempRoot, "apps/content/wrangler.jsonc");
       const content = readFileSync(contentPath, "utf8");
-      const capabilityRoute = `          "pattern": "*-preview.agent-paste.sh/*",
-          "zone_name": "agent-paste.sh"
+      const capabilityRoute = `          "pattern": "*-preview.agent-paste.link/*",
+          "zone_name": "agent-paste.link"
         }`;
       writeFileSync(
         contentPath,
         content.replace(
           capabilityRoute,
-          `${capabilityRoute},\n        {\n          "pattern": "*.agent-paste.sh/*",\n          "zone_name": "agent-paste.sh"\n        }`,
+          `${capabilityRoute},\n        {\n          "pattern": "*.agent-paste.link/*",\n          "zone_name": "agent-paste.link"\n        }`,
         ),
       );
 

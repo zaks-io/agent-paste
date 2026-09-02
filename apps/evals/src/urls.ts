@@ -6,8 +6,8 @@ export type ClassifiedUrls = {
 };
 
 const URL_PATTERN = /https?:\/\/[^\s<>"'()[\]{}|\\^`*]+/g;
-const PRODUCTION_ARTIFACT_HOST = /^[0-9a-f]{32}\.agent-paste\.sh$/;
-const PREVIEW_ARTIFACT_HOST = /^[0-9a-f]{32}-preview\.agent-paste\.sh$/;
+const PRODUCTION_ARTIFACT_HOST = /^[0-9a-f]{32}\.agent-paste\.link$/;
+const PREVIEW_ARTIFACT_HOST = /^[0-9a-f]{32}-preview\.agent-paste\.link$/;
 
 export function classifyUrls(text: string): ClassifiedUrls {
   const urls = Array.from(new Set(text.match(URL_PATTERN) ?? [])).map(cleanUrl);
@@ -62,16 +62,20 @@ function isArtifactHost(hostname: string): boolean {
 }
 
 function isProductionAgentPasteHost(hostname: string): boolean {
-  if (hostname === "agent-paste.sh") {
+  if (hostname === "agent-paste.sh" || hostname === "agent-paste.link") {
     return true;
   }
-  return hostname.endsWith(".agent-paste.sh") && !isPreviewAgentPasteHost(hostname);
+  return (
+    (hostname.endsWith(".agent-paste.sh") || hostname.endsWith(".agent-paste.link")) &&
+    !isPreviewAgentPasteHost(hostname)
+  );
 }
 
 function isPreviewAgentPasteHost(hostname: string): boolean {
   return (
     hostname === "preview.agent-paste.sh" ||
     hostname.endsWith(".preview.agent-paste.sh") ||
+    hostname.endsWith(".preview.agent-paste.link") ||
     isPreviewArtifactHost(hostname)
   );
 }

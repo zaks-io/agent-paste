@@ -16,7 +16,7 @@ export const EPHEMERAL_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Ephemeral is an unclaimed Workspace with low write caps, 24-hour Auto Deletion, and `noindex`. Its Artifact URL uses the same script-enabled top-level rendering behavior as authenticated publish.",
+          text: "Ephemeral is an unclaimed Workspace with low write caps, 24-hour Auto Deletion, and `noindex`. Its Artifact URL renders static content while scripts, connections, forms, frames, objects, and workers stay blocked.",
         },
       ],
     },

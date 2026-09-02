@@ -38,7 +38,7 @@ export const SAFETY_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Every Artifact is served top-level from its own `{capability}.agent-paste.sh` origin, never the dashboard or API origin. R2 stays private and clients never receive direct storage URLs. The authentication cookie is host-only and is not sent to Artifact hosts.",
+          text: "Every Artifact is served top-level from its own `{capability}.agent-paste.link` origin, never the dashboard or API origin. R2 stays private and clients never receive direct storage URLs. The authentication cookie is host-only and is not sent to Artifact hosts.",
         },
       ],
     },
@@ -52,7 +52,7 @@ export const SAFETY_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Artifact HTML runs top-level with a compatibility-oriented CSP that allows inline scripts, external HTTPS dependencies, data and blob assets, workers, fetch, and secure WebSockets. `frame-ancestors 'none'` prevents another site from putting it back inside an iframe.",
+          text: "Claimed Artifact HTML runs top-level with a compatibility-oriented CSP that allows inline scripts, external HTTPS dependencies, data and blob assets, dedicated workers, fetch, and secure WebSockets. `frame-ancestors 'none'` prevents another site from putting it back inside an iframe.",
         },
       ],
     },
@@ -62,7 +62,7 @@ export const SAFETY_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Unclaimed ephemeral HTML uses the same script-enabled top-level policy as authenticated content. It differs through its shorter lifetime, lower write caps, and `noindex`, not through a second browser mode.",
+          text: "Unclaimed ephemeral HTML renders top-level with scripts, connections, forms, frames, objects, and workers blocked. Claiming the Artifact rewrites its capability with the claimed execution policy.",
         },
       ],
     },

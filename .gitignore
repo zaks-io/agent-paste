@@ -19,6 +19,9 @@ var/ops/
 .claude/launch.json
 .codex/worktrees/
 
+# Wrangler typegen embeds the public analytics token as a string literal.
+apps/apex/src/worker-configuration.d.ts
+
 # Local design-iteration scratch: rendered apex snapshots, fonts, brand assets
 # pulled down for offline preview. Never part of a commit.
 /preview/

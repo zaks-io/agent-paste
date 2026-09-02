@@ -12,12 +12,12 @@ export const SHARING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Publish returns `url`, the complete unguessable capability URL that opens without login. Its hostname is the 32-character capability ID under `agent-paste.sh`. It is the Artifact itself, not an app viewer or redirect.",
+          text: "Publish returns `url`, the complete unguessable capability URL that opens without login. Its hostname is the 32-character capability ID under `agent-paste.link`. It is the Artifact itself, not an app viewer or redirect.",
         },
         {
           kind: "code",
           language: "text",
-          code: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+          code: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
         },
         {
           kind: "paragraph",

@@ -9,11 +9,11 @@
     "enabled": true,
     "logs": {
       "enabled": true,
+      "invocation_logs": false,
       "destinations": ["axiom-logs"]
     },
     "traces": {
-      "enabled": true,
-      "destinations": ["axiom-traces"]
+      "enabled": false
     }
   },
   "upload_source_maps": true,
@@ -76,7 +76,7 @@
         "AGENT_PASTE_ENV": "preview",
         "API_KEY_ENV": "preview",
         "API_BASE_URL": "https://agent-paste-api-preview.isaac-a46.workers.dev",
-        "CONTENT_BASE_URL": "https://agent-paste-content-preview.isaac-a46.workers.dev",
+        "CONTENT_BASE_URL": "https://usercontent.preview.agent-paste.link",
         "UPLOAD_BASE_URL": "https://agent-paste-upload-preview.isaac-a46.workers.dev",
         "UPLOAD_URL_TTL_SECONDS": "900",
         "DOCS_BASE_URL": "",
@@ -139,7 +139,7 @@
         "AGENT_PASTE_ENV": "production",
         "API_KEY_ENV": "production",
         "API_BASE_URL": "https://api.agent-paste.sh",
-        "CONTENT_BASE_URL": "https://usercontent.agent-paste.sh",
+        "CONTENT_BASE_URL": "https://usercontent.agent-paste.link",
         "UPLOAD_BASE_URL": "https://upload.agent-paste.sh",
         "UPLOAD_URL_TTL_SECONDS": "900",
         "DOCS_BASE_URL": "",

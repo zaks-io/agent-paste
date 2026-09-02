@@ -66,7 +66,7 @@ describe("smoke-ephemeral-harness", () => {
     await expect(
       assertPublishOutput(
         samplePublishResult({
-          url: "https://0123456789abcdef0123456789abcdef-preview.agent-paste.sh/v/token/index.html",
+          url: "https://0123456789abcdef0123456789abcdef-preview.agent-paste.link/v/token/index.html",
         }),
         {
           target: "preview",
@@ -90,7 +90,7 @@ describe("smoke-ephemeral-harness", () => {
   it("rejects a lookalike preview capability hostname", async () => {
     await expect(
       assertPublishOutput(
-        samplePublishResult({ url: "https://0123456789abcdef0123456789abcdef-preview.agent-paste.sh.evil/" }),
+        samplePublishResult({ url: "https://0123456789abcdef0123456789abcdef-preview.agent-paste.link.evil/" }),
         {
           target: "preview",
           claimWebOrigin: "https://app.preview.agent-paste.sh",
@@ -102,7 +102,7 @@ describe("smoke-ephemeral-harness", () => {
 
   it("rejects a production capability hostname in preview", async () => {
     await expect(
-      assertPublishOutput(samplePublishResult({ url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/" }), {
+      assertPublishOutput(samplePublishResult({ url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/" }), {
         target: "preview",
         claimWebOrigin: "https://app.preview.agent-paste.sh",
         expectedClaimTokenPrefix: "ap_ct_preview_",
@@ -136,7 +136,7 @@ describe("smoke-ephemeral-harness", () => {
 });
 
 describe("assertContentPolicy", () => {
-  it("accepts script-compatible content that cannot be framed", async () => {
+  it("accepts static content with active behavior blocked", async () => {
     const server = await startContentServer();
     try {
       await expect(assertContentPolicy(server.baseUrl, "ap_ct_preview_secret")).resolves.toBeUndefined();
@@ -161,7 +161,7 @@ describe("assertContentPolicy", () => {
     try {
       await expect(
         assertContentPolicy(`${server.baseUrl}/duplicate-script-src`, "ap_ct_preview_secret"),
-      ).rejects.toThrow(/permits inline scripts/);
+      ).rejects.toThrow(/blocks scripts/);
     } finally {
       await server.close();
     }
@@ -283,9 +283,18 @@ function startContentServer() {
       }
 
       const path = request.url ?? "/";
-      const scriptPolicy = "default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:";
+      const scriptPolicy = [
+        "default-src 'none'",
+        "script-src 'none'",
+        "connect-src 'none'",
+        "worker-src 'none'",
+        "frame-src 'none'",
+        "object-src 'none'",
+        "base-uri 'none'",
+        "form-action 'none'",
+      ].join("; ");
       const effectiveScriptPolicy =
-        path === "/duplicate-script-src" ? `script-src 'none'; ${scriptPolicy}` : scriptPolicy;
+        path === "/duplicate-script-src" ? `script-src https:; ${scriptPolicy}` : scriptPolicy;
       const framePolicy =
         path === "/missing-frame-ancestors"
           ? effectiveScriptPolicy
@@ -312,7 +321,7 @@ function startContentServer() {
   });
 }
 
-const previewArtifactUrl = "https://0123456789abcdef0123456789abcdef-preview.agent-paste.sh/";
+const previewArtifactUrl = "https://0123456789abcdef0123456789abcdef-preview.agent-paste.link/";
 
 function samplePublishResult(overrides = {}) {
   return {

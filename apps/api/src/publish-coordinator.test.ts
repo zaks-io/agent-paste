@@ -64,7 +64,7 @@ function coordinatorFixture(
     WRITE_ALLOWANCE: writeAllowance,
     AGENT_PASTE_ENV: "production",
     CONTENT_SIGNING_SECRET: "content-secret",
-    CONTENT_CAPABILITY_DOMAIN: "agent-paste.sh",
+    CONTENT_CAPABILITY_DOMAIN: "agent-paste.link",
     ARTIFACTS: {
       async get(key: string) {
         const body = manifests.get(key);
@@ -155,7 +155,7 @@ describe("publish coordinator write-allowance reservation", () => {
 
     const result = await coordinator.publishRevision(publishInput);
 
-    expect(result).toHaveProperty("url", "https://00112233445566778899aabbccddeeff.agent-paste.sh");
+    expect(result).toHaveProperty("url", "https://00112233445566778899aabbccddeeff.agent-paste.link");
     expect(result).toHaveProperty("artifact_id");
     expect(result).not.toHaveProperty("private_url");
     expect(result).not.toHaveProperty("unlisted_url");

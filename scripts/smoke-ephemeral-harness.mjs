@@ -56,7 +56,7 @@ export function ephemeralHostedConfig(target) {
       slug: "production-ephemeral-smoke",
       apiBaseUrl: env("AGENT_PASTE_PRODUCTION_API_URL", "https://api.agent-paste.sh"),
       uploadBaseUrl: env("AGENT_PASTE_PRODUCTION_UPLOAD_URL", "https://upload.agent-paste.sh"),
-      contentBaseUrl: env("AGENT_PASTE_PRODUCTION_CONTENT_URL", "https://usercontent.agent-paste.sh"),
+      contentBaseUrl: env("AGENT_PASTE_PRODUCTION_CONTENT_URL", "https://usercontent.agent-paste.link"),
       webBaseUrl: env("AGENT_PASTE_PRODUCTION_WEB_URL", "https://app.agent-paste.sh"),
       harnessSecret: undefined,
       expectedClaimTokenPrefix: "ap_ct_production_",
@@ -163,9 +163,9 @@ export async function assertPublishOutput(published, { target = "local", claimWe
   );
   const expectedHost =
     target === "production"
-      ? /^[0-9a-f]{32}\.agent-paste\.sh$/
+      ? /^[0-9a-f]{32}\.agent-paste\.link$/
       : target === "preview" || target === "pr"
-        ? /^[0-9a-f]{32}-preview\.agent-paste\.sh$/
+        ? /^[0-9a-f]{32}-preview\.agent-paste\.link$/
         : /^(?:[0-9a-f]{32}\.artifact\.test|127\.0\.0\.1|localhost)$/;
   assertBoundary(expectedHost.test(artifactUrl.hostname), "publish", `url targets ${target} Artifact host`);
   assertBoundary(
@@ -198,16 +198,14 @@ export async function assertContentPolicy(artifactUrl, claimToken) {
   const directives = parseContentSecurityPolicy(csp);
   const scriptSrc = effectiveDirective(directives, "script-src", "default-src");
   const scriptSrcElem = effectiveDirective(directives, "script-src-elem", "script-src", "default-src");
-  assertBoundary(scriptSrc.includes("'unsafe-inline'"), "policy", "content CSP permits inline scripts");
-  assertBoundary(scriptSrc.includes("'unsafe-eval'"), "policy", "content CSP permits runtime script evaluation");
-  assertBoundary(scriptSrc.includes("https:"), "policy", "content CSP permits HTTPS script dependencies");
-  assertBoundary(scriptSrcElem.includes("'unsafe-inline'"), "policy", "content CSP permits inline script elements");
-  assertBoundary(scriptSrcElem.includes("https:"), "policy", "content CSP permits HTTPS script elements");
-  assertBoundary(
-    !scriptSrc.includes("'none'") && !scriptSrcElem.includes("'none'"),
-    "policy",
-    "content CSP does not disable scripts",
-  );
+  assertOnlyNone(scriptSrc, "content CSP blocks scripts");
+  assertOnlyNone(scriptSrcElem, "content CSP blocks script elements");
+  assertOnlyNone(effectiveDirective(directives, "connect-src", "default-src"), "content CSP blocks connections");
+  assertOnlyNone(effectiveDirective(directives, "worker-src", "child-src", "script-src"), "content CSP blocks workers");
+  assertOnlyNone(effectiveDirective(directives, "frame-src", "child-src", "default-src"), "content CSP blocks frames");
+  assertOnlyNone(effectiveDirective(directives, "object-src", "default-src"), "content CSP blocks objects");
+  assertOnlyNone(effectiveDirective(directives, "base-uri"), "content CSP blocks base URL changes");
+  assertOnlyNone(effectiveDirective(directives, "form-action"), "content CSP blocks forms");
   const frameAncestors = effectiveDirective(directives, "frame-ancestors");
   assertBoundary(frameAncestors.length === 1 && frameAncestors[0] === "'none'", "policy", "content CSP blocks framing");
   assertBoundary(
@@ -228,6 +226,10 @@ export async function assertContentPolicy(artifactUrl, claimToken) {
     "policy",
     "Artifact source retains the fixture title",
   );
+}
+
+function assertOnlyNone(sources, detail) {
+  assertBoundary(sources.length === 1 && sources[0] === "'none'", "policy", detail);
 }
 
 function parseContentSecurityPolicy(value) {

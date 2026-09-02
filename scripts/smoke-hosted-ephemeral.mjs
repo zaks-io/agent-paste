@@ -132,7 +132,7 @@ Workspace:    ${published.workspace_id}
 Artifact URL: ${published.url}
 Claim URL:    ${published.claim_url.replace(/#.*$/, "#<redacted>")}
 Provision:    rate limits and provision wait accepted the request
-Policy:       script-enabled Artifact CSP, noindex, ephemeral write allowance
+Policy:       restricted static Artifact CSP, noindex, ephemeral write allowance
 ${claimSummary}
 ${cleanupSummary}
 `);

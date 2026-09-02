@@ -23,7 +23,8 @@ public launch. AP-139 and AP-254 are Done. AP-160 and AP-235 are archived/parked
 in Linear; revive them only if Snyk SAST gating or a hosted-content provenance
 badge becomes a current launch requirement. (The file-bytes malware scanner,
 AP-149, was cancelled as too expensive; containment already bounds the risk.
-Built-in warnings, Llama Guard, and URL Scanner remain advisory signals.)
+Built-in warnings and Llama Guard remain advisory signals. URL Scanner is paused until scale
+justifies its operating cost.)
 
 Security/ops debt remains parked below: Cloudflare Access now gates the
 production operator web/API paths, and the hosted API environments now carry the
@@ -32,24 +33,11 @@ the human browser `/admin` check both passed on 2026-05-26. The legacy `ADMIN_TO
 Richer operator event/audit browsing shipped in AP-16, with the follow-up
 coverage gate restored in PR #92.
 
-Active local handoff: ADR 0094 capability-URL-is-the-link redesign (Isaac
-directive, 2026-08-24). The `{id}-uc` capability origin becomes the one URL a
-publish returns, served top-level with scripts and an open CSP; `/al` access
-links, the viewer iframe/sandbox, and the ephemeral `script_disabled` override
-are removed; publish strips `integrity`/`crossorigin` attributes. Serialized
-PRs: (1) ADR + backlog, (2) durable capability + api/content serving posture +
-spec updates, (3) delete `/al` + web viewer rewire, (4) publish-time HTML
-normalization, (5) shared publish-contract cutover + release + agent guidance.
-Step 2 implements one persisted capability ID per Artifact, removes the
-SVG-specific CSP override, stores a signed `exp: null`
-token for pinned Artifacts, rewrites the same manifest on revise/pin/unpin, and
-extends retryable expiration/revoke/delete cleanup to remove manifests. Remove
-the broad 91-day capability-manifest lifecycle rule before activation because
-it would delete valid pinned links.
-Step 5 changes REST, CLI, and MCP publish results from `private_url` to the
-single `url`: update `runPublish`, MCP `shapePublishOutput`, contracts, CLI/MCP
-tests, protocol instructions, docs (including all four apex surfaces), and
-preview/production deployment coverage; bump and release the CLI after merge.
+Active local handoff: ADR 0095 restores the ephemeral execution boundary and moves all
+Artifact capability hosts to `agent-paste.link`. Ephemeral tokens fail closed to a
+script-disabled policy; claimed Artifacts retain interactive execution. Service workers are
+unsupported on both tiers. Old capability hosts below `agent-paste.sh` redirect to `.link`,
+and old signed `usercontent.agent-paste.sh/v/...` URLs remain readable during migration.
 Specs update with the PR that changes each behavior. AP-236 shipped in PR #356. AP-109, AP-174, AP-181,
 and AP-242 are Done on `main`. Production deploys after launch were briefly
 blocked by a stale forbidden `SMOKE_HARNESS_SECRET` on
@@ -200,7 +188,7 @@ usage.
        content/job decrypt support.
 2. [x] Product warning metadata behind the existing queue/interface.
        Publishes may enqueue `safety-scan`, and the jobs worker can store
-       built-in warning metadata plus ephemeral Llama Guard/URL Scanner signals
+       built-in warning metadata plus ephemeral Llama Guard signals
        for Agent View reads and abuse response. This is not malware
        certification and is not part of the trust model.
 3. [x] Stronger audit semantics and operator abuse workflows.

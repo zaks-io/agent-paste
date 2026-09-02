@@ -58,7 +58,7 @@ function serverPublishResult() {
     artifact_id: ARTIFACT_ID,
     revision_id: REVISION_ID,
     title: "Note",
-    url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+    url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
     expires_at: "2026-12-01T00:00:00.000Z",
   };
 }
@@ -72,7 +72,7 @@ function baseAgentView(over: Record<string, unknown> = {}) {
     created_at: "2026-01-01T00:00:00.000Z",
     expires_at: "2026-12-01T00:00:00.000Z",
     entrypoint: "content.txt",
-    url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+    url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
     revision_content_url: "https://content.example/v/token/content.txt",
     files: [
       { path: "content.txt", size_bytes: 4, content_type: "text/plain", url: "https://content.example/content.txt" },
@@ -224,7 +224,7 @@ describe("callMcpTool", () => {
       created_at: "2026-01-01T00:00:00.000Z",
       expires_at: "2026-12-01T00:00:00.000Z",
       entrypoint: "index.md",
-      url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+      url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
       revision_content_url: "https://view.example",
       files: [
         {
@@ -310,7 +310,7 @@ describe("callMcpTool", () => {
       expect(result.result).toMatchObject({
         artifact_id: ARTIFACT_ID,
         revision_id: REVISION_ID,
-        url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+        url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
         title: "Note",
       });
       expect(result.result).not.toHaveProperty("shared");
@@ -432,7 +432,7 @@ describe("callMcpTool", () => {
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.result).toMatchObject({ url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/" });
+      expect(result.result).toMatchObject({ url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/" });
       expect(result.result).not.toHaveProperty("shared");
     }
     // Reused target => the signed PUT is never issued.
@@ -475,7 +475,7 @@ describe("callMcpTool", () => {
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.result).toMatchObject({ url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/" });
+      expect(result.result).toMatchObject({ url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/" });
     }
     // The create-session request targets the existing artifact, publishes under the base
     // revision, and carries the BASE title — not the literal "Revision" the old code wrote.
@@ -505,7 +505,7 @@ describe("callMcpTool", () => {
     if (result.ok) {
       expect(result.result).toMatchObject({
         title: "Original Title",
-        url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+        url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
       });
     }
     // Byte-identical body: no upload session is ever created.
@@ -532,7 +532,7 @@ describe("callMcpTool", () => {
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.result).toMatchObject({ url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/" });
+      expect(result.result).toMatchObject({ url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/" });
     }
     // Publishes under the existing artifact + base revision, preserving the base title.
     const createBody = (await (upload.fetch.mock.calls[0]?.[0] as Request).json()) as {
@@ -567,7 +567,7 @@ describe("callMcpTool", () => {
     if (result.ok) {
       expect(result.result).toMatchObject({
         title: "Original Title",
-        url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+        url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
       });
     }
     expect(upload.fetch).not.toHaveBeenCalled();

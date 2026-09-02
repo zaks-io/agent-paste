@@ -97,7 +97,7 @@ Put the anti-abuse weight where it actually binds, in priority order:
 2. **Lean on the layers that already scale with the threat, not with hash rate:** short
    ephemeral Auto Deletion (1 day), script-disabled execution policy for ephemeral content
    (the actual containment), `noindex`/`nofollow`, rate limits, advisory Llama
-   Guard/URL Scanner signals, and Platform Lockdown. These are what make a
+   Guard signals, and Platform Lockdown. These are what make a
    successful flood low-value; PoW never was.
 3. **Make the limits operator-tunable for real.** Today difficulty is hardcoded
    (`pow.ts:4`) and the rate-limit values live in `wrangler.jsonc` (edit + redeploy). ADR

@@ -40,4 +40,11 @@ export async function refreshClaimedArtifactCapabilities(
       attributes: { artifact_id: artifactIds[index] },
     });
   }
+  const failures = results.filter((result) => result.status === "rejected");
+  if (failures.length > 0) {
+    throw new AggregateError(
+      failures.map((failure) => failure.reason),
+      `Failed to refresh ${failures.length} claimed Artifact capability manifest(s).`,
+    );
+  }
 }

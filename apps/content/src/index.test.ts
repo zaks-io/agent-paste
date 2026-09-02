@@ -1,5 +1,5 @@
 import { routeContracts } from "@agent-paste/contracts";
-import { encryptArtifactBytes } from "@agent-paste/storage";
+import { encryptArtifactBytes, SCRIPT_DISABLED_CONTENT_SECURITY_POLICY } from "@agent-paste/storage";
 import {
   seedEncryptedRevisionFile,
   testArtifactBytesEncryptionEnv as sharedTestEncryptionEnv,
@@ -158,10 +158,15 @@ describe("content worker", () => {
       },
     });
 
-    const response = await handleRequest(new Request(`https://content.test/v/${token}/index.html`), env);
+    const response = await handleRequest(
+      new Request(`https://content.test/v/${token}/index.html`, {
+        headers: { "CF-Connecting-IP": "203.0.113.10" },
+      }),
+      env,
+    );
 
     expect(response.status).toBe(200);
-    expect(rateLimitKeys).toEqual(["art_1"]);
+    expect(rateLimitKeys).toEqual(["art_1:203.0.113.10"]);
     expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
     expect(response.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     expect(response.headers.get("referrer-policy")).toBe("no-referrer");
@@ -402,12 +407,15 @@ describe("content worker", () => {
     });
 
     const response = await handleRequest(
-      new Request(`https://content.test/v/${token}/index.html`, { method: "HEAD" }),
+      new Request(`https://content.test/v/${token}/index.html`, {
+        method: "HEAD",
+        headers: { "CF-Connecting-IP": "203.0.113.11" },
+      }),
       env,
     );
 
     expect(response.status).toBe(200);
-    expect(rateLimitKeys).toEqual(["art_1"]);
+    expect(rateLimitKeys).toEqual(["art_1:203.0.113.11"]);
     expect(response.headers.get("content-length")).toBe("11");
     await expect(response.text()).resolves.toBe("");
   });
@@ -469,14 +477,16 @@ describe("content worker", () => {
       },
       ARTIFACT_RATE_LIMIT: {
         async limit({ key }) {
-          expect(key).toBe("art_1");
+          expect(key).toBe("art_1:203.0.113.12");
           return { success: false };
         },
       },
     });
 
     const response = await handleRequest(
-      new Request(`https://content.test/v/${token}/index.html`, { headers: { "x-request-id": "limit-req-12345" } }),
+      new Request(`https://content.test/v/${token}/index.html`, {
+        headers: { "CF-Connecting-IP": "203.0.113.12", "x-request-id": "limit-req-12345" },
+      }),
       env,
     );
     const body = (await response.json()) as { error: { code: string; request_id: string } };
@@ -781,9 +791,7 @@ describe("content worker", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("image/svg+xml");
-    expect(response.headers.get("content-security-policy")).toBe(
-      "default-src 'none'; style-src 'unsafe-inline'; img-src data:",
-    );
+    expect(response.headers.get("content-security-policy")).toBe(SCRIPT_DISABLED_CONTENT_SECURITY_POLICY);
   });
 
   it("serves signed bundle downloads from /b/{token} using key_prefix", async () => {
@@ -1163,7 +1171,7 @@ describe("content conditional requests", () => {
     expect(conditional.headers.get("content-length")).toBeNull();
   });
 
-  it("preserves the strict SVG CSP on a 304", async () => {
+  it("preserves the script-disabled SVG CSP on a 304", async () => {
     const token = await tokenFor("chart.svg");
     const stored = await encryptedArtifactObject({
       artifactId: "art_1",
@@ -1182,9 +1190,7 @@ describe("content conditional requests", () => {
     );
 
     expect(conditional.status).toBe(304);
-    expect(conditional.headers.get("content-security-policy")).toBe(
-      "default-src 'none'; style-src 'unsafe-inline'; img-src data:",
-    );
+    expect(conditional.headers.get("content-security-policy")).toBe(SCRIPT_DISABLED_CONTENT_SECURITY_POLICY);
     expect(conditional.headers.get("content-security-policy")).toBe(first.headers.get("content-security-policy"));
   });
 
@@ -1268,7 +1274,7 @@ describe("CSP header per content type", () => {
   it("pins direct HTML to the script-disabled CSP", async () => {
     const response = await fetchServedFile("index.html", "ok", {});
     expect(response.headers.get("content-security-policy")).toMatchInlineSnapshot(
-      `"default-src 'self' data: blob: https:; script-src 'none'; style-src 'self' 'unsafe-inline' data: blob: https:; font-src 'self' data: blob: https:; img-src 'self' data: blob: https:; connect-src 'self' data: blob: https: wss:; media-src 'self' data: blob: https:; worker-src 'self' blob: https:; frame-ancestors 'none'"`,
+      `"default-src 'none'; script-src 'none'; style-src 'self' 'unsafe-inline' data: blob: https:; font-src 'self' data: blob: https:; img-src 'self' data: blob: https:; connect-src 'none'; media-src 'self' data: blob: https:; worker-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"`,
     );
   });
 
@@ -1295,10 +1301,10 @@ describe("CSP header per content type", () => {
     );
   });
 
-  it("pins the SVG strict CSP override", async () => {
+  it("uses the claimed-content policy for SVG", async () => {
     const response = await fetchServedFile("chart.svg");
     expect(response.headers.get("content-security-policy")).toMatchInlineSnapshot(
-      `"default-src 'none'; style-src 'unsafe-inline'; img-src data:"`,
+      `"default-src 'self' data: blob: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:; style-src 'self' 'unsafe-inline' data: blob: https:; font-src 'self' data: blob: https:; img-src 'self' data: blob: https:; connect-src 'self' data: blob: https: wss:; media-src 'self' data: blob: https:; worker-src 'self' blob: https:; frame-ancestors 'none'"`,
     );
   });
 
@@ -1312,7 +1318,7 @@ describe("CSP header per content type", () => {
   it("pins the script-disabled HTML CSP for ephemeral-tier tokens", async () => {
     const response = await fetchServedFile("index.html", "ok", { script_disabled: true, noindex: true });
     expect(response.headers.get("content-security-policy")).toMatchInlineSnapshot(
-      `"default-src 'self' data: blob: https:; script-src 'none'; style-src 'self' 'unsafe-inline' data: blob: https:; font-src 'self' data: blob: https:; img-src 'self' data: blob: https:; connect-src 'self' data: blob: https: wss:; media-src 'self' data: blob: https:; worker-src 'self' blob: https:; frame-ancestors 'none'"`,
+      `"default-src 'none'; script-src 'none'; style-src 'self' 'unsafe-inline' data: blob: https:; font-src 'self' data: blob: https:; img-src 'self' data: blob: https:; connect-src 'none'; media-src 'self' data: blob: https:; worker-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"`,
     );
   });
 
