@@ -1,6 +1,11 @@
 # Capability-Scoped Content Origins on agent-paste.sh
 
-Status: Accepted. Amends [ADR 0014](./0014-single-domain-with-hardened-content-subdomain.md) with a capability-scoped hostname shape while retaining its shared registrable-domain decision, and amends [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md).
+Status: Accepted and amended by [ADR 0094](./0094-capability-url-is-the-artifact-link.md) and [ADR 0095](./0095-isolate-active-content-and-restore-ephemeral-execution-policy.md). Its original hostname suffix and shared registrable-domain decisions are historical.
+
+The remainder of this ADR records the original decision and rollout state. Its
+`.agent-paste.sh` hostnames, iframe assumptions, and inactive-rollout statements
+are superseded. Use the current specifications, ADR 0094, and ADR 0095 for the
+implemented behavior.
 
 Published directories use one unguessable hostname per resolved viewer capability:
 

@@ -3,6 +3,7 @@ import { isBillingEnabled } from "@agent-paste/config";
 import { type AnalyticsEngineDataset, sentryOptions, writeFunnelEvent } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { textAssets } from "./build/text-assets";
+import { API_CATALOG_PATH, DISCOVERY_LINK_HEADER, isHomepagePath } from "./discovery";
 import { productRedirect } from "./redirects";
 import { apexSecurityHeaders } from "./security-headers";
 
@@ -34,6 +35,7 @@ const TEXT_ASSET_PATHS = new Set([
   "/sitemap.xml",
   GPC_SUPPORT_PATH,
   "/.well-known/security.txt",
+  API_CATALOG_PATH,
 ]);
 
 // Agent Skills discovery documents (Agent Skills Discovery RFC v0.2.0). The
@@ -49,6 +51,8 @@ const CLIENT_CONFIG_PATH = "/__client/config.json";
 const FUNNEL_EVENTS_PATH = "/__funnel/events";
 const CLAIM_CODE_PATTERN = /^clm_[0-9A-HJKMNP-TV-Z]{26}$/;
 const PROMPT_VARIANT_PATTERN = /^[a-z0-9][a-z0-9_:-]{0,79}$/;
+const CANONICAL_MARKETING_HOST = "agent-paste.sh";
+const MARKETING_ALIAS_HOSTS = new Set(["agent-paste.com", "www.agent-paste.com"]);
 
 export function isTextAssetPath(pathname: string): boolean {
   return TEXT_ASSET_PATHS.has(pathname) || /^\/docs\/[^/]+\.md$/.test(pathname);
@@ -65,6 +69,16 @@ export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const security = apexSecurityHeaders() as Record<string, string>;
+
+  if (MARKETING_ALIAS_HOSTS.has(url.hostname)) {
+    url.protocol = "https:";
+    url.hostname = CANONICAL_MARKETING_HOST;
+    url.port = "";
+    return new Response(null, {
+      status: 308,
+      headers: { location: url.toString(), "cache-control": "public, max-age=3600", ...security },
+    });
+  }
 
   if (url.pathname === FUNNEL_EVENTS_PATH) {
     return handleFunnelEvent(request, env, security);
@@ -113,6 +127,9 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
     const headers = new Headers(assetResponse.headers);
     for (const [name, value] of Object.entries(security)) {
       headers.set(name, value as string);
+    }
+    if (isHomepagePath(url.pathname)) {
+      headers.set("link", DISCOVERY_LINK_HEADER);
     }
     if (url.pathname.startsWith(AGENT_SKILLS_PREFIX)) {
       headers.set("access-control-allow-origin", "*");

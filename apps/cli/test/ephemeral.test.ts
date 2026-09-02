@@ -67,7 +67,7 @@ describe("cli ephemeral publish", () => {
       const human = String(stdout.mock.calls.at(-1)?.[0]);
       const claimUrl = ephemeralClaimUrl(claimToken);
       expect(claimUrl).toBe(`https://app.agent-paste.sh/claim#${claimToken}`);
-      const artifactUrl = "https://0123456789abcdef0123456789abcdef-preview.agent-paste.sh/";
+      const artifactUrl = "https://0123456789abcdef0123456789abcdef-preview.agent-paste.link/";
       expect(human).toContain(artifactUrl);
       expect(human).toContain(claimUrl);
       expect(human.indexOf(artifactUrl)).toBeLessThan(human.indexOf(claimUrl));
@@ -128,7 +128,7 @@ describe("cli ephemeral publish", () => {
 
       expect(provision).toHaveBeenCalledWith({ claimCode });
       const human = String(stdout.mock.calls.at(-1)?.[0]);
-      expect(human).toContain("https://0123456789abcdef0123456789abcdef-preview.agent-paste.sh/");
+      expect(human).toContain("https://0123456789abcdef0123456789abcdef-preview.agent-paste.link/");
       expect(human).toContain(`https://app.agent-paste.sh/claim#${claimTokenWithClaimCode}`);
       expect(human).not.toContain("claim_code=");
       expect(human).not.toContain(`?${claimToken}`);
@@ -175,7 +175,7 @@ describe("cli ephemeral publish", () => {
 
       const payload = JSON.parse(String(stdout.mock.calls.at(-1)?.[0]));
       expect(payload).not.toHaveProperty("claim_code");
-      expect(payload.url).toBe("https://0123456789abcdef0123456789abcdef-preview.agent-paste.sh/");
+      expect(payload.url).toBe("https://0123456789abcdef0123456789abcdef-preview.agent-paste.link/");
       expect(payload).not.toHaveProperty("private_url");
       expect(payload).not.toHaveProperty("unlisted_url");
       expect(payload.claim_url).toBe(`https://app.agent-paste.sh/claim#${claimTokenWithClaimCode}`);
@@ -375,7 +375,7 @@ function fakePublishClient() {
     artifact_id: artifactId,
     revision_id: revisionId,
     title: "Published",
-    url: "https://0123456789abcdef0123456789abcdef-preview.agent-paste.sh/",
+    url: "https://0123456789abcdef0123456789abcdef-preview.agent-paste.link/",
     expires_at: "2026-02-01T00:00:00.000Z",
   });
   return {

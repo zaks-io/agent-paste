@@ -305,7 +305,7 @@ describe("signAgentViewContentUrls characterization", () => {
     expect(signed.bundle.url).toBeUndefined();
   });
 
-  it("sets noindex without disabling scripts when the agent view is ephemeral tier via options", async () => {
+  it("sets noindex and disables scripts when the agent view is ephemeral tier via options", async () => {
     const signed = (await signAgentViewContentUrls(
       {
         workspace_id: workspaceId,
@@ -321,10 +321,10 @@ describe("signAgentViewContentUrls characterization", () => {
 
     const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(payload?.noindex).toBe(true);
-    expect(payload?.script_disabled).toBe(false);
+    expect(payload?.script_disabled).toBe(true);
   });
 
-  it("sets noindex without disabling scripts when ephemeral_tier is present on the view payload", async () => {
+  it("sets noindex and disables scripts when ephemeral_tier is present on the view payload", async () => {
     const signed = (await signAgentViewContentUrls(
       {
         workspace_id: workspaceId,
@@ -340,7 +340,7 @@ describe("signAgentViewContentUrls characterization", () => {
 
     const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
     expect(payload?.noindex).toBe(true);
-    expect(payload?.script_disabled).toBe(false);
+    expect(payload?.script_disabled).toBe(true);
   });
 
   it("explicitly enables scripts for claimed tenants", async () => {
@@ -362,7 +362,7 @@ describe("signAgentViewContentUrls characterization", () => {
     expect(payload?.noindex).toBeUndefined();
   });
 
-  it("explicitly enables scripts when no workspace id is available for signing", async () => {
+  it("fails closed to disabled scripts when no ownership context is available", async () => {
     const signed = (await signAgentViewContentUrls(
       {
         artifact_id: "art_1",
@@ -374,7 +374,7 @@ describe("signAgentViewContentUrls characterization", () => {
     )) as { revision_content_url: string };
 
     const payload = await verifyContentToken(contentTokenFromUrl(signed.revision_content_url), "content-secret");
-    expect(payload?.script_disabled).toBe(false);
+    expect(payload?.script_disabled).toBe(true);
     expect(payload?.workspace_id).toBeUndefined();
   });
 

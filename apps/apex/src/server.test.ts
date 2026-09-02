@@ -170,6 +170,16 @@ describe("text and data assets", () => {
     expect(body).toContain("Sitemap: https://agent-paste.sh/sitemap.xml");
   });
 
+  it("reserves training rights in /robots.txt via a content signal", async () => {
+    const body = await (await get("/robots.txt")).text();
+    expect(body).toContain("Content-Signal: search=yes, ai-input=yes, ai-train=no");
+    // The signals are only an Article 4 reservation if the policy text they
+    // reference travels with them.
+    expect(body).toContain("ARTICLE 4 OF THE EUROPEAN");
+    // Directive must sit inside the user-agent group it applies to.
+    expect(body.indexOf("User-agent: *")).toBeLessThan(body.indexOf("Content-Signal:"));
+  });
+
   it("serves /.well-known/security.txt with public contact metadata", async () => {
     const response = await get("/.well-known/security.txt");
     expect(response.status).toBe(200);
@@ -363,6 +373,20 @@ describe("product redirects", () => {
   });
 });
 
+describe("marketing domain aliases", () => {
+  it.each([
+    "agent-paste.com",
+    "www.agent-paste.com",
+  ])("redirects %s to the exact canonical path and query", async (hostname) => {
+    const response = await handleRequest(new Request(`http://${hostname}/docs/sharing?source=alias`), env());
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get("location")).toBe("https://agent-paste.sh/docs/sharing?source=alias");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=3600");
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
+});
+
 describe("method gate and health", () => {
   it("answers OPTIONS preflight with 204 and an Allow header", async () => {
     const response = await handleRequest(new Request(`${APEX}/`, { method: "OPTIONS" }), env());
@@ -501,6 +525,7 @@ it("never sets cookies on any apex response", async () => {
     "/robots.txt",
     "/.well-known/gpc.json",
     "/.well-known/security.txt",
+    "/.well-known/api-catalog",
     "/__client/config.json",
     "/sitemap.xml",
     "/dashboard",
@@ -510,4 +535,66 @@ it("never sets cookies on any apex response", async () => {
     const response = await get(path);
     expect(response.headers.get("set-cookie"), `cookie on ${path}`).toBeNull();
   }
+});
+
+describe("agent discovery", () => {
+  function parseLinkHeader(value: string | null): { href: string; rel: string }[] {
+    expect(value).not.toBeNull();
+    return (value as string).split(/,\s*(?=<)/).map((entry) => {
+      // RFC 8288 field-value: a bracketed URI reference followed by parameters
+      // whose values are quoted-strings (so no nested quotes can sneak in).
+      expect(entry).toMatch(/^<[^>]+>(?:; [a-z-]+="[^"]*")+$/);
+      const href = entry.match(/^<([^>]+)>/)?.[1] as string;
+      const rel = entry.match(/rel="([^"]+)"/)?.[1] as string;
+      return { href, rel };
+    });
+  }
+
+  it("advertises the machine-readable entry points on the homepage", async () => {
+    const links = parseLinkHeader((await get("/")).headers.get("link"));
+    const byRel = (rel: string) => links.filter((link) => link.rel === rel).map((link) => link.href);
+
+    expect(byRel("api-catalog")).toEqual(["/.well-known/api-catalog"]);
+    expect(byRel("service-desc")).toEqual(["https://api.agent-paste.sh/openapi.json"]);
+    expect(byRel("service-doc")).toEqual(["/docs"]);
+    expect(byRel("describedby").sort()).toEqual(["/agents.md", "/llms.txt"]);
+  });
+
+  it("advertises the same links on HEAD and on /index.html", async () => {
+    const expected = (await get("/")).headers.get("link");
+    const head = await handleRequest(new Request(`${APEX}/`, { method: "HEAD" }), env());
+    expect(head.headers.get("link")).toBe(expected);
+    expect((await get("/index.html")).headers.get("link")).toBe(expected);
+  });
+
+  it("does not advertise discovery links on inner pages", async () => {
+    expect((await get("/docs")).headers.get("link")).toBeNull();
+    expect((await get("/llms.txt")).headers.get("link")).toBeNull();
+  });
+
+  it("serves an RFC 9727 api-catalog linkset", async () => {
+    const response = await get("/.well-known/api-catalog");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe(
+      'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"',
+    );
+
+    const document = JSON.parse(await response.text()) as {
+      linkset: { anchor: string; item?: { href: string }[]; [rel: string]: unknown }[];
+    };
+    const [catalog, ...apis] = document.linkset;
+    expect(catalog?.anchor).toBe("https://agent-paste.sh/.well-known/api-catalog");
+    expect(catalog?.item?.map((entry) => entry.href)).toEqual(apis.map((api) => api.anchor));
+
+    for (const api of apis) {
+      for (const rel of ["service-desc", "service-doc"]) {
+        const targets = api[rel] as { href: string; type: string }[];
+        expect(targets.length, `${api.anchor} ${rel}`).toBeGreaterThan(0);
+        for (const target of targets) {
+          expect(() => new URL(target.href)).not.toThrow();
+          expect(target.type).toMatch(/^[a-z]+\/[a-z0-9.+-]+$/);
+        }
+      }
+    }
+  });
 });

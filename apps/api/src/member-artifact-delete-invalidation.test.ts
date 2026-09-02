@@ -162,7 +162,7 @@ describe("member MCP artifact delete invalidation", () => {
       env,
     );
     expect(replayResponse.status).toBe(200);
-    expect(purgeSend).toHaveBeenCalledTimes(1);
+    expect(purgeSend).toHaveBeenCalledTimes(2);
     expect(denylist.values.size).toBe(1);
     expect(repo.revisions.get(revisionId)?.bytes_purge_enqueued_at).toEqual(expect.any(String));
   });

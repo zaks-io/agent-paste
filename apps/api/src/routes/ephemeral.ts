@@ -1,7 +1,7 @@
 import { ClaimCode } from "@agent-paste/contracts";
 import { parseClaimToken, type Repository } from "@agent-paste/db";
 import { getBoundResponders, writeFunnelEvent } from "@agent-paste/worker-runtime";
-import { refreshClaimedArtifactCapabilities } from "../artifact-capability.js";
+import { ClaimedArtifactCapabilityRefreshError, refreshClaimedArtifactCapabilities } from "../artifact-capability.js";
 import type { AppContext } from "../env.js";
 import {
   consumeEphemeralProvisionGate,
@@ -9,7 +9,7 @@ import {
 } from "../ephemeral-provision-gate.js";
 import { webMemberActor } from "../principals.js";
 import { waitForProvisionDelay } from "../provision-delay.js";
-import { runIdempotent } from "../responses.js";
+import { RepositoryRouteError, runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
 
 export async function ephemeralProvisionRoute(
@@ -94,7 +94,17 @@ export async function ephemeralClaimRoute(
         claimTokenSecret: guard.body.claim_token,
         idempotencyKey: guard.idempotencyKey,
       });
-      await refreshClaimedArtifactCapabilities(db, context.env, actor, result.artifact_ids);
+      try {
+        await refreshClaimedArtifactCapabilities(db, context.env, actor, result.artifact_ids);
+      } catch (error) {
+        if (error instanceof ClaimedArtifactCapabilityRefreshError) {
+          throw new RepositoryRouteError("storage_unavailable", undefined, {
+            cause: error,
+            headers: { "Retry-After": "1" },
+          });
+        }
+        throw error;
+      }
       if (!isReplay) {
         writeFunnelEvent(context.env.FUNNEL_EVENTS, {
           kind: "link_claimed",

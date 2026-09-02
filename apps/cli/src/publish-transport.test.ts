@@ -4,7 +4,7 @@ import { apiClientTransport } from "./publish-transport.js";
 
 const ARTIFACT_ID = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" as never;
 const REVISION_ID = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" as never;
-const URL = "https://0123456789abcdef0123456789abcdef.agent-paste.sh/";
+const URL = "https://0123456789abcdef0123456789abcdef.agent-paste.link/";
 
 function clientWith(overrides: {
   publish: () => Promise<never>;

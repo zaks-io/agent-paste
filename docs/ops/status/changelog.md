@@ -169,7 +169,8 @@ boolean` instead of a fabricated workspace id; the five member-facing billing
   MalwareBazaar/VirusTotal provider integration. Existing containment
   (script-disabled ephemeral serving, locked CSP on the Content Origin, 24h
   auto-deletion + noindex) already bounds the distribution risk; the
-  built-in text warnings, Llama Guard, and URL Scanner stay in place.
+  built-in text warnings and Llama Guard stay in place. URL Scanner was later paused by
+  ADR 0095 because its operating cost is not justified at current scale.
 - Deferred the CLI `watch` auto-republish command (AP-167) to Backlog: an agent
   can publish repeatedly; no current need for auto-republish-on-change.
 - Decided against a public SDK (ADR 0017 was already "no SDK in the MVP"). The

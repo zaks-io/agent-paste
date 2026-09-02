@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadConfig } from "./config";
 import { verifyRunOutput } from "./verifier";
 
-const previewUrl = "https://0123456789abcdef0123456789abcdef-preview.agent-paste.sh/";
-const productionUrl = "https://0123456789abcdef0123456789abcdef.agent-paste.sh/";
+const previewUrl = "https://0123456789abcdef0123456789abcdef-preview.agent-paste.link/";
+const productionUrl = "https://0123456789abcdef0123456789abcdef.agent-paste.link/";
 const tempDirs: string[] = [];
 
 afterEach(async () => {
@@ -57,7 +57,7 @@ describe("verifyRunOutput", () => {
     });
 
     expect(result.passed).toBe(false);
-    expect(result.errors).toEqual(["wrong_environment_url:0123456789abcdef0123456789abcdef.agent-paste.sh"]);
+    expect(result.errors).toEqual(["wrong_environment_url:0123456789abcdef0123456789abcdef.agent-paste.link"]);
     expect(result.warnings).toEqual(["production_handoff_url_detected"]);
     expect(fetchSpy).not.toHaveBeenCalled();
   });

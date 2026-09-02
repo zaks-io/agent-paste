@@ -728,6 +728,28 @@ describe("api worker", () => {
     );
     expect(completed.status).toBe(200);
     await expect(completed.json()).resolves.toEqual({ ok: true, registration_id: "reg_completed" });
+
+    const refreshFailed = await handleRequest(
+      new Request("https://api.test/v1/web/agent-auth/claim/complete", {
+        method: "POST",
+        headers: { authorization: "Bearer workos-ok", "content-type": "application/json" },
+        body: JSON.stringify({ claim_attempt_token: "attempt", user_code: "123456" }),
+      }),
+      {
+        ...authEnv,
+        DB: webMemberDbForTests(["read", "publish"], {
+          async completeAgentAuthAnonymousClaim() {
+            return { ...agentRegistration("reg_completed", "anonymous"), claimed_artifact_ids: ["art_missing"] };
+          },
+          async getWebArtifact() {
+            return null;
+          },
+        }),
+      },
+    );
+    expect(refreshFailed.status).toBe(503);
+    expect(refreshFailed.headers.get("Retry-After")).toBe("1");
+    await expect(refreshFailed.json()).resolves.toMatchObject({ error: { code: "storage_unavailable" } });
   });
 
   it("serves a generated OpenAPI document", async () => {

@@ -25,6 +25,8 @@ const names = {
 // redirect URIs on public-suffix hosts like *.workers.dev, and a one-time
 // *.preview.agent-paste.sh redirect URI is registered in the preview WorkOS env.
 const webHost = `pr-${prNumber}.preview.agent-paste.sh`;
+const contentCapabilityDomain = "agent-paste.link";
+const contentCapabilityHostSuffix = `-pr-${prNumber}`;
 const urls = {
   api: `https://${names.api}.${workersSubdomain}.workers.dev`,
   upload: `https://${names.upload}.${workersSubdomain}.workers.dev`,
@@ -181,6 +183,8 @@ function apiConfig() {
       API_KEY_ENV: "preview",
       API_BASE_URL: urls.api,
       CONTENT_BASE_URL: urls.content,
+      CONTENT_CAPABILITY_DOMAIN: contentCapabilityDomain,
+      CONTENT_CAPABILITY_HOST_SUFFIX: contentCapabilityHostSuffix,
       CLEANUP_BATCH_SIZE: "100",
       EPHEMERAL_PROVISION_DELAY_MS: "200",
       AGENT_PASTE_ENV: "preview",
@@ -251,7 +255,16 @@ function contentConfig() {
   return baseConfig("content", {
     main: workspacePath("apps/content/src/index.ts"),
     compatibility_flags: ["nodejs_compat"],
+    routes: [
+      {
+        pattern: `*${contentCapabilityHostSuffix}.${contentCapabilityDomain}/*`,
+        zone_name: contentCapabilityDomain,
+      },
+    ],
     vars: {
+      CONTENT_BASE_URL: urls.content,
+      CONTENT_CAPABILITY_DOMAIN: contentCapabilityDomain,
+      CONTENT_CAPABILITY_HOST_SUFFIX: contentCapabilityHostSuffix,
       CONTENT_SIGNING_KID: "v1",
       AGENT_PASTE_ENV: "preview",
     },

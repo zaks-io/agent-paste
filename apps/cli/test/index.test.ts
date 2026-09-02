@@ -31,7 +31,7 @@ const usagePolicy = {
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const uploadSessionId = "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-const artifactUrl = "https://0123456789abcdef0123456789abcdef-preview.agent-paste.sh/";
+const artifactUrl = "https://0123456789abcdef0123456789abcdef-preview.agent-paste.link/";
 
 // Sandbox the per-artifact manifest cache (ADR 0090) so publish tests do
 // not write to the developer's real ~/.config/agent-paste.

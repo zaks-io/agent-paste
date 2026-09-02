@@ -1,4 +1,5 @@
 import {
+  contentCapabilityHostname,
   contentCapabilityIdFromHostname,
   contentCapabilityObjectKey,
   parseContentCapabilityDomain,
@@ -12,6 +13,7 @@ const capabilityRequests = new WeakSet<Request>();
 export type ContentCapabilityResolution =
   | { kind: "pass" }
   | { kind: "not_found" }
+  | { kind: "redirect"; location: string }
   | { kind: "request"; request: Request };
 
 export async function resolveContentCapabilityRequest(
@@ -23,10 +25,28 @@ export async function resolveContentCapabilityRequest(
     return { kind: "pass" };
   }
   const domain = parseContentCapabilityDomain(configuredDomain);
+  const legacyDomain = env.CONTENT_LEGACY_CAPABILITY_DOMAIN
+    ? parseContentCapabilityDomain(env.CONTENT_LEGACY_CAPABILITY_DOMAIN)
+    : undefined;
+  if (legacyDomain === domain) {
+    throw new Error("CONTENT_LEGACY_CAPABILITY_DOMAIN must differ from CONTENT_CAPABILITY_DOMAIN.");
+  }
   const url = new URL(request.url);
   const hostSuffix = env.CONTENT_CAPABILITY_HOST_SUFFIX;
-  if (isLegacyContentHostname(url.hostname, env.CONTENT_BASE_URL)) {
+  if (
+    isConfiguredContentHostname(url.hostname, env.CONTENT_BASE_URL, "CONTENT_BASE_URL") ||
+    isConfiguredContentHostname(url.hostname, env.CONTENT_LEGACY_BASE_URL, "CONTENT_LEGACY_BASE_URL")
+  ) {
     return { kind: "pass" };
+  }
+  const legacyCapabilityId = legacyDomain
+    ? contentCapabilityIdFromHostname(url.hostname, legacyDomain, hostSuffix)
+    : null;
+  if (legacyCapabilityId) {
+    url.protocol = "https:";
+    url.hostname = contentCapabilityHostname(legacyCapabilityId, domain, hostSuffix);
+    url.port = "";
+    return { kind: "redirect", location: url.toString() };
   }
   const capabilityId = contentCapabilityIdFromHostname(url.hostname, domain, hostSuffix);
   if (!capabilityId) {
@@ -47,14 +67,39 @@ export async function resolveContentCapabilityRequest(
   return { kind: "request", request: new Request(url, request) };
 }
 
-function isLegacyContentHostname(hostname: string, contentBaseUrl: string | undefined): boolean {
+export function isArtifactContentHostRequest(request: Request, env: Env): boolean {
+  const hostname = new URL(request.url).hostname;
+  const suffix = env.CONTENT_CAPABILITY_HOST_SUFFIX;
+  return Boolean(
+    isConfiguredContentHostname(hostname, env.CONTENT_BASE_URL, "CONTENT_BASE_URL") ||
+      isConfiguredContentHostname(hostname, env.CONTENT_LEGACY_BASE_URL, "CONTENT_LEGACY_BASE_URL") ||
+      contentCapabilityIdFromConfiguredDomain(hostname, env.CONTENT_CAPABILITY_DOMAIN, suffix) ||
+      contentCapabilityIdFromConfiguredDomain(hostname, env.CONTENT_LEGACY_CAPABILITY_DOMAIN, suffix),
+  );
+}
+
+function contentCapabilityIdFromConfiguredDomain(
+  hostname: string,
+  configuredDomain: string | undefined,
+  hostSuffix: string | undefined,
+): string | null {
+  return configuredDomain
+    ? contentCapabilityIdFromHostname(hostname, parseContentCapabilityDomain(configuredDomain), hostSuffix)
+    : null;
+}
+
+function isConfiguredContentHostname(
+  hostname: string,
+  contentBaseUrl: string | undefined,
+  variableName: string,
+): boolean {
   if (!contentBaseUrl) {
     return false;
   }
   try {
     return new URL(contentBaseUrl).hostname === hostname.toLowerCase();
   } catch {
-    throw new Error("CONTENT_BASE_URL must be an absolute URL.");
+    throw new Error(`${variableName} must be an absolute URL.`);
   }
 }
 

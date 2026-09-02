@@ -87,7 +87,7 @@ export function buildContentOpenApiDocument(options: ContentOpenApiOptions = {})
       version: "0.1.0",
       description: "Signed-URL static asset gateway for Agent Paste artifact files.",
     },
-    servers: [{ url: options.serverUrl ?? "https://usercontent.agent-paste.sh" }],
+    servers: [{ url: options.serverUrl ?? "https://usercontent.agent-paste.link" }],
     security: [{ SignedContentToken: [] }],
   });
   return document as unknown as Record<string, unknown>;

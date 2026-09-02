@@ -37,7 +37,7 @@ const DEFAULT_URLS = {
   preview: {
     api: "https://agent-paste-api-preview.isaac-a46.workers.dev",
     upload: "https://agent-paste-upload-preview.isaac-a46.workers.dev",
-    content: "https://usercontent.preview.agent-paste.sh",
+    content: "https://usercontent.preview.agent-paste.link",
     jobs: "https://agent-paste-jobs-preview.isaac-a46.workers.dev",
     stream: "https://stream.preview.agent-paste.sh",
     mcp: "https://mcp.preview.agent-paste.sh",
@@ -47,7 +47,7 @@ const DEFAULT_URLS = {
   production: {
     api: "https://api.agent-paste.sh",
     upload: "https://upload.agent-paste.sh",
-    content: "https://usercontent.agent-paste.sh",
+    content: "https://usercontent.agent-paste.link",
     jobs: undefined,
     stream: "https://stream.agent-paste.sh",
     mcp: "https://mcp.agent-paste.sh",
@@ -179,6 +179,19 @@ export async function assertApexServes(c) {
   assert(agents.status === 200, `apex /agents.md returned ${agents.status}`);
   assert(agents.headers.get("content-type")?.includes("text/markdown"), "apex /agents.md is text/markdown");
   assert(!agents.headers.get("set-cookie"), "apex /agents.md does not set cookies");
+
+  // RFC 9727 discovery: the homepage advertises the catalog and the catalog resolves.
+  assert(
+    (home.headers.get("link") ?? "").includes('rel="api-catalog"'),
+    "apex / advertises an api-catalog Link header",
+  );
+  const catalog = await fetch(`${c.apexBaseUrl}/.well-known/api-catalog`, { redirect: "manual" });
+  assert(catalog.status === 200, `apex /.well-known/api-catalog returned ${catalog.status}`);
+  assert(
+    catalog.headers.get("content-type")?.includes("application/linkset+json"),
+    "apex /.well-known/api-catalog is application/linkset+json",
+  );
+  assert(!catalog.headers.get("set-cookie"), "apex /.well-known/api-catalog does not set cookies");
 
   const gpc = await fetch(`${c.apexBaseUrl}/.well-known/gpc.json`, { redirect: "manual" });
   assert(gpc.status === 200, `apex /.well-known/gpc.json returned ${gpc.status}`);

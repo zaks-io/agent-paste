@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const scriptPath = fileURLToPath(new URL("deploy-pr-preview.mjs", import.meta.url));
 
-describe("deploy-pr-preview generated API config", () => {
+describe("deploy-pr-preview generated configs", () => {
   it("includes AP-173 Durable Object gates and ephemeral rate limits", () => {
     const prNumber = "999173";
     const fakeBin = mkdtempSync(join(tmpdir(), "agent-paste-pr-preview-"));
@@ -38,6 +38,7 @@ describe("deploy-pr-preview generated API config", () => {
       }
 
       const api = JSON.parse(readFileSync(new URL("api.json", outDir), "utf8"));
+      const content = JSON.parse(readFileSync(new URL("content.json", outDir), "utf8"));
       expect(api.durable_objects.bindings).toEqual(
         expect.arrayContaining([
           { name: "WRITE_ALLOWANCE", class_name: "WorkspaceWriteAllowance" },
@@ -67,6 +68,22 @@ describe("deploy-pr-preview generated API config", () => {
           }),
         ]),
       );
+      expect(api.vars).toMatchObject({
+        CONTENT_BASE_URL: "https://agent-paste-content-pr-999173.example-subdomain.workers.dev",
+        CONTENT_CAPABILITY_DOMAIN: "agent-paste.link",
+        CONTENT_CAPABILITY_HOST_SUFFIX: "-pr-999173",
+      });
+      expect(content.vars).toMatchObject({
+        CONTENT_BASE_URL: "https://agent-paste-content-pr-999173.example-subdomain.workers.dev",
+        CONTENT_CAPABILITY_DOMAIN: "agent-paste.link",
+        CONTENT_CAPABILITY_HOST_SUFFIX: "-pr-999173",
+      });
+      expect(content.routes).toEqual([
+        {
+          pattern: "*-pr-999173.agent-paste.link/*",
+          zone_name: "agent-paste.link",
+        },
+      ]);
     } finally {
       rmSync(outDir, { recursive: true, force: true });
       rmSync(fakeBin, { recursive: true, force: true });

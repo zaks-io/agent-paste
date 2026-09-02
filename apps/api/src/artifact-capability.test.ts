@@ -60,6 +60,7 @@ describe("claimed Artifact capability refresh", () => {
       workspace_id: destinationWorkspaceId,
       artifact_id: "art_claimed",
       revision_id: "rev_claimed",
+      script_disabled: false,
       object_keys: {
         "index.html": `workspaces/${destinationWorkspaceId}/blobs/claimed-index`,
       },
@@ -68,7 +69,7 @@ describe("claimed Artifact capability refresh", () => {
     expect(payload).not.toHaveProperty("noindex");
   });
 
-  it("reports a failed refresh without failing the committed claim or skipping other Artifacts", async () => {
+  it("reports every failed refresh and fails the request so it can be retried", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const getWebArtifact = vi.fn(async (_actor, artifactId) =>
       artifactId === "art_missing" ? null : { capability_view: undefined },
@@ -87,7 +88,7 @@ describe("claimed Artifact capability refresh", () => {
         },
         ["art_missing", "art_present"],
       ),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow("Failed to refresh 1 claimed Artifact capability manifest(s).");
 
     expect(getWebArtifact).toHaveBeenCalledTimes(2);
     expect(consoleError).toHaveBeenCalledWith(

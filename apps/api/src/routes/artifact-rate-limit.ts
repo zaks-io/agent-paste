@@ -1,4 +1,4 @@
-import { getBoundResponders } from "@agent-paste/worker-runtime";
+import { artifactRateLimitKey, clientIpFromRequest, getBoundResponders } from "@agent-paste/worker-runtime";
 import type { AppContext } from "../env.js";
 
 export async function enforceArtifactRateLimit(
@@ -11,7 +11,9 @@ export async function enforceArtifactRateLimit(
     return getBoundResponders(context).respondError("rate_limited_artifact", { headers: { "Retry-After": "60" } });
   }
   try {
-    const outcome = await binding.limit({ key: artifactId });
+    const outcome = await binding.limit({
+      key: artifactRateLimitKey(artifactId, clientIpFromRequest(context.req.raw)),
+    });
     if (!outcome.success) {
       return getBoundResponders(context).respondError("rate_limited_artifact", { headers: { "Retry-After": "60" } });
     }

@@ -9,7 +9,7 @@ function publishResult(overrides: Record<string, unknown> = {}) {
     artifact_id: ARTIFACT_ID,
     revision_id: REVISION_ID,
     title: "Report",
-    url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+    url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
     expires_at: "2026-01-01T00:00:00.000Z",
     ...overrides,
   } as never;
@@ -112,7 +112,7 @@ describe("runPublish", () => {
   it("returns the server URL as the Artifact link", async () => {
     const { transport } = fakeTransport();
     const outcome = await runPublish(transport, input());
-    expect(outcome.url).toBe("https://0123456789abcdef0123456789abcdef.agent-paste.sh/");
+    expect(outcome.url).toBe("https://0123456789abcdef0123456789abcdef.agent-paste.link/");
     expect(outcome).not.toHaveProperty("shared");
   });
 

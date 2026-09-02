@@ -32,7 +32,7 @@ export function apiRateLimitBindings(env: Env) {
 }
 
 export function contentBaseUrl(env: Env): string {
-  return env.CONTENT_BASE_URL ?? "https://usercontent.agent-paste.sh";
+  return env.CONTENT_BASE_URL ?? "https://usercontent.agent-paste.link";
 }
 
 export function apiBaseUrl(env: Env): string {

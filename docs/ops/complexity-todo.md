@@ -104,7 +104,8 @@ tables) first; the contract/OpenAPI registries are already under 510 after AP-22
       `safety-scan-orchestration.ts`, `safety-scan-files.ts`, `safety-warning-storage.ts`,
       `safety-ephemeral-url-scan.ts`) and refactored `apps/jobs/src/safety/url-scanner.ts`
       submit/poll helpers. Touched functions now pass the 15 cognitive / 60 function-line
-      ratchet targets without suppressions.
+      ratchet targets without suppressions. ADR 0095 later removed the URL Scanner helpers
+      when that integration was paused.
 - [x] `apps/api/src/routes/revisions.ts` — `publishRevision` idempotent body:
       AP-142 moved publish orchestration into a Publish Coordinator and removed
       the cognitive-complexity suppression. The route and coordinator pass the

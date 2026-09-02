@@ -5,9 +5,7 @@ import { artifactBytesEncryptionRingFromEnv } from "@agent-paste/rotation";
 import { withWorkspaceScope } from "../db.js";
 import type { Env } from "../env.js";
 import { logOp } from "../op-log.js";
-import { isEphemeralScannerId } from "../safety/ephemeral-scanner.js";
 import { resolveSafetyScanner } from "../safety/resolve-scanner.js";
-import { runEphemeralUrlScanner } from "./safety-ephemeral-url-scan.js";
 import { loadScannerFiles } from "./safety-scan-files.js";
 import { replaceSafetyWarnings } from "./safety-warning-storage.js";
 
@@ -69,14 +67,6 @@ export async function processSafetyScanMessage(
     warnings,
     now: payload.requested_at,
   });
-  if (isEphemeralScannerId(payload.scanner_id)) {
-    await runEphemeralUrlScanner(scoped, env, {
-      workspaceId: payload.workspace_id,
-      artifactId: payload.artifact_id,
-      revisionId: payload.revision_id,
-      requestedAt: payload.requested_at,
-    });
-  }
   logOp("queue.safety_scan.completed", {
     revision_id: payload.revision_id,
     scanner_id: payload.scanner_id,

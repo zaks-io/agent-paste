@@ -56,8 +56,9 @@ npx @zaks-io/agent-paste publish ./path --ephemeral --json
 \`\`\`
 
 Return \`url\`. Return \`claim_url\` too when the human wants to keep and own the
-upload. Unclaimed ephemeral Artifacts expire after 24 hours but use the same
-script-enabled top-level rendering behavior.
+upload. Unclaimed ephemeral Artifacts expire after 24 hours and render with
+scripts, connections, forms, frames, objects, and workers blocked. Claiming
+promotes the same Artifact URL to the claimed execution policy.
 
 If copied instructions include \`--claim-code <clm_...>\`, preserve it on the
 ephemeral publish command. It is attribution, not part of the Artifact URL.
@@ -75,15 +76,16 @@ Directory publish preserves relative paths. Entrypoint inference is
   "artifact_id": "art_...",
   "revision_id": "rev_...",
   "title": "report",
-  "url": "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+  "url": "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
   "expires_at": "<ISO 8601 expiration timestamp>"
 }
 \`\`\`
 
 The URL is an unguessable 128-bit bearer locator. It opens without login and
-serves the latest Published Revision. Uploaded HTML can use inline scripts,
-external HTTPS dependencies, root-relative assets, fetch, secure WebSockets,
-and workers.
+serves the latest Published Revision. Authenticated publishes can use inline
+scripts, external HTTPS dependencies, root-relative assets, fetch, secure
+WebSockets, and dedicated workers. Service workers are blocked on every
+Artifact host.
 
 ## MCP
 

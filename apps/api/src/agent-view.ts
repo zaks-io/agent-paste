@@ -75,7 +75,7 @@ function isEphemeralAgentView(data: AgentViewRecord, options?: { ephemeralTier?:
 }
 
 function buildContentSigningAuth(workspaceId: string | undefined, ephemeralTier: boolean): ContentSigningAuth {
-  const contentAuth: ContentSigningAuth = {};
+  const contentAuth: ContentSigningAuth = { scriptDisabled: ephemeralTier || !workspaceId };
   if (workspaceId) {
     contentAuth.workspaceId = workspaceId;
   }
@@ -351,6 +351,7 @@ export async function signPublishResult(
     ? {
         workspaceId: auth.workspaceId,
         ...(auth.ephemeralTier ? { noindex: true as const } : {}),
+        scriptDisabled: auth.ephemeralTier === true,
       }
     : undefined;
   const contentOptions = fileObjectKeys

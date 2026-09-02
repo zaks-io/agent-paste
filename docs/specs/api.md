@@ -5,14 +5,14 @@ lives in `packages/contracts`.
 
 ## Hosts
 
-| Surface   | Host                                                                | Owns                                                                                                                 |
-| --------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `api`     | `https://api.agent-paste.sh`                                        | Authenticated CLI/MCP control plane, Agent View, artifact metadata, web/operator routes, billing, and ephemeral API. |
-| `upload`  | `https://upload.agent-paste.sh`                                     | Upload Sessions, signed upload-worker PUT URLs, R2 writes, and finalize validation.                                  |
-| `content` | `https://{id}.agent-paste.sh`, `https://usercontent.agent-paste.sh` | Capability websites and legacy signed file reads from private R2.                                                    |
-| `web`     | `https://app.agent-paste.sh`                                        | Dashboard, WorkOS auth, claim, and billing UI.                                                                       |
-| `mcp`     | `https://mcp.agent-paste.sh`                                        | OAuth-only Streamable HTTP MCP.                                                                                      |
-| `apex`    | `https://agent-paste.sh`                                            | Marketing, legal, install scripts, agent text surfaces, and public docs.                                             |
+| Surface   | Host                                                                    | Owns                                                                                                                 |
+| --------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `api`     | `https://api.agent-paste.sh`                                            | Authenticated CLI/MCP control plane, Agent View, artifact metadata, web/operator routes, billing, and ephemeral API. |
+| `upload`  | `https://upload.agent-paste.sh`                                         | Upload Sessions, signed upload-worker PUT URLs, R2 writes, and finalize validation.                                  |
+| `content` | `https://{id}.agent-paste.link`, `https://usercontent.agent-paste.link` | Capability websites and legacy signed file reads from private R2.                                                    |
+| `web`     | `https://app.agent-paste.sh`                                            | Dashboard, WorkOS auth, claim, and billing UI.                                                                       |
+| `mcp`     | `https://mcp.agent-paste.sh`                                            | OAuth-only Streamable HTTP MCP.                                                                                      |
+| `apex`    | `https://agent-paste.sh`                                                | Marketing, legal, install scripts, agent text surfaces, and public docs.                                             |
 
 Preview hosts use the same path contracts with preview-specific hostnames and secrets.
 
@@ -26,6 +26,31 @@ Operator routes under `/v1/web/admin/*` are intentionally omitted from the
 public OpenAPI document, along with their Cloudflare Access service-token scheme
 and operator-only schemas. They remain runtime route contracts and are documented
 only in [admin operations](./admin.md) and ops runbooks.
+
+## API Discovery
+
+`apex` is the discovery root for agents that arrive at `https://agent-paste.sh`
+with no prior knowledge of the product. The homepage response carries an
+[RFC 8288](https://www.rfc-editor.org/rfc/rfc8288) `Link` header with registered
+relations only:
+
+| Relation       | Target                                    | Media type                    |
+| -------------- | ----------------------------------------- | ----------------------------- |
+| `api-catalog`  | `/.well-known/api-catalog`                | `application/linkset+json`    |
+| `service-desc` | `https://api.agent-paste.sh/openapi.json` | `application/json`            |
+| `service-doc`  | `/docs`                                   | `text/html`                   |
+| `describedby`  | `/agents.md`, `/llms.txt`                 | `text/markdown`, `text/plain` |
+
+`GET https://agent-paste.sh/.well-known/api-catalog` returns the
+[RFC 9727](https://www.rfc-editor.org/rfc/rfc9727) API catalog as a
+[Linkset](https://www.rfc-editor.org/rfc/rfc9264) document
+(`application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"`).
+It anchors an `item` list of the two integrable APIs (`api` and `mcp`) and gives
+each one a `service-desc` and `service-doc` target. Both surfaces are generated
+in `apps/apex/src/discovery.ts`, so the catalog and the header cannot drift.
+
+Cross-origin targets are baked from `AGENT_PASTE_ENV`, so the preview build
+advertises the preview hosts.
 
 ## Headers
 
@@ -296,7 +321,7 @@ even while the session is still open.
   "artifact_id": "art_...",
   "revision_id": "rev_...",
   "title": "demo",
-  "url": "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+  "url": "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
   "expires_at": "2026-06-19T12:00:00.000Z"
 }
 ```

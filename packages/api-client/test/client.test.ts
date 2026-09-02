@@ -267,7 +267,7 @@ describe("ApiClient", () => {
     expect(calls[0]?.method).toBe("POST");
     expect(calls[0]?.headers.get("idempotency-key")).toBe("idem_publish");
     await expect(calls[0]?.text()).resolves.toBe("");
-    expect(result.url).toBe("https://0123456789abcdef0123456789abcdef.agent-paste.sh/");
+    expect(result.url).toBe("https://0123456789abcdef0123456789abcdef.agent-paste.link/");
   });
 
   it("reads the Agent View for an exact Revision", async () => {
@@ -470,7 +470,7 @@ function publishResult() {
     artifact_id: artifactId,
     revision_id: revisionId,
     title: "Demo",
-    url: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+    url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
     expires_at: "2026-02-01T00:00:00.000Z",
   };
 }

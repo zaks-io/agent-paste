@@ -8,7 +8,7 @@ describe("content capability DNS", () => {
   it("creates the expected wildcard record when none exists", async () => {
     const fetchImpl = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse([{ id: "zone_1", name: "agent-paste.sh", status: "active" }]))
+      .mockResolvedValueOnce(jsonResponse([{ id: "zone_1", name: "agent-paste.link", status: "active" }]))
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse({ id: "record_1" }));
 
@@ -19,7 +19,7 @@ describe("content capability DNS", () => {
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body)).toEqual({
       type: "AAAA",
-      name: "*.agent-paste.sh",
+      name: "*.agent-paste.link",
       content: "100::",
       proxied: true,
       ttl: 1,
@@ -30,12 +30,12 @@ describe("content capability DNS", () => {
   it("leaves the exact existing record unchanged", async () => {
     const fetchImpl = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse([{ id: "zone_1", name: "agent-paste.sh", status: "active" }]))
+      .mockResolvedValueOnce(jsonResponse([{ id: "zone_1", name: "agent-paste.link", status: "active" }]))
       .mockResolvedValueOnce(
         jsonResponse([
           {
             id: "record_1",
-            name: "*.agent-paste.sh",
+            name: "*.agent-paste.link",
             type: "AAAA",
             content: "100::",
             proxied: true,
@@ -50,12 +50,12 @@ describe("content capability DNS", () => {
   it("refuses to overwrite a conflicting wildcard record", async () => {
     const fetchImpl = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse([{ id: "zone_1", name: "agent-paste.sh", status: "active" }]))
+      .mockResolvedValueOnce(jsonResponse([{ id: "zone_1", name: "agent-paste.link", status: "active" }]))
       .mockResolvedValueOnce(
         jsonResponse([
           {
             id: "record_1",
-            name: "*.agent-paste.sh",
+            name: "*.agent-paste.link",
             type: "AAAA",
             content: "2001:db8::1",
             proxied: true,

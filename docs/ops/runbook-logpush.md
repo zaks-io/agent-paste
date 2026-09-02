@@ -191,7 +191,7 @@ Hits the public Agent View on preview (no auth required). Replace `<view-token>`
 ```sh
 for i in $(seq 1 20); do
   curl -fsS -o /dev/null -w "%{http_code}\n" \
-    "https://usercontent.preview.agent-paste.sh/v/<view-token>/README.md"
+    "https://usercontent.preview.agent-paste.link/v/<view-token>/README.md"
 done
 
 curl -fsS -o /dev/null -w "%{http_code}\n" \
@@ -202,7 +202,7 @@ Force a 5xx for the error-rate panel by hitting a guaranteed-bad signed URL:
 
 ```sh
 curl -s -o /dev/null -w "%{http_code}\n" \
-  "https://usercontent.preview.agent-paste.sh/v/invalid-token/x"
+  "https://usercontent.preview.agent-paste.link/v/invalid-token/x"
 ```
 
 ### 2. Confirm Axiom ingest

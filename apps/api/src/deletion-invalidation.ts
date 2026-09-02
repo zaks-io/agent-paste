@@ -1,7 +1,4 @@
-import { peekIdempotentReplay } from "@agent-paste/commands";
 import {
-  type AdminActor,
-  type ApiActor,
   type ArtifactBytePurgeHooks,
   type ArtifactInvalidationEnv,
   applyArtifactPurgeSideEffects,
@@ -14,9 +11,6 @@ import {
 } from "@agent-paste/db";
 import { sentryPostgresExecutorOptions } from "@agent-paste/worker-runtime/sentry-sql";
 
-const ADMIN_ARTIFACT_DELETE_OPERATION = "admin.artifact.delete";
-export const MEMBER_ARTIFACT_DELETE_OPERATION = "artifact.delete";
-
 export type DeletionInvalidationEnv = ArtifactInvalidationEnv & {
   DB?: Repository | HyperdriveBinding;
   SYNC_BYTE_PURGE_DELETED_OBJECTS?: number;
@@ -26,8 +20,6 @@ export type DeletionInvalidationEnv = ArtifactInvalidationEnv & {
 };
 
 export type PostCommitArtifactDeletionInput = {
-  actor: AdminActor | ApiActor;
-  idempotencyKey: string;
   workspaceId: string;
   artifactId: string;
   revisionId: string | null;
@@ -35,8 +27,6 @@ export type PostCommitArtifactDeletionInput = {
 };
 
 export type PostCommitArtifactDeletionResult = {
-  /** True when idempotency replay skipped post-commit invalidation. */
-  replaySkipped: boolean;
   denylistWritten: boolean;
   enqueued: boolean;
   deleted_r2_objects: number;
@@ -56,57 +46,19 @@ export function resolveDeletionInvalidationExecutor(env: DeletionInvalidationEnv
   return undefined;
 }
 
-export async function peekAdminArtifactDeleteReplay(
-  executor: SqlExecutor,
-  input: { actor: AdminActor; workspaceId: string; idempotencyKey: string },
-): Promise<boolean> {
-  const replay = await peekIdempotentReplay<unknown>({
-    executor: rlsExecutor(executor, { kind: "workspace", workspaceId: input.workspaceId }),
-    actor: { type: input.actor.type, id: input.actor.id, workspaceId: input.workspaceId },
-    operation: ADMIN_ARTIFACT_DELETE_OPERATION,
-    idempotencyKey: input.idempotencyKey,
-  });
-  return replay !== null && "result" in replay;
-}
-
-export async function peekMemberArtifactDeleteReplay(
-  executor: SqlExecutor,
-  input: { actor: ApiActor; workspaceId: string; idempotencyKey: string },
-): Promise<boolean> {
-  const replay = await peekIdempotentReplay<unknown>({
-    executor: rlsExecutor(executor, { kind: "workspace", workspaceId: input.workspaceId }),
-    actor: { type: input.actor.type, id: input.actor.id, workspaceId: input.workspaceId },
-    operation: MEMBER_ARTIFACT_DELETE_OPERATION,
-    idempotencyKey: input.idempotencyKey,
-  });
-  return replay !== null && "result" in replay;
-}
-
 /**
  * Post-commit artifact deletion invalidation (ADR 0049): denylist first, byte-purge enqueue second.
- * Skipped on idempotency replay so side effects are not duplicated.
+ * Replays retry this boundary so a committed delete cannot stay publicly readable
+ * after an earlier denylist failure.
  */
 export async function runPostCommitArtifactDeletionInvalidation(
   env: DeletionInvalidationEnv,
   input: PostCommitArtifactDeletionInput,
-  options: {
-    isReplay: boolean;
-    hooks?: ArtifactBytePurgeHooks;
-  },
+  options: { hooks?: ArtifactBytePurgeHooks } = {},
 ): Promise<PostCommitArtifactDeletionResult> {
-  if (options.isReplay) {
-    return {
-      replaySkipped: true,
-      denylistWritten: false,
-      enqueued: false,
-      deleted_r2_objects: 0,
-    };
-  }
-
   if (!input.revisionId) {
     const denylistWritten = await writeArtifactDenylist(env, input.artifactId);
     return {
-      replaySkipped: false,
       denylistWritten,
       enqueued: false,
       deleted_r2_objects: 0,
@@ -117,7 +69,6 @@ export async function runPostCommitArtifactDeletionInvalidation(
   if (!executor) {
     const denylistWritten = await writeArtifactDenylist(env, input.artifactId);
     return {
-      replaySkipped: false,
       denylistWritten,
       enqueued: false,
       deleted_r2_objects: 0,
@@ -139,7 +90,6 @@ export async function runPostCommitArtifactDeletionInvalidation(
   );
   const deleted_r2_objects = (env.SYNC_BYTE_PURGE_DELETED_OBJECTS ?? 0) - beforeDeleted;
   return {
-    replaySkipped: false,
     denylistWritten: sideEffects.denylistWritten,
     enqueued: sideEffects.enqueued,
     deleted_r2_objects,

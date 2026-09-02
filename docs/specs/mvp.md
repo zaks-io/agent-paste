@@ -13,7 +13,7 @@ Human output prints the Artifact URL. JSON output is:
   "artifact_id": "art_...",
   "revision_id": "rev_...",
   "title": "output",
-  "url": "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+  "url": "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
   "expires_at": null
 }
 ```

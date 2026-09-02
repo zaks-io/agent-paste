@@ -58,7 +58,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         {
           kind: "code",
           language: "text",
-          code: "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+          code: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
         },
         {
           kind: "paragraph",
@@ -77,7 +77,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Use this only when login is unavailable or explicitly skipped. Return `url` for viewing and `claim_url` when the human wants to keep the upload. The Artifact expires after 24 hours and still supports JavaScript and external HTTPS dependencies.",
+          text: "Use this only when login is unavailable or explicitly skipped. Return `url` for viewing and `claim_url` when the human wants to keep the upload. The Artifact expires after 24 hours. Until it is claimed, scripts and connections stay blocked.",
         },
       ],
     },

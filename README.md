@@ -9,13 +9,14 @@ Publish a file or folder to a real website in one command:
 
 ```sh
 npx @zaks-io/agent-paste publish ./report
-# https://0123456789abcdef0123456789abcdef.agent-paste.sh/
+# https://0123456789abcdef0123456789abcdef.agent-paste.link/
 ```
 
 The returned URL is the Artifact. It opens top-level without login. There is no
-viewer wrapper, iframe, sandbox, or separate sharing command. HTML, CSS,
-JavaScript, root-relative assets, inline Tailwind configuration, and external
-HTTPS dependencies run on the Artifact's own origin.
+viewer wrapper, iframe, or separate sharing command. Claimed Artifacts run HTML,
+CSS, JavaScript, root-relative assets, inline Tailwind configuration, and
+external HTTPS dependencies on their own origin. Ephemeral Artifacts render
+static content with scripts, connections, forms, and workers blocked until claim.
 
 ## Quick start
 
@@ -29,14 +30,14 @@ Expected output:
 ```text
 ✓ Published "report"
 
-  View      https://0123456789abcdef0123456789abcdef.agent-paste.sh/
+  View      https://0123456789abcdef0123456789abcdef.agent-paste.link/
   Expires   <expiration date>
   Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached
 
   Update    npx @zaks-io/agent-paste publish ./report --artifact-id art_01H...
             (revises this Artifact; the same link shows the latest revision)
 
-  → open https://0123456789abcdef0123456789abcdef.agent-paste.sh/
+  → open https://0123456789abcdef0123456789abcdef.agent-paste.link/
 ```
 
 Publishing with `--artifact-id` revises the existing Artifact. Its URL stays the
@@ -68,7 +69,7 @@ Every publish JSON result contains:
   "artifact_id": "art_...",
   "revision_id": "rev_...",
   "title": "report",
-  "url": "https://0123456789abcdef0123456789abcdef.agent-paste.sh/",
+  "url": "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
   "expires_at": "<ISO 8601 expiration timestamp>"
 }
 ```
@@ -95,21 +96,23 @@ npx skills add https://github.com/zaks-io/agent-paste/tree/main/skills/agent-pas
 Each Artifact gets a cryptographically random 128-bit capability hostname:
 
 ```text
-production  {32-lowercase-hex}.agent-paste.sh
-preview     {32-lowercase-hex}-preview.agent-paste.sh
+production  {32-lowercase-hex}.agent-paste.link
+preview     {32-lowercase-hex}-preview.agent-paste.link
 ```
 
 The API stores a private capability manifest in R2. The content Worker validates
 the hostname, signed manifest, expiry, denylist, and requested path before
 decrypting bytes. Revising an Artifact rewrites that manifest in place.
 
-The production wildcard Worker route is a fallback. Exact product hosts such as
-`app.agent-paste.sh`, `api.agent-paste.sh`, and `mcp.agent-paste.sh` remain owned
-by their more-specific routes, and the content Worker rejects any hostname that
-is not exactly the capability shape.
+Artifact origins live on a separate registrable domain from product hosts such
+as `app.agent-paste.sh`, `api.agent-paste.sh`, and `mcp.agent-paste.sh`. The
+content Worker rejects any hostname that is not exactly the capability shape.
 
 Previously issued signed `usercontent.agent-paste.sh/v/...` URLs continue until
-their normal expiry. New publish results never return them.
+their normal expiry. Previously issued capability URLs map directly from
+`{id}[-preview].agent-paste.sh/{path}` to
+`{id}[-preview].agent-paste.link/{path}` with a permanent redirect that preserves
+the path and query. New publish results return only `.agent-paste.link` URLs.
 
 ## Repository
 

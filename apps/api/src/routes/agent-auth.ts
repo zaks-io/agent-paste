@@ -15,7 +15,7 @@ import {
 import type { Repository } from "@agent-paste/db";
 import { type BoundRespondersVariables, getBoundResponders } from "@agent-paste/worker-runtime";
 import type { Hono } from "hono";
-import { refreshClaimedArtifactCapabilities } from "../artifact-capability.js";
+import { ClaimedArtifactCapabilityRefreshError, refreshClaimedArtifactCapabilities } from "../artifact-capability.js";
 import { authenticateWebIdentity } from "../auth.js";
 import type { Env } from "../env.js";
 import {
@@ -373,7 +373,16 @@ async function webAgentAuthClaimComplete(
     if (!completed) {
       return getBoundResponders(context).respondError("invalid_request", "Claim code did not match.");
     }
-    await refreshClaimedArtifactCapabilities(db, env, actor, completed.claimed_artifact_ids);
+    try {
+      await refreshClaimedArtifactCapabilities(db, env, actor, completed.claimed_artifact_ids);
+    } catch (error) {
+      if (error instanceof ClaimedArtifactCapabilityRefreshError) {
+        return getBoundResponders(context).respondError("storage_unavailable", {
+          headers: { "Retry-After": "1" },
+        });
+      }
+      throw error;
+    }
     return context.json({ ok: true, registration_id: completed.id });
   }
 

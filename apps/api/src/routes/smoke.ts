@@ -1,11 +1,7 @@
 import type { AdminActor, Repository } from "@agent-paste/db";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
 import { authenticateSmokeHarness, isNonProductionEnv } from "../auth.js";
-import {
-  peekAdminArtifactDeleteReplay,
-  resolveDeletionInvalidationExecutor,
-  runPostCommitArtifactDeletionInvalidation,
-} from "../deletion-invalidation.js";
+import { runPostCommitArtifactDeletionInvalidation } from "../deletion-invalidation.js";
 import type { AppContext, Env } from "../env.js";
 import { readJsonObject } from "../responses.js";
 import { apiDatabase } from "../runtime.js";
@@ -102,33 +98,20 @@ export async function deleteSmokeArtifact(context: AppContext): Promise<Response
     return respondError("invalid_request", "artifact_id is required");
   }
   const idempotencyKey = `smoke-delete:${artifactId}`;
-  const executor = resolveDeletionInvalidationExecutor(env);
-  let isReplay = false;
-  const detail = await db.getArtifactDetail(artifactId);
-  if (executor && detail) {
-    isReplay = await peekAdminArtifactDeleteReplay(executor, {
-      actor: smokeHarnessActor,
-      workspaceId: detail.workspace_id,
-      idempotencyKey,
-    });
-  }
   const result = await db.deleteArtifact({
     actor: smokeHarnessActor,
     idempotencyKey,
     artifactId,
   });
-  const invalidation = await runPostCommitArtifactDeletionInvalidation(
-    env,
-    {
-      actor: smokeHarnessActor,
-      idempotencyKey,
-      workspaceId: result.workspace_id,
-      artifactId: result.artifact_id,
-      revisionId: result.revision_id,
-      capabilityId: result.capability_id,
-    },
-    { isReplay },
-  );
+  const invalidation = await runPostCommitArtifactDeletionInvalidation(env, {
+    workspaceId: result.workspace_id,
+    artifactId: result.artifact_id,
+    revisionId: result.revision_id,
+    capabilityId: result.capability_id,
+  });
+  if (!invalidation.denylistWritten) {
+    throw new Error("Artifact deletion committed, but public-read invalidation failed.");
+  }
   return respondJson({
     artifact_id: result.artifact_id,
     deleted_at: result.deleted_at,

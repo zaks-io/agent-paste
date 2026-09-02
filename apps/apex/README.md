@@ -1,6 +1,9 @@
 # apex
 
-The marketing surface for `agent-paste.sh` and the home of agent-discoverable files (`/llms.txt`, `/agents.md`, `/.well-known/agent-skills/`).
+The marketing surface for `agent-paste.sh` and the home of agent-discoverable files (`/llms.txt`, `/agents.md`,
+`/.well-known/api-catalog`). The homepage response also carries the RFC 8288 `Link` header that points at them;
+both come from `src/discovery.ts`. See [API discovery](../../docs/specs/api.md#api-discovery). Skills are
+published separately at `/.well-known/agent-skills/`; see [Agent skills discovery](#agent-skills-discovery).
 
 The apex never hosts authenticated state, never receives WorkOS callbacks, and never sets cookies. Any request that resolves to a product surface (`/dashboard`, `/artifacts/*`, `/keys`, `/audit`, `/settings`, `/admin/*`, `/al/*`, `/r/*`, `/login`, `/logout`, `/auth/*`) returns a 308 redirect to the equivalent path on `app.agent-paste.sh`.
 
