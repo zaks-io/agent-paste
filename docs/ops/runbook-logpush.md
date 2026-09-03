@@ -245,4 +245,4 @@ The parked Phase 2 Logpush item is Done when:
 - Both dashboards render non-empty panels.
 - Field-banlist APL queries (above) return `0` rows.
 
-When closing: update [`status/coverage.md`](./status/coverage.md) ADR 0011 to `Done`, update [`status/phase-backlog.md`](./status/phase-backlog.md), and add a completion note to [`status/changelog.md`](./status/changelog.md) with a link back to this runbook.
+When closing: update [`project-status.md`](./project-status.md) and add a completion note to [`status/changelog.md`](./status/changelog.md) with a link back to this runbook. Keep the dated coverage and phase ledgers as historical snapshots.

@@ -296,8 +296,8 @@ function McpBlock() {
       <div className={MARKER}>No shell? Connect from any chat</div>
       <p className="text-base leading-relaxed text-muted mb-6 max-w-[46ch]">
         In a web chat with no terminal, like ChatGPT, Claude, or Gemini, add the server once and sign in free. The agent
-        then publishes, reads, and shares from there. The accountless path above is the shell route; chat connects after
-        a free login.
+        then publishes, reads, and revises from there. The accountless path above is the shell route; chat connects
+        after a free login.
       </p>
       <div className="flex items-center justify-between gap-4 border border-rule-strong rounded-sm bg-surface px-4 py-4 font-mono text-base [font-feature-settings:'zero']">
         <code className="font-mono whitespace-nowrap overflow-x-auto flex-1 min-w-0">
