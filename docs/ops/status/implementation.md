@@ -1,5 +1,11 @@
 # Implementation State
 
+> **Historical snapshot.** This ledger preserves the detailed 2026-06-15
+> implementation state. It is not the current product contract or current CI
+> status. Use [`../project-status.md`](../project-status.md) and
+> [`../../specs/README.md`](../../specs/README.md) for current behavior. Access
+> Link, app viewer, and Live Update rows below describe the retired architecture.
+
 Last updated: 2026-06-15 (AP-139 production agent smoke refresh; production
 workflow, CLI release, and MCP tool-text follow-up are current).
 

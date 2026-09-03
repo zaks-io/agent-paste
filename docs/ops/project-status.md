@@ -2,16 +2,17 @@
 
 Project start: 2026-05-18.
 
-Last updated: 2026-09-02 for the user-content domain and ephemeral execution
-boundary. See [changelog.md](./status/changelog.md) for older shipped work.
+Last updated: 2026-09-03 for public repository readiness and the deployed
+one-URL architecture. See [changelog.md](./status/changelog.md) for older shipped
+work.
 
 This is the status entrypoint after `AGENTS.md`. Current behavior is specified
 in [`docs/specs/`](../specs/README.md); ADRs and the older ledgers record why the
 system reached that behavior.
 
-## Active Handoff
+## Current Release
 
-The current change removes the app-hosted viewer and makes every successful
+The current release removes the app-hosted viewer and makes every successful
 publish return one top-level Artifact URL:
 
 ```text
@@ -23,8 +24,9 @@ The Content Worker serves the Artifact directly on that host. The app does not
 proxy, wrap, redirect, or iframe uploaded content. Revisions keep the same URL
 and show their newest published bytes on refresh.
 
-The implementation and local verification are complete. Production has not
-been modified; deployment requires explicit approval and hosted verification.
+The one-URL architecture is deployed to production. Current production readiness
+must be read from the latest CI, Security, and Deploy Production runs rather than
+this dated release note.
 
 ## Current Product Shape
 

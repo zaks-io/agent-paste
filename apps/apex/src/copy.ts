@@ -138,7 +138,7 @@ export const USE_CASES: UseCase[] = [
   {
     scenario: "The agent keeps revising and people already have the link.",
     outcome:
-      "Everyone you sent it to sees the newest version on their own, no reload and no re-send. One stable link for the whole back-and-forth.",
+      "Everyone you sent it to sees the newest version at the same URL on refresh, with no re-send. One stable link for the whole back-and-forth.",
   },
   {
     scenario: "Your agent generated a page that is meant to actually run.",

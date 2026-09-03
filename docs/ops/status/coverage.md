@@ -1,5 +1,11 @@
 # Coverage Ledger
 
+> **Historical snapshot.** This ledger preserves the detailed 2026-06-05
+> coverage state. It is not the current product contract. Use
+> [`../project-status.md`](../project-status.md) and
+> [`../../specs/README.md`](../../specs/README.md) for current behavior. Access
+> Link, app viewer, and Live Update rows below describe the retired architecture.
+
 Last updated: 2026-06-05 (coverage-floor ratchet + AP-212 exclusion audit).
 
 ## Coverage floors (ratchet)
