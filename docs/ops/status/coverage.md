@@ -35,6 +35,8 @@ Status legend:
 - **Drift** - docs and implementation intentionally or accidentally diverge.
 - **Deferred** - accepted future work, not active in the current phase.
 - **Superseded** - historical decision replaced by a later ADR.
+- **Retired** - historical functionality that is no longer part of the current
+  architecture.
 
 ## Coverage Exclusion Ledger
 
