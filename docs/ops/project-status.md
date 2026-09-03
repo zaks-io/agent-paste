@@ -24,9 +24,14 @@ The Content Worker serves the Artifact directly on that host. The app does not
 proxy, wrap, redirect, or iframe uploaded content. Revisions keep the same URL
 and show their newest published bytes on refresh.
 
-The one-URL architecture is deployed to production. Current production readiness
-must be read from the latest CI, Security, and Deploy Production runs rather than
-this dated release note.
+The one-URL architecture is live: [Deploy Production run 33797883931](https://github.com/zaks-io/agent-paste/actions/runs/33797883931)
+deployed commit [`4d655b07`](https://github.com/zaks-io/agent-paste/commit/4d655b078289468e79151ddf53c8216509b4a8ac)
+after [CI passed](https://github.com/zaks-io/agent-paste/actions/runs/33797671593).
+Its separate [Security run](https://github.com/zaks-io/agent-paste/actions/runs/33797671580)
+reported the dependency advisories corrected by the 2026-09-03 repository
+cleanup. Production readiness is commit-scoped: only call a release ready when
+CI, Security, and Deploy Production all succeed for the same head SHA.
+Independent latest runs are not proof.
 
 ## Current Product Shape
 
