@@ -17,7 +17,7 @@ Contracts: [`docs/specs/web.md`](../../docs/specs/web.md) and [`docs/specs/style
 
 Every spec route from `docs/specs/web.md` resolves. Dashboard loaders and mutations are wired to the live `/v1/web/*` API routes for workspace, artifact, key, audit, settings, claim, billing, agent registration, and operator flows.
 
-```
+```text
 /                          → redirect by session
 /api/auth/sign-in          307 → WorkOS hosted flow
 /api/auth/sign-out         POST → signOut()
