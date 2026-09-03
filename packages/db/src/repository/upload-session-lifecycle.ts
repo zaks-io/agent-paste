@@ -106,6 +106,12 @@ export async function createUploadSessionInEntities(
     deleted_paths: (input.request.deleted_paths ?? []).map((path) => normalizeStoragePath(path)),
   };
   await entities.uploadSessions.insert(session);
+  const reusableBlobs = await entities.contentBlobs.findReusableAndTouch(
+    input.actor.workspace_id,
+    files.flatMap((file) => (file.sha256 ? [{ sha256: file.sha256, sizeBytes: file.size_bytes }] : [])),
+    input.now,
+  );
+  const reusableBlobKeys = new Set(reusableBlobs.map((blob) => `${blob.sha256}:${blob.size_bytes}`));
   const storedFiles: StoredFile[] = [];
   for (const file of files) {
     // A patched file uploads a unified diff, which is not content-addressable, so
@@ -129,12 +135,7 @@ export async function createUploadSessionInEntities(
       });
       continue;
     }
-    const blob = await resolveReusableBlob(entities, {
-      workspaceId: input.actor.workspace_id,
-      sha256: file.sha256,
-      sizeBytes: file.size_bytes,
-      now: input.now,
-    });
+    const reusable = file.sha256 ? reusableBlobKeys.has(`${file.sha256}:${file.size_bytes}`) : false;
     storedFiles.push({
       workspace_id: input.actor.workspace_id,
       upload_session_id: session.id,
@@ -146,13 +147,11 @@ export async function createUploadSessionInEntities(
         : objectKeyFor(session.artifact_id, session.revision_id, file.path),
       sha256: file.sha256 ?? null,
       storage_kind: file.sha256 ? "blob" : "revision",
-      uploaded_at: blob ? input.now : null,
+      uploaded_at: reusable ? input.now : null,
       put_url_expires_at: session.expires_at,
     });
   }
-  for (const file of storedFiles) {
-    await entities.uploadSessionFiles.insert(session.id, file);
-  }
+  await entities.uploadSessionFiles.insertMany(session.id, storedFiles);
   const operationActor = operationActorFromApiActor(input.actor);
   await entities.operationEvents.insert({
     actorType: operationActor.actorType,
@@ -165,30 +164,6 @@ export async function createUploadSessionInEntities(
     occurredAt: input.now,
   });
   return toUploadSessionRecord(session, storedFiles);
-}
-
-// Find an existing content blob for a content-addressed file and, when found,
-// refresh its recency inside this transaction. The refresh keeps a reused blob
-// out of the GC's oldest-first window and makes a concurrent deleteUnreferenced
-// conflict with this write instead of silently purging bytes a just-created
-// session now references. Returns null for non-content-addressed (patch/revision)
-// files or a first-seen blob.
-async function resolveReusableBlob(
-  entities: Entities,
-  input: { workspaceId: string; sha256: string | undefined; sizeBytes: number; now: string },
-) {
-  if (!input.sha256) {
-    return null;
-  }
-  const blob = await entities.contentBlobs.find({
-    workspaceId: input.workspaceId,
-    sha256: input.sha256,
-    sizeBytes: input.sizeBytes,
-  });
-  if (blob) {
-    await entities.contentBlobs.upsert({ ...blob, updated_at: input.now });
-  }
-  return blob;
 }
 
 export async function readUploadSessionInEntities(
@@ -546,24 +521,25 @@ export async function finalizeUploadSessionInEntities(
   };
   await entities.revisions.insert(revision);
   await entities.uploadSessions.markFinalized(session.id, input.now);
-  // Register each reconstructed result blob so the content-blob refcount protects it
-  // (its sha256 is brand new — unlike an inherited blob whose row already exists).
-  for (const blob of merged?.reconstructedBlobs ?? []) {
-    if (!blob.sha256) {
-      continue;
-    }
-    await entities.contentBlobs.upsert({
-      workspace_id: session.workspace_id,
-      sha256: blob.sha256,
-      size_bytes: blob.size_bytes,
-      r2_key: blob.r2_key,
-      created_at: input.now,
-      updated_at: input.now,
-    });
-  }
-  for (const file of treeFiles) {
-    await entities.artifactFiles.insert(session.artifact_id, session.revision_id, file, input.now);
-  }
+  // Register reconstructed result blobs so the content-blob refcount protects them
+  // (their sha256 is brand new, unlike inherited blobs whose rows already exist).
+  await entities.contentBlobs.upsertMany(
+    (merged?.reconstructedBlobs ?? []).flatMap((blob) =>
+      blob.sha256
+        ? [
+            {
+              workspace_id: session.workspace_id,
+              sha256: blob.sha256,
+              size_bytes: blob.size_bytes,
+              r2_key: blob.r2_key,
+              created_at: input.now,
+              updated_at: input.now,
+            },
+          ]
+        : [],
+    ),
+  );
+  await entities.artifactFiles.insertMany(session.artifact_id, session.revision_id, treeFiles, input.now);
   await entities.operationEvents.insert({
     actorType: operationActor.actorType,
     actorId: operationActor.actorId,

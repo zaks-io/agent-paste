@@ -5,6 +5,7 @@ import {
   artifactFileQueries,
   artifactQueries,
   claimTokenQueries,
+  contentBlobQueries,
   operationEventQueries,
   platformLockdownQueries,
   uploadSessionFileQueries,
@@ -16,6 +17,26 @@ import {
 const now = new Date("2026-01-01T00:00:00.000Z");
 
 describe("postgres query adapters", () => {
+  it("writes upload-session files, artifact files, and content blobs with one statement per batch", async () => {
+    const db = fakeDrizzle([]);
+    const files = [fileEntity(), { ...fileEntity(), path: "styles.css", r2_key: "r2/styles.css" }];
+    const blob = contentBlobEntity();
+    const blobs = [
+      blob,
+      { ...blob, r2_key: "r2/blob-repeated" },
+      { ...blob, sha256: "b".repeat(64), r2_key: "r2/blob-b" },
+    ];
+
+    await uploadSessionFileQueries.insertMany(db, "session_1", files);
+    await artifactFileQueries.insertMany(db, "artifact_1", "revision_1", files, "2026-01-01T00:00:00.000Z");
+    await contentBlobQueries.upsertMany(db, blobs);
+
+    expect(db.writes).toHaveLength(3);
+    expect(db.writes[0]).toHaveLength(2);
+    expect(db.writes[1]).toHaveLength(2);
+    expect(db.writes[2]).toHaveLength(2);
+  });
+
   it("maps workspace, key, member, artifact, upload, lockdown, and event rows", async () => {
     const db = fakeDrizzle([
       [workspaceRow({ id: "workspace_old", createdAt: new Date("2026-01-01T00:00:00.000Z") })],
@@ -337,6 +358,9 @@ function fakeDrizzle(results: unknown[][]) {
       onConflictDoNothing() {
         return this;
       },
+      onConflictDoUpdate() {
+        return this;
+      },
       returning() {
         return readRows ? getRows() : nextRows();
       },
@@ -593,6 +617,17 @@ function fileEntity() {
     content_type: "text/html",
     r2_key: "r2/index.html",
     uploaded_at: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+function contentBlobEntity() {
+  return {
+    workspace_id: "workspace_1",
+    sha256: "a".repeat(64),
+    size_bytes: 12,
+    r2_key: "r2/blob-a",
+    created_at: "2026-01-01T00:00:00.000Z",
+    updated_at: "2026-01-01T00:00:00.000Z",
   };
 }
 

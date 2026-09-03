@@ -11,11 +11,32 @@ export function localContentBlobs(state: LocalState): Entities["contentBlobs"] {
     async find(input) {
       return state.contentBlobs.get(keyFor(input)) ?? null;
     },
+    async findReusableAndTouch(workspaceId, files, updatedAt) {
+      const reusable = [];
+      for (const file of files) {
+        const key = keyFor({ workspaceId, sha256: file.sha256, sizeBytes: file.sizeBytes });
+        const blob = state.contentBlobs.get(key);
+        if (blob) {
+          const touched = { ...blob, updated_at: updatedAt };
+          state.contentBlobs.set(key, touched);
+          reusable.push(touched);
+        }
+      }
+      return reusable;
+    },
     async upsert(blob) {
       state.contentBlobs.set(
         keyFor({ workspaceId: blob.workspace_id, sha256: blob.sha256, sizeBytes: blob.size_bytes }),
         blob,
       );
+    },
+    async upsertMany(blobs) {
+      for (const blob of blobs) {
+        state.contentBlobs.set(
+          keyFor({ workspaceId: blob.workspace_id, sha256: blob.sha256, sizeBytes: blob.size_bytes }),
+          blob,
+        );
+      }
     },
     async deleteUnreferenced(input) {
       // Age floor mirroring the Postgres query: a blob touched within the last

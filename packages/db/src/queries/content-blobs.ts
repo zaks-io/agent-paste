@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { DEFAULT_UPLOAD_SESSION_TTL_MS } from "../policy.js";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { defineSqlQuerySourceMap } from "../postgres/query-source.js";
@@ -28,21 +28,40 @@ export const contentBlobQueries = defineSqlQuerySourceMap(
       return rows[0] ? mapContentBlob(rows[0]) : null;
     },
 
+    async findReusableAndTouch(
+      db: DrizzleDb,
+      workspaceId: string,
+      files: Array<{ sha256: string; sizeBytes: number }>,
+      updatedAt: string,
+    ): Promise<ContentBlob[]> {
+      const uniqueFiles = [
+        ...new Map(files.map((file) => [`${file.sha256}:${file.sizeBytes}`, file] as const)).values(),
+      ];
+      if (uniqueFiles.length === 0) {
+        return [];
+      }
+      const filePredicate = or(
+        ...uniqueFiles.map((file) =>
+          and(eq(contentBlobs.sha256, file.sha256), eq(contentBlobs.sizeBytes, file.sizeBytes)),
+        ),
+      );
+      if (!filePredicate) {
+        return [];
+      }
+      const rows = await db
+        .update(contentBlobs)
+        .set({ updatedAt: new Date(updatedAt) })
+        .where(and(eq(contentBlobs.workspaceId, workspaceId), filePredicate))
+        .returning();
+      return rows.map(mapContentBlob);
+    },
+
     async upsert(db: DrizzleDb, blob: ContentBlob) {
-      await db
-        .insert(contentBlobs)
-        .values({
-          workspaceId: blob.workspace_id,
-          sha256: blob.sha256,
-          sizeBytes: blob.size_bytes,
-          r2Key: blob.r2_key,
-          createdAt: new Date(blob.created_at),
-          updatedAt: new Date(blob.updated_at),
-        })
-        .onConflictDoUpdate({
-          target: [contentBlobs.workspaceId, contentBlobs.sha256, contentBlobs.sizeBytes],
-          set: { r2Key: blob.r2_key, updatedAt: new Date(blob.updated_at) },
-        });
+      await upsertContentBlobs(db, [blob]);
+    },
+
+    async upsertMany(db: DrizzleDb, blobs: ContentBlob[]) {
+      await upsertContentBlobs(db, blobs);
     },
 
     async listForReparent(db: DrizzleDb, workspaceId: string, now: string): Promise<WorkspaceBlobRef[]> {
@@ -146,6 +165,31 @@ export const contentBlobQueries = defineSqlQuerySourceMap(
     },
   },
 );
+
+async function upsertContentBlobs(db: DrizzleDb, blobs: ContentBlob[]) {
+  const uniqueBlobs = [
+    ...new Map(blobs.map((blob) => [`${blob.workspace_id}:${blob.sha256}:${blob.size_bytes}`, blob] as const)).values(),
+  ];
+  if (uniqueBlobs.length === 0) {
+    return;
+  }
+  await db
+    .insert(contentBlobs)
+    .values(
+      uniqueBlobs.map((blob) => ({
+        workspaceId: blob.workspace_id,
+        sha256: blob.sha256,
+        sizeBytes: blob.size_bytes,
+        r2Key: blob.r2_key,
+        createdAt: new Date(blob.created_at),
+        updatedAt: new Date(blob.updated_at),
+      })),
+    )
+    .onConflictDoUpdate({
+      target: [contentBlobs.workspaceId, contentBlobs.sha256, contentBlobs.sizeBytes],
+      set: { r2Key: sql`excluded.r2_key`, updatedAt: sql`excluded.updated_at` },
+    });
+}
 
 function mapContentBlob(row: typeof contentBlobs.$inferSelect): ContentBlob {
   return {

@@ -63,16 +63,6 @@ export async function recordUploadedFile(
   },
 ) {
   await ctx.uow.read(PLATFORM_SCOPE, async (entities) => {
-    if (input.workspaceId && input.sha256 && input.objectKey && typeof input.sizeBytes === "number") {
-      await entities.contentBlobs.upsert({
-        workspace_id: input.workspaceId,
-        sha256: input.sha256,
-        size_bytes: input.sizeBytes,
-        r2_key: input.objectKey,
-        created_at: input.uploadedAt,
-        updated_at: input.uploadedAt,
-      });
-    }
     await entities.uploadSessionFiles.recordUpload(input);
   });
 }
@@ -215,15 +205,13 @@ async function validateDraftForPublish(
   if (revisionNumber > lifetimeRevisionCeiling) {
     repositoryError("revision_ceiling_exceeded");
   }
-  return revisionNumber;
+  return { revisionFiles, revisionNumber };
 }
 
-async function publishFileObjectKeys(
-  entities: Entities,
-  artifact: Artifact,
+function publishFileObjectKeys(
   revision: Revision,
-): Promise<{ entrypoint_object_key?: string; file_object_keys?: Record<string, string> }> {
-  const revisionFiles = await entities.artifactFiles.listForArtifact(artifact.id, revision.id);
+  revisionFiles: Awaited<ReturnType<Entities["artifactFiles"]["listForArtifact"]>>,
+): { entrypoint_object_key?: string; file_object_keys?: Record<string, string> } {
   const fileObjectKeys: Record<string, string> = {};
   for (const file of revisionFiles) {
     fileObjectKeys[file.path] = file.r2_key;
@@ -258,19 +246,27 @@ async function executePublishWrites(
   const expiresAt = isEphemeralWorkspace(input.workspace)
     ? artifactExpiresAtFromWorkspace(input.workspace, input.now)
     : input.artifact.expires_at;
+  const updatedAt = nextArtifactUpdatedAt(input.artifact.updated_at, input.now);
+  const title = sourceSession?.title ?? input.artifact.title;
   await entities.artifacts.updatePublished(input.artifact.id, {
     revisionId: input.revision.id,
-    title: sourceSession?.title ?? input.artifact.title,
+    title,
     entrypoint: input.revision.entrypoint,
     fileCount: input.revision.file_count,
     sizeBytes: input.revision.size_bytes,
     expiresAt,
-    updatedAt: nextArtifactUpdatedAt(input.artifact.updated_at, input.now),
+    updatedAt,
   });
-  const updatedArtifact = await entities.artifacts.findById(input.artifact.id, input.actor.workspace_id);
-  if (!updatedArtifact) {
-    repositoryError("artifact_not_found");
-  }
+  const updatedArtifact: Artifact = {
+    ...input.artifact,
+    revision_id: input.revision.id,
+    title,
+    entrypoint: input.revision.entrypoint,
+    file_count: input.revision.file_count,
+    size_bytes: input.revision.size_bytes,
+    expires_at: expiresAt,
+    updated_at: updatedAt,
+  };
   const publishActor = operationActorFromApiActor(input.actor);
   await entities.operationEvents.insert({
     actorType: publishActor.actorType,
@@ -286,10 +282,15 @@ async function executePublishWrites(
     },
     occurredAt: input.now,
   });
-  const publishedRevision = await entities.revisions.findById(input.revision.id, input.actor.workspace_id);
-  if (!publishedRevision) {
-    repositoryError("revision_unpublished");
-  }
+  const publishedRevision: Revision = {
+    ...input.revision,
+    status: "published",
+    revision_number: input.revisionNumber,
+    bundle_status: input.bundleStatus,
+    bundle_status_updated_at: input.now,
+    bundle_size_bytes: null,
+    published_at: input.now,
+  };
   return { updatedArtifact: await ensureArtifactCapabilityId(entities, updatedArtifact), publishedRevision };
 }
 
@@ -333,9 +334,10 @@ export async function publishRevision(
       const publishState = ensureRevisionPublishable(revision);
       if (publishState === "published") {
         const publishedArtifact = await ensureArtifactCapabilityId(entities, artifact);
+        const revisionFiles = await entities.artifactFiles.listForArtifact(artifact.id, revision.id);
         const publishMeta = {
           ephemeral_tier: isEphemeralWorkspace(workspace),
-          ...(await publishFileObjectKeys(entities, artifact, revision)),
+          ...publishFileObjectKeys(revision, revisionFiles),
         };
         return buildPublishResult(
           { ...publishedArtifact, revision_id: revision.id, entrypoint: revision.entrypoint },
@@ -346,7 +348,7 @@ export async function publishRevision(
         );
       }
       const policy = ctx.usagePolicyFor(workspace);
-      const revisionNumber = await validateDraftForPublish(
+      const { revisionFiles, revisionNumber } = await validateDraftForPublish(
         entities,
         artifact,
         revision,
@@ -363,7 +365,7 @@ export async function publishRevision(
       });
       return buildPublishResult(updatedArtifact, publishedRevision, undefined, ctx.options, {
         ephemeral_tier: isEphemeralWorkspace(workspace),
-        ...(await publishFileObjectKeys(entities, updatedArtifact, publishedRevision)),
+        ...publishFileObjectKeys(publishedRevision, revisionFiles),
       });
     },
   );

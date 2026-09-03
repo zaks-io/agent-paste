@@ -143,6 +143,52 @@ describe("runPublish", () => {
     expect(onUploadProgress).toHaveBeenCalledWith({ uploadedFiles: 1, totalToUpload: 1, uploadedBytes: 11 });
   });
 
+  it("uploads files concurrently without exceeding the Worker connection limit", async () => {
+    const files = Array.from({ length: 8 }, (_, index) =>
+      textFile({ path: `file-${index}.md`, sha256: String(index).repeat(64).slice(0, 64) as never }),
+    );
+    let active = 0;
+    let maxActive = 0;
+    let releaseFirstWave!: () => void;
+    const firstWave = new Promise<void>((resolve) => {
+      releaseFirstWave = resolve;
+    });
+    const publishRevision = vi.fn(async () => publishResult());
+    const { transport } = fakeTransport({
+      async createUploadSession() {
+        return {
+          upload_session_id: "upl_1",
+          artifact_id: ARTIFACT_ID,
+          revision_id: REVISION_ID,
+          status: "pending",
+          expires_at: "2026-01-01T00:00:00.000Z",
+          files: files.map((file, index) => ({
+            status: "upload_required",
+            path: file.path,
+            put_url: `https://r2.test/put/${index}`,
+            required_headers: {},
+            expires_at: "2026-01-01T00:00:00.000Z",
+          })),
+        } as never;
+      },
+      async putFile() {
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        if (active === 6) {
+          releaseFirstWave();
+        }
+        await firstWave;
+        active -= 1;
+      },
+      publishRevision,
+    });
+
+    await runPublish(transport, input({ files }));
+
+    expect(maxActive).toBe(6);
+    expect(publishRevision).toHaveBeenCalledOnce();
+  });
+
   it("sends base_revision_id + deleted_paths for a partial-manifest revise", async () => {
     const createUploadSession = vi.fn(fakeTransport().transport.createUploadSession);
     const { transport } = fakeTransport({ createUploadSession });
