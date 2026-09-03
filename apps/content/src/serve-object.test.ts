@@ -214,7 +214,7 @@ describe("serve-object response headers", () => {
     );
     expect(responseHeadersForPath("logo.png", 3, basePayload(), ETAG).get("cache-control")).toBe(CONTENT_CACHE_CONTROL);
     expect(bundleResponseHeaders(100, false, ETAG).get("cache-control")).toBe(CONTENT_CACHE_CONTROL);
-    expect(CONTENT_CACHE_CONTROL).toBe("private, no-cache");
+    expect(CONTENT_CACHE_CONTROL).toBe("private, no-cache, no-transform");
   });
 
   it("always denies framing, including iframe requests", () => {

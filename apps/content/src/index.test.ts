@@ -1027,7 +1027,7 @@ describe("content conditional requests", () => {
     expect(conditional.status).toBe(304);
     expect(await conditional.text()).toBe("");
     expect(conditional.headers.get("etag")).toBe(etag);
-    expect(conditional.headers.get("cache-control")).toBe("private, no-cache");
+    expect(conditional.headers.get("cache-control")).toBe("private, no-cache, no-transform");
     // The matching conditional request never touched R2.
     expect(get).toHaveBeenCalledTimes(1);
   });
@@ -1100,7 +1100,7 @@ describe("content conditional requests", () => {
 
   it("serves HTML with a no-cache directive and a matching HEAD ETag", async () => {
     const getResponse = await fetchServedFile("index.html", "<h1>ok</h1>", {});
-    expect(getResponse.headers.get("cache-control")).toBe("private, no-cache");
+    expect(getResponse.headers.get("cache-control")).toBe("private, no-cache, no-transform");
     const etag = getResponse.headers.get("etag");
 
     const token = await tokenFor("index.html");
@@ -1166,7 +1166,7 @@ describe("content conditional requests", () => {
     expect(conditional.headers.get("content-security-policy")).toContain("script-src 'none'");
     expect(conditional.headers.get("content-type")).toBe(first.headers.get("content-type"));
     expect(conditional.headers.get("cache-control")).toBe(first.headers.get("cache-control"));
-    expect(conditional.headers.get("cache-control")).toBe("private, no-cache");
+    expect(conditional.headers.get("cache-control")).toBe("private, no-cache, no-transform");
     // A 304 has no body, so it must not advertise a content-length.
     expect(conditional.headers.get("content-length")).toBeNull();
   });
