@@ -28,8 +28,7 @@ Cursor work must also be labeled `remote-cursor`.
 On each run:
 
 1. Read `AGENTS.md`, `docs/ops/project-status.md`,
-   `docs/ops/status/phase-backlog.md`, `docs/agents/workflow.md`, and
-   `docs/agents/issue-tracker.md`.
+   `docs/agents/workflow.md`, and `docs/agents/issue-tracker.md`.
 2. List current Linear issues in `Triage`, `Todo`, `In Progress`, `Blocked`,
    `In Review`, `Changes Requested`, and `Ready to Merge`.
 3. Check PR state for active work before starting new work.

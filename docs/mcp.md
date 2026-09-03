@@ -82,8 +82,9 @@ MCP exposes ten tools:
 Publishing tools return one `url`: the unguessable, no-login, top-level
 Artifact capability URL. It has no app viewer or iframe and stays stable across
 Revisions. Publish output also includes `artifact_id`, `revision_id`, `title`,
-and `expires_at`, plus upload statistics when files were uploaded. The returned
-IDs can be passed directly to the read, edit, revise, and metadata tools.
+`expires_at`, and upload statistics. A no-op publish returns zeroed upload
+statistics. The returned IDs can be passed directly to the read, edit, revise,
+and metadata tools.
 
 Output shapes to keep straight:
 

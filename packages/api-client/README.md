@@ -1,6 +1,6 @@
 # api-client
 
-Internal TypeScript client consumed by `apps/cli` and `packages/revise-core`.
+Internal TypeScript client consumed by `apps/cli` and `apps/mcp`.
 
 Responsibilities:
 

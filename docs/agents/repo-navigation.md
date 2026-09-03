@@ -10,13 +10,13 @@ Read these first when you are new to the repo or resuming after a long gap:
 
 - [`AGENTS.md`](../../AGENTS.md) - runtime instructions and Cursor Cloud notes.
 - [`docs/ops/project-status.md`](../ops/project-status.md) - current state,
-  active phase, and ledgers.
+  deferred work, and historical ledger links.
 - [`CONTEXT.md`](../../CONTEXT.md) - domain language and the app/worker contact
   map.
 - [`docs/specs/README.md`](../specs/README.md) - spec reading order.
 - [`docs/specs/architecture.md`](../specs/architecture.md) - current system map,
   trust boundaries, primary flows, and owner lookup table.
-- [`docs/adr/README.md`](../adr/README.md) - active architecture decisions and
+- [`docs/adr/README.md`](../adr/README.md) - architecture decision trail and
   conflict resolutions.
 - [`docs/agents/workflow.md`](./workflow.md) and
   [`docs/agents/skill-usage.md`](./skill-usage.md) - agent workflow and
@@ -47,7 +47,7 @@ carry the local contract summary and commands.
 | Area                | Start Here                                                                                           | Owns                                                                                                     |
 | ------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | Product language    | [`CONTEXT.md`](../../CONTEXT.md)                                                                     | Canonical terms, avoided synonyms, app/worker vocabulary, and relationship rules.                        |
-| Current status      | [`docs/ops/project-status.md`](../ops/project-status.md)                                             | Project snapshot, active phase, deferred work, and status ledger links.                                  |
+| Current status      | [`docs/ops/project-status.md`](../ops/project-status.md)                                             | Current project snapshot, deferred work, and links to historical status ledgers.                         |
 | Product specs       | [`docs/specs/README.md`](../specs/README.md)                                                         | User-facing contracts, acceptance criteria, data model, API, web, jobs, and local dev.                   |
 | System architecture | [`docs/specs/architecture.md`](../specs/architecture.md)                                             | Current system map, trust boundaries, primary flows, and owner lookup table.                             |
 | Decision history    | [`docs/adr/README.md`](../adr/README.md)                                                             | Rationale, conflict resolutions, and implementation constraints.                                         |
