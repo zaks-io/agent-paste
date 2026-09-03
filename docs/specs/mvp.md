@@ -10,11 +10,20 @@ Human output prints the Artifact URL. JSON output is:
 
 ```json
 {
+  "schema_version": "2",
   "artifact_id": "art_...",
   "revision_id": "rev_...",
   "title": "output",
   "url": "https://01234-56789-abcde-fghjd.agent-paste.link/",
-  "expires_at": null
+  "expires_at": "<artifact expiry in ISO 8601>",
+  "upload_stats": {
+    "total_files": 1,
+    "total_bytes": 1234,
+    "uploaded_files": 1,
+    "uploaded_bytes": 1234,
+    "reused_files": 0,
+    "reused_bytes": 0
+  }
 }
 ```
 

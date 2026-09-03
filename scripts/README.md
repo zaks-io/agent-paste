@@ -178,8 +178,10 @@ unexpected error codes, fail the smoke.
 Assertions:
 
 - rate-limited provision and ephemeral daily write allowance via API
-- CLI `publish --ephemeral` on `examples/local-harness/ephemeral-site`
-- `artifact_url`, optional `access_link_url`, `revision_content_url`, and Agent View JSON/HTML, including `noindex` and script-disabled CSP
+- CLI `publish --ephemeral` on `examples/local-harness/ephemeral-site`, including
+  Artifact and Revision IDs, the capability URL, expiry, and ephemeral claim
+  fields
+- the returned Artifact HTML, `noindex`, and script-disabled CSP
 - Claim Token never appears in public URLs or stderr
 - optional claim redemption when `AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_ACCESS_TOKEN` is set
 - preview/PR cleanup via smoke harness `__test__/delete-artifact` when harness secret is present

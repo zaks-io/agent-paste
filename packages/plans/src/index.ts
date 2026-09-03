@@ -14,7 +14,7 @@ export type PlanPrice = Record<BillingInterval, { amount: string; per: string }>
 
 /**
  * The human-facing definition of a Plan: how it is named, priced, and described
- * on the billing dashboard (and the landing page once it renders pricing). The
+ * on the billing dashboard and billing-enabled landing page. The
  * enforced caps live in the Usage
  * Policy (`@agent-paste/config`); this is the presentational half. The headline
  * allowance bullet is sourced from the same config constant the runtime enforces,

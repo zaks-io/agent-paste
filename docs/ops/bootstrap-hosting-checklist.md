@@ -277,4 +277,4 @@ This checklist is Done when:
 - `gh secret list --repo zaks-io/agent-paste --env Production` lists `DATABASE_URL_MIGRATIONS_PRODUCTION` and `AGENT_PASTE_PRODUCTION_SMOKE_API_KEY`.
 - Bitwarden holds the production Worker secrets under `agent-paste / production` plus the production infra secrets under `agent-paste / infra`.
 
-When closing: update [`status/hosted-ops.md`](./status/hosted-ops.md), [`status/phase-backlog.md`](./status/phase-backlog.md), and [`status/changelog.md`](./status/changelog.md) with a link back to this checklist. **Codex can handle** the final doc update after the mixed-owner checks are complete.
+When closing: update [`project-status.md`](./project-status.md), [`status/hosted-ops.md`](./status/hosted-ops.md), and [`status/changelog.md`](./status/changelog.md) with a link back to this checklist. Keep the dated phase ledger as a historical snapshot. **Codex can handle** the final doc update after the mixed-owner checks are complete.

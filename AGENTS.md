@@ -2,7 +2,11 @@
 
 ## Start here
 
-Read `docs/ops/project-status.md` first. It is the status entrypoint and links to the detailed ledgers. When asked to "implement the next step," follow its link to `docs/ops/status/phase-backlog.md` and start at the top of the active phase.
+Read `docs/ops/project-status.md` first. It is the current status entrypoint and
+links to dated historical ledgers. When asked to "implement the next step," use
+the current next step named in `project-status.md`; if it names none, refresh
+the issue tracker rather than treating `docs/ops/status/phase-backlog.md` as a
+current queue.
 
 Then: `CONTEXT.md` (domain language), `docs/specs/README.md` (spec reading order), `docs/adr/README.md` (ADR index).
 

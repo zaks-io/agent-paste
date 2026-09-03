@@ -1,8 +1,8 @@
-# Web app — remaining work
+# Web app close-out record
 
-Source of truth for Phase 3 web close-out after the TanStack Start app and WorkOS wiring landed. Owner: Isaac. Snapshot date: 2026-05-25.
+Historical snapshot of the Phase 3 web close-out after the TanStack Start app and WorkOS wiring landed. Owner: Isaac. Snapshot date: 2026-05-25. Current work lives in the issue tracker.
 
-Scope clarification: this file tracks only the work that closes Phase 3 (`docs/specs/phases.md`). The ordered cross-phase backlog lives in [`status/phase-backlog.md`](./status/phase-backlog.md).
+Scope clarification: this file records only the work that closed Phase 3 (`docs/specs/phases.md`). The dated cross-phase plan is preserved in [`status/phase-backlog.md`](./status/phase-backlog.md).
 
 ## Operator click-ops (blocks first real login)
 

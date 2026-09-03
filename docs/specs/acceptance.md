@@ -9,8 +9,10 @@ An authenticated or ephemeral publish is accepted when all of these are true:
   `url`, and `expires_at`. The `--ephemeral` CLI wrapper adds provisioning and
   optional claim fields around that same publish result.
 - `url` is immediately usable without login.
-- Production uses `https://{32-lowercase-hex}.agent-paste.link/`.
-- Preview uses `https://{32-lowercase-hex}-preview.agent-paste.link/`.
+- Production uses
+  `https://{four-groups-of-five-lowercase-base32-symbols}.agent-paste.link/`.
+- Preview uses
+  `https://{four-groups-of-five-lowercase-base32-symbols}-preview.agent-paste.link/`.
 - A later publish to the same Artifact keeps the hostname and advances the
   content shown after refresh.
 - Claiming an ephemeral Artifact keeps the same URL and immediately refreshes
@@ -35,13 +37,18 @@ An authenticated or ephemeral publish is accepted when all of these are true:
 CLI, MCP, REST, and the API client expose the same common publish fields. The
 ephemeral CLI wrapper additionally returns `claim_url` and the provisioning
 identifiers needed for optional ownership. Removed Access Link, visibility,
-private-viewer, and live-viewer commands are not registered or documented.
+private-viewer, and live-viewer commands are not registered or presented as
+current client behavior.
 
 ## Compatibility
 
 Previously issued signed `usercontent.agent-paste.sh/v/...` URLs may resolve
 until their embedded expiration. They never gain the stable capability-host
 contract and cannot be minted by the current publish surface.
+
+Legacy 32-character hexadecimal capability IDs remain readable. Newly minted
+IDs use four groups of five lowercase base32 symbols; the final symbol is a
+check symbol.
 
 ## Verification
 

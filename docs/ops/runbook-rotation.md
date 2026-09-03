@@ -205,7 +205,7 @@ Emergency cutover (invalidates all existing API Keys): replace `API_KEY_PEPPER_V
 
 ## Rotate WorkOS Web Secrets
 
-Current status: WorkOS AuthKit is the current web auth stack. Preview and production WorkOS login work; the remaining Phase 3 web items are tracked in [`status/phase-backlog.md`](./status/phase-backlog.md#active-phase-3-close-out) and [`web-app-todo.md`](./web-app-todo.md).
+Current status: WorkOS AuthKit is the current web auth stack. Preview and production WorkOS login work. The completed Phase 3 web close-out is recorded in [`status/phase-backlog.md`](./status/phase-backlog.md#phase-3-close-out) and [`web-app-todo.md`](./web-app-todo.md); current work lives in the issue tracker.
 
 ### `WORKOS_API_KEY`
 

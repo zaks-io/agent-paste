@@ -1,6 +1,6 @@
 # api-client
 
-Internal TypeScript client consumed by `apps/cli` and web/CLI login credential flows.
+Internal runtime TypeScript client consumed by `apps/cli` and `apps/mcp`.
 
 Responsibilities:
 

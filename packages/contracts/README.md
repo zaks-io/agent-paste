@@ -4,7 +4,7 @@ Canonical contract definitions for the hosted service.
 
 This package intentionally contains schemas and registries only. It does not contain HTTP handlers, database access, service clients, or runtime business logic.
 
-## Contents
+## Contract groups
 
 - `primitives.ts`: branded identifiers and reusable scalar shapes.
 - `enums.ts`: stable enum contracts.
@@ -16,4 +16,7 @@ This package intentionally contains schemas and registries only. It does not con
 - `apiKeys.ts`: admin-created API Key schemas.
 - `workspace.ts`: workspace, usage policy, and whoami schemas.
 - `routes.ts`: route registry for `api`, `upload`, `content`, web dashboard, billing, and operator routes.
-- `mcp.ts`: MCP OAuth scopes, JSON-RPC transport shapes, twelve-tool registry, error mapping, and forwarded API call plans (ADR 0061).
+- `mcp.ts`: MCP OAuth scopes, JSON-RPC transport shapes, ten-tool registry, error mapping, and forwarded API call plans (ADR 0061).
+- Authentication and product surfaces: `agentAuth.ts`, `billing.ts`, `cliVersion.ts`, `ephemeral.ts`, `operator.ts`, and `web.ts`.
+- Artifact lifecycle and delivery: `accessLinks.ts`, `bundle.ts`, `jobs.ts`, `liveUpdates.ts`, `revisions.ts`, and `viewerFrame.ts`.
+- Cross-cutting policies and helpers: `lockdown.ts`, `renderMode.ts`, and `zod.ts`.

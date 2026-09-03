@@ -62,7 +62,7 @@ requests accountless publish, use:
 agent-paste publish <path> --ephemeral --json
 ```
 
-Every publish JSON result contains:
+Every publish JSON result contains these core fields:
 
 ```json
 {
