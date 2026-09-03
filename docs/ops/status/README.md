@@ -36,7 +36,7 @@ Feature-specific todo files stay next to these ledgers:
   established from the issue tracker; preserve `phase-backlog.md` as historical
   sequencing unless it is deliberately refreshed.
 - Put completed work in `changelog.md`, not in the active backlog.
-- Update `coverage.md` when a new ADR or spec file is added, or when a
-  previously partial/deferred decision is implemented.
+- Update the relevant spec and ADR index when coverage changes; preserve
+  `coverage.md` as its dated snapshot.
 - Add current component ownership to `docs/development.md`; preserve
   `implementation.md` as its dated snapshot.
