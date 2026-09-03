@@ -162,9 +162,10 @@ export async function runPublish(transport: PublishTransport, input: PublishInpu
 
 async function runConcurrent<T>(items: T[], concurrency: number, run: (item: T) => Promise<void>): Promise<void> {
   let nextIndex = 0;
+  let failed = false;
   let failure: unknown;
   const worker = async () => {
-    while (failure === undefined) {
+    while (!failed) {
       const index = nextIndex;
       nextIndex += 1;
       if (index >= items.length) {
@@ -173,12 +174,15 @@ async function runConcurrent<T>(items: T[], concurrency: number, run: (item: T) 
       try {
         await run(items[index] as T);
       } catch (error) {
-        failure ??= error;
+        if (!failed) {
+          failed = true;
+          failure = error;
+        }
       }
     }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
-  if (failure !== undefined) {
+  if (failed) {
     throw failure;
   }
 }

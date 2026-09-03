@@ -189,6 +189,21 @@ describe("runPublish", () => {
     expect(publishRevision).toHaveBeenCalledOnce();
   });
 
+  it("does not finalize when an upload rejects without a value", async () => {
+    const finalize = vi.fn(fakeTransport().transport.finalize);
+    const publishRevision = vi.fn(async () => publishResult());
+    const { transport } = fakeTransport({
+      putFile: () => Promise.reject(),
+      finalize,
+      publishRevision,
+    });
+
+    await expect(runPublish(transport, input())).rejects.toBeUndefined();
+
+    expect(finalize).not.toHaveBeenCalled();
+    expect(publishRevision).not.toHaveBeenCalled();
+  });
+
   it("sends base_revision_id + deleted_paths for a partial-manifest revise", async () => {
     const createUploadSession = vi.fn(fakeTransport().transport.createUploadSession);
     const { transport } = fakeTransport({ createUploadSession });
