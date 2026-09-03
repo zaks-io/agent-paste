@@ -121,10 +121,12 @@ reading and decrypting a file. Authorization failures return the generic
 ## Caching
 
 Every successful file response has a strong Revision-and-path `ETag` and
-`Cache-Control: private, no-cache`. A matching `If-None-Match`, including `*`,
-returns `304 Not Modified` before the R2 read, after authorization, denylist,
-and rate-limit checks. The 304 carries the same content type, CSP, ETag, and
-cache policy as the corresponding 200.
+`Cache-Control: private, no-cache, no-transform`. `no-transform` prevents the
+outer Cloudflare zone from injecting analytics or other markup into uploaded
+HTML. A matching `If-None-Match`, including `*`, returns `304 Not Modified`
+before the R2 read, after authorization, denylist, and rate-limit checks. The
+304 carries the same content type, CSP, ETag, and cache policy as the
+corresponding 200.
 
 Errors use `Cache-Control: no-store`. Revising an Artifact changes validators
 without changing its hostname.

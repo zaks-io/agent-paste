@@ -83,7 +83,12 @@ export async function publishRevision(
   if (!actor) {
     return getBoundResponders(context).respondError("not_authenticated");
   }
-  const coordinator = createPublishCoordinator({ db, env: context.env });
+  const waitUntil = waitUntilFor(context);
+  const coordinator = createPublishCoordinator({
+    db,
+    env: context.env,
+    ...(waitUntil ? { waitUntil } : {}),
+  });
 
   return runIdempotent(
     context,
@@ -97,6 +102,18 @@ export async function publishRevision(
       }),
     { respondError: guard.respondError as ContractRespondError },
   );
+}
+
+function waitUntilFor(context: AppContext): ((promise: Promise<unknown>) => void) | undefined {
+  try {
+    const executionCtx = context.executionCtx;
+    return executionCtx ? (promise) => executionCtx.waitUntil(promise) : undefined;
+  } catch (error) {
+    if (error instanceof Error && error.message === "This context has no ExecutionContext") {
+      return undefined;
+    }
+    throw error;
+  }
 }
 
 function claimCodeFromHeader(headers: Headers): string | undefined {

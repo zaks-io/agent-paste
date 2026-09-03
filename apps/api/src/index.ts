@@ -317,15 +317,15 @@ app.onError((error, context) => {
 });
 
 const worker = {
-  fetch(request: Request, env: Env): Promise<Response> {
-    return handleRequest(request, env);
+  fetch(request: Request, env: Env, executionCtx: ExecutionContext): Promise<Response> {
+    return handleRequest(request, env, executionCtx);
   },
 };
 
 export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
-export async function handleRequest(request: Request, env: Env): Promise<Response> {
-  return await app.fetch(request, env);
+export async function handleRequest(request: Request, env: Env, executionCtx?: ExecutionContext): Promise<Response> {
+  return await app.fetch(request, env, executionCtx);
 }
 
 export { WorkspaceWriteAllowance } from "@agent-paste/write-allowance";

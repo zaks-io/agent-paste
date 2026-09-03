@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { defineSqlQuerySourceMap } from "../postgres/query-source.js";
 import { uploadSessionFiles, uploadSessions } from "../schema.js";
@@ -63,21 +63,30 @@ export const uploadSessionFileQueries = defineSqlQuerySourceMap(
   "uploadSessionFileQueries",
   {
     async insert(db: DrizzleDb, sessionId: string, file: StoredFile) {
-      await db.insert(uploadSessionFiles).values({
-        workspaceId: file.workspace_id,
-        uploadSessionId: sessionId,
-        path: file.path,
-        sizeBytes: file.size_bytes,
-        servedContentType: file.content_type,
-        r2Key: file.r2_key,
-        sha256: file.sha256 ?? null,
-        storageKind: file.storage_kind ?? "revision",
-        uploadedAt: file.uploaded_at ? new Date(file.uploaded_at) : null,
-        // putUrlExpiresAt is notNull in schema; fall back to "now" rather than producing an Invalid Date.
-        putUrlExpiresAt: file.put_url_expires_at ? new Date(file.put_url_expires_at) : new Date(),
-        patchBaseSha256: file.patch_base_sha256 ?? null,
-        patchResultSha256: file.patch_result_sha256 ?? null,
-      });
+      await uploadSessionFileQueries.insertMany(db, sessionId, [file]);
+    },
+
+    async insertMany(db: DrizzleDb, sessionId: string, files: StoredFile[]) {
+      if (files.length === 0) {
+        return;
+      }
+      await db.insert(uploadSessionFiles).values(
+        files.map((file) => ({
+          workspaceId: file.workspace_id,
+          uploadSessionId: sessionId,
+          path: file.path,
+          sizeBytes: file.size_bytes,
+          servedContentType: file.content_type,
+          r2Key: file.r2_key,
+          sha256: file.sha256 ?? null,
+          storageKind: file.storage_kind ?? "revision",
+          uploadedAt: file.uploaded_at ? new Date(file.uploaded_at) : null,
+          // putUrlExpiresAt is notNull in schema; fall back to "now" rather than producing an Invalid Date.
+          putUrlExpiresAt: file.put_url_expires_at ? new Date(file.put_url_expires_at) : new Date(),
+          patchBaseSha256: file.patch_base_sha256 ?? null,
+          patchResultSha256: file.patch_result_sha256 ?? null,
+        })),
+      );
     },
 
     async listForSession(db: DrizzleDb, sessionId: string): Promise<StoredFile[]> {
@@ -92,6 +101,7 @@ export const uploadSessionFileQueries = defineSqlQuerySourceMap(
     async recordUpload(
       db: DrizzleDb,
       input: {
+        workspaceId?: string;
         sessionId: string;
         path: string;
         objectKey?: string;
@@ -100,6 +110,31 @@ export const uploadSessionFileQueries = defineSqlQuerySourceMap(
         uploadedAt: string;
       },
     ) {
+      if (input.workspaceId && input.sha256 && input.objectKey && typeof input.sizeBytes === "number") {
+        await db.execute(sql`
+          with registered_blob as (
+            insert into content_blobs (workspace_id, sha256, size_bytes, r2_key, created_at, updated_at)
+            values (
+              ${input.workspaceId},
+              ${input.sha256},
+              ${input.sizeBytes},
+              ${input.objectKey},
+              ${input.uploadedAt},
+              ${input.uploadedAt}
+            )
+            on conflict (workspace_id, sha256, size_bytes)
+            do update set r2_key = excluded.r2_key, updated_at = excluded.updated_at
+          )
+          update upload_session_files
+          set uploaded_at = ${input.uploadedAt}
+          where workspace_id = ${input.workspaceId}
+            and upload_session_id = ${input.sessionId}
+            and sha256 = ${input.sha256}
+            and r2_key = ${input.objectKey}
+            and size_bytes = ${input.sizeBytes}
+        `);
+        return;
+      }
       const conditions = [eq(uploadSessionFiles.uploadSessionId, input.sessionId)];
       if (input.sha256) {
         conditions.push(eq(uploadSessionFiles.sha256, input.sha256));

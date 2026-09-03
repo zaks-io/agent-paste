@@ -419,7 +419,9 @@ function appendVary(headers: Headers, value: string): void {
 // a warm browser cache. `private` always: the URL is a bearer cap and must never
 // enter a shared cache. The validator does the caching work; we deliberately do
 // not grant a no-revalidation `max-age` window.
-export const CONTENT_CACHE_CONTROL = "private, no-cache";
+// User content must survive the outer Cloudflare zone byte-for-byte. In
+// particular, no-transform prevents automatic Cloudflare Web Analytics injection.
+export const CONTENT_CACHE_CONTROL = "private, no-cache, no-transform";
 
 // 304 serves no bytes, but the request already counted against the artifact read
 // limit, so it still registers a read (bytes: 0). It reuses the exact headers the

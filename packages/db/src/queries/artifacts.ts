@@ -230,18 +230,33 @@ export const artifactFileQueries = defineSqlQuerySourceMap(
   "artifactFileQueries",
   {
     async insert(db: DrizzleDb, artifactId: string, revisionId: string, file: StoredFile, fallbackUploadedAt: string) {
-      await db.insert(artifactFiles).values({
-        workspaceId: file.workspace_id,
-        artifactId,
-        revisionId,
-        path: file.path,
-        sizeBytes: file.size_bytes,
-        servedContentType: file.content_type,
-        r2Key: file.r2_key,
-        sha256: file.sha256 ?? null,
-        storageKind: file.storage_kind ?? "revision",
-        uploadedAt: file.uploaded_at ? new Date(file.uploaded_at) : new Date(fallbackUploadedAt),
-      });
+      await artifactFileQueries.insertMany(db, artifactId, revisionId, [file], fallbackUploadedAt);
+    },
+
+    async insertMany(
+      db: DrizzleDb,
+      artifactId: string,
+      revisionId: string,
+      files: StoredFile[],
+      fallbackUploadedAt: string,
+    ) {
+      if (files.length === 0) {
+        return;
+      }
+      await db.insert(artifactFiles).values(
+        files.map((file) => ({
+          workspaceId: file.workspace_id,
+          artifactId,
+          revisionId,
+          path: file.path,
+          sizeBytes: file.size_bytes,
+          servedContentType: file.content_type,
+          r2Key: file.r2_key,
+          sha256: file.sha256 ?? null,
+          storageKind: file.storage_kind ?? "revision",
+          uploadedAt: file.uploaded_at ? new Date(file.uploaded_at) : new Date(fallbackUploadedAt),
+        })),
+      );
     },
 
     async listForArtifact(db: DrizzleDb, artifactId: string, revisionId?: string): Promise<StoredFile[]> {

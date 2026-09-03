@@ -7,6 +7,8 @@ export function postgresArtifactFiles(ctx: PostgresContext): Entities["artifactF
   return {
     insert: (artifactId, revisionId, file, fallbackUploadedAt) =>
       artifactFileQueries.insert(drizzle, artifactId, revisionId, file, fallbackUploadedAt),
+    insertMany: (artifactId, revisionId, files, fallbackUploadedAt) =>
+      artifactFileQueries.insertMany(drizzle, artifactId, revisionId, files, fallbackUploadedAt),
     listForArtifact: (artifactId, revisionId) => artifactFileQueries.listForArtifact(drizzle, artifactId, revisionId),
   };
 }

@@ -107,7 +107,13 @@ export type Entities = {
   };
   contentBlobs: {
     find(input: { workspaceId: string; sha256: string; sizeBytes: number }): Promise<ContentBlob | null>;
+    findReusableAndTouch(
+      workspaceId: string,
+      files: Array<{ sha256: string; sizeBytes: number }>,
+      updatedAt: string,
+    ): Promise<ContentBlob[]>;
     upsert(blob: ContentBlob): Promise<void>;
+    upsertMany(blobs: ContentBlob[]): Promise<void>;
     deleteUnreferenced(input: { now: string; limit: number }): Promise<ContentBlob[]>;
     listForReparent(
       workspaceId: string,
@@ -201,6 +207,7 @@ export type Entities = {
   };
   artifactFiles: {
     insert(artifactId: string, revisionId: string, file: StoredFile, fallbackUploadedAt: string): Promise<void>;
+    insertMany(artifactId: string, revisionId: string, files: StoredFile[], fallbackUploadedAt: string): Promise<void>;
     listForArtifact(artifactId: string, revisionId?: string): Promise<StoredFile[]>;
   };
   safetyWarnings: {
@@ -216,8 +223,10 @@ export type Entities = {
   };
   uploadSessionFiles: {
     insert(sessionId: string, file: StoredFile): Promise<void>;
+    insertMany(sessionId: string, files: StoredFile[]): Promise<void>;
     listForSession(sessionId: string): Promise<StoredFile[]>;
     recordUpload(input: {
+      workspaceId?: string;
       sessionId: string;
       path: string;
       objectKey?: string;

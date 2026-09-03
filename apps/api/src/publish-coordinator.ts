@@ -27,6 +27,7 @@ export type PublishCoordinator = {
 type PublishCoordinatorDeps = {
   db: Repository;
   env: Env;
+  waitUntil?: (promise: Promise<unknown>) => void;
 };
 
 export function createPublishCoordinator(deps: PublishCoordinatorDeps): PublishCoordinator {
@@ -133,7 +134,12 @@ async function runPostPublishFanout(
   const ephemeralTier = isEphemeralPublish(result);
   recordFreshPublishEvent(deps.env, input, ephemeralTier, isReplay);
   recordFreshEphemeralFunnelEvent(deps.env, input, ephemeralTier, isReplay);
-  await enqueuePublishJobs(deps.env, input, result, now, ephemeralTier);
+  const enqueue = enqueuePublishJobs(deps.env, input, result, now, ephemeralTier);
+  if (deps.waitUntil) {
+    deps.waitUntil(enqueue);
+  } else {
+    await enqueue;
+  }
   return signPublishResult(result, deps.env, { workspaceId: input.actor.workspace_id, ephemeralTier });
 }
 

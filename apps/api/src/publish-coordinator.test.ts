@@ -1,15 +1,20 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import type { ApiActor, Repository } from "@agent-paste/db";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Env } from "./env.js";
 import { createPublishCoordinator } from "./publish-coordinator.js";
 
-const actor = { type: "api_key", id: "key_1", workspace_id: "w_1", scopes: ["publish"] } as ApiActor;
+const actor = {
+  type: "api_key",
+  id: "key_1",
+  workspace_id: "00000000-0000-4000-8000-000000000001",
+  scopes: ["publish"],
+} as ApiActor;
 const publishInput = {
   actor,
   idempotencyKey: "idem_publish",
-  artifactId: "art_1",
-  revisionId: "rev_1",
+  artifactId: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+  revisionId: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
 };
 
 function fakeWriteAllowance() {
@@ -37,6 +42,7 @@ function fakeWriteAllowance() {
 function coordinatorFixture(
   overrides: Partial<Record<keyof Repository, unknown>>,
   envOverrides: Record<string, unknown> = {},
+  waitUntil?: (promise: Promise<unknown>) => void,
 ) {
   const writeAllowance = fakeWriteAllowance();
   const db = {
@@ -81,7 +87,7 @@ function coordinatorFixture(
     },
     ...envOverrides,
   } as unknown as Env;
-  return { coordinator: createPublishCoordinator({ db, env }), writeAllowance };
+  return { coordinator: createPublishCoordinator({ db, env, ...(waitUntil ? { waitUntil } : {}) }), writeAllowance };
 }
 
 function publishedResult(overrides: Record<string, unknown> = {}) {
@@ -160,5 +166,32 @@ describe("publish coordinator write-allowance reservation", () => {
     expect(result).not.toHaveProperty("private_url");
     expect(result).not.toHaveProperty("unlisted_url");
     expect(result).not.toHaveProperty("access_link_url");
+  });
+
+  it("defers post-publish queue sends outside the response path", async () => {
+    let finishSend!: () => void;
+    const sendPending = new Promise<void>((resolve) => {
+      finishSend = resolve;
+    });
+    const pending: Promise<unknown>[] = [];
+    const send = vi.fn(() => sendPending);
+    const { coordinator } = coordinatorFixture(
+      {
+        async peekPublishWriteGate() {
+          return { is_already_published: true, is_new_artifact: false };
+        },
+        async publishRevision() {
+          return publishedResult({ bundle: { status: "pending" } });
+        },
+      },
+      { BUNDLE_GENERATE_QUEUE: { send } },
+      (promise) => pending.push(promise),
+    );
+
+    await expect(coordinator.publishRevision(publishInput)).resolves.toHaveProperty("artifact_id");
+    expect(send).toHaveBeenCalledOnce();
+    expect(pending).toHaveLength(1);
+    finishSend();
+    await pending[0];
   });
 });

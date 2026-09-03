@@ -102,6 +102,8 @@ export type PublishTransport = {
   ): Promise<PublishResult>;
 };
 
+const MAX_CONCURRENT_UPLOADS = 6;
+
 /**
  * The one publish path shared by the CLI and the MCP server: create an upload
  * session, upload the files the server does not already have, finalize, and
@@ -120,7 +122,8 @@ export async function runPublish(transport: PublishTransport, input: PublishInpu
     reusedBytes: 0,
   };
 
-  const totalToUpload = session.files.filter((target) => target.status !== "reused").length;
+  const uploadTargets = session.files.filter((target) => target.status !== "reused");
+  const totalToUpload = uploadTargets.length;
   for (const target of session.files) {
     const file = filesByPath.get(target.path);
     if (!file) {
@@ -129,7 +132,12 @@ export async function runPublish(transport: PublishTransport, input: PublishInpu
     if (target.status === "reused") {
       stats.reusedFiles += 1;
       stats.reusedBytes += file.sizeBytes;
-      continue;
+    }
+  }
+  await runConcurrent(uploadTargets, MAX_CONCURRENT_UPLOADS, async (target) => {
+    const file = filesByPath.get(target.path);
+    if (!file) {
+      throw new Error(`Upload session returned an unknown file: ${target.path}`);
     }
     await transport.putFile(target.put_url, await asBytes(file.read()), {
       "content-type": file.contentType,
@@ -138,7 +146,7 @@ export async function runPublish(transport: PublishTransport, input: PublishInpu
     stats.uploadedFiles += 1;
     stats.uploadedBytes += file.sizeBytes;
     input.onUploadProgress?.({ uploadedFiles: stats.uploadedFiles, totalToUpload, uploadedBytes: stats.uploadedBytes });
-  }
+  });
 
   const finalized = await transport.finalize(session.upload_session_id, input.idempotencyKey);
   const result = await transport.publishRevision(finalized.artifact_id, finalized.revision_id, input.idempotencyKey);
@@ -150,6 +158,33 @@ export async function runPublish(transport: PublishTransport, input: PublishInpu
     uploadStats: stats,
     result,
   };
+}
+
+async function runConcurrent<T>(items: T[], concurrency: number, run: (item: T) => Promise<void>): Promise<void> {
+  let nextIndex = 0;
+  let failed = false;
+  let failure: unknown;
+  const worker = async () => {
+    while (!failed) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= items.length) {
+        return;
+      }
+      try {
+        await run(items[index] as T);
+      } catch (error) {
+        if (!failed) {
+          failed = true;
+          failure = error;
+        }
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  if (failed) {
+    throw failure;
+  }
 }
 
 function buildCreateSessionRequest(input: PublishInput): CreateUploadSessionRequest {
