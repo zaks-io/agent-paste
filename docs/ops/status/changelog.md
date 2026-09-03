@@ -3,6 +3,20 @@
 Newest first. This is an operator-facing changelog for implemented project work;
 use `git log` for commit-level detail.
 
+## 2026-09-03
+
+### Public repository review readiness
+
+- Made the README's first command a working accountless publish and corrected
+  homepage revision copy to require refresh.
+- Reconciled the marketing and repository-navigation docs with the deployed
+  one-URL capability architecture. Older implementation and coverage ledgers
+  now identify themselves as historical snapshots.
+- Updated vulnerable `qs` and `fflate` dependency pins to their verified fixed
+  releases so the blocking repository security attestation can return green.
+- Removed the leftover draft instruction from the published CLI v0.2.0 release
+  notes.
+
 ## 2026-07-17
 
 ### Linear production release tracking

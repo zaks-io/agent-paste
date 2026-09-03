@@ -12,7 +12,7 @@ Three documents, three jobs. Keep them in their lanes:
   interaction system (the how-it-looks). It is the source of truth for color,
   type, spacing, and components. This guide never overrides it.
 - [`CONTEXT.md`](../CONTEXT.md) owns the domain vocabulary (the words). Product
-  nouns like **Artifact**, **Revision**, and **Access Link** are defined there.
+  nouns like **Artifact**, **Revision**, and **Artifact URL** are defined there.
   Use them exactly. Honor the `Avoid:` lists.
 
 House rule for this document and everything downstream of it: no em dashes, no
@@ -35,9 +35,9 @@ a human-readable URL, a machine-readable manifest, a short life, and a hard
 isolation boundary because nobody wrote the contents by hand.
 
 agent-paste is where agents publish. Point an agent at `agent-paste.sh` and it
-can turn a folder into a durable, addressable **Artifact** with a revocable
-**Access Link** a human can open and an **Agent View** manifest another agent can
-read.
+can turn a folder into a durable, addressable **Artifact** with one stable
+**Artifact URL** a human can open and an **Agent View** manifest another agent
+can read.
 
 This is the bet, and it is a big one: agents are a new class of internet user,
 and the internet needs a place for them to put their work. We intend to be that
@@ -56,10 +56,10 @@ register of everything that follows. Epic, stated quietly.
 > a dead link.
 >
 > agent-paste is where agents publish. Point an agent at `agent-paste.sh` and it
-> turns a folder into an Artifact with a stable ID, an Access Link for the human
-> who reads it, and an Agent View manifest for the agent that consumes it.
+> turns a folder into an Artifact with one stable Artifact URL for the human who
+> reads it and an Agent View manifest for the agent that consumes it.
 > Built to host work it does not trust. Built to expire by default. Built to be
-> revoked in one move.
+> deleted in one move.
 >
 > We are not building a louder pastebin. We are building the publishing layer
 > for an internet that agents have already started using.
@@ -108,8 +108,8 @@ agent-generated work products.
 > **publishing layer for agent work**. Unlike pastebins, file hosts, and deploy
 > platforms (which assume a human at a keyboard and either too little structure
 > or too much), agent-paste lets an agent publish a folder as one addressable
-> Artifact with a revocable Access Link and a machine-readable Agent View, served
-> safely and gone when it should be.
+> Artifact with a stable capability URL and a machine-readable Agent View,
+> served safely and gone when it should be.
 
 **Frame of reference, stated plainly:** competitors each own one slice and miss
 the agent loop. Pastebins and Gist are too narrow (single document, no isolation,
@@ -130,13 +130,12 @@ These are the reasons to believe. Lead with them.
    or another agent in another tool can pick up. The handoff is not locked to a
    model vendor's chat surface.
 3. **Safe to host what you did not write.** Generated content is untrusted by
-   construction. We serve it from an isolated **Content Origin**, from private
-   storage, behind short-lived signed tokens, with platform-derived MIME types,
-   a strict execution policy, a denylist, and per-artifact lockdown.
-4. **Transient by default, revocable on demand.** Artifacts follow Workspace
-   Auto Deletion policy. Share through a revocable **Access Link** and pull it
-   back without deleting the underlying work. Agent output does not live forever
-   by accident.
+   construction. We serve each Artifact from its own capability origin, from
+   private encrypted storage, with platform-derived MIME types, signed policy,
+   deny controls, and platform lockdown.
+4. **Transient by default, removable on demand.** Artifacts follow Workspace
+   Auto Deletion policy. Delete the Artifact when the handoff is done. Agent
+   output does not live forever by accident.
 
 ### The launch lead: concrete first, thesis underneath
 
@@ -162,7 +161,7 @@ work needs ownership, revision, or JavaScript.
   API key.
 - **MCP when the agent has no shell.** For web chats with no terminal (ChatGPT,
   Claude, Gemini): connect the MCP server once and the agent publishes, reads,
-  and creates Share Links from there. MCP is the mechanism, never the headline.
+  and revises Artifacts from there. MCP is the mechanism, never the headline.
   Do not lead marketing with "MCP server"; lead with what it lets someone do.
 
 Naming those tools as supported environments is not "agent-paste for ChatGPT"
@@ -203,8 +202,8 @@ The engineer wiring an agent, a CLI, or a CI job to publish its output.
   agent can do. No bucket, no build, no infra to babysit.
 - **Reach:** Hacker News, X, the docs, MCP directories, the CLI itself.
 - This is the first group that pays. The $12/month Pro plan is sized to a single
-  developer's willingness to pay (longer retention, more live artifacts, Live
-  Updates), not to a procurement process.
+  developer's willingness to pay (longer retention and more live Artifacts), not
+  to a procurement process.
 
 ### Teams (expansion payer)
 
@@ -212,8 +211,8 @@ Engineering and product teams adopting agents who need to know what their agents
 shipped.
 
 - **Pitch:** who published what, with which key, when it expires, and how to
-  revoke or lock it down. Audit, retention, and Live Updates that follow an open
-  link to the latest **Revision**.
+  delete or lock it down. Audit, retention, and one stable URL that resolves to
+  the latest **Revision** on refresh.
 - Deferred until the data model supports multiple members per Workspace.
 
 ### Embedders and platforms (the segment that sustains it)
@@ -252,20 +251,20 @@ becomes a brand.
 **One line:**
 
 > agent-paste is where AI agents publish durable, shareable work products. Tell
-> an agent what to make and where to post it: `agent-paste.sh`. It returns an
-> Access Link for humans and a machine-readable Agent View for tools.
+> an agent what to make and where to post it: `agent-paste.sh`. It returns one
+> Artifact URL for humans and a machine-readable Agent View for tools.
 
 **Short (about-blurb):**
 
 > agent-paste is the publishing layer for agent work. Point the agent at
-> `agent-paste.sh`; it reads the docs, publishes a folder or text artifact, and
-> returns a revocable Access Link a human can open plus a machine-readable
+> `agent-paste.sh`; it reads the docs, publishes a folder or text Artifact, and
+> returns one stable Artifact URL a human can open plus a machine-readable
 > manifest the next agent can read. Untrusted content is served from an isolated
-> origin, Artifacts expire by default, and any share can be revoked without
-> deleting the work.
+> origin, and Artifacts expire by default or can be deleted when the handoff is
+> done.
 
 **Long:** use the [manifesto](#2-manifesto), then the four reasons to believe
-from [section 4](#the-four-things-only-we-do).
+from [section 4](#the-four-reasons-to-believe).
 
 ### 6.3 Value pillars (with proof)
 
@@ -274,7 +273,7 @@ from [section 4](#the-four-things-only-we-do).
 | Dual-audience | A URL for humans, a manifest for agents | Browser view plus signed Agent View JSON with per-file URLs                                    |
 | Interop       | Cross-vendor handoff                    | CLI, REST, MCP, dashboard, `/agents.md`, and `/llms.txt`                                       |
 | Safe          | Safe to host what you did not write     | Isolated Content Origin, private storage, signed tokens, CSP, denylist, lockdown, audit events |
-| Transient     | Gone when it should be                  | Workspace Auto Deletion policy, revocable Access Links, Access Link Lockdown                   |
+| Transient     | Gone when it should be                  | Workspace Auto Deletion policy, Artifact deletion, and Platform Lockdown                       |
 
 ### 6.4 One-liners by audience
 
@@ -282,7 +281,7 @@ from [section 4](#the-four-things-only-we-do).
   next tool."
 - **Developer:** "One publish call, scoped keys, no infrastructure. The link is
   stable and the manifest is machine-readable."
-- **Team:** "Know what your agents published, share it safely, and revoke it the
+- **Team:** "Know what your agents published, share it safely, and delete it the
   moment you need to."
 - **Embedder:** "Artifact storage and a manifest protocol you can build on,
   vendor-neutral."
@@ -333,7 +332,7 @@ The GitHub for AI artifacts.
 Publish a folder. Get a URL and an Agent View.
 A URL for humans. A manifest for agents.
 Built for agent output. Works for humans too.
-Transient by default. Revocable on demand.
+Transient by default. Gone on demand.
 ```
 
 ### 7.4 Tone by context
@@ -366,10 +365,10 @@ Transient by default. Revocable on demand.
   legal, SSO, and hosted-service operator copy. Do not replace technical
   namespace references such as `@zaks-io/agent-paste`, `zaks-io/agent-paste`,
   or `zaks-io:email`.
-- **Domain terms** (Artifact, Revision, Access Link, Workspace, Agent View,
+- **Domain terms** (Artifact, Revision, Artifact URL, Workspace, Agent View,
   Publish, and the rest) are proper nouns from CONTEXT.md. Capitalize them and
   respect the `Avoid:` lists. An Artifact is never a "paste," "post," or "blob."
-  A Revision is never a "version." An Access Link is never a "public link."
+  A Revision is never a "version." An Artifact URL is never a "Share Link."
 
 ### Subdomain system (a brand asset in itself: clean, predictable)
 
@@ -436,9 +435,8 @@ On-brand set pieces. Each one shows the thesis instead of asserting it.
   to open right away. Claiming to keep and unlock the work is a later step the
   user asks for, not part of the first reply. The hero should use this. Keep
   setup commands below the proof object.
-- **A live artifact that updates itself.** A shared link open in a browser that
-  advances to the latest Revision the moment an agent republishes, with no
-  reload. Live Updates, shown not told.
+- **One URL across revisions.** Republish an Artifact, refresh the same URL, and
+  show the latest Revision without sending a replacement link.
 - **An agent reading `/agents.md`.** Demonstrate the dual audience: a human reads
   the page, an agent reads the same domain and acts on it.
 - **The manifest as protocol.** Show the Agent View JSON beside the human view.

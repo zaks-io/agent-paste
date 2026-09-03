@@ -8,15 +8,16 @@
 Publish a file or folder to a real website in one command:
 
 ```sh
-npx @zaks-io/agent-paste publish ./report
+npx @zaks-io/agent-paste publish ./report --ephemeral
 # https://01234-56789-abcde-fghjd.agent-paste.link/
 ```
 
-The returned URL is the Artifact. It opens top-level without login. There is no
-viewer wrapper, iframe, or separate sharing command. Claimed Artifacts run HTML,
-CSS, JavaScript, root-relative assets, inline Tailwind configuration, and
-external HTTPS dependencies on their own origin. Ephemeral Artifacts render
-static content with scripts, connections, forms, and workers blocked until claim.
+The accountless command returns an ephemeral Artifact URL that opens top-level
+without login. There is no viewer wrapper, iframe, or separate sharing command.
+Claimed Artifacts run HTML, CSS, JavaScript, root-relative assets, inline
+Tailwind configuration, and external HTTPS dependencies on their own origin.
+Ephemeral Artifacts render static content with scripts, connections, forms, and
+workers blocked until claim.
 
 ## Quick start
 
