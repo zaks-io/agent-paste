@@ -2,7 +2,7 @@
 
 TanStack Start dashboard Worker for `app.agent-paste.sh`.
 
-Contracts: [`docs/specs/web.md`](../../docs/specs/web.md) and [`docs/specs/style-guide.md`](../../docs/specs/style-guide.md). Architecture: [ADR 0033](../../docs/adr/0033-tanstack-start-for-the-web-app.md), [ADR 0068](../../docs/adr/0068-workos-authkit-for-web-app-auth.md), [ADR 0059](../../docs/adr/0059-web-app-session-and-auth-forwarding-to-api.md), [ADR 0047](../../docs/adr/0047-access-link-signed-url-with-fragment-encoded-payload.md).
+Contracts: [`docs/specs/web.md`](../../docs/specs/web.md) and [`docs/specs/style-guide.md`](../../docs/specs/style-guide.md). Architecture: [ADR 0033](../../docs/adr/0033-tanstack-start-for-the-web-app.md), [ADR 0068](../../docs/adr/0068-workos-authkit-for-web-app-auth.md), and [ADR 0059](../../docs/adr/0059-web-app-session-and-auth-forwarding-to-api.md).
 
 ## Stack
 
@@ -15,24 +15,23 @@ Contracts: [`docs/specs/web.md`](../../docs/specs/web.md) and [`docs/specs/style
 
 ## Routes
 
-Every spec route from `docs/specs/web.md` resolves. Dashboard loaders and mutations are wired to the live `/v1/web/*` API routes for workspace, artifact, key, Access Link, audit, settings, claim, and billing flows.
+Every spec route from `docs/specs/web.md` resolves. Dashboard loaders and mutations are wired to the live `/v1/web/*` API routes for workspace, artifact, key, audit, settings, claim, billing, agent registration, and operator flows.
 
 ```
 /                          → redirect by session
 /api/auth/sign-in          307 → WorkOS hosted flow
 /api/auth/sign-out         POST → signOut()
 /api/auth/callback         AuthKit handleCallbackRoute()
-/al/:publicId              Access Link viewer (no session imports, lint-enforced)
 /healthz                   JSON health
 /dashboard                 _authed
 /artifacts                 _authed
 /artifacts/:artifactId     _authed
-/access-links              _authed
 /keys                      _authed
 /audit                     _authed
 /settings                  _authed
 /billing                   _authed
 /claim                     _authed/guest handoff
+/agent-auth/claim          _authed provider identity confirmation
 /admin                     _authed + is_operator guard
 ```
 
@@ -52,7 +51,6 @@ WORKOS_REDIRECT_URI=http://localhost:5173/api/auth/callback
 WORKOS_COOKIE_PASSWORD=...        # at least 32 chars
 WORKOS_COOKIE_NAME=__agp_session
 WEB_BASE_URL=http://localhost:5173
-CONTENT_BASE_URL=http://127.0.0.1:8789
 ```
 
 Without a WorkOS project provisioned, `/api/auth/sign-in` still redirects to the AuthKit hosted flow; the callback fails. Dashboard chrome and `EmptyState` rendering work without secrets.
@@ -63,14 +61,10 @@ Admin routes require the signed-in WorkOS session to carry the `admin` role slug
 - `pnpm --filter @agent-paste/web dev` - Vite dev server with HMR.
 - `pnpm --filter @agent-paste/web build` - produces `dist/client` + worker entry.
 - `pnpm --filter @agent-paste/web typecheck` - `tsc --noEmit`.
-- `pnpm --filter @agent-paste/web lint` - Biome lint (includes the Access Link import guard).
+- `pnpm --filter @agent-paste/web lint` - Biome lint.
 - `pnpm --filter @agent-paste/web test` - Vitest component, loader, formatting, and mutation tests.
 - `pnpm --filter @agent-paste/web typegen` - regenerate Cloudflare binding types.
 - `pnpm --filter @agent-paste/web deploy:preview` / `deploy:production` - `wrangler deploy` with `CLOUDFLARE_ENV=<target>`.
-
-## Lint rules
-
-`biome.json` adds a `noRestrictedImports` override for `apps/web/src/routes/al.*` that blocks imports from `../server/auth`, `../server/auth-fns`, `@workos/authkit-tanstack-react-start`, `@workos/authkit-session`, and `@tanstack/react-start/server`. Adding any of those imports to an Access Link route fails `pnpm lint`. This is the runtime guarantee behind ADR 0033's "Access Link viewer must not touch session modules" requirement.
 
 ## Deploy
 

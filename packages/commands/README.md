@@ -10,4 +10,5 @@ Responsibilities:
 - In-memory idempotency helpers for local/test flows.
 - Operation event construction helpers.
 
-Every durable business write in `api` and `upload` goes through this package. `jobs` will use the same path when it is promoted beyond scaffold status.
+Durable business writes in `api`, `upload`, and `jobs` use this package for
+transaction sequencing, idempotency, and audit events.

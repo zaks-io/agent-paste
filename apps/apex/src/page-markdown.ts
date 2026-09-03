@@ -60,7 +60,7 @@ export function renderHomeMarkdown(billingEnabled: boolean): string {
     ...fence("sh", SKILL_INSTALL_CMD),
     "## Publish from a chat with no shell",
     "",
-    `Add \`${MCP_BASE_URL}\` as a remote MCP server, sign in free, and the agent publishes, reads, and shares from there. Setup lives in [MCP server](/docs/mcp.md).`,
+    `Add \`${MCP_BASE_URL}\` as a remote MCP server, sign in free, and the agent publishes, reads, and revises from there. Setup lives in [MCP server](/docs/mcp.md).`,
     "",
     "## Why the link holds up",
     "",

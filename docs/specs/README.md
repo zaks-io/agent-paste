@@ -11,9 +11,11 @@ records implementation status; these specs own the behavioral contract.
   explicit non-use-cases.
 - [`../mcp.md`](../mcp.md): practical MCP guide for agents that cannot run the
   CLI but can connect to remote MCP.
-- [`phases.md`](./phases.md): roadmap from buildable plan through MCP and platform hardening.
+- [`phases.md`](./phases.md): historical delivery sequencing from the original
+  build plan; not the current backlog.
 - [`admin.md`](./admin.md): internal admin route and repo-local admin CLI contract.
-- [`product-judgment.md`](./product-judgment.md): why to build, why not to build, and the product posture behind the narrower MVP.
+- [`product-judgment.md`](./product-judgment.md): historical scoping rationale
+  behind the original narrower MVP; not a current implementation contract.
 - [`features.md`](./features.md): quick shipped feature inventory and explicit
   out-of-scope list.
 - [`architecture.md`](./architecture.md): system map, trust boundaries, primary

@@ -1,6 +1,9 @@
 # Delivery Phases
 
-This roadmap keeps the first build small enough to finish while preserving the larger platform direction.
+This roadmap records how the original build was staged. It is historical
+sequencing, not the current implementation contract or active backlog. See
+[`project-status.md`](../ops/project-status.md) for current status and
+[`phase-backlog.md`](../ops/status/phase-backlog.md) for the dated phase ledger.
 
 ## Phase 0: Buildable Plan
 

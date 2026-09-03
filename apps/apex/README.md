@@ -5,7 +5,7 @@ The marketing surface for `agent-paste.sh` and the home of agent-discoverable fi
 both come from `src/discovery.ts`. See [API discovery](../../docs/specs/api.md#api-discovery). Skills are
 published separately at `/.well-known/agent-skills/`; see [Agent skills discovery](#agent-skills-discovery).
 
-The apex never hosts authenticated state, never receives WorkOS callbacks, and never sets cookies. Any request that resolves to a product surface (`/dashboard`, `/artifacts/*`, `/keys`, `/audit`, `/settings`, `/admin/*`, `/al/*`, `/r/*`, `/login`, `/logout`, `/auth/*`) returns a 308 redirect to the equivalent path on `app.agent-paste.sh`.
+The apex never hosts authenticated state, never receives WorkOS callbacks, and never sets cookies. Requests under `/dashboard`, `/artifacts/*`, `/keys`, `/audit`, `/settings`, `/admin/*`, and `/r/*` return a 308 redirect to the equivalent path on `app.agent-paste.sh`. `/login` and `/logout` redirect to the app's sign-in and sign-out routes.
 
 ## Markdown for agents
 

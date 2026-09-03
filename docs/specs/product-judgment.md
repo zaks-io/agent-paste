@@ -2,6 +2,11 @@
 
 This document captures the product judgment behind the narrowed MVP. It is intentionally not an implementation spec. Its job is to keep the build honest when the platform-shaped ideas start pulling scope back in.
 
+> Historical scope note: the Phase 1 constraints below explain the original
+> MVP sequencing and are not current behavior. Use [`mvp.md`](./mvp.md),
+> [`features.md`](./features.md), and
+> [`project-status.md`](../ops/project-status.md) for shipped contracts.
+
 ## Why Not Build It
 
 The main reason not to build agent-paste is scope gravity. The larger platform plan includes API, upload, content, jobs, web, MCP, CLI, WorkOS, R2, Postgres, audit, safety scanning, queues, signed links, bundles, retention, lockdown, and operator tooling. That is not a small MVP.
@@ -64,7 +69,7 @@ Keep these risks visible while polishing:
 
 The wedge should be judged by whether an agent naturally thinks: "I made a thing; publish it; share the URL." Anything that interrupts that reflex weakens the product.
 
-## Product Rules
+## Phase 1 Product Rules (Historical)
 
 - Prefer a working hosted publish loop over completeness.
 - Keep public CLI auth API-key only until OAuth is obviously needed.

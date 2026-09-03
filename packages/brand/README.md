@@ -22,10 +22,10 @@ they did before (an emerald-teal landing page in front of a violet app).
 
 ## How it's consumed
 
-- **apex** imports the helpers and builds its inline `<style>` from them, so its CSS
-  is derived from these tokens rather than hand-copied.
-- **web** keeps authoring `src/styles/globals.css`, but a guard test asserts that the
-  file's token values match this package, so the two stay in lock-step.
+- `@agent-paste/ui` generates and exports the shared stylesheet snapshot from
+  this package's `globalsCss()` output.
+- **apex** and **web** both import `@agent-paste/ui/styles.css`, so their brand
+  tokens and shared primitives stay in lock-step.
 
 ## Assets are not bundled
 

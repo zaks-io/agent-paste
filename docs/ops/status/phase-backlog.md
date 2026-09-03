@@ -1,10 +1,14 @@
 # Phase Backlog
 
+> **Historical ledger.** This file preserves the remaining work and phase
+> ordering recorded on 2026-06-15. It is not the current implementation queue.
+> Read [`../project-status.md`](../project-status.md) first and refresh the issue
+> tracker before choosing new work.
+
 Last updated: 2026-06-15 (post-launch hardening refresh after AP-254/AP-299
 closed, AP-139 production agent smoke fixes/evidence closed, and the MCP
 docs/tool text follow-up deployed).
-Tracks remaining work. When asked to "implement the next step", start at the
-first unchecked item in the active work below unless the user says otherwise.
+The entries below record the queue as it stood at that update.
 
 ## Current Position
 

@@ -16,4 +16,4 @@ This package intentionally contains schemas and registries only. It does not con
 - `apiKeys.ts`: admin-created API Key schemas.
 - `workspace.ts`: workspace, usage policy, and whoami schemas.
 - `routes.ts`: route registry for `api`, `upload`, `content`, web dashboard, billing, and operator routes.
-- `mcp.ts`: MCP OAuth scopes, JSON-RPC transport shapes, twelve-tool registry, error mapping, and forwarded API call plans (ADR 0061).
+- `mcp.ts`: MCP OAuth scopes, JSON-RPC transport shapes, ten-tool registry, error mapping, and forwarded API call plans (ADR 0061).

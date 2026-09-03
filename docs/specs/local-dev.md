@@ -208,8 +208,9 @@ The first local vertical slice is complete when:
 2. `agent-paste whoami` succeeds after `pnpm cli:dev login`.
 3. CLI can publish a folder with `index.html`.
 4. Publish prints one no-login `url` as `View`; there is no sharing follow-up.
-5. CLI JSON output is `artifact_id`, `revision_id`, `title`, `url`, and
-   `expires_at`. Ephemeral JSON also includes separate claim fields.
+5. CLI JSON output includes `schema_version`, `artifact_id`, `revision_id`,
+   `title`, `url`, `expires_at`, and `upload_stats`. Ephemeral JSON also includes
+   separate provisioning and claim fields.
 6. Hosted preview and production use the capability hostname. Local development
    may use the signed exact-Revision fallback because wildcard DNS does not exist
    on localhost.

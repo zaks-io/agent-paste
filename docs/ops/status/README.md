@@ -7,17 +7,16 @@ scan.
 
 ## Files
 
-- [`../project-status.md`](../project-status.md) - current snapshot, active
-  next step, and links into the ledgers below.
-- [`phase-backlog.md`](./phase-backlog.md) - ordered remaining work, grouped by
-  delivery phase. This is the file to update when the next implementation slice
-  changes.
-- [`implementation.md`](./implementation.md) - current component map, missing
-  packages/apps, and verification state.
-- [`coverage.md`](./coverage.md) - spec and ADR coverage ledger, including
-  deferred and drifted docs.
-- [`hosted-ops.md`](./hosted-ops.md) - hosted environment, secrets, deploy, and
-  smoke-test status.
+- [`../project-status.md`](../project-status.md) - current product and release
+  snapshot with links into the ledgers below.
+- [`phase-backlog.md`](./phase-backlog.md) - historical phase ordering and the
+  remaining non-architecture work recorded on 2026-06-15.
+- [`implementation.md`](./implementation.md) - historical component and
+  verification snapshot from 2026-06-15.
+- [`coverage.md`](./coverage.md) - historical spec and ADR coverage snapshot
+  from 2026-06-05.
+- [`hosted-ops.md`](./hosted-ops.md) - operational environment, secret routing,
+  deploy, and smoke-test ledger. Verify mutable hosted state before acting.
 - [`changelog.md`](./changelog.md) - completed work, newest first.
 
 Feature-specific todo files stay next to these ledgers:
@@ -33,9 +32,11 @@ Feature-specific todo files stay next to these ledgers:
 
 - Keep `project-status.md` short enough to answer "what is true right now?"
   without scrolling through historical detail.
-- Put ordered future work in `phase-backlog.md`.
+- Put a current next step in `project-status.md` only when one has been
+  established from the issue tracker; preserve `phase-backlog.md` as historical
+  sequencing unless it is deliberately refreshed.
 - Put completed work in `changelog.md`, not in the active backlog.
 - Update `coverage.md` when a new ADR or spec file is added, or when a
   previously partial/deferred decision is implemented.
-- Update `implementation.md` when an app/package moves from scaffolded to
-  implemented, or when a planned app/package is added.
+- Add current component ownership to `docs/development.md`; preserve
+  `implementation.md` as its dated snapshot.

@@ -1,6 +1,7 @@
 # plans
 
-Presentational Plan definitions, consumed by the `apps/web` billing dashboard (and intended for the `apps/apex` landing page once it renders pricing).
+Presentational Plan definitions consumed by the `apps/web` billing dashboard
+and the billing-enabled `apps/apex` pricing page.
 
 Responsibilities:
 
