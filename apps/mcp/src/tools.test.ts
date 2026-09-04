@@ -117,7 +117,7 @@ const whoamiBody = whoamiBodyFor(["read", "publish", "admin"]);
 
 /**
  * Mock api service binding. Multi-step tools pre-flight through `mcp.whoami`
- * before the real routes, so answer that path with a body carrying `grantedScopes`,
+ * before the real routes, so answer that path with a body carrying `scopes`,
  * and answer every other path sequentially from `routeResponses`.
  */
 function apiMock(grantedScopes: readonly McpScope[], ...routeResponses: Response[]) {
