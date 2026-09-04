@@ -38,7 +38,11 @@ describe("deploy-pr-preview generated configs", () => {
       }
 
       const api = JSON.parse(readFileSync(new URL("api.json", outDir), "utf8"));
+      const upload = JSON.parse(readFileSync(new URL("upload.json", outDir), "utf8"));
       const content = JSON.parse(readFileSync(new URL("content.json", outDir), "utf8"));
+      expect(api.placement).toEqual({ mode: "targeted", region: "aws:us-east-1" });
+      expect(upload.placement).toEqual({ mode: "targeted", region: "aws:us-east-1" });
+      expect(content).not.toHaveProperty("placement");
       expect(api.durable_objects.bindings).toEqual(
         expect.arrayContaining([
           { name: "WRITE_ALLOWANCE", class_name: "WorkspaceWriteAllowance" },

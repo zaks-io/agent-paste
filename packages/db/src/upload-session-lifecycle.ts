@@ -17,6 +17,8 @@ export type UploadSigningPort = {
   signPutUrl(session: UploadSessionRecord, file: UploadSessionFileDescriptor): Promise<SignedPutUrl>;
 };
 
+const MAX_CONCURRENT_STORAGE_CHECKS = 6;
+
 export function resolveSessionObjectKey(session: UploadSessionRecord, path: string, explicitKey?: string): string {
   return explicitKey ?? objectKeyFor(session.artifact_id, session.revision_id, path);
 }
@@ -80,14 +82,22 @@ export async function observeUploadSessionForFinalize(
   storage: ObjectStoragePort,
 ): Promise<{ observedFiles: ObservedUploadFile[] } | { incompletePath: string }> {
   const observedFiles: ObservedUploadFile[] = [];
-  for (const file of session.files) {
-    const objectKey = resolveSessionObjectKey(session, file.path, file.object_key);
-    const object = await storage.head(objectKey);
-    const expectedSize = ciphertextByteLengthForPlaintext(file.size_bytes);
-    if (!object || object.size !== expectedSize) {
-      return { incompletePath: file.path };
+  for (let offset = 0; offset < session.files.length; offset += MAX_CONCURRENT_STORAGE_CHECKS) {
+    const files = session.files.slice(offset, offset + MAX_CONCURRENT_STORAGE_CHECKS);
+    const observations = await Promise.all(
+      files.map(async (file) => {
+        const objectKey = resolveSessionObjectKey(session, file.path, file.object_key);
+        return { file, objectKey, object: await storage.head(objectKey) };
+      }),
+    );
+
+    for (const { file, objectKey, object } of observations) {
+      const expectedSize = ciphertextByteLengthForPlaintext(file.size_bytes);
+      if (!object || object.size !== expectedSize) {
+        return { incompletePath: file.path };
+      }
+      observedFiles.push({ path: file.path, objectKey, sizeBytes: file.size_bytes });
     }
-    observedFiles.push({ path: file.path, objectKey, sizeBytes: file.size_bytes });
   }
   return { observedFiles };
 }

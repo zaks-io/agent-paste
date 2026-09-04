@@ -76,6 +76,46 @@ describe("upload-session-lifecycle worker orchestration", () => {
     expect(observation).toEqual({ incompletePath: "index.html" });
   });
 
+  it("checks uploaded objects with bounded concurrency", async () => {
+    const files = Array.from({ length: 7 }, (_, index) => ({
+      ...session.files[0],
+      path: `file-${index}.html`,
+      object_key: `artifacts/art_test/revisions/rev_test/files/file-${index}.html`,
+    }));
+    let active = 0;
+    let maxActive = 0;
+    let releaseFirstBatch!: () => void;
+    const firstBatch = new Promise<void>((resolve) => {
+      releaseFirstBatch = resolve;
+    });
+
+    const observationPromise = observeUploadSessionForFinalize(
+      { ...session, files },
+      {
+        head: async () => {
+          active += 1;
+          maxActive = Math.max(maxActive, active);
+          await firstBatch;
+          active -= 1;
+          return { size: 128 + 28 };
+        },
+      },
+    );
+
+    expect(active).toBe(6);
+    releaseFirstBatch();
+    const observation = await observationPromise;
+
+    expect(maxActive).toBe(6);
+    expect(observation).toEqual({
+      observedFiles: files.map((file) => ({
+        path: file.path,
+        objectKey: file.object_key,
+        sizeBytes: file.size_bytes,
+      })),
+    });
+  });
+
   it("resolves object keys from session ids when none are stored", () => {
     expect(resolveSessionObjectKey(session, "index.html")).toBe(
       "artifacts/art_test/revisions/rev_test/files/index.html",
