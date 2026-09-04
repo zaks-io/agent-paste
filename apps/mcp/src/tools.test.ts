@@ -116,8 +116,8 @@ function whoamiBodyFor(scopes: readonly McpScope[]) {
 const whoamiBody = whoamiBodyFor(["read", "publish", "admin"]);
 
 /**
- * Mock api service binding. The pre-flight scope gate (ADR 0079) calls `mcp.whoami`
- * before the real route, so answer that path with a whoami body carrying `grantedScopes`,
+ * Mock api service binding. Multi-step tools pre-flight through `mcp.whoami`
+ * before the real routes, so answer that path with a body carrying `scopes`,
  * and answer every other path sequentially from `routeResponses`.
  */
 function apiMock(grantedScopes: readonly McpScope[], ...routeResponses: Response[]) {
@@ -134,7 +134,7 @@ function apiMock(grantedScopes: readonly McpScope[], ...routeResponses: Response
   };
 }
 
-/** The Nth real route request (skipping the pre-flight `mcp.whoami` gate call). */
+/** The Nth real route request, excluding any multi-step `mcp.whoami` pre-flight. */
 function routeCall(api: ReturnType<typeof apiMock>, index: number): Request {
   const routeRequests = api.fetch.mock.calls
     .map((call) => call[0] as Request)
@@ -182,6 +182,8 @@ describe("callMcpTool", () => {
     const api = apiMock(["read"], Response.json(listBody));
     const result = await callMcpTool("list_artifacts", {}, auth, { api, upload, bearerToken: "token-read" });
     expect(result).toEqual({ ok: true, result: listBody });
+    expect(api.fetch).toHaveBeenCalledTimes(1);
+    expect(new URL((api.fetch.mock.calls[0]?.[0] as Request).url).pathname).toBe("/v1/artifacts");
   });
 
   it("returns whoami results from the API binding", async () => {

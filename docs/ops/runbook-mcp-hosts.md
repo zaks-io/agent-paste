@@ -125,8 +125,9 @@ require `publish`. Members are provisioned with `read`, `publish`, and `admin`
 (`DEFAULT_MEMBER_SCOPES`), so today every member has full capability; a future
 read-only or publish-less member is a change to that member's
 stored scopes in `api`, with no host, token, or WorkOS change. The MCP Worker
-pre-flight-gates each tool by fetching the member's derived scopes via
-`mcp.whoami`; `api` re-enforces the member's scopes/RLS on every forwarded call.
+pre-flight-gates multi-step tools by fetching the member's derived scopes via
+`mcp.whoami`; single-call tools reuse their one `api` request's auth and scope
+guard. `api` enforces the member's scopes/RLS on every forwarded call.
 
 Prerequisite: the WorkOS user must already have a **Workspace Member** row
 (created by dashboard sign-in or CLI login). MCP OAuth does not auto-provision
