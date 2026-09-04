@@ -179,6 +179,7 @@ function apiConfig() {
   return baseConfig("api", {
     main: workspacePath("apps/api/src/index.ts"),
     compatibility_flags: ["nodejs_compat"],
+    placement: { mode: "targeted", region: "aws:us-east-1" },
     vars: {
       API_KEY_ENV: "preview",
       API_BASE_URL: urls.api,
@@ -234,6 +235,7 @@ function uploadConfig() {
   return baseConfig("upload", {
     main: workspacePath("apps/upload/src/index.ts"),
     compatibility_flags: ["nodejs_compat"],
+    placement: { mode: "targeted", region: "aws:us-east-1" },
     vars: {
       API_KEY_ENV: "preview",
       API_BASE_URL: urls.api,

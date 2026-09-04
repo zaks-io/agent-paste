@@ -4,6 +4,10 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-05-21",
   "compatibility_flags": ["nodejs_compat"],
+  "placement": {
+    "mode": "targeted",
+    "region": "aws:us-east-1"
+  },
   "workers_dev": false,
   "observability": {
     "enabled": true,

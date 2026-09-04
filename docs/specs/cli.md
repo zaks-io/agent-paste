@@ -187,10 +187,9 @@ credential exists.
 ## Progress
 
 `publish` reports per-file upload progress in `rich` mode only, repainting one
-in-place line as each file completes (`done/total files · bytes sent`). The
-contract is granularity-agnostic: the upload loop is serial today, so it ticks
-`1/N, 2/N…`; a future parallel upload calls the same update on each completion
-and behaves identically. In `plain`/`json` mode no progress is emitted.
+in-place line as each file completes (`done/total files · bytes sent`). Uploads
+run with at most six files in flight, and the progress callback advances once
+for each completion. In `plain`/`json` mode no progress is emitted.
 
 ## Dependencies
 

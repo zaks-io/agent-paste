@@ -56,6 +56,11 @@ KV and Durable Objects are not authority for which Revision a capability host
 serves. A publish is successful only after its durable metadata and manifest
 write succeed.
 
+The interactive `api` and `upload` Workers use targeted placement in
+`aws:us-east-1`, matching their Neon databases. Checked-in preview and
+production environments and generated per-PR previews preserve that placement
+so the publish path does not pay cross-region latency for each database query.
+
 See [ADR 0094](../adr/0094-capability-url-is-the-artifact-link.md) and
 [ADR 0095](../adr/0095-isolate-active-content-and-restore-ephemeral-execution-policy.md)
 for the direct-origin and isolation decisions.
