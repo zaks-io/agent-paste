@@ -50,7 +50,7 @@ export async function callMcpTool(
   }
 
   const requiredScopes = contract.requiredScopes;
-  if (requiredScopes.length > 0) {
+  if (requiredScopes.length > 0 && requiresEdgeScopePreflight(contract.forwardedCalls)) {
     const granted = await resolveGrantedScopes(deps);
     if (!granted.ok) {
       return granted;
@@ -87,6 +87,10 @@ export async function callMcpTool(
         error: mapMcpProtocolError("method_not_found", "tools/call is not implemented yet"),
       };
   }
+}
+
+function requiresEdgeScopePreflight(forwardedCalls: readonly { auth: string }[]): boolean {
+  return forwardedCalls.filter((call) => call.auth === "mcp_bearer").length > 1;
 }
 
 async function callWhoami(deps: McpToolDeps): Promise<McpToolResult> {

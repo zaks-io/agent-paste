@@ -188,6 +188,8 @@ Authenticated `api` and `upload` routes enforce guards in a fixed order
 
 `mcp.whoami` returns the authenticated Workspace Member, workspace, and granted MCP scopes derived from the member record.
 
+Single-call MCP tools rely on their one forwarded `api` request for authentication and scope enforcement. Multi-step tools pre-flight against `mcp.whoami` before starting, so a missing scope cannot fail a chain after partial side effects.
+
 `PublicAgentView` is public to anyone with the signed token. It resolves one exact Revision and returns full per-file signed URLs for that Revision, not `content_prefix`; those links stay on the legacy content route during the serialized rollout so later capability-manifest updates cannot make the files disagree with the returned metadata. It does not include lockdown metadata. Authenticated owner/member Agent View routes use the same exact-Revision file-link rule and may include explicit lockdown metadata for dashboard-visible locked Artifacts.
 
 The authenticated member `AgentView` additionally carries `url`, the same stable top-level capability URL returned by publish. `PublicAgentView` remains an exact-Revision metadata contract and does not carry that moving Artifact URL.
