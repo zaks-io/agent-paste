@@ -99,6 +99,12 @@ Hooks are managed by Lefthook ([`lefthook.yml`](./lefthook.yml)) and install via
 Open the PR against `main`. The merge gate is the `Validate` CI check plus resolved review threads; the branch ruleset
 requires zero approvals, so green CI and resolved threads are what merge a PR.
 
+Every PR runs the PR-range secret scan, including docs-only fork PRs. For fork PRs, docs-only changes report a green
+no-op `Validate`; code-changing PRs run credential-free validation, local smoke, Postgres smoke, coverage, and OpenAPI
+checks. GitHub does not expose repository secrets or a write-capable token to fork runs, so Turbo uses its local cache
+and hosted PR previews do not deploy. Maintainers can opt a trusted repository branch into a hosted preview with the
+`full-pr-preview` label.
+
 There is no enforced PR template. By convention, write the body as **Summary / Changes / Risk / Test plan**.
 
 ## For AI agents

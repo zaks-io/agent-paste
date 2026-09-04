@@ -1,14 +1,14 @@
 # Turborepo Remote Cache with Signed Artifacts
 
-Turborepo remote cache will run against Vercel Remote Cache with HMAC artifact signing enabled and `envMode: strict` so undeclared environment variables cannot silently change task fingerprints. Cache writes are unrestricted for now because the project is solo-developer with controlled inputs; this should be revisited when external contributors or untrusted PR sources are added.
+Turborepo remote cache runs against Vercel Remote Cache with HMAC artifact signing enabled and `envMode: strict` so undeclared environment variables cannot silently change task fingerprints. In GitHub Actions, remote-cache credentials and write authority are restricted to trusted CI and deploy workflows. Public fork PRs receive no remote-cache credentials and use local Turbo caching.
 
 ## Consequences
 
 - `turbo.json` sets `remoteCache.signature: true` and `envMode: "strict"`.
-- `TURBO_REMOTE_CACHE_SIGNATURE_KEY` is stored as a GitHub Environment secret and exposed locally through the project's secret manager. The same value is used in CI and local development.
+- `TURBO_REMOTE_CACHE_SIGNATURE_KEY` is stored as a GitHub Actions secret and exposed locally through the project's secret manager. The same value is used in trusted CI, deploy workflows, and local development.
 - Every env var that influences build or runtime output must be declared in `globalEnv` or per-task `env`. Secrets reach the task through `globalPassThroughEnv` or per-task `passThroughEnv` and never become part of the cache key.
 - `globalDependencies` includes `.env*` files so local env changes invalidate the cache.
-- Open cache writes are an interim trade-off chosen for setup simplicity. When trust boundaries expand, restrict writes to `main` plus local development only, or use a separate cache scope for PR builds versus protected branches.
-- While the public no-secret CI path is undefined, PR validation is limited to trusted `zaks-io` PR sources. External public PRs short-circuit instead of running the secret-bearing/internal validation stack.
-- Trusted PR validation treats remote-cache credentials as optional and falls back to local cache when `TURBO_TOKEN` / `TURBO_TEAM` are unavailable.
-- If cache poisoning becomes a real concern before write restrictions land, production deploys can disable remote cache reads or run with `--force` to rebuild from scratch.
+- Remote-cache writes are available to trusted CI and deploy workflows plus authenticated local development. Untrusted fork PRs cannot read or write the remote cache.
+- Every public fork PR runs the PR-range secret scan without infrastructure credentials. Docs-only fork PRs report a green no-op `Validate`; code-changing fork PRs run deterministic validation, local smoke, Postgres smoke, coverage, and OpenAPI checks. GitHub withholds repository secrets and gives fork PR workflows a read-only `GITHUB_TOKEN`, so those runs use local Turbo caching and cannot deploy or comment.
+- PR validation treats remote-cache credentials as optional and falls back to local cache when `TURBO_TOKEN` / `TURBO_TEAM` are unavailable. Secret-bearing PR previews remain a separate, opt-in workflow restricted to labeled branches in this repository.
+- If signed cache integrity is ever in doubt, production deploys can disable remote cache reads or run with `--force` to rebuild from scratch.
