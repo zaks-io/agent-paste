@@ -9,6 +9,6 @@ Turborepo remote cache will run against Vercel Remote Cache with HMAC artifact s
 - Every env var that influences build or runtime output must be declared in `globalEnv` or per-task `env`. Secrets reach the task through `globalPassThroughEnv` or per-task `passThroughEnv` and never become part of the cache key.
 - `globalDependencies` includes `.env*` files so local env changes invalidate the cache.
 - Open cache writes are an interim trade-off chosen for setup simplicity. When trust boundaries expand, restrict writes to `main` plus local development only, or use a separate cache scope for PR builds versus protected branches.
-- While the public no-secret CI path is undefined, PR validation is limited to trusted `zaks-io` PR sources. External public PRs short-circuit instead of running the secret-bearing/internal validation stack.
-- Trusted PR validation treats remote-cache credentials as optional and falls back to local cache when `TURBO_TOKEN` / `TURBO_TEAM` are unavailable.
+- Public fork PRs run the same deterministic validation, local smoke, Postgres smoke, coverage, OpenAPI, and PR-range secret-scan jobs without infrastructure credentials. GitHub withholds repository secrets and gives fork PR workflows a read-only `GITHUB_TOKEN`, so those runs use local Turbo caching and cannot deploy or comment.
+- PR validation treats remote-cache credentials as optional and falls back to local cache when `TURBO_TOKEN` / `TURBO_TEAM` are unavailable. Secret-bearing PR previews remain a separate, opt-in workflow restricted to labeled branches in this repository.
 - If cache poisoning becomes a real concern before write restrictions land, production deploys can disable remote cache reads or run with `--force` to rebuild from scratch.
