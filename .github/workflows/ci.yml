@@ -65,8 +65,7 @@ jobs:
     name: Secret scan
     # Fast, incremental PR-range scan for quick feedback. The full-history scan
     # (plus a daily cron) lives in the dedicated Security workflow (ADR 0076).
-    needs: changes
-    if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.code == 'true' }}
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
 

@@ -42,13 +42,16 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 - Local gate cache policy: Turbo `envMode=strict`, signed remote cache enabled;
   CI falls back to local cache when Turbo remote cache credentials are absent
 - CI env passthrough: Turbo global env `CI`, `NODE_ENV`; CI/deploy workflows
-  also pass Turbo remote-cache vars; deploy tasks pass Cloudflare credentials
-- Public PR CI: fork PRs run `Validate`, `Postgres smoke`, and the PR-range
-  secret scan without repository secrets or write permissions; Turbo falls back
-  to its local cache
-- Coverage and secret-scan scope: CI `Validate` runs `pnpm test:coverage`;
-  pull-request gitleaks scans the PR commit range; full-history attestation runs
-  in the `Security` workflow
+  also pass Turbo remote-cache vars; only the PR preview capacity-check and PR
+  Workers deploy steps receive Cloudflare credentials
+- Public PR CI: every fork PR runs the PR-range secret scan. Docs-only fork PRs
+  report a green no-op `Validate`; code-changing fork PRs run `Validate` and
+  `Postgres smoke` without repository secrets or write permissions. Turbo falls
+  back to its local cache.
+- Coverage and secret-scan scope: code-changing CI `Validate` runs
+  `pnpm test:coverage`; pull-request gitleaks scans every PR commit range,
+  including docs-only ranges; full-history attestation runs in the `Security`
+  workflow
 - Focused checks: `pnpm lint`, `pnpm typecheck`, `pnpm test`,
   `pnpm openapi:check`, `pnpm --filter @agent-paste/db db:check`, `pnpm knip`,
   `pnpm format:docs:check`, `pnpm smoke:local`, `pnpm smoke:local:patch`
@@ -70,8 +73,8 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
   `pnpm lighthouse:dashboard-a11y`
 - GitHub Actions permissions: repository default is read-only and workflow PR
   approvals are disabled; within `.github/workflows/pr-preview.yml`, the trusted
-  deploy job alone requests `pull-requests: write` so it can post its completion
-  comment (verified live 2026-09-04)
+  deploy job has read-only contents access. A separate post-deploy job checks out
+  no PR code and requests `pull-requests: write` only to post preview links.
 - Manual preview deploy: `pnpm deploy:preview` or
   `pnpm deploy:preview --app=<stream|api|upload|content|jobs|mcp|apex|web>`;
   `scripts/deploy.mjs` migrates only when `api`, `upload`, or `jobs` is in scope
