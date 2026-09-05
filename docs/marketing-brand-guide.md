@@ -230,10 +230,10 @@ Products that want artifact storage and a manifest protocol without building it.
 
 ### 6.1 Current public copy
 
-Lead with what the tool does. The repository description is the homepage hero
-lead:
+Lead with what the tool does. The homepage hero lead follows the plain language of the repository
+description:
 
-> Publish a folder of agent-built HTML to a stable URL from the CLI or over MCP.
+> Publish agent-built HTML to a stable URL from the CLI or over MCP.
 
 The hero headline is "Put your agent's HTML on the web." There is no tagline or
 hero eyebrow. Do not restore "Where agents publish" or "the neutral hand-off

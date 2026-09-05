@@ -79,7 +79,8 @@ the link. The [agent skill](./skills/agent-paste/SKILL.md) covers login,
 accountless publishing, and updating an existing Artifact.
 
 Agents without a shell can connect to `https://mcp.agent-paste.sh` and
-authenticate with OAuth. See the [MCP setup guide](./docs/mcp.md).
+authenticate with OAuth. MCP publishing supports text; use the CLI for folders
+and binary files. See the [MCP setup guide](./docs/mcp.md).
 
 ## What to know before publishing
 

@@ -32,7 +32,7 @@ export const META_DESCRIPTION =
 
 // The headline lives in HomePage.tsx because it contains accent markup.
 export const HERO = {
-  lead: "Publish a folder of agent-built HTML to a stable URL from the CLI or over MCP.",
+  lead: "Publish agent-built HTML to a stable URL from the CLI or over MCP.",
   // Honest, verifiable, and answers the two first-glance objections (is this real?
   // what is the catch on free?). Every figure is true to packages/config + pricing.
   status:
