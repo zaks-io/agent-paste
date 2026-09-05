@@ -30,19 +30,9 @@ export const TITLE = "agent-paste.sh: tell your agent where to publish";
 export const META_DESCRIPTION =
   "Your agent built it and it is stuck in a chat window. agent-paste turns it into a link you can open and share.";
 
-// The headline itself is canonical JSX in HomePage.tsx (it carries the one
-// accent span, which a plain string can't), so it is intentionally not stored
-// here. This object holds the eyebrow, the lead, the honest status line, and the
-// secondary dashboard link.
+// The headline lives in HomePage.tsx because it contains accent markup.
 export const HERO = {
-  eyebrow: "Where agents publish",
-  // The lead answers a cold visitor's first two questions (what is this, is it for
-  // me) in plain, human terms before any mechanism. Concrete nouns let the reader
-  // self-identify; "trapped in a chat window" is the felt pain; the closing clause
-  // is the whole how-to, deliberately last, pointing at the funnel. This page is
-  // human-facing marketing: agents read /agents.md and /llms.txt, not this. The
-  // shell / login / --ephemeral mechanism lives below the fold.
-  lead: "Your AI agent built a report, a dashboard, a prototype, and it is trapped in a chat window. agent-paste turns it into a link you can open in any browser and send to anyone. Tell your agent to publish it; you get the link.",
+  lead: "Publish agent-built HTML to a stable URL from the CLI or over MCP.",
   // Honest, verifiable, and answers the two first-glance objections (is this real?
   // what is the catch on free?). Every figure is true to packages/config + pricing.
   status:

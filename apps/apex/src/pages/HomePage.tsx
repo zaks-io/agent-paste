@@ -83,21 +83,11 @@ function CommandBox({ cmd, label, prompt = "$" }: { cmd: string; label?: string;
   );
 }
 
-// Left pane: the sticky hero. Eyebrow, the display headline with the one accent
-// word, the lead (which carries the why; the demo beside it is self-evidently the
-// session, so no separate directive points at it), an honest status line, and the
-// secondary links.
 function HeroPane() {
   return (
     <section className="pane-left flex flex-col items-start py-[clamp(40px,6vh,72px)] pb-12 border-b border-rule min-w-0 min-[900px]:sticky min-[900px]:top-[var(--head-h)] min-[900px]:self-start min-[900px]:min-h-[calc(100vh-var(--head-h))] min-[900px]:[padding:var(--pane-pad-y)_var(--pane-gutter)_64px_0] min-[900px]:border-b-0 min-[900px]:border-r min-[900px]:border-rule min-[900px]:justify-center">
-      <p className="reveal d1 inline-flex items-center gap-2 font-mono text-mono-sm tracking-eyebrow uppercase text-subtle mb-8">
-        <span className="dot w-[6px] h-[6px] rounded-full bg-accent flex-none" aria-hidden="true" />
-        {HERO.eyebrow}
-      </p>
-      {/* Canonical headline. Lives here, not in copy.ts, because it carries the
-          one accent span. The sanctioned wording (brand guide §6.1) is fixed. */}
       <h1 className="reveal d2 font-display font-extrabold text-display-lg leading-tight tracking-tightest [font-feature-settings:'ss01'] text-foreground mb-8 text-balance min-[900px]:text-display-md min-[900px]:max-w-[12ch]">
-        Your <span className="text-accent">agent</span> built it. Open it <span className="text-accent">anywhere</span>.
+        Put your agent's <span className="text-accent">HTML</span> on the web.
       </h1>
       <p className="reveal d3 text-lg leading-relaxed text-muted mb-8 max-w-[52ch] min-[900px]:text-lg min-[900px]:max-w-[38ch]">
         {HERO.lead}

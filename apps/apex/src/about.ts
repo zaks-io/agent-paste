@@ -6,7 +6,7 @@
 
 export const ABOUT = {
   eyebrow: "About",
-  headline: "Where agents publish",
+  headline: "A tool for publishing agent-built HTML",
   lead: "The web spent thirty years assuming a human at a keyboard. Agents publish now too, and the tools we reach for were built for the older assumption. agent-paste is the small, deliberate fix for that.",
 };
 

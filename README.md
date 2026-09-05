@@ -5,19 +5,39 @@
 [![npm](https://img.shields.io/npm/v/@zaks-io/agent-paste?label=npm)](https://www.npmjs.com/package/@zaks-io/agent-paste)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](./LICENSE)
 
-Publish a file or folder to a real website in one command:
+Agent Paste turns files your agent creates into websites you can open and send
+to someone else. Publish a report, a prototype, or a folder of generated HTML
+and assets. The recipient gets a link they can open without an account.
+
+## Why use it?
+
+An agent can build something useful and leave it sitting in a local folder.
+Agent Paste handles the next step: putting that work on the web so someone can
+actually look at it. You don't need to set up a hosting project for each result.
+
+- Send a generated report to a teammate who doesn't have your working directory.
+- Open an interactive HTML demo in the browser to try what the agent built.
+- Ask for changes and publish them to the same link. Recipients see the update
+  when they refresh.
+
+It hosts the files you publish. For an app with a server or database, host those
+services separately.
+
+## Try it without an account
+
+Publish an existing file or folder:
 
 ```sh
 npx @zaks-io/agent-paste publish ./report --ephemeral
 # https://01234-56789-abcde-fghjd.agent-paste.link/
 ```
 
-The accountless command returns an ephemeral Artifact URL that opens top-level
-without login. There is no viewer wrapper, iframe, or separate sharing command.
-Claimed Artifacts run HTML, CSS, JavaScript, root-relative assets, inline
-Tailwind configuration, and external HTTPS dependencies on their own origin.
-Ephemeral Artifacts render static content with scripts, connections, forms, and
-workers blocked until claim.
+Open the returned link to view your work. Accountless publishes expire
+automatically and render static content. JavaScript, scripted connections, and forms
+are blocked until you claim the result. The command also returns a claim link
+if you want to keep it.
+
+For interactive demos, sign in before publishing.
 
 ## Quick start
 
@@ -44,78 +64,37 @@ Expected output:
 Publishing with `--artifact-id` revises the existing Artifact. Its URL stays the
 same and shows the latest Published Revision on refresh.
 
-## Agent workflow
+## Use it with your agent
 
-Agents with a shell should use the CLI:
-
-```sh
-agent-paste whoami --json
-agent-paste publish <path> --json
-```
-
-`whoami` exits successfully even when signed out, so branch on the JSON
-`authenticated` field. If signed out and browser auth is available, run
-`agent-paste login`. If interactive login is unavailable, or the user explicitly
-requests accountless publish, use:
-
-```sh
-agent-paste publish <path> --ephemeral --json
-```
-
-Every publish JSON result contains these core fields:
-
-```json
-{
-  "schema_version": "2",
-  "artifact_id": "art_...",
-  "revision_id": "rev_...",
-  "title": "report",
-  "url": "https://01234-56789-abcde-fghjd.agent-paste.link/",
-  "expires_at": "<ISO 8601 expiration timestamp>"
-}
-```
-
-Return `url` to the human. Ephemeral results also include `claim_url` for the
-optional keep and ownership step.
-
-Agents without a shell can connect to `https://mcp.agent-paste.sh`, authenticate
-with OAuth, and use `publish_artifact` or `add_revision`. CLI and MCP share the
-same publish path and return the same `url` contract.
-
-### Install the agent skill
-
-Install the repository's agent-paste skill for Claude Code and Codex with the
-`skills` CLI:
+Agents that can run commands should use the CLI. Install the agent-paste skill
+for Claude Code and Codex to give them the publishing workflow:
 
 ```sh
 npx skills add https://github.com/zaks-io/agent-paste/tree/main/skills/agent-paste \
   --agent claude-code codex
 ```
 
-## Browser architecture
+Then ask your agent to publish the files it created with Agent Paste and return
+the link. The [agent skill](./skills/agent-paste/SKILL.md) covers login,
+accountless publishing, and updating an existing Artifact.
 
-Each Artifact gets a cryptographically random capability hostname with at least 95 bits of entropy:
+Agents without a shell can connect to `https://mcp.agent-paste.sh` and
+authenticate with OAuth. MCP publishing supports text; use the CLI for folders
+and binary files. See the [MCP setup guide](./docs/mcp.md).
 
-```text
-production  {xxxxx-xxxxx-xxxxx-xxxxx}.agent-paste.link
-preview     {xxxxx-xxxxx-xxxxx-xxxxx}-preview.agent-paste.link
-```
+## What to know before publishing
 
-The API stores a private capability manifest in R2. The content Worker validates
-the hostname, signed manifest, expiry, denylist, and requested path before
-decrypting bytes. Revising an Artifact rewrites that manifest in place.
+Anyone with an Artifact's link can view it without signing in. Treat the link
+as access to its contents.
 
-Artifact origins live on a separate registrable domain from product hosts such
-as `app.agent-paste.sh`, `api.agent-paste.sh`, and `mcp.agent-paste.sh`. The
-content Worker rejects any hostname that is not exactly the capability shape.
-New IDs contain 19 random base32 symbols plus a check symbol. Legacy 32-character
-lowercase hexadecimal IDs remain valid and are never rewritten.
+Signed-in publishes support HTML, CSS, JavaScript, and external HTTPS
+dependencies. Each Artifact runs on its own origin, separate from the dashboard.
+Service workers are unsupported.
 
-Previously issued signed `usercontent.agent-paste.sh/v/...` URLs continue until
-their normal expiry. Previously issued capability URLs map directly from
-`{id}[-preview].agent-paste.sh/{path}` to
-`{id}[-preview].agent-paste.link/{path}` with a permanent redirect that preserves
-the path and query. New publish results return only `.agent-paste.link` URLs.
+For automation details, see the [CLI contract](./docs/specs/cli.md). For content
+policies and storage internals, see
+[content rendering](./docs/specs/content-rendering.md) and
+[architecture](./docs/specs/architecture.md).
 
 ## Repository
 
