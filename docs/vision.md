@@ -1,6 +1,6 @@
 # agent-paste Vision
 
-> Where agents publish.
+> Publish agent-built HTML to a stable URL.
 
 The north star. This document states the bet, why it matters now, and the world
 we are building toward. It changes rarely. When a scope decision is hard, this is
