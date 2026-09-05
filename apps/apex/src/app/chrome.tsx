@@ -95,7 +95,7 @@ export function Footer({ billingEnabled }: { billingEnabled: boolean }) {
               <Wordmark small />
             </a>
             <p className="text-base leading-relaxed text-subtle">
-              The neutral hand-off layer for what your agent makes. Publish once, open it anywhere.
+              Publish agent-built HTML and open it on another machine.
             </p>
           </div>
           {footerColumns(billingEnabled).map((column) => (
@@ -103,7 +103,6 @@ export function Footer({ billingEnabled }: { billingEnabled: boolean }) {
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-3 mt-12 pt-8 border-t border-rule">
-          <span className="font-mono text-mono-sm text-subtle">where agents publish</span>
           <button
             type="button"
             id="analytics-toggle"

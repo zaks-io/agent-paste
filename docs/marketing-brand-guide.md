@@ -228,23 +228,17 @@ Products that want artifact storage and a manifest protocol without building it.
 
 ## 6. Messaging Architecture
 
-### 6.1 Tagline system
+### 6.1 Current public copy
 
-- **Primary (in use, keep it):** **Where agents publish.**
-- **Launch hero headline (human-facing, sanctioned):** **Your agent built it.
-  Open it anywhere.** The concrete entry to the same thesis (see section 4, "The
-  launch lead"). Use it as the apex hero headline; keep "Where agents publish" as
-  the brand line and the hero eyebrow above it. This is the deliberate hero, not
-  a fifth tagline.
-- **Mission line:** The publishing layer for the agent-native internet.
-- **Supporting lines, by context:**
-  - One publish. Every surface.
-  - A URL for humans. A manifest for agents.
-  - Durable, addressable artifacts for AI agents.
-  - Built to host what it does not trust.
+Lead with what the tool does. The repository description is the homepage hero
+lead:
 
-Do not introduce a fifth tagline without a reason. Repetition is how a line
-becomes a brand.
+> Publish a folder of agent-built HTML to a stable URL from the CLI or over MCP.
+
+The hero headline is "Put your agent's HTML on the web." There is no tagline or
+hero eyebrow. Do not restore "Where agents publish" or "the neutral hand-off
+layer" in the hero, footer, or page metadata. The earlier thesis and manifesto
+in this guide describe the original ambition, not the current public copy.
 
 ### 6.2 Boilerplate
 

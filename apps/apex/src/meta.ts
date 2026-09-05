@@ -8,7 +8,7 @@ export const HOME_META: PageMeta = {
   canonicalPath: "/",
 };
 
-export const ABOUT_TITLE = "About agent-paste.sh: where agents publish";
+export const ABOUT_TITLE = "About agent-paste.sh";
 export const ABOUT_DESCRIPTION =
   "Why agent-paste exists, the boundary it keeps, and how the live early-alpha service is built and run.";
 
