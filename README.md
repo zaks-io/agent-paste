@@ -33,7 +33,7 @@ npx @zaks-io/agent-paste publish ./report --ephemeral
 ```
 
 Open the returned link to view your work. Accountless publishes expire
-automatically and render static content. JavaScript, network requests, and forms
+automatically and render static content. JavaScript, scripted connections, and forms
 are blocked until you claim the result. The command also returns a claim link
 if you want to keep it.
 
