@@ -8,6 +8,15 @@ description: Publish files, folders, reports, demos, and generated artifacts as 
 Publish a file or folder as an unguessable, no-login website. Revising an Artifact updates the
 same stable URL.
 
+## Prefer HTML over Markdown for reports
+
+When handing a human a report, plan, review, or summary, write it as HTML rather than Markdown so
+it reads well when opened. A published page can use real typography, layout, color, tables,
+inline SVG charts, collapsible sections, and images. Claimed Artifacts can also run inline
+scripts, the Tailwind browser CDN, and HTTPS libraries; ephemeral Artifacts block scripts and
+network connections, so keep those static. Lead with the finding, keep the data behind each claim
+in the page, and open the URL once to check it before handing it over.
+
 ## Publish
 
 Use `agent-paste` if installed, otherwise run commands through `npx @zaks-io/agent-paste`. Use
