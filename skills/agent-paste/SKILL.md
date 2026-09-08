@@ -8,6 +8,15 @@ description: Publish files, folders, reports, demos, and generated artifacts as 
 Publish a file or folder as an unguessable, no-login website. Revising an Artifact updates the
 same stable URL.
 
+## Prefer HTML over Markdown for reports
+
+When handing a human a report, plan, review, or summary, write it as HTML rather than Markdown so
+it reads well when opened. A published page can use real typography, layout, color, tables,
+inline SVG charts, collapsible sections, and images. Claimed Artifacts can also run inline
+scripts, the Tailwind browser CDN, and HTTPS libraries; ephemeral Artifacts block scripts and
+network connections, so keep those static. Lead with the finding, keep the data behind each claim
+in the page, and open the URL once to check it before handing it over.
+
 ## Publish
 
 Use `agent-paste` if installed, otherwise run commands through `npx @zaks-io/agent-paste`. Use
@@ -45,9 +54,9 @@ file. Confirm the returned `artifact_id` and stable `url` after every update.
 
 ## Safety and MCP
 
-Publish only the requested path. Check folders for credentials, private source, and unrelated
-files even though the CLI excludes common secret paths. Never expose API keys, login state, claim
-tokens, or credential files. Do not retry an indeterminate publish unless the CLI or read-back
+Publish only the requested path. Check folders, and the data embedded in a report, for
+credentials, private source, customer data, and unrelated files even though the CLI excludes
+common secret paths. Never expose API keys, login state, claim tokens, or credential files. Do not retry an indeterminate publish unless the CLI or read-back
 proves whether it committed.
 
 Without shell access, connect to `https://mcp.agent-paste.sh` with OAuth and run `whoami` first.
