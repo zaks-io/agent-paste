@@ -93,27 +93,42 @@ export function keyringStore(
 ): CredentialStore {
   return {
     async load() {
+      const fromFallback = await fallback.load();
+      if (fromFallback) {
+        return fromFallback;
+      }
       try {
         const raw = entry.getPassword();
-        return raw ? parseCredential(raw) : await fallback.load();
+        return raw ? parseCredential(raw) : null;
       } catch {
-        return fallback.load();
+        return null;
       }
     },
     async save(credential) {
+      let fallbackRetained = false;
+      try {
+        await fallback.delete();
+      } catch {
+        warn(
+          "agent-paste: the file fallback could not be removed; storing the current credential there before updating the secure OS keyring.\n",
+        );
+        await fallback.save(credential);
+        fallbackRetained = true;
+      }
       try {
         entry.setPassword(JSON.stringify(credential));
       } catch {
+        warn("agent-paste: secure OS keyring write unavailable; storing credential in a 0600 file fallback.\n");
+        if (!fallbackRetained) {
+          await fallback.save(credential);
+        }
         try {
           entry.deletePassword();
         } catch {
-          // Best-effort: a stale keyring entry must not outrank the file fallback.
+          // The file store is read first, so a stale keyring item cannot shadow it.
         }
-        warn("agent-paste: OS keyring unavailable; storing credential in a 0600 file fallback.\n");
-        await fallback.save(credential);
         return;
       }
-      await fallback.delete();
     },
     async delete() {
       try {

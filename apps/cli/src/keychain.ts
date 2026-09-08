@@ -45,10 +45,11 @@ function securityEntry(service: string, account: string): KeyringEntry {
       return requireSuccess("security", result).stdout.replace(/\n$/, "");
     },
     setPassword(password) {
-      // -U updates an existing item in place. The secret is passed via -w; macOS
-      // does not offer a stdin form for add-generic-password.
-      const result = run("security", ["add-generic-password", "-U", "-s", service, "-a", account, "-w", password]);
-      requireSuccess("security", result);
+      void password;
+      // `security add-generic-password` only accepts a non-interactive password
+      // in argv. Its supported prompt form requires a TTY, which this agent-first
+      // CLI cannot assume. Throw so credentials.ts uses its 0600 file fallback.
+      throw new Error("macOS Keychain has no secure non-interactive CLI write path");
     },
     deletePassword() {
       const result = run("security", remove);

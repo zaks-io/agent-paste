@@ -179,13 +179,31 @@ function resolveErrorMessage(error: unknown): string {
 export function formatError(mode: OutputMode, error: unknown): string {
   const code = error instanceof AgentPasteError ? error.code : isReviseError(error) ? "invalid_edit" : "cli_error";
   const docs = error instanceof AgentPasteError ? error.docs : undefined;
+  const retryAfterSeconds = error instanceof AgentPasteError ? error.retryAfterSeconds : undefined;
   const message = resolveErrorMessage(error);
   if (mode === "json") {
-    return `${JSON.stringify({ error: { code, message, ...(docs ? { docs } : {}) } })}\n`;
+    return `${JSON.stringify({ error: { code, message, ...(docs ? { docs } : {}), ...(retryAfterSeconds !== undefined ? { retry_after_seconds: retryAfterSeconds } : {}) } })}\n`;
   }
-  const lines = [`${paint(mode, "red", "✗")} ${paint(mode, "bold", code)} — ${message}`];
+  const lines = [
+    `${paint(mode, "red", "✗")} ${paint(mode, "bold", terminalSafeText(code))} — ${terminalSafeText(message)}`,
+  ];
+  if (retryAfterSeconds !== undefined) {
+    lines.push(`  Retry after ${retryAfterSeconds} seconds.`);
+  }
   if (docs) {
-    lines.push(`  ${hyperlink(mode, docs)}`);
+    lines.push(`  ${hyperlink(mode, terminalSafeText(docs))}`);
   }
   return `${lines.join("\n")}\n`;
+}
+
+function terminalSafeText(value: string): string {
+  return Array.from(value)
+    .map((character) => {
+      const codePoint = character.codePointAt(0);
+      if (codePoint === undefined || (codePoint > 0x1f && (codePoint < 0x7f || codePoint > 0x9f))) {
+        return character;
+      }
+      return `\\u{${codePoint.toString(16)}}`;
+    })
+    .join("");
 }

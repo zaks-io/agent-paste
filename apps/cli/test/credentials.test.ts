@@ -115,6 +115,63 @@ describe("keyring credential store", () => {
     expect(await store.load()).toEqual(freshCredential);
   });
 
+  it("reads the file fallback before a stale keyring entry", async () => {
+    const staleCredential = { ...credential, api_key: "ap_pk_stale_keyring" };
+    const freshCredential = { ...credential, api_key: "ap_pk_fresh_file" };
+    const fallback = fileStore(await tempPath());
+    await fallback.save(freshCredential);
+    const store = keyringStore(shadowingEntry(JSON.stringify(staleCredential)), fallback, () => {});
+
+    expect(await store.load()).toEqual(freshCredential);
+  });
+
+  it("updates a stale fallback when cleanup fails after a keyring write", async () => {
+    const staleCredential = { ...credential, api_key: "ap_pk_stale_file" };
+    const freshCredential = { ...credential, api_key: "ap_pk_fresh_keyring" };
+    let fallbackCredential: Credential | null = staleCredential;
+    const warnings: string[] = [];
+    const fallback = {
+      load: async () => fallbackCredential,
+      save: async (value: Credential) => {
+        fallbackCredential = value;
+      },
+      delete: async () => {
+        throw new Error("fallback cleanup failed");
+      },
+    };
+    const entry = memoryEntry();
+    const store = keyringStore(entry, fallback, (message) => warnings.push(message));
+
+    await store.save(freshCredential);
+
+    expect(fallbackCredential).toEqual(freshCredential);
+    expect(entry.getPassword()).toBe(JSON.stringify(freshCredential));
+    expect(await store.load()).toEqual(freshCredential);
+    expect(warnings).toHaveLength(1);
+  });
+
+  it("does not change the keyring when fallback cleanup and repair both fail", async () => {
+    const staleCredential = { ...credential, api_key: "ap_pk_stale_file" };
+    const freshCredential = { ...credential, api_key: "ap_pk_fresh_keyring" };
+    const entry = memoryEntry();
+    entry.setPassword(JSON.stringify(staleCredential));
+    const fallback = {
+      load: async () => staleCredential,
+      save: async () => {
+        throw new Error("fallback repair failed");
+      },
+      delete: async () => {
+        throw new Error("fallback cleanup failed");
+      },
+    };
+    const store = keyringStore(entry, fallback, () => {});
+
+    await expect(store.save(freshCredential)).rejects.toThrow("fallback repair failed");
+
+    expect(entry.getPassword()).toBe(JSON.stringify(staleCredential));
+    expect(await store.load()).toEqual(staleCredential);
+  });
+
   it("falls back to file storage and warns when keyring save fails", async () => {
     const warnings: string[] = [];
     const filePath = await tempPath();
@@ -122,7 +179,7 @@ describe("keyring credential store", () => {
 
     await store.save(credential);
 
-    expect(warnings.join("")).toContain("OS keyring unavailable");
+    expect(warnings.join("")).toContain("secure OS keyring write unavailable");
     expect(await fileStore(filePath).load()).toEqual(credential);
     expect(await store.load()).toEqual(credential);
   });

@@ -12,7 +12,7 @@ import {
   runPublish as runSharedPublish,
 } from "@agent-paste/api-client";
 import type { EphemeralProvisionResponse } from "@agent-paste/contracts";
-import { ArtifactId, CLAIM_CODE_HEADER, ClaimCode, FilePath, RenderMode, RevisionId } from "@agent-paste/contracts";
+import { ArtifactId, CLAIM_CODE_HEADER, ClaimCode, FilePath, mvpUsagePolicy, RevisionId } from "@agent-paste/contracts";
 import {
   booleanFlag,
   type GlobalFlags,
@@ -28,16 +28,11 @@ import {
 import { type Credential, deleteCredential, isCredentialExpired, loadCredential } from "./credentials.js";
 import { edit } from "./edit.js";
 import { HELP_TEXT, PUBLISH_HELP_TEXT, PULL_HELP_TEXT } from "./help.js";
-import {
-  contentTypeForLocalPath,
-  inferPublishOptions,
-  sha256HexForFile,
-  validateFilesAgainstUsagePolicy,
-  walkLocalPath,
-} from "./local.js";
+import { contentTypeForLocalPath } from "./local.js";
 import { login } from "./login.js";
 import { loadManifestCache, type ManifestCacheFile, saveManifestCache } from "./manifest-cache.js";
 import { ephemeralClaimUrl, formatEphemeralPublishResult, formatPublishResult } from "./publish-format.js";
+import { digestPublish, type PreparedPublish, preparePublish, validatePublishUsage } from "./publish-preflight.js";
 import { apiClientTransport } from "./publish-transport.js";
 import { createProgress, exitCodeFor, formatError, type OutputMode } from "./render.js";
 import { buildRevisePlan, isBaseUnusableError, type LocalFileWithDigest, type RevisePlan } from "./revise.js";
@@ -231,10 +226,13 @@ export type EphemeralPublishDeps = {
 };
 
 export async function publishEphemeral(parsed: Parsed, deps: EphemeralPublishDeps = {}) {
+  const preflight = await preparePublish(parsed, {
+    allowArtifactId: false,
+    usagePolicy: mvpUsagePolicy,
+  });
+  const prepared = await digestPublish(preflight);
+  validatePublishUsage(prepared.files, preflight.usagePolicy);
   await noteEphemeralCredentialPrecedence();
-  // Validate the local input before provisioning: a typo'd path must not mint
-  // and orphan a server-side Ephemeral Workspace, API key, and claim token.
-  await walkLocalPath(requiredArg(parsed, 0, "path"));
   const claimCodeFlag = stringFlag(parsed, "claim-code")?.trim();
   const parsedClaimCode = claimCodeFlag ? ClaimCode.safeParse(claimCodeFlag) : undefined;
   const claimCode = parsedClaimCode?.success ? parsedClaimCode.data : undefined;
@@ -254,7 +252,9 @@ export async function publishEphemeral(parsed: Parsed, deps: EphemeralPublishDep
       ...(claimCode ? { defaultHeaders: { [CLAIM_CODE_HEADER]: claimCode } } : {}),
     });
   const mode = outputModeFor(parsed.global);
-  const result = await runPublish(parsed, publishClient, mode);
+  const policy = await publishClient.usagePolicy();
+  validatePublishUsage(prepared.files, policy);
+  const result = await runPreparedPublish(publishClient, mode, prepared);
   const claimUrl = ephemeralClaimUrl(provisioned.claim_token);
   const payload = {
     ...result,
@@ -306,38 +306,18 @@ async function publish(parsed: Parsed, client: ApiClient) {
 }
 
 async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
-  const inputPath = requiredArg(parsed, 0, "path");
-  const files = await walkLocalPath(inputPath);
-  const policy = await client.usagePolicy();
-  validateFilesAgainstUsagePolicy(files, policy);
-
-  const overrides: Parameters<typeof inferPublishOptions>[2] = {};
-  const title = stringFlag(parsed, "title");
-  const entrypoint = stringFlag(parsed, "entrypoint");
-  const artifactIdFlag = stringFlag(parsed, "artifact-id");
-  const artifactId = artifactIdFlag ? ArtifactId.parse(artifactIdFlag) : undefined;
-  // An explicit --render-mode is validated against the contract enum and
-  // transmitted so the server stores it verbatim. When the flag is absent the
-  // field is omitted and the server infers from the entrypoint extension
-  // (same shared map as the local inference below).
-  const renderMode = stringFlag(parsed, "render-mode");
-  const explicitRenderMode = renderMode === undefined ? undefined : RenderMode.parse(renderMode);
-  const titleOverride = title ?? (artifactId ? await existingArtifactTitle(client, artifactId) : undefined);
-  if (titleOverride !== undefined) overrides.title = titleOverride;
-  if (entrypoint) overrides.entrypoint = entrypoint;
-  if (explicitRenderMode) overrides.renderMode = explicitRenderMode;
-  const inferred = inferPublishOptions(inputPath, files, overrides);
-
-  const digestByPath = new Map(
-    await Promise.all(files.map(async (file) => [file.path, await sha256HexForFile(file.absolutePath)] as const)),
-  );
-  const filesWithDigest: LocalFileWithDigest[] = files.map((file) => {
-    const digest = digestByPath.get(file.path);
-    if (!digest) {
-      throw new Error(`Missing digest for ${file.path}`);
-    }
-    return { ...file, sha256: digest.sha256, sizeBytes: digest.sizeBytes };
+  const preflight = await preparePublish(parsed, {
+    allowArtifactId: true,
+    resolveUsagePolicy: () => client.usagePolicy(),
+    resolveExistingTitle: (artifactId) => existingArtifactTitle(client, artifactId),
   });
+  const prepared = await digestPublish(preflight);
+  validatePublishUsage(prepared.files, preflight.usagePolicy);
+  return runPreparedPublish(client, mode, prepared);
+}
+
+async function runPreparedPublish(client: ApiClient, mode: OutputMode, prepared: PreparedPublish) {
+  const { artifactId, explicitRenderMode, files: filesWithDigest, inferred } = prepared;
 
   const wholeManifest = (): PublishFile[] => filesWithDigest.map(wholePublishFile);
   const fullTree = (): ManifestCacheFile[] =>
@@ -397,10 +377,14 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
 
   // Seed the cache with the full effective tree so the next revise diffs correctly.
   if (outcome.result.artifact_id && outcome.result.revision_id) {
-    await saveManifestCache(outcome.result.artifact_id, {
-      revision_id: outcome.result.revision_id,
-      files: plan ? plan.effectiveTree : fullTree(),
-    });
+    try {
+      await saveManifestCache(outcome.result.artifact_id, {
+        revision_id: outcome.result.revision_id,
+        files: plan ? plan.effectiveTree : fullTree(),
+      });
+    } catch {
+      process.stderr.write("agent-paste: publish succeeded, but the local manifest cache could not be updated.\n");
+    }
   }
 
   // Publish returns the Artifact's one durable top-level capability URL.
