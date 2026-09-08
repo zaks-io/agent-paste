@@ -46,23 +46,17 @@ export async function preparePublish(parsed: Parsed, options: PreparePublishOpti
   const rawEntrypoint = stringFlag(parsed, "entrypoint");
   const entrypoint = rawEntrypoint === undefined ? undefined : parseFilePath(rawEntrypoint, "entrypoint");
   const files = await walkLocalPath(inputPath);
+  for (const file of files) {
+    parseFilePath(file.path, "file path");
+  }
   if (entrypoint !== undefined && !files.some((file) => file.path === entrypoint)) {
     throw invalidRequest("Entrypoint was not found in the publish files");
   }
 
-  const usagePolicy = options.usagePolicy ?? (await options.resolveUsagePolicy());
-  validatePublishUsage(files, usagePolicy);
-
-  const existingTitle =
-    titleFlag === undefined && artifactId && options.resolveExistingTitle
-      ? await options.resolveExistingTitle(artifactId)
-      : undefined;
-  const titleOverride = parsedTitle ?? existingTitle;
-
   let inferred: ReturnType<typeof inferPublishOptions>;
   try {
     inferred = inferPublishOptions(inputPath, files, {
-      ...(titleOverride !== undefined ? { title: titleOverride } : {}),
+      ...(parsedTitle !== undefined ? { title: parsedTitle } : {}),
       ...(entrypoint !== undefined ? { entrypoint } : {}),
       ...(explicitRenderMode !== undefined ? { renderMode: explicitRenderMode } : {}),
     });
@@ -74,6 +68,13 @@ export async function preparePublish(parsed: Parsed, options: PreparePublishOpti
     title: parseTitle(inferred.title),
     entrypoint: parseFilePath(inferred.entrypoint, "entrypoint"),
   };
+
+  const usagePolicy = options.usagePolicy ?? (await options.resolveUsagePolicy());
+  validatePublishUsage(files, usagePolicy);
+
+  if (titleFlag === undefined && artifactId !== undefined && options.resolveExistingTitle) {
+    inferred = { ...inferred, title: parseTitle(await options.resolveExistingTitle(artifactId)) };
+  }
 
   return { inputPath, files, inferred, artifactId, explicitRenderMode, usagePolicy };
 }

@@ -191,7 +191,7 @@ export function formatError(mode: OutputMode, error: unknown): string {
     lines.push(`  Retry after ${retryAfterSeconds} seconds.`);
   }
   if (docs) {
-    lines.push(`  ${hyperlink(mode, docs)}`);
+    lines.push(`  ${hyperlink(mode, terminalSafeText(docs))}`);
   }
   return `${lines.join("\n")}\n`;
 }

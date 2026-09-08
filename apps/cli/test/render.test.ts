@@ -1,4 +1,4 @@
-import { AgentPasteError, CLIENT_AUTH_HANDOFF_HINT } from "@agent-paste/api-client";
+import { AgentPasteError, ApiClient, CLIENT_AUTH_HANDOFF_HINT } from "@agent-paste/api-client";
 import { describe, expect, it } from "vitest";
 import {
   createProgress,
@@ -167,5 +167,36 @@ describe("formatError", () => {
 
     const json = JSON.parse(formatError("json", error));
     expect(json.error.message).toBe("forged\nline\u001b[31mred");
+  });
+
+  it("escapes terminal controls in decoded error documentation links", async () => {
+    const docs = "https://docs.test/\u001b]52;c;payload\u0007";
+    const client = new ApiClient({
+      auth: {
+        type: "api_key",
+        apiKey: "ap_pk_production_0123456789ABCDEF_abcdefghijklmnopqrstuvwxyzABCDEF",
+      },
+      apiBaseUrl: "https://api.example.test/",
+      fetch: async () =>
+        Response.json(
+          { error: { code: "invalid_request", message: "bad", request_id: "req_test", docs } },
+          { status: 400 },
+        ),
+    });
+    const error = await client.whoami().then(
+      () => undefined,
+      (cause: unknown) => cause,
+    );
+    expect(error).toBeInstanceOf(AgentPasteError);
+
+    for (const mode of ["plain", "rich"] as const) {
+      const human = formatError(mode, error);
+      expect(human).not.toContain("\u001b]52");
+      expect(human).not.toContain("\u0007");
+      expect(human).toContain("\\u{1b}]52;c;payload\\u{7}");
+    }
+
+    const json = JSON.parse(formatError("json", error));
+    expect(json.error.docs).toBe(docs);
   });
 });

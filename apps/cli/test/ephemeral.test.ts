@@ -154,6 +154,26 @@ describe("cli ephemeral publish", () => {
     }
   });
 
+  it("rejects invalid sibling file paths before provisioning", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-path-"));
+    try {
+      await fs.writeFile(path.join(root, "index.html"), "<h1>Page</h1>");
+      await fs.writeFile(path.join(root, "bad\\name.txt"), "notes");
+      const provision = vi.fn().mockResolvedValue(provisionedCredentials());
+
+      await expect(
+        publishEphemeral(parsedPublishArgs(root), {
+          provision,
+          createPublishClient: () => fakePublishClient(),
+        }),
+      ).rejects.toMatchObject({ code: "invalid_request", status: 400 });
+
+      expect(provision).not.toHaveBeenCalled();
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("never sends a client-chosen ttl_seconds on the create call", async () => {
     mockStdout();
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);

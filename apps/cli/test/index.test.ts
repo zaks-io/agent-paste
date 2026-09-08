@@ -337,6 +337,29 @@ describe("cli command dispatch", () => {
     }
   });
 
+  it("rejects ambiguous publish inference before calling the API", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-preflight-inference-"));
+    try {
+      await fs.writeFile(path.join(root, "page.html"), "<h1>Page</h1>");
+      await fs.writeFile(path.join(root, "notes.txt"), "notes");
+      const getAgentView = vi.fn();
+      const client = fakeClient({
+        usagePolicy: vi.fn(),
+        artifacts: { getAgentView, readFile: vi.fn() },
+      });
+
+      await expect(main(["publish", root, "--artifact-id", artifactId], client)).rejects.toMatchObject({
+        code: "invalid_request",
+        status: 400,
+      });
+
+      expect(client.usagePolicy).not.toHaveBeenCalled();
+      expect(getAgentView).not.toHaveBeenCalled();
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("prints a channel-correct signed-out hint for whoami", async () => {
     const stdout = mockStdout();
     const previousKey = process.env.AGENT_PASTE_API_KEY;
