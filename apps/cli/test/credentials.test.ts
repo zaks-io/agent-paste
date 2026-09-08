@@ -125,6 +125,29 @@ describe("keyring credential store", () => {
     expect(await store.load()).toEqual(freshCredential);
   });
 
+  it("updates a stale fallback when cleanup fails after a keyring write", async () => {
+    const staleCredential = { ...credential, api_key: "ap_pk_stale_file" };
+    const freshCredential = { ...credential, api_key: "ap_pk_fresh_keyring" };
+    let fallbackCredential: Credential | null = staleCredential;
+    const warnings: string[] = [];
+    const fallback = {
+      load: async () => fallbackCredential,
+      save: async (value: Credential) => {
+        fallbackCredential = value;
+      },
+      delete: async () => {
+        throw new Error("fallback cleanup failed");
+      },
+    };
+    const store = keyringStore(memoryEntry(), fallback, (message) => warnings.push(message));
+
+    await store.save(freshCredential);
+
+    expect(fallbackCredential).toEqual(freshCredential);
+    expect(await store.load()).toEqual(freshCredential);
+    expect(warnings.join(" ")).toContain("file fallback could not be removed");
+  });
+
   it("falls back to file storage and warns when keyring save fails", async () => {
     const warnings: string[] = [];
     const filePath = await tempPath();

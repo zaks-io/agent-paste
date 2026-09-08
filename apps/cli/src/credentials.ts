@@ -117,7 +117,14 @@ export function keyringStore(
         }
         return;
       }
-      await fallback.delete();
+      try {
+        await fallback.delete();
+      } catch {
+        warn(
+          "agent-paste: secure OS keyring updated, but the file fallback could not be removed; storing the current credential there.\n",
+        );
+        await fallback.save(credential);
+      }
     },
     async delete() {
       try {
