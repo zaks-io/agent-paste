@@ -38,7 +38,7 @@ export async function preparePublish(parsed: Parsed, options: PreparePublishOpti
   if (options.allowArtifactId && stringFlag(parsed, "claim-code") !== undefined) {
     throw invalidRequest("--claim-code requires --ephemeral");
   }
-  const artifactId = artifactIdFlag ? parseArtifactId(artifactIdFlag) : undefined;
+  const artifactId = artifactIdFlag === undefined ? undefined : parseArtifactId(artifactIdFlag);
   const renderModeFlag = stringFlag(parsed, "render-mode");
   const explicitRenderMode = renderModeFlag === undefined ? undefined : parseRenderMode(renderModeFlag);
   const titleFlag = stringFlag(parsed, "title");

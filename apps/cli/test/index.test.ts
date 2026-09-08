@@ -314,6 +314,16 @@ describe("cli command dispatch", () => {
     expect(client.usagePolicy).not.toHaveBeenCalled();
   });
 
+  it("rejects an empty Artifact ID before calling the API", async () => {
+    const client = fakeClient({ usagePolicy: vi.fn() });
+
+    await expect(main(["publish", "./report", "--artifact-id="], client)).rejects.toMatchObject({
+      code: "invalid_request",
+      status: 400,
+    });
+    expect(client.usagePolicy).not.toHaveBeenCalled();
+  });
+
   it("enforces publish caps before looking up an existing Artifact", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-preflight-cap-"));
     try {
