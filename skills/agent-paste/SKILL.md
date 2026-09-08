@@ -54,9 +54,9 @@ file. Confirm the returned `artifact_id` and stable `url` after every update.
 
 ## Safety and MCP
 
-Publish only the requested path. Check folders for credentials, private source, and unrelated
-files even though the CLI excludes common secret paths. Never expose API keys, login state, claim
-tokens, or credential files. Do not retry an indeterminate publish unless the CLI or read-back
+Publish only the requested path. Check folders, and the data embedded in a report, for
+credentials, private source, customer data, and unrelated files even though the CLI excludes
+common secret paths. Never expose API keys, login state, claim tokens, or credential files. Do not retry an indeterminate publish unless the CLI or read-back
 proves whether it committed.
 
 Without shell access, connect to `https://mcp.agent-paste.sh` with OAuth and run `whoami` first.
