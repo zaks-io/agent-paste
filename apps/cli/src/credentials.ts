@@ -105,25 +105,29 @@ export function keyringStore(
       }
     },
     async save(credential) {
+      let fallbackRetained = false;
+      try {
+        await fallback.delete();
+      } catch {
+        warn(
+          "agent-paste: the file fallback could not be removed; storing the current credential there before updating the secure OS keyring.\n",
+        );
+        await fallback.save(credential);
+        fallbackRetained = true;
+      }
       try {
         entry.setPassword(JSON.stringify(credential));
       } catch {
         warn("agent-paste: secure OS keyring write unavailable; storing credential in a 0600 file fallback.\n");
-        await fallback.save(credential);
+        if (!fallbackRetained) {
+          await fallback.save(credential);
+        }
         try {
           entry.deletePassword();
         } catch {
           // The file store is read first, so a stale keyring item cannot shadow it.
         }
         return;
-      }
-      try {
-        await fallback.delete();
-      } catch {
-        warn(
-          "agent-paste: secure OS keyring updated, but the file fallback could not be removed; storing the current credential there.\n",
-        );
-        await fallback.save(credential);
       }
     },
     async delete() {
