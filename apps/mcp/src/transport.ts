@@ -100,9 +100,10 @@ async function readJsonRpcBody(
   }
   const body = await readBodyTextCapped(request, MAX_MCP_BODY_BYTES);
   if (!body.ok) {
+    const message = body.reason === "too_large" ? "request_body_too_large" : "request_body_unreadable";
     return {
       ok: false,
-      response: jsonRpcErrorResponse(undefined, mapMcpProtocolError("invalid_params", "request_body_too_large")),
+      response: jsonRpcErrorResponse(undefined, mapMcpProtocolError("invalid_params", message)),
     };
   }
   try {

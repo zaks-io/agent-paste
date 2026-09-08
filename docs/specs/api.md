@@ -54,13 +54,13 @@ advertises the preview hosts.
 
 ## Headers
 
-| Header                           | Direction        | Required                          | Notes                                                                                          |
-| -------------------------------- | ---------------- | --------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `Authorization: Bearer ...`      | request          | Authenticated routes              | Stored CLI credential, WorkOS bearer for `/v1/web/*` and operator routes, or MCP OAuth bearer. |
-| `Idempotency-Key`                | request          | Durable mutations                 | Required for upload session create/finalize and other mutations where noted.                   |
-| `X-Request-Id`                   | request/response | Optional request, always response | Server generates one when omitted.                                                             |
-| `Retry-After`                    | response         | 429                               | Seconds.                                                                                       |
-| `Content-Type: application/json` | request          | JSON request bodies               | JSON routes reject browser-simple media types before reading or parsing the body.              |
+| Header                           | Direction        | Required                          | Notes                                                                                                                                                                                                                           |
+| -------------------------------- | ---------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Authorization: Bearer ...`      | request          | Authenticated routes              | Stored CLI credential, WorkOS bearer for `/v1/web/*` and operator routes, or MCP OAuth bearer.                                                                                                                                  |
+| `Idempotency-Key`                | request          | Durable mutations                 | Required for upload session create/finalize and other mutations where noted.                                                                                                                                                    |
+| `X-Request-Id`                   | request/response | Optional request, always response | Server generates one when omitted.                                                                                                                                                                                              |
+| `Retry-After`                    | response         | 429                               | Seconds.                                                                                                                                                                                                                        |
+| `Content-Type: application/json` | request          | JSON request bodies               | JSON routes reject browser-simple media types before reading or parsing the body. Authenticated `allowEmptyBody` routes read the capped body first so an empty body remains valid, then reject non-empty browser-simple bodies. |
 
 Secrets are never accepted as query parameters or flags.
 

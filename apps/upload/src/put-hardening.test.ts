@@ -324,7 +324,7 @@ describe("upload put session-state hardening", () => {
     expect(recorded).toBe(false);
   });
 
-  it("does not overwrite different bytes when finalization wins after the last session check", async () => {
+  it("does not overwrite different bytes after a conditional-write conflict", async () => {
     const existing = await seedEncryptedRevisionFile({
       workspaceId: WORKSPACE_ID,
       artifactId: "art_1",

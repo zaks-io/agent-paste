@@ -389,22 +389,57 @@ describe("MCP streamable HTTP transport", () => {
   });
 
   it("rejects an oversized JSON-RPC body after authentication", async () => {
-    const response = await handleMcpEndpoint(
-      new Request("https://mcp.test/", {
-        method: "POST",
-        headers: {
-          authorization: "Bearer mcp-valid-token",
-          "content-type": "application/json",
-          "content-length": String(1024 * 1024 + 1),
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull() {
+          throw new Error("body should not be read when content-length exceeds the cap");
         },
-        body: "{}",
-      }),
-      {},
-      { verifyBearer: testAuth },
+      },
+      { highWaterMark: 0 },
     );
+    const request = {
+      method: "POST",
+      headers: new Headers({
+        authorization: "Bearer mcp-valid-token",
+        "content-type": "application/json",
+        "content-length": String(1024 * 1024 + 1),
+      }),
+      body,
+      url: "https://mcp.test/",
+    } as unknown as Request;
+    const response = await handleMcpEndpoint(request, {}, { verifyBearer: testAuth });
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toMatchObject({ error: { data: { code: "invalid_params" } } });
+    await expect(response.json()).resolves.toMatchObject({
+      error: { data: { code: "invalid_params" }, message: "request_body_too_large" },
+    });
+  });
+
+  it("reports an unreadable JSON-RPC body separately from size overflow", async () => {
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull() {
+          throw new Error("stream boom");
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    const request = {
+      method: "POST",
+      headers: new Headers({
+        authorization: "Bearer mcp-valid-token",
+        "content-type": "application/json",
+      }),
+      body,
+      url: "https://mcp.test/",
+    } as unknown as Request;
+
+    const response = await handleMcpEndpoint(request, {}, { verifyBearer: testAuth });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { data: { code: "invalid_params" }, message: "request_body_unreadable" },
+    });
   });
 
   it("accepts client JSON-RPC responses with 202", async () => {
