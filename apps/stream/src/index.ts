@@ -1,4 +1,9 @@
-import { BASELINE_SECURITY_HEADERS, sentryOptions } from "@agent-paste/worker-runtime";
+import {
+  BASELINE_SECURITY_HEADERS,
+  isJsonContentType,
+  readBodyTextCapped,
+  sentryOptions,
+} from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { ArtifactLiveUpdates } from "./artifact-live.js";
 import { authorizeLiveUpdate, parseAuthorizeAccessLinkBody } from "./authorize.js";
@@ -28,11 +33,15 @@ export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
 const ACCESS_LINK_PATH = /^\/v1\/live\/access-links\/([0-9A-HJKMNP-TV-Z]{16})$/;
 const DASHBOARD_PATH = /^\/v1\/live\/artifacts\/([^/]+)$/;
+const MAX_STREAM_AUTH_BODY_BYTES = 64 * 1024;
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   if (url.pathname === "/healthz") {
     return new Response("ok", { status: 200 });
+  }
+  if (env.AGENT_PASTE_ENV !== "dev") {
+    return notFound();
   }
 
   const accessLinkMatch = ACCESS_LINK_PATH.exec(url.pathname);
@@ -122,8 +131,15 @@ function notFound(): Response {
 }
 
 async function readJson(request: Request): Promise<unknown> {
+  if (!isJsonContentType(request.headers.get("content-type"))) {
+    return null;
+  }
+  const body = await readBodyTextCapped(request, MAX_STREAM_AUTH_BODY_BYTES);
+  if (!body.ok) {
+    return null;
+  }
   try {
-    return await request.json();
+    return JSON.parse(body.text) as unknown;
   } catch {
     return null;
   }

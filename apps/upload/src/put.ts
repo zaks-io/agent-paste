@@ -3,7 +3,10 @@ import type { Repository } from "@agent-paste/db";
 import { artifactBytesEncryptionRingFromEnv, resolveUploadTokenSigner } from "@agent-paste/rotation";
 import {
   bytesFromReadableBodyCapped,
+  ciphertextByteLengthForPlaintext,
+  decryptArtifactBytesWithKeyRing,
   encryptArtifactBytes,
+  isArtifactBytesEncryptionMetadata,
   parseRevisionFileObjectKey,
   parseWorkspaceBlobObjectKey,
   ReadableBodyTooLargeError,
@@ -14,6 +17,20 @@ import type { AppContext, Env } from "./env.js";
 import { uploadDatabase } from "./upload-db.js";
 
 const UPLOAD_FILE_PATH_MARKER = "/files/";
+
+function parseUploadObjectKey(payload: SignedUploadPayload): {
+  blobKeyParts: ReturnType<typeof parseWorkspaceBlobObjectKey>;
+  revisionKeyParts: ReturnType<typeof parseRevisionFileObjectKey>;
+} | null {
+  const blobKeyParts = payload.sha256 ? parseWorkspaceBlobObjectKey(payload.key) : null;
+  const revisionKeyParts = payload.sha256 ? null : parseRevisionFileObjectKey(payload.key);
+  if (payload.sha256) {
+    return blobKeyParts?.workspaceId === payload.wid && blobKeyParts.sha256 === payload.sha256
+      ? { blobKeyParts, revisionKeyParts }
+      : null;
+  }
+  return revisionKeyParts?.path === payload.path ? { blobKeyParts, revisionKeyParts } : null;
+}
 
 export function uploadFilePath(context: AppContext): string {
   const pathname = new URL(context.req.raw.url).pathname;
@@ -87,18 +104,11 @@ export async function putUploadFile(
   if (!encryptionRing) {
     return getBoundResponders(context).respondError("storage_unavailable");
   }
-  const blobKeyParts = payload.sha256 ? parseWorkspaceBlobObjectKey(payload.key) : null;
-  const revisionKeyParts = payload.sha256 ? null : parseRevisionFileObjectKey(payload.key);
-  if (payload.sha256) {
-    if (!blobKeyParts || blobKeyParts.workspaceId !== payload.wid || blobKeyParts.sha256 !== payload.sha256) {
-      return getBoundResponders(context).respondError(
-        "invalid_request",
-        "upload object key does not match signed path",
-      );
-    }
-  } else if (!revisionKeyParts || revisionKeyParts.path !== payload.path) {
+  const keyParts = parseUploadObjectKey(payload);
+  if (!keyParts) {
     return getBoundResponders(context).respondError("invalid_request", "upload object key does not match signed path");
   }
+  const { blobKeyParts, revisionKeyParts } = keyParts;
 
   const db = uploadDatabase(env);
   if (!db) {
@@ -147,10 +157,27 @@ export async function putUploadFile(
   if (preWriteGuard) {
     return preWriteGuard;
   }
-  await env.ARTIFACTS.put(payload.key, Uint8Array.from(encrypted.ciphertext), {
+  const stored = await env.ARTIFACTS.put(payload.key, Uint8Array.from(encrypted.ciphertext), {
     httpMetadata: { contentType: "application/octet-stream" },
     customMetadata: encrypted.customMetadata,
+    onlyIf: { etagDoesNotMatch: "*" },
   });
+  if (stored === null) {
+    const matches = await existingObjectMatchesUpload(
+      env,
+      payload.key,
+      payload.size,
+      encryptionRing,
+      encryptionContext,
+      observedSha256,
+    );
+    if (!matches) {
+      return getBoundResponders(context).respondError(
+        "invalid_request",
+        "upload path already contains different bytes",
+      );
+    }
+  }
 
   await db.recordUploadedFile({
     workspaceId: payload.wid,
@@ -163,6 +190,42 @@ export async function putUploadFile(
   });
 
   return new Response(null, { status: 204, headers: { [REQUEST_ID_HEADER]: getRequestId(context) } });
+}
+
+async function existingObjectMatchesUpload(
+  env: Env,
+  key: string,
+  plaintextSize: number,
+  encryptionRing: NonNullable<ReturnType<typeof artifactBytesEncryptionRingFromEnv>>,
+  encryptionContext: Parameters<typeof decryptArtifactBytesWithKeyRing>[0]["context"],
+  observedSha256: string,
+): Promise<boolean> {
+  const existing = await env.ARTIFACTS?.get(key);
+  if (!existing?.body || !isArtifactBytesEncryptionMetadata(existing.customMetadata)) {
+    return false;
+  }
+  try {
+    const body =
+      existing.body instanceof ReadableStream
+        ? existing.body
+        : new Blob([
+            typeof existing.body === "string"
+              ? existing.body
+              : existing.body instanceof ArrayBuffer
+                ? existing.body
+                : Uint8Array.from(existing.body),
+          ]).stream();
+    const ciphertext = await bytesFromReadableBodyCapped(body, ciphertextByteLengthForPlaintext(plaintextSize));
+    const plaintext = await decryptArtifactBytesWithKeyRing({
+      ciphertext,
+      ring: encryptionRing,
+      metadata: existing.customMetadata,
+      context: encryptionContext,
+    });
+    return (await sha256Hex(plaintext)) === observedSha256;
+  } catch {
+    return false;
+  }
 }
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {

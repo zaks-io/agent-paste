@@ -260,6 +260,8 @@ describe("api worker", () => {
       },
     );
     expect(response.status, await response.clone().text()).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("pragma")).toBe("no-cache");
     expect(calls).toEqual(["global:global", "ip:203.0.113.10"]);
     await expect(response.json()).resolves.toMatchObject({
       registration_id: "reg_anon",
@@ -325,6 +327,26 @@ describe("api worker", () => {
       {},
       503,
       "temporarily_unavailable",
+    );
+    await expectAgentAuthError(
+      new Request("https://api.test/agent/identity", {
+        method: "POST",
+        headers: { "content-type": "text/plain" },
+        body: JSON.stringify({ type: "anonymous" }),
+      }),
+      { AGENT_AUTH_ASSERTION_SIGNING_SECRET: "secret", DB: baseDbForTests() },
+      400,
+      "invalid_request",
+    );
+    await expectAgentAuthError(
+      new Request("https://api.test/agent/identity", {
+        method: "POST",
+        headers: { "content-type": "application/json", "content-length": String(64 * 1024 + 1) },
+        body: "{}",
+      }),
+      { AGENT_AUTH_ASSERTION_SIGNING_SECRET: "secret", DB: baseDbForTests() },
+      400,
+      "invalid_request",
     );
     await expectAgentAuthError(
       new Request("https://api.test/agent/identity", { method: "POST", body: "not json" }),

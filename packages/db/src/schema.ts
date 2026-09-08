@@ -229,9 +229,11 @@ export const agentAuthRegistrations = pgTable(
     claimTokenId: text("claim_token_id").references(() => claimTokens.id, { onDelete: "restrict" }),
     claimTokenHash: bytea("claim_token_hash"),
     claimAttemptTokenHash: bytea("claim_attempt_token_hash"),
+    claimAttemptActorId: text("claim_attempt_actor_id"),
     userCodeHash: bytea("user_code_hash"),
     claimExpiresAt: timestamp("claim_expires_at", { withTimezone: true }),
     claimAttemptExpiresAt: timestamp("claim_attempt_expires_at", { withTimezone: true }),
+    claimAttemptFailures: smallint("claim_attempt_failures").notNull().default(0),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
@@ -252,11 +254,12 @@ export const agentAuthRegistrations = pgTable(
       "agent_auth_registrations_member_workspace_check",
       sql`${table.workspaceMemberId} is null or ${table.workspaceId} is not null`,
     ),
+    check("agent_auth_registrations_claim_attempt_failures_check", sql`${table.claimAttemptFailures} between 0 and 5`),
     check(
       "agent_auth_registrations_status_check",
       sql`${table.status} in (
         'verified', 'pending_step_up', 'anonymous_unclaimed',
-        'anonymous_claim_pending', 'revoked'
+        'anonymous_claim_pending', 'anonymous_claiming', 'revoked'
       )`,
     ),
   ],

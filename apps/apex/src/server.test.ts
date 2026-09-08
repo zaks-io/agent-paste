@@ -379,6 +379,30 @@ describe("funnel events", () => {
     expect(response.status).toBe(400);
     expect(writeDataPoint).not.toHaveBeenCalled();
   });
+
+  it("rejects simple-content-type and oversized funnel requests", async () => {
+    const writeDataPoint = vi.fn();
+    const simple = await handleRequest(
+      new Request(`${APEX}/__funnel/events`, {
+        method: "POST",
+        headers: { "content-type": "text/plain" },
+        body: JSON.stringify({ event: "prompt_copied", claim_code: claimCode, prompt_variant: "hero" }),
+      }),
+      env({ FUNNEL_EVENTS: { writeDataPoint } }),
+    );
+    const oversized = await handleRequest(
+      new Request(`${APEX}/__funnel/events`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "content-length": String(16 * 1024 + 1) },
+        body: "{}",
+      }),
+      env({ FUNNEL_EVENTS: { writeDataPoint } }),
+    );
+
+    expect(simple.status).toBe(415);
+    expect(oversized.status).toBe(400);
+    expect(writeDataPoint).not.toHaveBeenCalled();
+  });
 });
 
 describe("client config", () => {

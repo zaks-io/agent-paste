@@ -22,6 +22,22 @@ export type AgentAuthRegistrationView = {
 
 export const AGENT_AUTH_SCOPES = ["read", "publish"] as const;
 
+export async function consumeServiceAssertion(
+  entities: Entities,
+  input: { assertionJti?: string; assertionExpiresAt?: string },
+  now: string,
+): Promise<boolean> {
+  if (!input.assertionJti || !input.assertionExpiresAt) {
+    return true;
+  }
+  return entities.agentAuth.insertJti({
+    provider_issuer: "agent-paste:service-assertion",
+    jti: input.assertionJti,
+    expires_at: input.assertionExpiresAt,
+    created_at: now,
+  });
+}
+
 export async function buildAgentAccessToken(
   ctx: RepositoryCoreContext,
   workspaceId: string,
@@ -58,9 +74,11 @@ export async function insertVerifiedRegistration(
     claim_token_id: null,
     claim_token_hash: null,
     claim_attempt_token_hash: null,
+    claim_attempt_actor_id: null,
     user_code_hash: null,
     claim_expires_at: null,
     claim_attempt_expires_at: null,
+    claim_attempt_failures: 0,
     completed_at: now,
     expires_at: expiresAt,
     created_at: now,

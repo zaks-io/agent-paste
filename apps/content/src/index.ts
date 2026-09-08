@@ -154,6 +154,22 @@ export async function handleRequest(request: Request, env: Env, fetchOrigin: typ
         },
       });
     }
+    if (capability.kind === "rate_limited") {
+      const requestId = resolveRequestId(request);
+      return new Response(
+        JSON.stringify(buildErrorBody({ code: "rate_limited_artifact", requestId, docsBaseUrl: env.DOCS_BASE_URL })),
+        {
+          status: 429,
+          headers: {
+            ...securityHeaders,
+            "cache-control": "no-store",
+            "content-type": "application/json; charset=utf-8",
+            "Retry-After": "60",
+            [REQUEST_ID_HEADER]: requestId,
+          },
+        },
+      );
+    }
     if (capability.kind === "not_found") {
       if (isContentRouteOriginRequest(request, env)) {
         // A Cloudflare Route executes before a Custom Domain on the same host.

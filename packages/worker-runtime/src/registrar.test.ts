@@ -559,6 +559,7 @@ describe("contract-driven registrar", () => {
         method: "POST",
         headers: {
           "CF-Connecting-IP": "203.0.113.10",
+          "Content-Type": "application/json",
           "X-Forwarded-For": "198.51.100.20",
         },
       }),
@@ -566,7 +567,7 @@ describe("contract-driven registrar", () => {
     const missingCfIp = await app.fetch(
       new Request("https://worker.test/v1/ephemeral/provision", {
         method: "POST",
-        headers: { "X-Forwarded-For": "198.51.100.20" },
+        headers: { "Content-Type": "application/json", "X-Forwarded-For": "198.51.100.20" },
       }),
     );
 

@@ -86,7 +86,12 @@ export {
   type Handler,
   type HeaderGuardState,
 } from "./registrar.js";
-export { clientIpFromRequest } from "./registrar-request.js";
+export {
+  clientIpFromRequest,
+  isJsonContentType,
+  MAX_REQUEST_BODY_BYTES,
+  readBodyTextCapped,
+} from "./registrar-request.js";
 export {
   assertRouteRepositoryErrorsDeclared,
   collectRouteRepositoryDeclarationFailures,

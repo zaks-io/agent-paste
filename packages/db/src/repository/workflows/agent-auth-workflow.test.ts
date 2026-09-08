@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createLocalServices, type LocalRepository } from "../../local-repository.js";
+import { localAgentAuth } from "../local-entities/agent-auth.js";
+import type { LocalState } from "../local-state.js";
+import { sha256Bytes } from "./agent-auth-workflow-helpers.js";
 
 function identity(jti: string, overrides: Partial<ReturnType<typeof identityBase>> = {}) {
   return { ...identityBase(jti), ...overrides };
@@ -20,6 +23,10 @@ function identityBase(jti: string) {
   };
 }
 
+function serviceAssertion(jti: string) {
+  return { assertionJti: jti, assertionExpiresAt: "2099-06-20T13:00:00.000Z" };
+}
+
 describe("agent auth workflow", () => {
   it("JIT provisions once, resumes by provider delegation, and issues short-lived access tokens", async () => {
     const { repo } = createLocalServices({ apiKeyPepper: "test-pepper", apiKeyEnv: "preview" });
@@ -34,6 +41,7 @@ describe("agent auth workflow", () => {
     expect(member?.workos_user_id).toMatch(/^agent-auth:/);
 
     const token = await repo.exchangeAgentAuthIdentityAssertion({
+      ...serviceAssertion("service_1"),
       registrationId: first.registration.id,
       accessTokenExpiresInSeconds: 3600,
       now: new Date("2099-06-20T12:01:00.000Z"),
@@ -46,6 +54,16 @@ describe("agent auth workflow", () => {
       scopes: ["publish", "read"],
       expires_at: "2099-06-20T13:01:00.000Z",
     });
+    const apiKeyCount = local.apiKeys.size;
+    await expect(
+      repo.exchangeAgentAuthIdentityAssertion({
+        ...serviceAssertion("service_1"),
+        registrationId: first.registration.id,
+        accessTokenExpiresInSeconds: 3600,
+        now: new Date("2099-06-20T12:01:01.000Z"),
+      }),
+    ).resolves.toEqual({ kind: "invalid_grant" });
+    expect(local.apiKeys.size).toBe(apiKeyCount);
 
     const replay = await repo.registerAgentVerifiedIdentity(identity("jti_1"));
     expect(replay).toEqual({ kind: "replay_detected" });
@@ -62,6 +80,7 @@ describe("agent auth workflow", () => {
 
     const registered = await repo.registerAgentAnonymousIdentity({
       audience: "https://api.example",
+      claimTokenExpiresInSeconds: 3600,
       now: new Date("2099-06-20T12:00:00.000Z"),
     });
     expect(registered.kind).toBe("registered");
@@ -71,6 +90,7 @@ describe("agent auth workflow", () => {
     if (!sourceWorkspaceId) throw new Error("expected_source_workspace");
 
     const preClaim = await repo.exchangeAgentAuthIdentityAssertion({
+      ...serviceAssertion("service_pre_claim"),
       registrationId: registered.registration.id,
       anonymousClaimState: "pre_claim",
       accessTokenExpiresInSeconds: 3600,
@@ -114,6 +134,71 @@ describe("agent auth workflow", () => {
       }),
     ).resolves.toBeNull();
 
+    for (let attempt = 1; attempt < 5; attempt += 1) {
+      await expect(
+        repo.completeAgentAuthAnonymousClaim({
+          actor: {
+            type: "member",
+            id: member.workspace_member.id,
+            workspace_id: member.workspace.id,
+            email: member.workspace_member.email,
+            scopes: member.scopes,
+          },
+          claimAttemptToken: started.claim_attempt_token,
+          userCode: String(attempt).padStart(6, "0"),
+          now: new Date(`2099-06-20T12:04:0${attempt}.000Z`),
+        }),
+      ).resolves.toBeNull();
+    }
+    await expect(
+      repo.completeAgentAuthAnonymousClaim({
+        actor: {
+          type: "member",
+          id: member.workspace_member.id,
+          workspace_id: member.workspace.id,
+          email: member.workspace_member.email,
+          scopes: member.scopes,
+        },
+        claimAttemptToken: started.claim_attempt_token,
+        userCode: started.user_code,
+        now: new Date("2099-06-20T12:04:10.000Z"),
+      }),
+    ).resolves.toBeNull();
+
+    const restarted = await repo.startAgentAuthAnonymousClaim({
+      claimToken: registered.claim_token,
+      claimAttemptExpiresInSeconds: 600,
+      now: new Date("2099-06-20T12:04:30.000Z"),
+    });
+    expect(restarted.kind).toBe("initiated");
+    if (restarted.kind !== "initiated") throw new Error("expected_restarted_claim");
+
+    const agentAuth = localAgentAuth(local as unknown as LocalState);
+    const reserved = await agentAuth.checkAnonymousClaimAttempt({
+      claimAttemptTokenHash: await sha256Bytes(restarted.claim_attempt_token),
+      userCodeHash: await sha256Bytes(restarted.user_code),
+      actorId: member.workspace_member.id,
+      now: "2099-06-20T12:04:40.000Z",
+      maxFailures: 5,
+    });
+    expect(reserved).toMatchObject({ kind: "ready", registration: { status: "anonymous_claiming" } });
+    await expect(
+      agentAuth.checkAnonymousClaimAttempt({
+        claimAttemptTokenHash: await sha256Bytes(restarted.claim_attempt_token),
+        userCodeHash: await sha256Bytes(restarted.user_code),
+        actorId: "mem_other",
+        now: "2099-06-20T12:04:41.000Z",
+        maxFailures: 5,
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      repo.startAgentAuthAnonymousClaim({
+        claimToken: registered.claim_token,
+        claimAttemptExpiresInSeconds: 600,
+        now: new Date("2099-06-20T12:04:45.000Z"),
+      }),
+    ).resolves.toEqual({ kind: "invalid_grant" });
+
     const completed = await repo.completeAgentAuthAnonymousClaim({
       actor: {
         type: "member",
@@ -122,9 +207,9 @@ describe("agent auth workflow", () => {
         email: member.workspace_member.email,
         scopes: member.scopes,
       },
-      claimAttemptToken: started.claim_attempt_token,
-      userCode: started.user_code,
-      now: new Date("2099-06-20T12:05:00.000Z"),
+      claimAttemptToken: restarted.claim_attempt_token,
+      userCode: restarted.user_code,
+      now: new Date("2099-06-20T12:15:00.000Z"),
     });
     expect(completed).toMatchObject({
       id: registered.registration.id,
@@ -140,9 +225,9 @@ describe("agent auth workflow", () => {
           email: member.workspace_member.email,
           scopes: member.scopes,
         },
-        claimAttemptToken: started.claim_attempt_token,
-        userCode: started.user_code,
-        now: new Date("2099-06-20T12:05:30.000Z"),
+        claimAttemptToken: restarted.claim_attempt_token,
+        userCode: restarted.user_code,
+        now: new Date("2099-06-20T12:15:30.000Z"),
       }),
     ).resolves.toMatchObject({
       id: registered.registration.id,
@@ -151,21 +236,23 @@ describe("agent auth workflow", () => {
     expect(local.agentAuthRegistrations.get(registered.registration.id)?.email).toBe("person@example.com");
 
     await expect(repo.verifyApiKey(preClaim.access_token)).resolves.toBeNull();
-    expect(local.workspaces.get(sourceWorkspaceId ?? "")?.claimed_at).toBe("2099-06-20T12:05:00.000Z");
+    expect(local.workspaces.get(sourceWorkspaceId ?? "")?.claimed_at).toBe("2099-06-20T12:15:00.000Z");
 
     const staleAssertion = await repo.exchangeAgentAuthIdentityAssertion({
+      ...serviceAssertion("service_stale"),
       registrationId: registered.registration.id,
       anonymousClaimState: "pre_claim",
       accessTokenExpiresInSeconds: 3600,
-      now: new Date("2099-06-20T12:07:00.000Z"),
+      now: new Date("2099-06-20T12:17:00.000Z"),
     });
     expect(staleAssertion).toEqual({ kind: "invalid_grant" });
 
     const postClaimAssertion = await repo.exchangeAgentAuthIdentityAssertion({
+      ...serviceAssertion("service_post_claim"),
       registrationId: registered.registration.id,
       anonymousClaimState: "post_claim",
       accessTokenExpiresInSeconds: 3600,
-      now: new Date("2099-06-20T12:08:00.000Z"),
+      now: new Date("2099-06-20T12:18:00.000Z"),
     });
     expect(postClaimAssertion.kind).toBe("issued");
     if (postClaimAssertion.kind !== "issued") throw new Error("expected_postclaim_assertion_token");
@@ -230,6 +317,7 @@ describe("agent auth workflow", () => {
     });
     await expect(
       repo.exchangeAgentAuthIdentityAssertion({
+        ...serviceAssertion("service_pending"),
         registrationId: pending.registration.id,
         accessTokenExpiresInSeconds: 3600,
         now: new Date("2099-06-20T12:01:00.000Z"),
@@ -301,6 +389,7 @@ describe("agent auth workflow", () => {
     if (registered.kind !== "verified") throw new Error("expected_verified");
 
     const token = await repo.exchangeAgentAuthIdentityAssertion({
+      ...serviceAssertion("service_revoked"),
       registrationId: registered.registration.id,
       accessTokenExpiresInSeconds: 3600,
       now: new Date("2099-06-20T12:01:00.000Z"),
@@ -347,6 +436,7 @@ describe("agent auth workflow", () => {
 
     await expect(
       repo.exchangeAgentAuthIdentityAssertion({
+        ...serviceAssertion("service_expired"),
         registrationId: registered.registration.id,
         accessTokenExpiresInSeconds: 3600,
         now: new Date("2099-06-20T12:04:00.000Z"),

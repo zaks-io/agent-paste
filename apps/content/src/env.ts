@@ -29,6 +29,7 @@ export type Env = {
   ARTIFACTS: R2Bucket;
   DENYLIST: KVNamespace;
   ARTIFACT_RATE_LIMIT?: RateLimitBinding;
+  CAPABILITY_LOOKUP_RATE_LIMIT?: RateLimitBinding;
   CONTENT_SIGNING_SECRET: string;
   CONTENT_SIGNING_SECRET_V2?: string;
   CONTENT_SIGNING_KID?: string;

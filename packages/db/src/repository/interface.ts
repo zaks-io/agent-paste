@@ -231,6 +231,8 @@ export type Repository = {
   }): Promise<CompleteAgentAuthAnonymousClaimResult | null>;
   exchangeAgentAuthIdentityAssertion(input: {
     registrationId: string;
+    assertionJti: string;
+    assertionExpiresAt: string;
     anonymousClaimState?: "pre_claim" | "post_claim";
     accessTokenExpiresInSeconds: number;
     now?: Date;

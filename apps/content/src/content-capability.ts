@@ -13,6 +13,7 @@ const capabilityRequests = new WeakSet<Request>();
 export type ContentCapabilityResolution =
   | { kind: "pass" }
   | { kind: "not_found" }
+  | { kind: "rate_limited" }
   | { kind: "redirect"; location: string }
   | { kind: "request"; request: Request };
 
@@ -51,6 +52,20 @@ export async function resolveContentCapabilityRequest(
   const capabilityId = contentCapabilityIdFromHostname(url.hostname, domain, hostSuffix);
   if (!capabilityId) {
     return { kind: "not_found" };
+  }
+
+  const limiter = env.CAPABILITY_LOOKUP_RATE_LIMIT ?? env.ARTIFACT_RATE_LIMIT;
+  const clientIp = request.headers.get("CF-Connecting-IP")?.trim() || "unknown";
+  if (!limiter) {
+    return { kind: "rate_limited" };
+  }
+  try {
+    const allowed = await limiter.limit({ key: `capability-lookup:${clientIp}` });
+    if (!allowed.success) {
+      return { kind: "rate_limited" };
+    }
+  } catch {
+    return { kind: "rate_limited" };
   }
 
   const stored = await env.ARTIFACTS.get(contentCapabilityObjectKey(capabilityId));

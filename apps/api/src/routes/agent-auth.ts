@@ -31,15 +31,25 @@ import {
   claimAttemptVerificationUri,
   claimTtlSeconds,
   claimVerificationUri,
+  enforceAgentAuthRequestRateLimit,
   enforceAnonymousProvisionFriction,
   oauthError,
   protectedResourceMetadata,
   protectedResourceMetadataUrl,
+  readAgentAuthBody,
   readJson,
   secondsUntil,
 } from "./agent-auth-support.js";
 
 const CLAIM_POLL_INTERVAL_SECONDS = 5;
+const AGENT_AUTH_SENSITIVE_PATHS = new Set([
+  "/agent/identity",
+  "/agent/identity/claim",
+  "/oauth2/token",
+  "/oauth2/revoke",
+  "/agent/event/notify",
+  "/v1/web/agent-auth/claim/complete",
+]);
 
 export function mountAgentAuthRoutes(
   app: Hono<{ Bindings: Env; Variables: RequestIdVariables & BoundRespondersVariables }>,
@@ -65,6 +75,10 @@ export function mountAgentAuthRoutes(
 export function agentAuthWwwAuthenticateMiddleware() {
   return async (context: AgentAuthContext, next: () => Promise<void>) => {
     await next();
+    if (context.req.method === "POST" && AGENT_AUTH_SENSITIVE_PATHS.has(context.req.path)) {
+      context.res.headers.set("Cache-Control", "no-store");
+      context.res.headers.set("Pragma", "no-cache");
+    }
     if (context.res.status === 401 && !context.res.headers.has("WWW-Authenticate")) {
       context.res.headers.set(
         "WWW-Authenticate",
@@ -82,6 +96,10 @@ function authMd(context: AgentAuthContext) {
 
 async function agentIdentity(context: AgentAuthContext, resolveDatabase: (env: Env) => Repository | undefined) {
   const env = context.env as Env;
+  const rateLimited = await enforceAgentAuthRequestRateLimit(context, env, "identity");
+  if (rateLimited) {
+    return rateLimited;
+  }
   const config = agentAuthSigningConfig(env);
   if (!config) {
     return oauthError(context, 503, "temporarily_unavailable", "Agent auth is not configured.");
@@ -97,9 +115,9 @@ async function agentIdentity(context: AgentAuthContext, resolveDatabase: (env: E
   }
 
   if (parsed.data.type === "anonymous") {
-    const rateLimited = await enforceAnonymousProvisionFriction(context, env);
-    if (rateLimited) {
-      return rateLimited;
+    const provisionLimited = await enforceAnonymousProvisionFriction(context, env);
+    if (provisionLimited) {
+      return provisionLimited;
     }
     const result = await db.registerAgentAnonymousIdentity({
       audience: config.issuer,
@@ -149,6 +167,10 @@ async function agentIdentity(context: AgentAuthContext, resolveDatabase: (env: E
 
 async function agentIdentityClaim(context: AgentAuthContext, resolveDatabase: (env: Env) => Repository | undefined) {
   const env = context.env as Env;
+  const rateLimited = await enforceAgentAuthRequestRateLimit(context, env, "claim");
+  if (rateLimited) {
+    return rateLimited;
+  }
   const db = resolveDatabase(env);
   if (!db) {
     return oauthError(context, 503, "server_error", "Database unavailable.");
@@ -196,6 +218,10 @@ async function agentIdentityClaim(context: AgentAuthContext, resolveDatabase: (e
 
 async function oauthToken(context: AgentAuthContext, resolveDatabase: (env: Env) => Repository | undefined) {
   const env = context.env as Env;
+  const rateLimited = await enforceAgentAuthRequestRateLimit(context, env, "token");
+  if (rateLimited) {
+    return rateLimited;
+  }
   const config = agentAuthSigningConfig(env);
   if (!config) {
     return oauthError(context, 503, "temporarily_unavailable", "Agent auth is not configured.");
@@ -204,7 +230,11 @@ async function oauthToken(context: AgentAuthContext, resolveDatabase: (env: Env)
   if (!db) {
     return oauthError(context, 503, "server_error", "Database unavailable.");
   }
-  const form = new URLSearchParams(await context.req.text());
+  const rawBody = await readAgentAuthBody(context);
+  if (rawBody === null) {
+    return oauthError(context, 400, "invalid_request", "Invalid token request.");
+  }
+  const form = new URLSearchParams(rawBody);
   const grantType = form.get("grant_type");
   if (grantType === AGENT_AUTH_JWT_BEARER_GRANT_TYPE) {
     const assertion = form.get("assertion");
@@ -221,6 +251,8 @@ async function oauthToken(context: AgentAuthContext, resolveDatabase: (env: Env)
     }
     const result = await db.exchangeAgentAuthIdentityAssertion({
       registrationId: payload.registration_id,
+      assertionJti: payload.jti,
+      assertionExpiresAt: new Date(payload.exp * 1000).toISOString(),
       ...(payload.anonymous_claim_state ? { anonymousClaimState: payload.anonymous_claim_state } : {}),
       accessTokenExpiresInSeconds: accessTokenTtlSeconds(env),
     });
@@ -260,11 +292,19 @@ async function oauthToken(context: AgentAuthContext, resolveDatabase: (env: Env)
 }
 
 async function oauthRevoke(context: AgentAuthContext, resolveDatabase: (env: Env) => Repository | undefined) {
+  const rateLimited = await enforceAgentAuthRequestRateLimit(context, context.env as Env, "revoke");
+  if (rateLimited) {
+    return rateLimited;
+  }
   const db = resolveDatabase(context.env as Env);
   if (!db) {
     return oauthError(context, 503, "server_error", "Database unavailable.");
   }
-  const form = new URLSearchParams(await context.req.text());
+  const rawBody = await readAgentAuthBody(context);
+  if (rawBody === null) {
+    return oauthError(context, 400, "invalid_request", "Invalid revocation request.");
+  }
+  const form = new URLSearchParams(rawBody);
   const token = form.get("token");
   if (token) {
     await db.revokeAgentAuthAccessToken({ token });
@@ -274,6 +314,10 @@ async function oauthRevoke(context: AgentAuthContext, resolveDatabase: (env: Env
 
 async function agentEventNotify(context: AgentAuthContext, resolveDatabase: (env: Env) => Repository | undefined) {
   const env = context.env as Env;
+  const rateLimited = await enforceAgentAuthRequestRateLimit(context, env, "event");
+  if (rateLimited) {
+    return rateLimited;
+  }
   const config = agentAuthVerifiedConfig(env);
   if (!config) {
     return oauthError(context, 503, "temporarily_unavailable", "Agent auth is not configured.");
@@ -283,7 +327,11 @@ async function agentEventNotify(context: AgentAuthContext, resolveDatabase: (env
     return oauthError(context, 503, "server_error", "Database unavailable.");
   }
   try {
-    const event = await verifyAgentProviderSecurityEvent(await context.req.text(), {
+    const assertion = await readAgentAuthBody(context);
+    if (assertion === null) {
+      return context.json({ err: "invalid_request", description: "Invalid security event." }, 400);
+    }
+    const event = await verifyAgentProviderSecurityEvent(assertion, {
       audience: config.issuer,
       trustedProviders: config.trustedProviders,
     });
@@ -313,6 +361,10 @@ async function webAgentAuthClaimComplete(
   resolveDatabase: (env: Env) => Repository | undefined,
 ) {
   const env = context.env as Env;
+  const rateLimited = await enforceAgentAuthRequestRateLimit(context, env, "claim-complete");
+  if (rateLimited) {
+    return rateLimited;
+  }
   const identity = await authenticateWebIdentity(context.req.raw, env);
   if (!identity) {
     return getBoundResponders(context).respondError("not_authenticated");

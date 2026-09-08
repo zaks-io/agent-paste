@@ -7,7 +7,6 @@ import type { CommandActor } from "../ports.js";
 import {
   type AgentAuthRegistrationView,
   buildClaimAttempt,
-  bytesEqual,
   insertRegistrationAudit,
   registrationView,
   secondsFrom,
@@ -21,6 +20,7 @@ import {
 } from "./ephemeral-workflow.js";
 
 const AGENT_AUTH_ACTOR: CommandActor = { type: "system", id: "agent-auth", workspaceId: null };
+const MAX_CLAIM_CODE_FAILURES = 5;
 
 export type RegisterAgentAnonymousIdentityInput = {
   audience: string;
@@ -99,9 +99,11 @@ export async function registerAgentAnonymousIdentity(
         claim_token_id: provisioned.claim_token.id,
         claim_token_hash: await sha256Bytes(provisioned.claim_token_secret),
         claim_attempt_token_hash: null,
+        claim_attempt_actor_id: null,
         user_code_hash: null,
         claim_expires_at: provisioned.claim_token.expires_at,
         claim_attempt_expires_at: null,
+        claim_attempt_failures: 0,
         completed_at: null,
         expires_at: claimExpiresAt,
         created_at: now,
@@ -198,34 +200,29 @@ export async function completeAgentAuthAnonymousClaim(
   const now = nowIso(input.now);
   const claimAttemptTokenHash = await sha256Bytes(input.claimAttemptToken);
   const userCodeHash = await sha256Bytes(input.userCode);
-  const prepared = await ctx.uow.read(PLATFORM_SCOPE, async (entities) => {
-    const registration = await entities.agentAuth.findRegistrationByClaimAttemptTokenHash(claimAttemptTokenHash);
-    if (
-      !registration ||
-      registration.registration_type !== "anonymous" ||
-      (registration.status !== "anonymous_claim_pending" && registration.status !== "verified") ||
-      !registration.claim_token_id ||
-      !registration.claim_expires_at ||
-      !registration.claim_attempt_expires_at ||
-      !registration.workspace_id
-    ) {
-      return null;
-    }
-    if (
-      Date.parse(registration.claim_expires_at) <= Date.parse(now) ||
-      Date.parse(registration.claim_attempt_expires_at) <= Date.parse(now)
-    ) {
-      return null;
-    }
-    if (!bytesEqual(registration.user_code_hash, userCodeHash)) {
-      return null;
-    }
-    const claimToken = await entities.claimTokens.findById(registration.claim_token_id);
-    if (!claimToken) {
-      return null;
-    }
-    return { registration, claimToken };
-  });
+  const prepared = await ctx.uow.command(
+    {
+      actor: AGENT_AUTH_ACTOR,
+      operation: "agent_auth.anonymous_claim.check",
+      idempotencyKey: crypto.randomUUID(),
+      scope: PLATFORM_SCOPE,
+      now,
+    },
+    async (entities) => {
+      const checked = await entities.agentAuth.checkAnonymousClaimAttempt({
+        claimAttemptTokenHash,
+        userCodeHash,
+        actorId: input.actor.id,
+        now,
+        maxFailures: MAX_CLAIM_CODE_FAILURES,
+      });
+      if (!checked || checked.kind === "mismatch" || !checked.registration.claim_token_id) {
+        return null;
+      }
+      const claimToken = await entities.claimTokens.findById(checked.registration.claim_token_id);
+      return claimToken ? { registration: checked.registration, claimToken } : null;
+    },
+  );
   if (!prepared) {
     return null;
   }
@@ -250,7 +247,7 @@ export async function completeAgentAuthAnonymousClaim(
       if (!registration || registration.registration_type !== "anonymous") {
         return null;
       }
-      if (registration.status !== "anonymous_claim_pending" && registration.status !== "verified") {
+      if (registration.status !== "anonymous_claiming" && registration.status !== "verified") {
         return null;
       }
       const completed =

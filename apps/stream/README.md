@@ -4,10 +4,11 @@ Dormant Live Updates migration history from ADR 0069. No current API, web, CLI,
 or MCP path consumes this Worker. Keep the retained code and tests intact for
 migration compatibility, but do not treat it as a current product surface.
 
-The Worker remains in full-fleet preview and production deploys at
-`stream.preview.agent-paste.sh` and `stream.agent-paste.sh`. Those deploys still
-require `STREAM_INTERNAL_SECRET`; deployment does not make Live Updates a
-supported product surface.
+The Worker remains in full-fleet preview and production deploys for Durable
+Object migration compatibility. Deployed environments expose `/healthz` only;
+historical Live Updates routes return `404` before reading a body or calling the
+API service binding. The local migration harness enables them with
+`AGENT_PASTE_ENV=dev`.
 
 ## Historical routes
 

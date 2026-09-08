@@ -103,7 +103,16 @@ export const CreateUploadSessionRequest = z
         message: "deleted_paths must be unique",
       });
     }
+    const uploaded = new Set<string>();
     request.files.forEach((file, index) => {
+      if (uploaded.has(file.path)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["files", index, "path"],
+          message: "file paths must be unique",
+        });
+      }
+      uploaded.add(file.path);
       if (deleted.has(file.path)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

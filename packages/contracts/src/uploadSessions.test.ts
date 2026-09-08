@@ -144,6 +144,18 @@ describe("CreateUploadSessionRequest partial-manifest + patch", () => {
     expect(result.success).toBe(false);
   });
 
+  it("rejects duplicate upload paths", () => {
+    const result = CreateUploadSessionRequest.safeParse(
+      baseRequest({
+        files: [
+          { path: "index.html", size_bytes: 12, sha256: sha("a") },
+          { path: "index.html", size_bytes: 12, sha256: sha("b") },
+        ],
+      }),
+    );
+    expect(result.success).toBe(false);
+  });
+
   it("still accepts a legacy whole-tree manifest with no base_revision_id", () => {
     const parsed = CreateUploadSessionRequest.parse(baseRequest());
     expect(parsed.base_revision_id).toBeUndefined();

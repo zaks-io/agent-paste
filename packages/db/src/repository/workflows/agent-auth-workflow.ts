@@ -9,6 +9,7 @@ import {
   buildAgentAccessToken,
   buildClaim,
   bytesEqual,
+  consumeServiceAssertion,
   identityKey,
   insertDelegation,
   insertRegistrationAudit,
@@ -146,9 +147,11 @@ export async function registerAgentVerifiedIdentity(
         claim_token_id: null,
         claim_token_hash: await sha256Bytes(claim.claimToken),
         claim_attempt_token_hash: null,
+        claim_attempt_actor_id: null,
         user_code_hash: await sha256Bytes(claim.userCode),
         claim_expires_at: claim.expiresAt,
         claim_attempt_expires_at: claim.expiresAt,
+        claim_attempt_failures: 0,
         completed_at: null,
         expires_at: expiresAt,
         created_at: now,
@@ -283,6 +286,8 @@ export async function exchangeAgentAuthIdentityAssertion(
   ctx: RepositoryCoreContext,
   input: {
     registrationId: string;
+    assertionJti: string;
+    assertionExpiresAt: string;
     anonymousClaimState?: "pre_claim" | "post_claim";
     accessTokenExpiresInSeconds: number;
     now?: Date;
@@ -423,6 +428,8 @@ async function exchangeRegistration(
   ctx: RepositoryCoreContext,
   input: {
     registrationId: string;
+    assertionJti?: string;
+    assertionExpiresAt?: string;
     anonymousClaimState?: "pre_claim" | "post_claim";
     accessTokenExpiresInSeconds: number;
     now?: Date;
@@ -480,6 +487,9 @@ async function exchangeRegistration(
           return { kind: "invalid_grant" };
         }
         delegationId = delegation.id;
+      }
+      if (!(await consumeServiceAssertion(entities, input, now))) {
+        return { kind: "invalid_grant" };
       }
       const { apiKey, secret } = await buildAgentAccessToken(
         ctx,

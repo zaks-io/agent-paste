@@ -13,10 +13,9 @@ export function postgresAgentAuth(ctx: PostgresContext): Entities["agentAuth"] {
     insertRegistration: (registration) => agentAuthQueries.insertRegistration(drizzle, registration),
     findRegistrationById: (id) => agentAuthQueries.findRegistrationById(drizzle, id),
     findRegistrationByClaimTokenHash: (hash) => agentAuthQueries.findRegistrationByClaimTokenHash(drizzle, hash),
-    findRegistrationByClaimAttemptTokenHash: (hash) =>
-      agentAuthQueries.findRegistrationByClaimAttemptTokenHash(drizzle, hash),
     markRegistrationVerified: (id, input) => agentAuthQueries.markRegistrationVerified(drizzle, id, input),
     markAnonymousClaimPending: (id, input) => agentAuthQueries.markAnonymousClaimPending(drizzle, id, input),
+    checkAnonymousClaimAttempt: (input) => agentAuthQueries.checkAnonymousClaimAttempt(drizzle, input),
     markAnonymousRegistrationVerified: (id, input) =>
       agentAuthQueries.markAnonymousRegistrationVerified(drizzle, id, input),
     insertJti: (jti) => agentAuthQueries.insertJti(drizzle, jti),

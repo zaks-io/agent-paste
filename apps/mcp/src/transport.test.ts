@@ -388,6 +388,25 @@ describe("MCP streamable HTTP transport", () => {
     expect(badJson.status).toBe(400);
   });
 
+  it("rejects an oversized JSON-RPC body after authentication", async () => {
+    const response = await handleMcpEndpoint(
+      new Request("https://mcp.test/", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer mcp-valid-token",
+          "content-type": "application/json",
+          "content-length": String(1024 * 1024 + 1),
+        },
+        body: "{}",
+      }),
+      {},
+      { verifyBearer: testAuth },
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: { data: { code: "invalid_params" } } });
+  });
+
   it("accepts client JSON-RPC responses with 202", async () => {
     const response = await mcpPost({ jsonrpc: "2.0", id: 2, result: {} }, { authorization: "Bearer mcp-valid-token" });
     expect(response.status).toBe(202);

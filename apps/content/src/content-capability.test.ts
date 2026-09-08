@@ -101,6 +101,20 @@ async function capabilityFixture(input?: {
 }
 
 describe("content capability routing", () => {
+  it("rate limits capability manifest lookups before reading R2", async () => {
+    const { env, get } = await capabilityFixture();
+    env.CAPABILITY_LOOKUP_RATE_LIMIT = { limit: vi.fn(async () => ({ success: false })) };
+
+    const response = await handleRequest(
+      new Request(`${capabilityOrigin}/`, { headers: { "CF-Connecting-IP": "203.0.113.20" } }),
+      env,
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("60");
+    expect(get).not.toHaveBeenCalled();
+  });
+
   it("serves the entrypoint at root and root-relative files from one capability origin", async () => {
     const { env } = await capabilityFixture();
 

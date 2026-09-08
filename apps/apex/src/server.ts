@@ -1,7 +1,13 @@
 import { AUTH_MD_PATH } from "@agent-paste/auth-md";
 import { GPC_SUPPORT_PATH, shouldDisableOptionalAnalytics } from "@agent-paste/brand";
 import { isBillingEnabled } from "@agent-paste/config";
-import { type AnalyticsEngineDataset, sentryOptions, writeFunnelEvent } from "@agent-paste/worker-runtime";
+import {
+  type AnalyticsEngineDataset,
+  isJsonContentType,
+  readBodyTextCapped,
+  sentryOptions,
+  writeFunnelEvent,
+} from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { prefersMarkdown } from "./accept";
 import { textAssets } from "./build/text-assets";
@@ -55,6 +61,7 @@ const CLIENT_CONFIG_PATH = "/__client/config.json";
 const FUNNEL_EVENTS_PATH = "/__funnel/events";
 const CLAIM_CODE_PATTERN = /^clm_[0-9A-HJKMNP-TV-Z]{26}$/;
 const PROMPT_VARIANT_PATTERN = /^[a-z0-9][a-z0-9_:-]{0,79}$/;
+const MAX_FUNNEL_EVENT_BODY_BYTES = 16 * 1024;
 const CANONICAL_MARKETING_HOST = "agent-paste.sh";
 const MARKETING_ALIAS_HOSTS = new Set(["agent-paste.com", "www.agent-paste.com"]);
 
@@ -219,9 +226,19 @@ async function handleFunnelEvent(request: Request, env: Env, security: Record<st
       headers: { allow: "POST, OPTIONS", "content-type": TEXT_PLAIN, ...security },
     });
   }
+  if (!isJsonContentType(request.headers.get("content-type"))) {
+    return new Response("content_type_must_be_json", {
+      status: 415,
+      headers: { "content-type": TEXT_PLAIN, ...security },
+    });
+  }
+  const rawBody = await readBodyTextCapped(request, MAX_FUNNEL_EVENT_BODY_BYTES);
+  if (!rawBody.ok) {
+    return new Response("invalid_event", { status: 400, headers: { "content-type": TEXT_PLAIN, ...security } });
+  }
   let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(rawBody.text);
   } catch {
     return new Response("invalid_json", { status: 400, headers: { "content-type": TEXT_PLAIN, ...security } });
   }

@@ -15,6 +15,7 @@ function envWithApi(apiFetch: Env["API"]["fetch"]): Env {
   return {
     API: api,
     ARTIFACT_LIVE: createMemoryArtifactLiveNamespace({ api }) as unknown as Env["ARTIFACT_LIVE"],
+    AGENT_PASTE_ENV: "dev",
   };
 }
 
@@ -31,6 +32,21 @@ describe("stream worker", () => {
     expect(response.headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains; preload");
     expect(response.headers.get("x-frame-options")).toBe("DENY");
     expect(response.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  it("keeps historical live routes closed in deployed environments", async () => {
+    const apiFetch = vi.fn();
+    const response = await handleRequest(
+      new Request("https://stream.test/v1/live/access-links/0123456789ABCDEF", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ blob: "signed" }),
+      }),
+      { ...envWithApi(apiFetch), AGENT_PASTE_ENV: "production" },
+    );
+
+    expect(response.status).toBe(404);
+    expect(apiFetch).not.toHaveBeenCalled();
   });
 
   it("connects access-link clients when authorization succeeds", async () => {

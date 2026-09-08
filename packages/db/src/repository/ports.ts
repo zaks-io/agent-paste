@@ -76,7 +76,6 @@ export type Entities = {
     insertRegistration(registration: AgentAuthRegistration): Promise<void>;
     findRegistrationById(id: string): Promise<AgentAuthRegistration | null>;
     findRegistrationByClaimTokenHash(claimTokenHash: Uint8Array): Promise<AgentAuthRegistration | null>;
-    findRegistrationByClaimAttemptTokenHash(claimAttemptTokenHash: Uint8Array): Promise<AgentAuthRegistration | null>;
     markRegistrationVerified(
       id: string,
       input: { delegationId: string; completedAt: string; updatedAt: string },
@@ -90,6 +89,13 @@ export type Entities = {
         updatedAt: string;
       },
     ): Promise<AgentAuthRegistration | null>;
+    checkAnonymousClaimAttempt(input: {
+      claimAttemptTokenHash: Uint8Array;
+      userCodeHash: Uint8Array;
+      actorId: string;
+      now: string;
+      maxFailures: number;
+    }): Promise<{ kind: "ready"; registration: AgentAuthRegistration } | { kind: "mismatch" } | null>;
     markAnonymousRegistrationVerified(
       id: string,
       input: { workspaceId: string; workspaceMemberId: string; email: string; completedAt: string; updatedAt: string },
