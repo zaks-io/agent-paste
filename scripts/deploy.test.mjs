@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import {
   appsForSecretProvisioning,
@@ -16,6 +17,7 @@ import {
   TRANSIENT_32_BYTE_SECRETS,
   turboDeployArgs,
 } from "./deploy.mjs";
+import { wranglerEnvVars } from "./lib/wrangler-env-vars.mjs";
 import { workerName } from "./wrangler-secrets.mjs";
 
 /** Deterministic randomBytes stand-in for stable generated-value assertions. */
@@ -26,8 +28,8 @@ function deterministicRandomBytes(size) {
 /** Minimal preview env with required provider-issued secrets populated. */
 function previewEnv(overrides = {}) {
   return {
-    PREVIEW_WORKOS_API_KEY: "wk_test_mock_provider_key",
-    PREVIEW_WORKOS_COOKIE_PASSWORD: "cookie-password-mock-32-chars-minimum!",
+    WORKOS_API_KEY: "wk_test_mock_provider_key",
+    WORKOS_COOKIE_PASSWORD: "cookie-password-mock-32-chars-minimum!",
     ...overrides,
   };
 }
@@ -35,8 +37,8 @@ function previewEnv(overrides = {}) {
 /** Minimal production env with required provider-issued secrets populated. */
 function productionEnv(overrides = {}) {
   return {
-    PRODUCTION_WORKOS_API_KEY: "wk_live_mock_provider_key",
-    PRODUCTION_WORKOS_COOKIE_PASSWORD: "cookie-password-mock-32-chars-minimum!",
+    WORKOS_API_KEY: "wk_live_mock_provider_key",
+    WORKOS_COOKIE_PASSWORD: "cookie-password-mock-32-chars-minimum!",
     ...overrides,
   };
 }
@@ -165,6 +167,13 @@ describe("deploymentPhases", () => {
 });
 
 describe("content routing readiness", () => {
+  it("forwards the preview content custom domain through the production wildcard route", () => {
+    const vars = wranglerEnvVars(readFileSync("apps/content/wrangler.jsonc", "utf8"), "production");
+    const originHosts = vars.CONTENT_ROUTE_ORIGIN_HOSTS.split(",");
+
+    expect(originHosts).toContain("usercontent.preview.agent-paste.link");
+  });
+
   it("probes the exact content host and the environment's wildcard capability route", () => {
     expect(contentRoutingProbeUrls("preview")).toEqual({
       health: "https://usercontent.preview.agent-paste.link/healthz",
@@ -322,7 +331,7 @@ describe("runDeployPlan deploy step", () => {
   it("provisions optional Sentry DSN only when the environment provides it", async () => {
     const withDsn = createSecretPlanner({
       target: "preview",
-      env: previewEnv({ PREVIEW_SENTRY_DSN: "https://public@example.ingest.us.sentry.io/1" }),
+      env: previewEnv({ SENTRY_DSN: "https://public@example.ingest.us.sentry.io/1" }),
       listSecretsForWorker: listNoSecrets(),
       randomBytesFn: deterministicRandomBytes,
     });
@@ -438,7 +447,7 @@ describe("deploy secret planning", () => {
 
       const planner = createSecretPlanner({
         target: "preview",
-        env: previewEnv({ PREVIEW_CONTENT_SIGNING_SECRET: secretValue }),
+        env: previewEnv({ CONTENT_SIGNING_SECRET: secretValue }),
         listSecretsForWorker: listNoSecrets(),
         randomBytesFn: deterministicRandomBytes,
       });
@@ -479,7 +488,7 @@ describe("deploy secret planning", () => {
       const withSmoke = createSecretPlanner({
         target: "preview",
         runSmoke: true,
-        env: previewEnv({ PREVIEW_SMOKE_HARNESS_SECRET: "stale-harness-secret" }),
+        env: previewEnv({ SMOKE_HARNESS_SECRET: "stale-harness-secret" }),
         listSecretsForWorker: allSecretsPresent,
         randomBytesFn: deterministicRandomBytes,
       });

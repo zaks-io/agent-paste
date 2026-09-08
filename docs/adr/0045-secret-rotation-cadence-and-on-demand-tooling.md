@@ -2,7 +2,7 @@
 
 Status: Accepted. Updated after [ADR 0031](./0031-signed-content-urls-with-kid-rotation.md) was superseded by [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md).
 
-The platform's rotatable secrets split into two groups by cadence. **Signing keys** — the HMAC secrets from ADR 0028 (content gateway URL signing) and ADR 0047 (Access Link signed URLs) — rotate automatically every 90 days through a scheduled remote agent that runs the staging-flip-drain playbook. The **API Key pepper** from ADR 0043 is the only remaining **storage-protection key** and rotates on demand only, with the rotation path continuously exercised by integration tests so the playbook is known to work without waiting for an incident. Most platform data is transient by default (ADR 0048), so storage-key exposure ages out naturally and a scheduled cadence is not worth the operational cost.
+The platform's rotatable secrets split into two groups by cadence. **Signing keys** — the HMAC secrets from ADR 0028 (content gateway URL signing) and upload signing — have a maximum age of 90 days. Rotation is an operator-approved production procedure because it requires coordinated staged Worker writes and hosted verification. A weekly GitHub workflow checks the committed completion record and opens one deduplicated issue when the timestamp is absent or overdue. The **API Key pepper** from ADR 0043 is the only remaining **storage-protection key** and rotates on demand only, with the rotation path continuously exercised by integration tests so the playbook is known to work without waiting for an incident. Most platform data is transient by default (ADR 0048), so storage-key exposure ages out naturally and a scheduled cadence is not worth the operational cost.
 
 ## Considered Options
 
@@ -13,18 +13,19 @@ The platform's rotatable secrets split into two groups by cadence. **Signing key
 
 ## Consequences
 
-- **Signing keys (ADR 0028, 0047): 90-day automatic rotation.**
-  - A scheduled remote agent runs the rotation playbook every 90 days. The agent holds Cloudflare wrangler credentials scoped to updating Worker secrets and running the relevant scripts, nothing broader. Completion produces a notice; failures alert.
+- **Signing keys: 90-day maximum age with an operator-run rotation.**
+  - `.github/workflows/secret-rotation-cadence.yml` checks `ops/secret-rotation-cadence.json` weekly and opens one issue while rotation is unknown or overdue. The reminder carries no Cloudflare credentials and cannot mutate production.
+  - The issue is not proof of rotation. Completion requires the runbook, hosted verification, and a committed canonical completion timestamp. GitHub can disable scheduled workflows in inactive public repositories, so the push and manual triggers remain available, and the committed record stays visibly overdue.
   - The playbook is the staging-flip-drain flow already in ADR 0028: stage the new `kid` in the verifying Worker, switch the signing Worker to mint with the new `kid`, accept both during the overlap window, drop the old `kid` once no in-flight payload can still use it.
   - The same playbook covers the **Access Link** signing key from ADR 0047 because it is the same HMAC-with-kid family. Old `kid`s remain valid for verify during overlap, so existing **Access Link** URLs continue to resolve until their `exp` or the overlap window closes.
   - Worst-case exposure of a leaked signing key is approximately 90 days plus the longest signed-payload TTL.
-  - GitHub Actions cron is rejected for this task because it would require holding deploy-grade credentials in CI; the scheduled remote agent has narrower credentials and matches the existing dep-update pattern.
+  - Automatic production mutation is rejected because CI would need deploy-grade credentials and would still need to coordinate the overlap window. The scheduled workflow is reminder-only.
 - **API Key pepper (ADR 0043): on-demand only with continuously tested tooling.**
   - No scheduled rotation. The operator triggers rotation when an incident, audit, or routine hygiene window warrants it.
-  - The rotation tooling is reached through the operator-only admin surface on `api` per ADR 0046 (`POST /admin/rotations/api-key-pepper`); the CLI in `apps/cli` does not expose it. The scheduled agent authenticates to that endpoint with a **Cloudflare Access service token** (ADR 0046), not an Auth0/WorkOS machine flow and not an **API Key**; `requireOperator()` maps the service-token name to the reserved `rotation-agent@platform` identity.
+  - The rotation tooling is reached through the operator-only admin surface on `api` per ADR 0046 (`POST /admin/rotations/api-key-pepper`); the CLI in `apps/cli` does not expose it. The operator authenticates through the existing Cloudflare Access-protected admin path, not an Auth0/WorkOS machine flow and not an **API Key**.
   - **Integration tests exercise the full rotation path** on every PR that touches auth or pepper-handling code: mint an **API Key** under `kid=v1`, rotate to `kid=v2`, assert the key still verifies under the old `kid`, verify a fresh key uses `kid=v2`, drop `kid=v1`, assert old-`kid` keys now fail. The test is the safety net that an untested playbook would not provide.
   - The transient-default artifact lifecycle (ADR 0048) bounds the realistic exposure window of any stored credential, so the gap between scheduled and on-demand cadence is small in practice.
-- **Emergency rotation.** Any suspected compromise triggers immediate rotation of the affected group, bypassing the schedule. The on-demand path is the same code path the scheduled rotation uses, so emergency rotation does not require new tooling.
+- **Emergency rotation.** Any suspected compromise triggers immediate rotation of the affected group, bypassing the reminder cadence. Emergency and routine pepper rotation use the same operator-run path, so emergency rotation does not require new tooling.
 - **WorkOS session secrets** (the AuthKit `WORKOS_COOKIE_PASSWORD` and `WORKOS_API_KEY` per ADR 0068) rotate through the WorkOS procedure tracked in `docs/ops/runbook-workos.md` and are not in scope here. Pepper rotation is independent of WorkOS secret rotation.
 - **Routine rotation produces an op log, not an Audit Event.** Emergency rotation triggered by incident response generates an Audit Event in the incident-response workflow (out of scope here).
 - **No CONTEXT.md change.** Rotation cadence is operational, not domain language.

@@ -4,6 +4,8 @@ Operator runbook for rotating deployed Worker secrets in `preview` or `productio
 
 Use this runbook for emergency or planned manual rotation. Do not use `scripts/bootstrap-secrets.mjs` for routine rotation; bootstrap is first-deploy only and refuses to overwrite existing secrets unless forced.
 
+The 90-day signing-key cadence is tracked in `ops/secret-rotation-cadence.json`. An absent completion timestamp is overdue by design. After content and upload signing rotations pass production smoke verification, commit the same canonical RFC3339 completion timestamp to that record. The weekly `Secret Rotation Cadence` workflow opens one deduplicated issue while the record is overdue; it does not hold Cloudflare credentials or rotate production automatically.
+
 ## Automated overlap tooling
 
 Operator scripts implement the ADR 0045 staging → flip → drain → drop sequence. They never read secret values back from Cloudflare; capture generated or dashboard material in a password manager before closing the terminal. Do not pass real secret values through `--value` when using the `pnpm secrets:rotate:*` aliases: pnpm echoes argv. Put the value in an environment variable and pass `--value-env <NAME>` instead.

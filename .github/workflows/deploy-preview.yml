@@ -6,11 +6,12 @@ name: Deploy Preview
 # the GitHub Preview environment as the source of truth for secret VALUES, instead of
 # by hand from a local shell.
 #
-# Secret handling, by design: every PREVIEW_* value is declared below, but the
-# environment is NOT required to hold all of them. A secret that is not set injects an
+# Secret handling, by design: Worker secret names stay canonical because the
+# GitHub Preview environment already supplies the scope. The environment is not
+# required to hold every optional value. A secret that is not set injects an
 # empty string, which scripts/lib/secret-values.mjs treats as unset, so scripts/deploy.mjs
 # leaves the Worker's existing value alone (it is idempotent and generates only missing
-# symmetric secrets). Setting only PREVIEW_STRIPE_* therefore deploys Stripe without
+# symmetric secrets). Setting only the Stripe secrets therefore deploys Stripe without
 # disturbing the symmetric/provider secrets already on the Workers.
 
 on:
@@ -106,25 +107,25 @@ jobs:
           # as unset (scripts/lib/secret-values.mjs), so the Worker keeps its current
           # value and missing symmetric secrets are generated in memory.
           # Routing/required-set source of truth: scripts/lib/secret-routing.mjs.
-          PREVIEW_CONTENT_SIGNING_SECRET: ${{ secrets.PREVIEW_CONTENT_SIGNING_SECRET }}
-          PREVIEW_UPLOAD_SIGNING_SECRET: ${{ secrets.PREVIEW_UPLOAD_SIGNING_SECRET }}
-          PREVIEW_ARTIFACT_BYTES_ENCRYPTION_KEY: ${{ secrets.PREVIEW_ARTIFACT_BYTES_ENCRYPTION_KEY }}
-          PREVIEW_API_KEY_PEPPER_V1: ${{ secrets.PREVIEW_API_KEY_PEPPER_V1 }}
-          PREVIEW_API_KEY_PEPPER_V2: ${{ secrets.PREVIEW_API_KEY_PEPPER_V2 }}
-          PREVIEW_AGENT_AUTH_ASSERTION_SIGNING_SECRET: ${{ secrets.PREVIEW_AGENT_AUTH_ASSERTION_SIGNING_SECRET }}
-          PREVIEW_ACCESS_LINK_SIGNING_KEY_V1: ${{ secrets.PREVIEW_ACCESS_LINK_SIGNING_KEY_V1 }}
-          PREVIEW_ACCESS_LINK_SIGNING_KEY_V2: ${{ secrets.PREVIEW_ACCESS_LINK_SIGNING_KEY_V2 }}
-          PREVIEW_EPHEMERAL_POW_SECRET: ${{ secrets.PREVIEW_EPHEMERAL_POW_SECRET }}
-          PREVIEW_STREAM_INTERNAL_SECRET: ${{ secrets.PREVIEW_STREAM_INTERNAL_SECRET }}
-          PREVIEW_SMOKE_HARNESS_SECRET: ${{ secrets.PREVIEW_SMOKE_HARNESS_SECRET }}
-          PREVIEW_WORKOS_API_KEY: ${{ secrets.PREVIEW_WORKOS_API_KEY }}
-          PREVIEW_WORKOS_COOKIE_PASSWORD: ${{ secrets.PREVIEW_WORKOS_COOKIE_PASSWORD }}
+          CONTENT_SIGNING_SECRET: ${{ secrets.CONTENT_SIGNING_SECRET }}
+          UPLOAD_SIGNING_SECRET: ${{ secrets.UPLOAD_SIGNING_SECRET }}
+          ARTIFACT_BYTES_ENCRYPTION_KEY: ${{ secrets.ARTIFACT_BYTES_ENCRYPTION_KEY }}
+          API_KEY_PEPPER_V1: ${{ secrets.API_KEY_PEPPER_V1 }}
+          API_KEY_PEPPER_V2: ${{ secrets.API_KEY_PEPPER_V2 }}
+          AGENT_AUTH_ASSERTION_SIGNING_SECRET: ${{ secrets.AGENT_AUTH_ASSERTION_SIGNING_SECRET }}
+          ACCESS_LINK_SIGNING_KEY_V1: ${{ secrets.ACCESS_LINK_SIGNING_KEY_V1 }}
+          ACCESS_LINK_SIGNING_KEY_V2: ${{ secrets.ACCESS_LINK_SIGNING_KEY_V2 }}
+          EPHEMERAL_POW_SECRET: ${{ secrets.EPHEMERAL_POW_SECRET }}
+          STREAM_INTERNAL_SECRET: ${{ secrets.STREAM_INTERNAL_SECRET }}
+          SMOKE_HARNESS_SECRET: ${{ secrets.SMOKE_HARNESS_SECRET }}
+          WORKOS_API_KEY: ${{ secrets.WORKOS_API_KEY }}
+          WORKOS_COOKIE_PASSWORD: ${{ secrets.WORKOS_COOKIE_PASSWORD }}
           # Stripe billing (ADR 0073/0074). Optional per scripts/lib/secret-routing.mjs;
           # gated at runtime by BILLING_ENABLED (on in the preview api Worker vars).
-          PREVIEW_STRIPE_SECRET_KEY: ${{ secrets.PREVIEW_STRIPE_SECRET_KEY }}
-          PREVIEW_STRIPE_WEBHOOK_SIGNING_SECRET: ${{ secrets.PREVIEW_STRIPE_WEBHOOK_SIGNING_SECRET }}
-          PREVIEW_STRIPE_PRICE_ID_MONTHLY: ${{ secrets.PREVIEW_STRIPE_PRICE_ID_MONTHLY }}
-          PREVIEW_STRIPE_PRICE_ID_ANNUAL: ${{ secrets.PREVIEW_STRIPE_PRICE_ID_ANNUAL }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SIGNING_SECRET: ${{ secrets.STRIPE_WEBHOOK_SIGNING_SECRET }}
+          STRIPE_PRICE_ID_MONTHLY: ${{ secrets.STRIPE_PRICE_ID_MONTHLY }}
+          STRIPE_PRICE_ID_ANNUAL: ${{ secrets.STRIPE_PRICE_ID_ANNUAL }}
         # --no-migrate: migrations already ran in the gated "Migrate preview database"
         # step above. deploy.mjs would otherwise migrate again (idempotent but redundant,
         # and would fail when that step was skipped for a missing migration URL).

@@ -11,7 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "jsonc-parser": "^3.3.1"
+    "jsonc-parser": "^3.3.1",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",

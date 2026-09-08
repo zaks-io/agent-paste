@@ -161,7 +161,7 @@
         "CONTENT_LEGACY_BASE_URL": "https://usercontent.agent-paste.sh",
         "CONTENT_CAPABILITY_DOMAIN": "agent-paste.link",
         "CONTENT_LEGACY_CAPABILITY_DOMAIN": "agent-paste.sh",
-        "CONTENT_ROUTE_ORIGIN_HOSTS": "api.agent-paste.sh,app.agent-paste.sh,mcp.agent-paste.sh,stream.agent-paste.sh,upload.agent-paste.sh,api.preview.agent-paste.sh,app.preview.agent-paste.sh,mcp.preview.agent-paste.sh,stream.preview.agent-paste.sh,upload.preview.agent-paste.sh,usercontent.preview.agent-paste.sh,preview.agent-paste.sh",
+        "CONTENT_ROUTE_ORIGIN_HOSTS": "api.agent-paste.sh,app.agent-paste.sh,mcp.agent-paste.sh,stream.agent-paste.sh,upload.agent-paste.sh,api.preview.agent-paste.sh,app.preview.agent-paste.sh,mcp.preview.agent-paste.sh,stream.preview.agent-paste.sh,upload.preview.agent-paste.sh,usercontent.preview.agent-paste.link,usercontent.preview.agent-paste.sh,preview.agent-paste.sh",
         "CONTENT_ROUTE_PR_PREVIEW_DOMAIN": "preview.agent-paste.sh",
         "CONTENT_SIGNING_KID": "v1",
         "DOCS_BASE_URL": ""

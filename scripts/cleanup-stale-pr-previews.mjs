@@ -53,6 +53,7 @@ export async function cleanupStalePrPreviews(options, dependencies = {}) {
       cleanupPreview,
       deleteNeonBranch,
       fetch: fetchFn,
+      cloudflare: options.cloudflare,
     });
     if (prFailures.length === 0) {
       cleaned.push(prNumber);
@@ -75,10 +76,10 @@ async function selectStalePrNumbers(candidates, github, fetchFn) {
 }
 
 async function cleanupSinglePrPreview(prNumber, deps) {
-  const { run, log, sleep, neon, cleanupPreview, deleteNeonBranch, fetch: fetchFn } = deps;
+  const { run, log, sleep, neon, cloudflare, cleanupPreview, deleteNeonBranch, fetch: fetchFn } = deps;
   const prFailures = [];
   try {
-    await cleanupPreview(prNumber, { run, log, sleep });
+    await cleanupPreview(prNumber, { run, log, sleep, fetch: fetchFn, cloudflare });
   } catch (error) {
     prFailures.push(`Cloudflare cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
   }
