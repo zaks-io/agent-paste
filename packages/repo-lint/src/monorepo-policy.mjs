@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { parse as parseYaml } from "yaml";
 
 const repoRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 const dependencySections = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"];
@@ -134,24 +135,26 @@ function validateDependencyVersion(pkg, section, name, version, workspaceNames, 
 }
 
 function validateRootGuardrails() {
-  // These guardrails intentionally use exact-string checks against stable repo config.
-  // If formatting churn becomes common, replace the YAML/text checks with real parsers.
   const npmrc = readText(".npmrc");
   if (!/^engine-strict=true$/m.test(npmrc)) {
     errors.push(".npmrc: expected engine-strict=true");
   }
 
-  const workspace = readText("pnpm-workspace.yaml");
-  for (const expected of [
-    "minimumReleaseAge: 10080",
-    "blockExoticSubdeps: true",
-    "trustPolicy: no-downgrade",
-    "nodeLinker: isolated",
-    "  - apps/*",
-    "  - packages/*",
-  ]) {
-    if (!workspace.includes(expected)) {
-      errors.push(`pnpm-workspace.yaml: missing ${JSON.stringify(expected)}`);
+  const workspace = readWorkspaceConfig();
+  const expectedValues = {
+    minimumReleaseAge: 10080,
+    blockExoticSubdeps: true,
+    trustPolicy: "no-downgrade",
+    nodeLinker: "isolated",
+  };
+  for (const [key, expected] of Object.entries(expectedValues)) {
+    if (workspace[key] !== expected) {
+      errors.push(`pnpm-workspace.yaml: expected ${key}=${JSON.stringify(expected)}`);
+    }
+  }
+  for (const packageGlob of ["apps/*", "packages/*"]) {
+    if (!workspace.packages?.includes(packageGlob)) {
+      errors.push(`pnpm-workspace.yaml: missing package glob ${JSON.stringify(packageGlob)}`);
     }
   }
 
@@ -211,28 +214,16 @@ function implementedReadmesFromInventory(developmentDoc, workspacePackages) {
   return implemented;
 }
 
-// Lightweight, dependency-free extraction for the current pnpm-workspace.yaml shape.
-// Assumes a top-level "catalog:" section, exactly two-space-indented entries, and
-// stops at the next top-level key. Use a YAML parser if this file gets more complex.
 function readCatalogNames() {
-  const names = new Set();
-  const lines = readText("pnpm-workspace.yaml").split(/\r?\n/u);
-  let inCatalog = false;
-  for (const line of lines) {
-    if (line === "catalog:") {
-      inCatalog = true;
-      continue;
-    }
-    if (inCatalog && /^[A-Za-z]/u.test(line)) {
-      break;
-    }
-    if (!inCatalog) continue;
-    const match = line.match(/^ {2}['"]?([^'":]+)['"]?:/u);
-    if (match) {
-      names.add(match[1]);
-    }
+  return new Set(Object.keys(readWorkspaceConfig().catalog ?? {}));
+}
+
+function readWorkspaceConfig() {
+  const workspace = parseYaml(readText("pnpm-workspace.yaml"));
+  if (!workspace || typeof workspace !== "object" || Array.isArray(workspace)) {
+    throw new Error("pnpm-workspace.yaml: expected an object");
   }
-  return names;
+  return workspace;
 }
 
 function requireField(file, field, value) {

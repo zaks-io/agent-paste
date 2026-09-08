@@ -14,9 +14,13 @@ const PREVIEW_HOST_SUFFIX = "-preview";
 const PRODUCTION_ORIGIN_HOSTS = ["api", "app", "mcp", "stream", "upload"].map(
   (label) => `${label}.${LEGACY_CAPABILITY_DOMAIN}`,
 );
-const PREVIEW_ORIGIN_HOSTS = ["api", "app", "mcp", "stream", "upload", "usercontent"]
+const PREVIEW_ORIGIN_HOSTS = ["api", "app", "mcp", "stream", "upload"]
   .map((label) => `${label}.preview.${LEGACY_CAPABILITY_DOMAIN}`)
-  .concat(`preview.${LEGACY_CAPABILITY_DOMAIN}`);
+  .concat(
+    `usercontent.preview.${CAPABILITY_DOMAIN}`,
+    `usercontent.preview.${LEGACY_CAPABILITY_DOMAIN}`,
+    `preview.${LEGACY_CAPABILITY_DOMAIN}`,
+  );
 const ROUTE_ORIGIN_HOSTS = [...PRODUCTION_ORIGIN_HOSTS, ...PREVIEW_ORIGIN_HOSTS];
 const PR_PREVIEW_DOMAIN = `preview.${LEGACY_CAPABILITY_DOMAIN}`;
 

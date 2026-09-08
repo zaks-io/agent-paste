@@ -55,7 +55,7 @@ describe("cleanupPrPreview", () => {
 
     expect(deletedWorkers).toHaveLength(6);
     expect(deletedWorkers).toContainEqual({
-      url: "https://api.cloudflare.test/client/v4/accounts/test-account/workers/scripts/agent-paste-jobs-pr-114",
+      url: "https://api.cloudflare.test/client/v4/accounts/test-account/workers/scripts/agent-paste-jobs-pr-114?force=true",
       method: "DELETE",
     });
     expect(firstQueueDeleteIndex).toBeGreaterThan(3);

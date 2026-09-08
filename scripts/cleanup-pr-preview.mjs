@@ -77,7 +77,9 @@ async function deleteWorker(fetchFn, cloudflare, log, workerName) {
   if (!cloudflare?.accountId || !cloudflare?.apiToken) {
     throw new Error("Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN to delete PR Workers.");
   }
-  const url = `${cloudflare.apiHost}/accounts/${encodeURIComponent(cloudflare.accountId)}/workers/scripts/${encodeURIComponent(workerName)}`;
+  // PR Workers and every resource they own are ephemeral. Force deletion prevents
+  // service bindings or preview-only Durable Object namespaces from orphaning them.
+  const url = `${cloudflare.apiHost}/accounts/${encodeURIComponent(cloudflare.accountId)}/workers/scripts/${encodeURIComponent(workerName)}?force=true`;
   const response = await fetchFn(url, {
     method: "DELETE",
     headers: {
