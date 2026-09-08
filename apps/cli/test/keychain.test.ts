@@ -62,14 +62,9 @@ describe("macOS security entry", () => {
     expect(() => entry().getPassword()).toThrow(/security failed/);
   });
 
-  it("writes with -U so the item is updated in place", () => {
-    mockSpawn({ status: 0 });
-    entry().setPassword("ap_pk_secret");
-    expect(spawnSync).toHaveBeenCalledWith(
-      "security",
-      ["add-generic-password", "-U", "-s", SERVICE, "-a", ACCOUNT, "-w", "ap_pk_secret"],
-      expect.anything(),
-    );
+  it("refuses non-interactive writes instead of exposing the password in argv", () => {
+    expect(() => entry().setPassword("ap_pk_secret")).toThrow(/no secure non-interactive CLI write path/);
+    expect(spawnSync).not.toHaveBeenCalled();
   });
 
   it("treats a missing item as a successful delete", () => {

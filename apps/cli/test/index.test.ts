@@ -292,6 +292,51 @@ describe("cli command dispatch", () => {
     expect(client.usagePolicy).not.toHaveBeenCalled();
   });
 
+  it("rejects --claim-code without --ephemeral before reading files or calling the API", async () => {
+    const client = fakeClient({ usagePolicy: vi.fn() });
+
+    await expect(
+      main(["publish", "./report", "--claim-code", "clm_01K2P8Y2S3T4V5W6X7Y8Z9ABCD"], client),
+    ).rejects.toMatchObject({
+      code: "invalid_request",
+      status: 400,
+    });
+    expect(client.usagePolicy).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid publish metadata before calling the API", async () => {
+    const client = fakeClient({ usagePolicy: vi.fn() });
+
+    await expect(main(["publish", "./report", "--title", "forged\u001b[31moutput"], client)).rejects.toMatchObject({
+      code: "invalid_request",
+      status: 400,
+    });
+    expect(client.usagePolicy).not.toHaveBeenCalled();
+  });
+
+  it("enforces publish caps before looking up an existing Artifact", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-preflight-cap-"));
+    try {
+      const input = path.join(root, "large.html");
+      await fs.writeFile(input, "");
+      await fs.truncate(input, usagePolicy.file_size_cap_bytes + 1);
+      const getAgentView = vi.fn();
+      const client = fakeClient({
+        artifacts: { getAgentView, readFile: vi.fn() },
+      });
+
+      await expect(main(["publish", input, "--artifact-id", artifactId], client)).rejects.toMatchObject({
+        code: "invalid_request",
+        status: 400,
+      });
+
+      expect(client.usagePolicy).toHaveBeenCalledOnce();
+      expect(getAgentView).not.toHaveBeenCalled();
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("prints a channel-correct signed-out hint for whoami", async () => {
     const stdout = mockStdout();
     const previousKey = process.env.AGENT_PASTE_API_KEY;
@@ -393,6 +438,59 @@ describe("cli command dispatch", () => {
       // assert the facts, not the exact label/spacing/byte rendering.
       expect(out).toMatch(/1\/1/);
       expect(out).toMatch(/reused|cached/);
+    } finally {
+      await removePublishFixture(root);
+    }
+  });
+
+  it("reports publish success when the local manifest cache cannot be written", async () => {
+    const stdout = mockStdout();
+    const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-cache-failure-"));
+    try {
+      await fs.writeFile(path.join(root, "index.html"), "<h1>Hello</h1>");
+      const blockedConfigHome = path.join(configHome ?? root, "not-a-directory");
+      await fs.writeFile(blockedConfigHome, "blocked");
+      process.env.XDG_CONFIG_HOME = blockedConfigHome;
+
+      const create = vi.fn().mockResolvedValue({
+        upload_session_id: uploadSessionId,
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "pending",
+        expires_at: "2026-01-01T00:00:00.000Z",
+        files: [{ status: "reused", path: "index.html" }],
+      });
+      const client = fakeClient({
+        uploadSessions: {
+          create,
+          finalize: vi.fn().mockResolvedValue({
+            upload_session_id: uploadSessionId,
+            artifact_id: artifactId,
+            revision_id: revisionId,
+            status: "draft",
+            title: "Published",
+            entrypoint: "index.html",
+            file_count: 1,
+            size_bytes: 14,
+          }),
+        },
+        revisions: {
+          publish: vi.fn().mockResolvedValue({
+            artifact_id: artifactId,
+            revision_id: revisionId,
+            title: "Published",
+            url: artifactUrl,
+            expires_at: "2026-02-01T00:00:00.000Z",
+          }),
+        },
+      });
+
+      await expect(main(["publish", root], client)).resolves.toBeUndefined();
+
+      expect(create).toHaveBeenCalledOnce();
+      expect(stdoutValues(stdout).join("")).toContain(artifactUrl);
+      expect(stderr).toHaveBeenCalledWith(expect.stringContaining("publish succeeded"));
     } finally {
       await removePublishFixture(root);
     }

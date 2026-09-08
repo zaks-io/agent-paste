@@ -54,14 +54,23 @@ export class AgentPasteError extends Error {
   readonly status: number;
   readonly requestId: string | undefined;
   readonly docs: string | undefined;
+  readonly retryAfterSeconds: number | undefined;
 
-  constructor(input: { code: string; message: string; status: number; requestId?: string; docs?: string }) {
+  constructor(input: {
+    code: string;
+    message: string;
+    status: number;
+    requestId?: string;
+    docs?: string;
+    retryAfterSeconds?: number;
+  }) {
     super(input.message);
     this.name = "AgentPasteError";
     this.code = input.code;
     this.status = input.status;
     this.requestId = input.requestId;
     this.docs = input.docs;
+    this.retryAfterSeconds = input.retryAfterSeconds;
   }
 }
 
@@ -240,6 +249,7 @@ export class ApiClient {
           code: "http_error",
           message: text || `HTTP ${response.status}`,
           status: response.status,
+          ...retryAfterInput(response),
         });
       }
       await throwParsedResponseError(response, text, data);
@@ -303,6 +313,7 @@ async function throwResponseError(response: Response): Promise<never> {
       code: "http_error",
       message: text || `HTTP ${response.status}`,
       status: response.status,
+      ...retryAfterInput(response),
     });
   }
   return throwParsedResponseError(response, text, raw);
@@ -318,6 +329,7 @@ async function throwParsedResponseError(response: Response, text: string, raw: u
         status: response.status,
         requestId: raw.error.request_id,
         ...(raw.error.docs ? { docs: raw.error.docs } : {}),
+        ...retryAfterInput(response),
       });
     }
     if (!parsed.success) {
@@ -329,6 +341,7 @@ async function throwParsedResponseError(response: Response, text: string, raw: u
       status: response.status,
       ...(parsed.data.error.request_id ? { requestId: parsed.data.error.request_id } : {}),
       ...(parsed.data.error.docs ? { docs: parsed.data.error.docs } : {}),
+      ...retryAfterInput(response),
     });
   } catch (error) {
     if (error instanceof AgentPasteError) {
@@ -338,8 +351,18 @@ async function throwParsedResponseError(response: Response, text: string, raw: u
       code: "http_error",
       message: text || `HTTP ${response.status}`,
       status: response.status,
+      ...retryAfterInput(response),
     });
   }
+}
+
+function retryAfterInput(response: Response): { retryAfterSeconds?: number } {
+  const raw = response.headers.get("Retry-After");
+  if (raw === null || !/^\d+$/.test(raw)) {
+    return {};
+  }
+  const retryAfterSeconds = Number(raw);
+  return Number.isSafeInteger(retryAfterSeconds) ? { retryAfterSeconds } : {};
 }
 
 function isErrorEnvelopeLike(

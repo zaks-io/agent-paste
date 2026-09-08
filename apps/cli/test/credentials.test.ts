@@ -115,6 +115,16 @@ describe("keyring credential store", () => {
     expect(await store.load()).toEqual(freshCredential);
   });
 
+  it("reads the file fallback before a stale keyring entry", async () => {
+    const staleCredential = { ...credential, api_key: "ap_pk_stale_keyring" };
+    const freshCredential = { ...credential, api_key: "ap_pk_fresh_file" };
+    const fallback = fileStore(await tempPath());
+    await fallback.save(freshCredential);
+    const store = keyringStore(shadowingEntry(JSON.stringify(staleCredential)), fallback, () => {});
+
+    expect(await store.load()).toEqual(freshCredential);
+  });
+
   it("falls back to file storage and warns when keyring save fails", async () => {
     const warnings: string[] = [];
     const filePath = await tempPath();
@@ -122,7 +132,7 @@ describe("keyring credential store", () => {
 
     await store.save(credential);
 
-    expect(warnings.join("")).toContain("OS keyring unavailable");
+    expect(warnings.join("")).toContain("secure OS keyring write unavailable");
     expect(await fileStore(filePath).load()).toEqual(credential);
     expect(await store.load()).toEqual(credential);
   });

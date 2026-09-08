@@ -77,6 +77,49 @@ describe("ApiClient", () => {
     });
   });
 
+  it("preserves integer Retry-After seconds on errors", async () => {
+    const client = authedClient({
+      fetch: async () =>
+        Response.json(
+          { error: { code: "rate_limited_actor", message: "rate_limited_actor", request_id: "req_limit" } },
+          { status: 429, headers: { "Retry-After": "60" } },
+        ),
+    });
+
+    await expect(client.whoami()).rejects.toMatchObject({
+      code: "rate_limited_actor",
+      status: 429,
+      retryAfterSeconds: 60,
+    });
+  });
+
+  it("ignores malformed Retry-After values", async () => {
+    const client = authedClient({
+      fetch: async () =>
+        Response.json(
+          { error: { code: "rate_limited_actor", message: "rate_limited_actor", request_id: "req_limit" } },
+          { status: 429, headers: { "Retry-After": "soon" } },
+        ),
+    });
+
+    await expect(client.whoami()).rejects.toMatchObject({ retryAfterSeconds: undefined });
+  });
+
+  it("preserves Retry-After seconds from signed upload failures", async () => {
+    const client = authedClient({
+      fetch: async () =>
+        Response.json(
+          { error: { code: "rate_limited_workspace", message: "rate_limited_workspace", request_id: "req_put" } },
+          { status: 429, headers: { "Retry-After": "10" } },
+        ),
+    });
+
+    await expect(client.putFile("https://upload.example.test/put", new Uint8Array())).rejects.toMatchObject({
+      code: "rate_limited_workspace",
+      retryAfterSeconds: 10,
+    });
+  });
+
   it("reads usage policy from the API base URL", async () => {
     const calls: Request[] = [];
     const client = authedClient({

@@ -94,6 +94,66 @@ describe("cli ephemeral publish", () => {
     expect(provision).not.toHaveBeenCalled();
   });
 
+  it("rejects revise mode before provisioning", async () => {
+    const provision = vi.fn().mockResolvedValue(provisionedCredentials());
+
+    await expect(
+      publishEphemeral(parsedPublishArgs("/path-is-not-read", { "artifact-id": artifactId }), {
+        provision,
+        createPublishClient: () => fakePublishClient(),
+      }),
+    ).rejects.toMatchObject({ code: "invalid_request", status: 400 });
+
+    expect(provision).not.toHaveBeenCalled();
+  });
+
+  it("validates publish inference and flags before provisioning", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-preflight-"));
+    try {
+      await fs.writeFile(path.join(root, "page.html"), "<h1>Page</h1>");
+      await fs.writeFile(path.join(root, "notes.txt"), "notes");
+
+      for (const flags of [
+        {},
+        { entrypoint: "missing.html" },
+        { entrypoint: "page.html", "render-mode": "quicktime" },
+        { entrypoint: "page.html", title: "forged\u001b[31moutput" },
+      ]) {
+        const provision = vi.fn().mockResolvedValue(provisionedCredentials());
+        await expect(
+          publishEphemeral(parsedPublishArgs(root, flags), {
+            provision,
+            createPublishClient: () => fakePublishClient(),
+          }),
+        ).rejects.toMatchObject({ code: "invalid_request", status: 400 });
+        expect(provision).not.toHaveBeenCalled();
+      }
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("enforces the ephemeral file cap before provisioning", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-ephemeral-cap-"));
+    try {
+      const input = path.join(root, "large.html");
+      await fs.writeFile(input, "");
+      await fs.truncate(input, 10 * 1024 * 1024 + 1);
+      const provision = vi.fn().mockResolvedValue(provisionedCredentials());
+
+      await expect(
+        publishEphemeral(parsedPublishArgs(input), {
+          provision,
+          createPublishClient: () => fakePublishClient(),
+        }),
+      ).rejects.toMatchObject({ code: "invalid_request", status: 400 });
+
+      expect(provision).not.toHaveBeenCalled();
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("never sends a client-chosen ttl_seconds on the create call", async () => {
     mockStdout();
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);

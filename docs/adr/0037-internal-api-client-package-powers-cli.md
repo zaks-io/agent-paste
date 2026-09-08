@@ -1,5 +1,10 @@
 # Internal `api-client` Package Powers the CLI
 
+> Historical decision record. The shipped CLI contract is in
+> [`docs/specs/cli.md`](../specs/cli.md). The current client does not retry
+> automatically. It preserves `Retry-After` seconds in structured errors so the
+> calling agent can wait explicitly. Upload concurrency is fixed at six.
+
 The CLI's HTTP layer lives at `packages/api-client/` as a workspace-only package consumed by `apps/cli` via `workspace:*`. It exposes a single `ApiClient` class with Stripe-style resource sub-clients (`keys`, `artifacts`, `revisions`, `uploadSessions`, `accessLinks`, `lockdown`) and two composer methods (`publish`, `download`). The package is not published to npm in the MVP. This supersedes the "internal HTTP-client code is not exported as a library" and "CLI surface stays minimal in v1: `publish` only" lines in [ADR 0017](./0017-openapi-contract-with-ergonomic-sdk-and-cli.md), while preserving ADR 0017's stance that the public REST API is the canonical integration surface for non-Node consumers.
 
 ## Consequences

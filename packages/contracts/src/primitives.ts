@@ -83,21 +83,19 @@ export const FilePath = z
   .refine((path) => !path.split("/").some((part) => part === "" || part === "." || part === ".."), {
     message: "must not contain empty, current-directory, or traversal segments",
   })
-  .refine(
-    (path) =>
-      Array.from(path).every((character) => {
-        const codePoint = character.codePointAt(0);
-        return codePoint !== undefined && codePoint > 0x1f && codePoint !== 0x7f;
-      }),
-    "must not contain control characters",
-  )
+  .refine(hasNoControlCharacters, "must not contain control characters")
   .brand<"FilePath">();
 export type FilePath = z.infer<typeof FilePath>;
 
 export const Sha256Hex = z.string().regex(/^[a-f0-9]{64}$/);
 export type Sha256Hex = z.infer<typeof Sha256Hex>;
 
-export const PlainTextTitle = z.string().trim().min(1).max(160);
+export const PlainTextTitle = z
+  .string()
+  .trim()
+  .min(1)
+  .max(160)
+  .refine(hasNoControlCharacters, "must not contain control characters");
 export type PlainTextTitle = z.infer<typeof PlainTextTitle>;
 
 export const PlainTextDescription = z.string().trim().max(2000);
@@ -105,3 +103,10 @@ export type PlainTextDescription = z.infer<typeof PlainTextDescription>;
 
 export const PositiveInteger = z.number().int().positive();
 export const NonNegativeInteger = z.number().int().nonnegative();
+
+function hasNoControlCharacters(value: string): boolean {
+  return Array.from(value).every((character) => {
+    const codePoint = character.codePointAt(0);
+    return codePoint !== undefined && codePoint > 0x1f && (codePoint < 0x7f || codePoint > 0x9f);
+  });
+}

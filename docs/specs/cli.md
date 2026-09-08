@@ -125,11 +125,16 @@ threshold. If the cached base is no longer usable on the server (a concurrent
 revise elsewhere, a retained/deleted base, or a non-inheritable base file), the
 CLI drops the cache and re-publishes the whole working directory once; a corrupt
 or schema-drifted cache is treated as a cache miss. The cache holds no bytes and
-no secrets and is written `0600`.
+no secrets and is written `0600`. Cache persistence happens after the server
+commits the publish. A cache write failure warns on stderr but does not change
+the successful exit code or suppress the publish result.
 
 - Errors in `json` mode are emitted on **stderr** as
-  `{ "error": { "code", "message", "docs?" } }` (no `schema_version` — it is an
-  error envelope, not a result).
+  `{ "error": { "code", "message", "docs?", "retry_after_seconds?" } }` (no
+  `schema_version` — it is an error envelope, not a result). On HTTP 429,
+  `retry_after_seconds` carries the server's integer `Retry-After` value. The CLI
+  does not retry automatically. Agents must wait for that interval before a new
+  attempt.
 
 ## Directory publish (folder walk, exclusions, symlinks)
 
@@ -139,6 +144,12 @@ entrypoint can load sibling assets), and infers the entrypoint as the first of
 `index.html`, `index.md`, `README.md`, then the sole file when the folder holds
 exactly one; a multi-file folder with none of those fails and asks for
 `--entrypoint <path>`.
+
+Before `publish --ephemeral` provisions a Workspace, the CLI validates flags,
+title, entrypoint, render-mode inference, file paths, file counts, byte caps, and
+local file readability. `--artifact-id` is invalid with `--ephemeral`; ephemeral
+publishes always create a new Artifact. Artifact titles reject terminal control
+characters before any publish request.
 
 The walk silently skips a fixed, non-configurable set — `.git/`,
 `node_modules/`, `.DS_Store`, `.env`, and `.env.*`. (A skipped symlink, below,
@@ -197,6 +208,14 @@ The published CLI has **zero runtime dependencies** — it is bundled with esbui
 and all tooling lives in `devDependencies`. Rich output is therefore hand-rolled
 ANSI in `apps/cli/src/render.ts` rather than a `chalk`/`ora`-style library, to
 keep the install small and the supply chain clean.
+
+## Credential storage
+
+Linux stores login credentials through `secret-tool` with the secret on stdin.
+macOS can read credentials previously stored in Keychain, but the `security`
+command has no secure non-interactive write form. New macOS credentials use the
+CLI's `0600` file store and emit a stderr warning. The CLI never puts a credential
+secret in process arguments.
 
 ## Agent publish help
 

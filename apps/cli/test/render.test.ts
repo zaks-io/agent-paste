@@ -122,15 +122,18 @@ describe("formatError", () => {
       message: "limit hit",
       status: 429,
       docs: "https://docs.test/quota",
+      retryAfterSeconds: 60,
     });
     const json = JSON.parse(formatError("json", error).trim());
     expect(json.error.code).toBe("write_allowance_exceeded");
     expect(json.error.docs).toBe("https://docs.test/quota");
+    expect(json.error.retry_after_seconds).toBe(60);
 
     const human = formatError("plain", error);
     expect(human).toContain("write_allowance_exceeded");
     expect(human).toContain("limit hit");
     expect(human).toContain("https://docs.test/quota");
+    expect(human).toContain("60 seconds");
   });
 
   it("rewrites the client auth handoff hint for the install channel", () => {
@@ -152,5 +155,17 @@ describe("formatError", () => {
       if (previousUserAgent === undefined) delete process.env.npm_config_user_agent;
       else process.env.npm_config_user_agent = previousUserAgent;
     }
+  });
+
+  it("escapes terminal controls in human errors while JSON stays machine-readable", () => {
+    const error = new Error("forged\nline\u001b[31mred");
+
+    const human = formatError("plain", error);
+    expect(human).not.toContain("\u001b");
+    expect(human).not.toContain("forged\nline");
+    expect(human).toContain("forged\\u{a}line\\u{1b}[31mred");
+
+    const json = JSON.parse(formatError("json", error));
+    expect(json.error.message).toBe("forged\nline\u001b[31mred");
   });
 });
