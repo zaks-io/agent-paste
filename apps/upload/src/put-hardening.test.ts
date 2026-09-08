@@ -1,4 +1,5 @@
 import { ARTIFACT_BYTES_BLOB_AAD_VERSION, workspaceBlobObjectKeyFor } from "@agent-paste/storage";
+import { seedEncryptedRevisionFile } from "@agent-paste/storage/test-helpers/encrypted-artifact-fixture";
 import { mintUploadToken } from "@agent-paste/tokens/upload-url";
 import { describe, expect, it } from "vitest";
 import { type Env, handleRequest } from "./index.js";
@@ -11,14 +12,14 @@ const HELLO_SHA256 = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e7304336293
 
 function putEnv(options: {
   db?: Env["DB"] | null;
-  onPut?: (input: { key: string; metadata?: Record<string, string> }) => void;
+  onPut?: (input: { key: string; metadata?: Record<string, string>; onlyIf?: { etagDoesNotMatch?: string } }) => void;
 }): Env {
   const env: Env = {
     UPLOAD_SIGNING_SECRET: "secret",
     ARTIFACT_BYTES_ENCRYPTION_KEY: "test-artifact-bytes-encryption-key",
     ARTIFACTS: {
       async put(key, _value, putOptions) {
-        options.onPut?.({ key, metadata: putOptions?.customMetadata });
+        options.onPut?.({ key, metadata: putOptions?.customMetadata, onlyIf: putOptions?.onlyIf });
       },
       async head() {
         return null;
@@ -168,14 +169,14 @@ describe("upload put body-size hardening", () => {
   });
 
   it("stores the object when the body exactly matches the signed size", async () => {
-    let putCalled = false;
+    let putInput: { onlyIf?: { etagDoesNotMatch?: string } } | undefined;
     const response = await putWithBody({
       body: "hello",
       contentLength: String(SIGNED_SIZE),
-      env: putEnv({ onPut: () => (putCalled = true) }),
+      env: putEnv({ onPut: (input) => (putInput = input) }),
     });
     expect(response.status).toBe(204);
-    expect(putCalled).toBe(true);
+    expect(putInput?.onlyIf).toEqual({ etagDoesNotMatch: "*" });
   });
 
   it("stores a file at a nested path", async () => {
@@ -321,6 +322,29 @@ describe("upload put session-state hardening", () => {
     await expectError(response, 409, "upload_session_expired");
     expect(putCalled).toBe(false);
     expect(recorded).toBe(false);
+  });
+
+  it("does not overwrite different bytes after a conditional-write conflict", async () => {
+    const existing = await seedEncryptedRevisionFile({
+      workspaceId: WORKSPACE_ID,
+      artifactId: "art_1",
+      revisionId: "rev_1",
+      path: "index.html",
+      plaintext: "world",
+    });
+    const db = uploadDbStub({ status: "pending" });
+    const env = putEnv({ db });
+    if (!env.ARTIFACTS) throw new Error("expected artifacts binding");
+    env.ARTIFACTS.put = async () => null;
+    env.ARTIFACTS.get = async () => ({
+      body: existing.body,
+      size: existing.body.byteLength,
+      customMetadata: existing.customMetadata,
+    });
+
+    const response = await putWithBody({ body: "hello", contentLength: String(SIGNED_SIZE), env });
+
+    await expectError(response, 400, "invalid_request");
   });
 
   it("fails closed when no database binding is configured", async () => {

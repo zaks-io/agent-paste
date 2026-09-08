@@ -12,7 +12,8 @@
 | `jobs`    | Asynchronous lifecycle and cleanup work.                                               | Interactive request handling.                  |
 
 `stream` remains deployable only for migration history. No shipped route or
-publish flow calls it.
+publish flow calls it. Preview and production expose its health check only;
+historical Live Updates routes are enabled solely by the local migration harness.
 
 ## Publish flow
 
@@ -36,7 +37,9 @@ The content Worker owns wildcard routes `*.agent-paste.link/*` in production and
 `*-preview.agent-paste.link/*` in preview. Temporary legacy routes on
 `agent-paste.sh` redirect old capability hosts to `.link` and preserve the
 explicit product-host forwarding required while that wildcard remains. Unknown
-wildcard hosts fail closed.
+wildcard hosts fail closed. Capability-manifest lookups have a separate per-IP
+rate limit before the first R2 read, so generated valid-form hostnames cannot
+bypass the artifact limiter.
 
 ## Rendering and CSP
 

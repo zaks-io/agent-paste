@@ -62,18 +62,21 @@ CREATE TABLE "agent_auth_registrations" (
 	"claim_token_id" text,
 	"claim_token_hash" "bytea",
 	"claim_attempt_token_hash" "bytea",
+	"claim_attempt_actor_id" text,
 	"user_code_hash" "bytea",
 	"claim_expires_at" timestamp with time zone,
 	"claim_attempt_expires_at" timestamp with time zone,
+	"claim_attempt_failures" smallint DEFAULT 0 NOT NULL,
 	"completed_at" timestamp with time zone,
 	"expires_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "agent_auth_registrations_type_check" CHECK ("agent_auth_registrations"."registration_type" in ('identity_assertion', 'anonymous')),
 	CONSTRAINT "agent_auth_registrations_member_workspace_check" CHECK ("agent_auth_registrations"."workspace_member_id" is null or "agent_auth_registrations"."workspace_id" is not null),
+	CONSTRAINT "agent_auth_registrations_claim_attempt_failures_check" CHECK ("agent_auth_registrations"."claim_attempt_failures" between 0 and 5),
 	CONSTRAINT "agent_auth_registrations_status_check" CHECK ("agent_auth_registrations"."status" in (
         'verified', 'pending_step_up', 'anonymous_unclaimed',
-        'anonymous_claim_pending', 'revoked'
+        'anonymous_claim_pending', 'anonymous_claiming', 'revoked'
       ))
 );
 

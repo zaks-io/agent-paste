@@ -19,7 +19,7 @@ import type {
 } from "@agent-paste/contracts";
 import { createHyperdriveExecutor, type HyperdriveBinding, rlsExecutor, type SqlExecutor } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
-import { getBoundResponders } from "@agent-paste/worker-runtime";
+import { getBoundResponders, readBodyTextCapped } from "@agent-paste/worker-runtime";
 import { sentryPostgresExecutorOptions } from "@agent-paste/worker-runtime/sentry-sql";
 import { type AppContext, billingEnabled, type Env } from "../env.js";
 import { webMemberActor } from "../principals.js";
@@ -27,6 +27,8 @@ import { runIdempotent } from "../responses.js";
 import type { GuardFor } from "../route-contracts.js";
 import { webBaseUrl } from "../runtime.js";
 import { readWriteAllowanceRemaining } from "../write-allowance.js";
+
+const MAX_STRIPE_WEBHOOK_BODY_BYTES = 1024 * 1024;
 
 function isHyperdriveDb(value: unknown): value is HyperdriveBinding {
   return typeof value === "object" && value !== null && "connectionString" in value;
@@ -310,7 +312,11 @@ export async function billingWebhook(
   if (!secret) {
     return respondError("not_found");
   }
-  const raw = await context.req.raw.text();
+  const body = await readBodyTextCapped(context.req.raw, MAX_STRIPE_WEBHOOK_BODY_BYTES);
+  if (!body.ok) {
+    return respondError("invalid_request");
+  }
+  const raw = body.text;
   const verified = await verifyStripeSignature({
     payload: raw,
     header: context.req.raw.headers.get("stripe-signature"),

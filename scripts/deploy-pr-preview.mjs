@@ -272,7 +272,10 @@ function contentConfig() {
     },
     r2_buckets: [{ binding: "ARTIFACTS", bucket_name: "agent-paste-artifacts-preview" }],
     kv_namespaces: [{ binding: "DENYLIST", id: "5780695433d4494897dcbb78bcb4f180" }],
-    ratelimits: [rateLimit("ARTIFACT_RATE_LIMIT", `4${prNumber}003`, 60, 60)],
+    ratelimits: [
+      rateLimit("ARTIFACT_RATE_LIMIT", `4${prNumber}003`, 60, 60),
+      rateLimit("CAPABILITY_LOOKUP_RATE_LIMIT", `4${prNumber}006`, 300, 60),
+    ],
   });
 }
 

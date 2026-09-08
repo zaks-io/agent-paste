@@ -353,6 +353,25 @@ describe("billing routes", () => {
     expect(executor.query).not.toHaveBeenCalled();
   });
 
+  it("rejects an oversized webhook before signature verification or db access", async () => {
+    const executor = stubExecutor(noRows);
+    const response = await billingWebhook(
+      contextFor({
+        env: { ...billingEnv(), STRIPE_WEBHOOK_SIGNING_SECRET: "whsec_test", DB: executor },
+        method: "POST",
+        body: "{}",
+        headers: {
+          "content-length": String(1024 * 1024 + 1),
+          "stripe-signature": "t=1,v1=deadbeef",
+        },
+      }),
+      { kind: "stripe_webhook_signature" },
+    );
+
+    expect(response.status).toBe(400);
+    expect(executor.query).not.toHaveBeenCalled();
+  });
+
   it("200s and ignores a verified webhook for an irrelevant event type", async () => {
     const secret = "whsec_test";
     const executor = stubExecutor(noRows);

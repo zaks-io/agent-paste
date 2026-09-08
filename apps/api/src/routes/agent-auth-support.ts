@@ -6,7 +6,7 @@ import {
   AGENT_AUTH_REVOKED_EVENT,
   agentAuthScopes,
 } from "@agent-paste/contracts";
-import { applyEphemeralProvisionRateLimit } from "@agent-paste/worker-runtime";
+import { applyEphemeralProvisionRateLimit, isJsonContentType, readBodyTextCapped } from "@agent-paste/worker-runtime";
 import type { AppContext, Env } from "../env.js";
 import { waitForProvisionDelay } from "../provision-delay.js";
 import { apiBaseUrl, apiRateLimitBindings, webBaseUrl } from "../runtime.js";
@@ -14,6 +14,7 @@ import { apiBaseUrl, apiRateLimitBindings, webBaseUrl } from "../runtime.js";
 const ASSERTION_TTL_SECONDS = 60 * 60;
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
 const CLAIM_TTL_SECONDS = 10 * 60;
+const MAX_AGENT_AUTH_BODY_BYTES = 64 * 1024;
 
 export type AgentAuthContext = AppContext;
 
@@ -120,12 +121,45 @@ export function secondsUntil(expiresAt: string): number {
 }
 
 export async function readJson(context: AgentAuthContext): Promise<Record<string, unknown> | null> {
+  if (!isJsonContentType(context.req.raw.headers.get("content-type"))) {
+    return null;
+  }
+  const body = await readBodyTextCapped(context.req.raw, MAX_AGENT_AUTH_BODY_BYTES);
+  if (!body.ok) {
+    return null;
+  }
   try {
-    const value = await context.req.json();
+    const value: unknown = JSON.parse(body.text);
     return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
   } catch {
     return null;
   }
+}
+
+export async function readAgentAuthBody(context: AgentAuthContext): Promise<string | null> {
+  const body = await readBodyTextCapped(context.req.raw, MAX_AGENT_AUTH_BODY_BYTES);
+  return body.ok ? body.text : null;
+}
+
+export async function enforceAgentAuthRequestRateLimit(
+  context: AgentAuthContext,
+  env: Env,
+  endpoint: string,
+): Promise<Response | null> {
+  const limiter = env.ACTOR_RATE_LIMIT;
+  if (!limiter) {
+    return oauthError(context, 503, "temporarily_unavailable", "Agent auth rate limiting is unavailable.");
+  }
+  const clientIp = context.req.raw.headers.get("CF-Connecting-IP")?.trim() || "unknown";
+  try {
+    const result = await limiter.limit({ key: `agent-auth:${endpoint}:${clientIp}` });
+    if (!result.success) {
+      return oauthError(context, 429, "rate_limited", "Too many agent auth requests.", { "Retry-After": "60" });
+    }
+  } catch {
+    return oauthError(context, 503, "temporarily_unavailable", "Agent auth rate limiting is unavailable.");
+  }
+  return null;
 }
 
 export function oauthError(

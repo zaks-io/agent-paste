@@ -40,12 +40,21 @@ export async function parseRequestBody<Contract extends RouteContract>(
   if (!schema) {
     return { ok: true, value: undefined as RequestBodyFor<Contract> };
   }
+  const contentTypeIsJson = isJsonContentType(context.req.raw.headers.get("content-type"));
+  const mayBeAuthenticatedEmptyBody = contract.allowEmptyBody && contract.auth !== "none";
+  if (!contentTypeIsJson && !mayBeAuthenticatedEmptyBody) {
+    return { ok: false };
+  }
   const capped = await readBodyTextCapped(context.req.raw, MAX_REQUEST_BODY_BYTES);
   if (!capped.ok) {
     return { ok: false };
   }
   let raw: unknown;
   const bodyText = capped.text;
+  const authenticatedEmptyBody = mayBeAuthenticatedEmptyBody && !bodyText.trim();
+  if (!contentTypeIsJson && !authenticatedEmptyBody) {
+    return { ok: false };
+  }
   if (!bodyText.trim()) {
     if (contract.allowEmptyBody) {
       raw = {};
@@ -72,13 +81,13 @@ export async function parseRequestBody<Contract extends RouteContract>(
  * chunked or mis-declared body cannot exceed the limit. Fails closed (`ok: false`)
  * the instant the cap is crossed, cancelling the stream instead of buffering the rest.
  */
-async function readBodyTextCapped(
+export async function readBodyTextCapped(
   request: Request,
   maxBytes: number,
-): Promise<{ ok: true; text: string } | { ok: false }> {
+): Promise<{ ok: true; text: string } | { ok: false; reason: "too_large" | "read_error" }> {
   const declared = Number(request.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > maxBytes) {
-    return { ok: false };
+    return { ok: false, reason: "too_large" };
   }
   const body = request.body;
   if (!body) {
@@ -99,7 +108,7 @@ async function readBodyTextCapped(
       total += value.byteLength;
       if (total > maxBytes) {
         await reader.cancel().catch(() => undefined);
-        return { ok: false };
+        return { ok: false, reason: "too_large" };
       }
       chunks.push(value);
     }
@@ -107,7 +116,7 @@ async function readBodyTextCapped(
     // Aborted or errored stream: fail closed like a malformed body rather than
     // letting the rejection escape the request pipeline as an unhandled 500.
     await reader.cancel().catch(() => undefined);
-    return { ok: false };
+    return { ok: false, reason: "read_error" };
   }
   const merged = new Uint8Array(total);
   let offset = 0;
@@ -116,6 +125,14 @@ async function readBodyTextCapped(
     offset += chunk.byteLength;
   }
   return { ok: true, text: new TextDecoder().decode(merged) };
+}
+
+export function isJsonContentType(contentType: string | null): boolean {
+  if (!contentType) {
+    return false;
+  }
+  const mediaType = contentType.split(";", 1)[0]?.trim().toLowerCase();
+  return mediaType === "application/json" || Boolean(mediaType?.endsWith("+json"));
 }
 
 export function hasScopes(principal: Principal, requiredScopes: readonly Scope[]): boolean {

@@ -50,6 +50,14 @@
         "limit": 60,
         "period": 60
       }
+    },
+    {
+      "name": "CAPABILITY_LOOKUP_RATE_LIMIT",
+      "namespace_id": "1000006",
+      "simple": {
+        "limit": 300,
+        "period": 60
+      }
     }
   ],
   "env": {
@@ -114,6 +122,14 @@
             "limit": 60,
             "period": 60
           }
+        },
+        {
+          "name": "CAPABILITY_LOOKUP_RATE_LIMIT",
+          "namespace_id": "2000006",
+          "simple": {
+            "limit": 300,
+            "period": 60
+          }
         }
       ]
     },
@@ -174,6 +190,14 @@
           "namespace_id": "3000003",
           "simple": {
             "limit": 60,
+            "period": 60
+          }
+        },
+        {
+          "name": "CAPABILITY_LOOKUP_RATE_LIMIT",
+          "namespace_id": "3000006",
+          "simple": {
+            "limit": 300,
             "period": 60
           }
         }

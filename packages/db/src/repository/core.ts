@@ -157,6 +157,8 @@ export class RepositoryCore implements Repository {
 
   async exchangeAgentAuthIdentityAssertion(input: {
     registrationId: string;
+    assertionJti: string;
+    assertionExpiresAt: string;
     anonymousClaimState?: "pre_claim" | "post_claim";
     accessTokenExpiresInSeconds: number;
     now?: Date;

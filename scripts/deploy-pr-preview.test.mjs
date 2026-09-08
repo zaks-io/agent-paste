@@ -82,6 +82,15 @@ describe("deploy-pr-preview generated configs", () => {
         CONTENT_CAPABILITY_DOMAIN: "agent-paste.link",
         CONTENT_CAPABILITY_HOST_SUFFIX: "-pr-999173",
       });
+      expect(content.ratelimits).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "CAPABILITY_LOOKUP_RATE_LIMIT",
+            namespace_id: `4${prNumber}006`,
+            simple: { limit: 300, period: 60 },
+          }),
+        ]),
+      );
       expect(content.routes).toEqual([
         {
           pattern: "*-pr-999173.agent-paste.link/*",

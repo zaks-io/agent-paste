@@ -54,14 +54,20 @@ advertises the preview hosts.
 
 ## Headers
 
-| Header                      | Direction        | Required                          | Notes                                                                                          |
-| --------------------------- | ---------------- | --------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `Authorization: Bearer ...` | request          | Authenticated routes              | Stored CLI credential, WorkOS bearer for `/v1/web/*` and operator routes, or MCP OAuth bearer. |
-| `Idempotency-Key`           | request          | Durable mutations                 | Required for upload session create/finalize and other mutations where noted.                   |
-| `X-Request-Id`              | request/response | Optional request, always response | Server generates one when omitted.                                                             |
-| `Retry-After`               | response         | 429                               | Seconds.                                                                                       |
+| Header                           | Direction        | Required                          | Notes                                                                                                                                                                                                                           |
+| -------------------------------- | ---------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Authorization: Bearer ...`      | request          | Authenticated routes              | Stored CLI credential, WorkOS bearer for `/v1/web/*` and operator routes, or MCP OAuth bearer.                                                                                                                                  |
+| `Idempotency-Key`                | request          | Durable mutations                 | Required for upload session create/finalize and other mutations where noted.                                                                                                                                                    |
+| `X-Request-Id`                   | request/response | Optional request, always response | Server generates one when omitted.                                                                                                                                                                                              |
+| `Retry-After`                    | response         | 429                               | Seconds.                                                                                                                                                                                                                        |
+| `Content-Type: application/json` | request          | JSON request bodies               | JSON routes reject browser-simple media types before reading or parsing the body. Authenticated `allowEmptyBody` routes read the capped body first so an empty body remains valid, then reject non-empty browser-simple bodies. |
 
 Secrets are never accepted as query parameters or flags.
+
+Contract JSON bodies and MCP JSON-RPC bodies have a 1 MiB hard limit. Agent-auth
+bodies have a 64 KiB limit. Stripe webhook bodies have a 1 MiB limit. Workers
+enforce each limit while streaming, including when `Content-Length` is missing or
+false.
 
 ## Auth Labels
 
@@ -116,6 +122,19 @@ claim on the agent-auth registration, and revokes all source-workspace API keys,
 including pre-claim agent-auth tokens. The agent's claim-token grant returns
 `authorization_pending` until this browser completion succeeds, then returns a
 user-backed access token.
+
+Service-signed `identity_assertion` JWTs are single-use. The token exchange
+atomically consumes their `jti` before issuing an access token. Agent-auth
+responses that contain assertions, claim credentials, or access tokens carry
+`Cache-Control: no-store` and `Pragma: no-cache`.
+
+An anonymous browser claim attempt accepts at most five incorrect six-digit
+codes. Starting a new attempt with the agent-held claim token resets the counter
+and issues a new browser attempt token and code. Wrong-code counting and
+correct-code actor reservation are atomic and bound to that attempt token, so
+concurrent or stale requests cannot bypass the limit or charge a newer attempt.
+Once reserved, the same actor can resume completion while the agent-held claim
+token remains valid even if the browser attempt token's initial TTL has elapsed.
 
 The agent-verified `identity_assertion` flow is additionally advertised only
 when `AGENT_AUTH_TRUSTED_PROVIDERS_JSON` parses to at least one trusted
@@ -252,6 +271,7 @@ Rules:
   fall back: an unknown extension fails the publish with an error asking for an
   explicit `--render-mode`.
 - Paths are normalized POSIX paths.
+- Uploaded and deleted path lists must each contain unique paths.
 - File and total Revision size enforcement uses the caller's effective **Usage
   Policy**. Current public tier values are Ephemeral/Free: `10 MB` per file and
   `25 MB` per Revision; Pro: `25 MB` per file and `100 MB` per Revision.
@@ -330,6 +350,11 @@ same upload session already requires that blob once; the client must skip PUT fo
 that path. Signed upload tokens include the expected `sha256` when the request
 provided one, and the upload Worker rejects plaintext whose computed digest does
 not match.
+
+R2 upload writes use a create-only condition. A replay cannot replace bytes that
+finalization already observed. When the object already exists, the upload Worker
+decrypts and hashes it under the signed upload context. It accepts an identical
+retry and rejects different bytes.
 
 The top-level `expires_at` is the Upload Session expiry. Each `files[].expires_at`
 is the validity of that file's signed `put_url` (the signed token's expiry, much

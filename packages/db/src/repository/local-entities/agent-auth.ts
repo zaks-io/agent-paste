@@ -5,27 +5,65 @@ function delegationKey(input: { providerIssuer: string; providerSubject: string;
   return `${input.providerIssuer}\n${input.providerSubject}\n${input.audience}`;
 }
 
+function findActiveDelegation(
+  state: LocalState,
+  input: { providerIssuer: string; providerSubject: string; audience: string },
+) {
+  const key = delegationKey(input);
+  return (
+    [...state.agentAuthDelegations.values()].find(
+      (delegation) =>
+        delegation.revoked_at === null &&
+        delegationKey({
+          providerIssuer: delegation.provider_issuer,
+          providerSubject: delegation.provider_subject,
+          audience: delegation.audience,
+        }) === key,
+    ) ?? null
+  );
+}
+
+function checkAnonymousClaimAttempt(
+  state: LocalState,
+  input: Parameters<Entities["agentAuth"]["checkAnonymousClaimAttempt"]>[0],
+): Awaited<ReturnType<Entities["agentAuth"]["checkAnonymousClaimAttempt"]>> {
+  const registration = [...state.agentAuthRegistrations.values()].find((candidate) =>
+    bytesEqual(candidate.claim_attempt_token_hash, input.claimAttemptTokenHash),
+  );
+  if (
+    !registration ||
+    registration.registration_type !== "anonymous" ||
+    !["anonymous_claim_pending", "anonymous_claiming", "verified"].includes(registration.status) ||
+    !registration.claim_expires_at ||
+    !registration.claim_attempt_expires_at ||
+    Date.parse(registration.claim_expires_at) <= Date.parse(input.now) ||
+    (registration.status === "anonymous_claim_pending" &&
+      Date.parse(registration.claim_attempt_expires_at) <= Date.parse(input.now)) ||
+    (registration.status === "anonymous_claim_pending" && registration.claim_attempt_failures >= input.maxFailures) ||
+    (registration.status !== "anonymous_claim_pending" && registration.claim_attempt_actor_id !== input.actorId)
+  ) {
+    return null;
+  }
+  if (!bytesEqual(registration.user_code_hash, input.userCodeHash)) {
+    if (registration.status === "anonymous_claim_pending") {
+      registration.claim_attempt_failures += 1;
+    }
+    return { kind: "mismatch" };
+  }
+  if (registration.status === "anonymous_claim_pending") {
+    registration.status = "anonymous_claiming";
+    registration.claim_attempt_actor_id = input.actorId;
+  }
+  return { kind: "ready", registration };
+}
+
 export function localAgentAuth(state: LocalState): Entities["agentAuth"] {
-  const findActiveDelegation = (input: { providerIssuer: string; providerSubject: string; audience: string }) => {
-    const key = delegationKey(input);
-    return (
-      [...state.agentAuthDelegations.values()].find(
-        (delegation) =>
-          delegation.revoked_at === null &&
-          delegationKey({
-            providerIssuer: delegation.provider_issuer,
-            providerSubject: delegation.provider_subject,
-            audience: delegation.audience,
-          }) === key,
-      ) ?? null
-    );
-  };
   return {
     async insertDelegation(delegation) {
       state.agentAuthDelegations.set(delegation.id, delegation);
     },
     async findActiveDelegation(input) {
-      return findActiveDelegation(input);
+      return findActiveDelegation(state, input);
     },
     async findDelegationById(id) {
       return state.agentAuthDelegations.get(id) ?? null;
@@ -38,7 +76,7 @@ export function localAgentAuth(state: LocalState): Entities["agentAuth"] {
       }
     },
     async revokeActiveDelegation(input) {
-      const delegation = findActiveDelegation(input);
+      const delegation = findActiveDelegation(state, input);
       if (!delegation) {
         return null;
       }
@@ -55,13 +93,6 @@ export function localAgentAuth(state: LocalState): Entities["agentAuth"] {
       return (
         [...state.agentAuthRegistrations.values()].find((registration) =>
           bytesEqual(registration.claim_token_hash, claimTokenHash),
-        ) ?? null
-      );
-    },
-    async findRegistrationByClaimAttemptTokenHash(claimAttemptTokenHash) {
-      return (
-        [...state.agentAuthRegistrations.values()].find((registration) =>
-          bytesEqual(registration.claim_attempt_token_hash, claimAttemptTokenHash),
         ) ?? null
       );
     },
@@ -86,14 +117,19 @@ export function localAgentAuth(state: LocalState): Entities["agentAuth"] {
       }
       registration.status = "anonymous_claim_pending";
       registration.claim_attempt_token_hash = input.claimAttemptTokenHash;
+      registration.claim_attempt_actor_id = null;
       registration.user_code_hash = input.userCodeHash;
       registration.claim_attempt_expires_at = input.claimAttemptExpiresAt;
+      registration.claim_attempt_failures = 0;
       registration.updated_at = input.updatedAt;
       return registration;
     },
+    async checkAnonymousClaimAttempt(input) {
+      return checkAnonymousClaimAttempt(state, input);
+    },
     async markAnonymousRegistrationVerified(id, input) {
       const registration = state.agentAuthRegistrations.get(id);
-      if (!registration || registration.status !== "anonymous_claim_pending") {
+      if (!registration || registration.status !== "anonymous_claiming") {
         return null;
       }
       registration.workspace_id = input.workspaceId;

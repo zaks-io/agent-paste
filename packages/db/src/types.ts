@@ -138,6 +138,7 @@ export type AgentAuthRegistrationStatus =
   | "pending_step_up"
   | "anonymous_unclaimed"
   | "anonymous_claim_pending"
+  | "anonymous_claiming"
   | "revoked";
 
 export type AgentAuthRegistration = {
@@ -155,9 +156,11 @@ export type AgentAuthRegistration = {
   claim_token_id: string | null;
   claim_token_hash: Uint8Array | null;
   claim_attempt_token_hash: Uint8Array | null;
+  claim_attempt_actor_id: string | null;
   user_code_hash: Uint8Array | null;
   claim_expires_at: string | null;
   claim_attempt_expires_at: string | null;
+  claim_attempt_failures: number;
   completed_at: string | null;
   expires_at: string;
   created_at: string;

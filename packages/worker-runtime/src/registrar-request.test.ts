@@ -23,6 +23,11 @@ const claimContract = {
   requestSchema: "EphemeralClaimRequest",
 } as RouteContract;
 
+const anonymousBodyContract = {
+  ...bodyContract,
+  auth: "none",
+} as RouteContract;
+
 function contextFor(raw: Request): Context {
   return { req: { raw } } as unknown as Context;
 }
@@ -51,6 +56,67 @@ describe("parseRequestBody request-body cap", () => {
       headers: { "content-type": "application/json" },
       body: "{}",
     });
+
+    const result = await parseRequestBody(contextFor(raw), bodyContract);
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects JSON sent with a simple text content type before parsing", async () => {
+    const raw = new Request("https://worker.test/test", {
+      method: "POST",
+      headers: { "content-type": "text/plain" },
+      body: "{}",
+    });
+
+    const result = await parseRequestBody(contextFor(raw), bodyContract);
+
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects anonymous simple content types before reading the body", async () => {
+    let pulled = false;
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull() {
+          pulled = true;
+          throw new Error("anonymous non-JSON body should not be read");
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    const raw = {
+      headers: new Headers({ "content-type": "text/plain" }),
+      body,
+    } as unknown as Request;
+
+    const result = await parseRequestBody(contextFor(raw), anonymousBodyContract);
+
+    expect(result.ok).toBe(false);
+    expect(pulled).toBe(false);
+  });
+
+  it("accepts structured JSON media types", async () => {
+    const raw = new Request("https://worker.test/test", {
+      method: "POST",
+      headers: { "content-type": "application/merge-patch+json; charset=utf-8" },
+      body: "{}",
+    });
+
+    const result = await parseRequestBody(contextFor(raw), bodyContract);
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("accepts an authenticated empty stream without a content type", async () => {
+    const raw = {
+      headers: new Headers(),
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.close();
+        },
+      }),
+    } as unknown as Request;
 
     const result = await parseRequestBody(contextFor(raw), bodyContract);
 

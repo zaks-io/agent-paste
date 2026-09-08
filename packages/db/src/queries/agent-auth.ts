@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { defineSqlQuerySourceMap } from "../postgres/query-source.js";
 import { agentAuthAccessTokens, agentAuthDelegations, agentAuthJtis, agentAuthRegistrations } from "../schema.js";
@@ -9,6 +9,17 @@ import type {
   AgentAuthRegistration,
   AgentAuthRegistrationStatus,
 } from "../types.js";
+
+function bytesEqual(left: Uint8Array | null, right: Uint8Array): boolean {
+  if (!left || left.length !== right.length) {
+    return false;
+  }
+  let diff = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    diff |= (left[index] ?? 0) ^ (right[index] ?? 0);
+  }
+  return diff === 0;
+}
 
 export const agentAuthQueries = defineSqlQuerySourceMap("packages/db/src/queries/agent-auth.ts", "agentAuthQueries", {
   async insertDelegation(db: DrizzleDb, row: AgentAuthDelegation) {
@@ -96,9 +107,11 @@ export const agentAuthQueries = defineSqlQuerySourceMap("packages/db/src/queries
       claimTokenId: row.claim_token_id,
       claimTokenHash: row.claim_token_hash,
       claimAttemptTokenHash: row.claim_attempt_token_hash,
+      claimAttemptActorId: row.claim_attempt_actor_id,
       userCodeHash: row.user_code_hash,
       claimExpiresAt: row.claim_expires_at ? new Date(row.claim_expires_at) : null,
       claimAttemptExpiresAt: row.claim_attempt_expires_at ? new Date(row.claim_attempt_expires_at) : null,
+      claimAttemptFailures: row.claim_attempt_failures,
       completedAt: row.completed_at ? new Date(row.completed_at) : null,
       expiresAt: new Date(row.expires_at),
       createdAt: new Date(row.created_at),
@@ -120,19 +133,6 @@ export const agentAuthQueries = defineSqlQuerySourceMap("packages/db/src/queries
       .select()
       .from(agentAuthRegistrations)
       .where(eq(agentAuthRegistrations.claimTokenHash, claimTokenHash))
-      .limit(1);
-    const row = rows[0];
-    return row ? mapRegistration(row) : null;
-  },
-
-  async findRegistrationByClaimAttemptTokenHash(
-    db: DrizzleDb,
-    claimAttemptTokenHash: Uint8Array,
-  ): Promise<AgentAuthRegistration | null> {
-    const rows = await db
-      .select()
-      .from(agentAuthRegistrations)
-      .where(eq(agentAuthRegistrations.claimAttemptTokenHash, claimAttemptTokenHash))
       .limit(1);
     const row = rows[0];
     return row ? mapRegistration(row) : null;
@@ -172,8 +172,10 @@ export const agentAuthQueries = defineSqlQuerySourceMap("packages/db/src/queries
       .set({
         status: "anonymous_claim_pending",
         claimAttemptTokenHash: input.claimAttemptTokenHash,
+        claimAttemptActorId: null,
         userCodeHash: input.userCodeHash,
         claimAttemptExpiresAt: new Date(input.claimAttemptExpiresAt),
+        claimAttemptFailures: 0,
         updatedAt: new Date(input.updatedAt),
       })
       .where(
@@ -185,6 +187,68 @@ export const agentAuthQueries = defineSqlQuerySourceMap("packages/db/src/queries
       .returning();
     const row = rows[0];
     return row ? mapRegistration(row) : null;
+  },
+
+  async checkAnonymousClaimAttempt(
+    db: DrizzleDb,
+    input: {
+      claimAttemptTokenHash: Uint8Array;
+      userCodeHash: Uint8Array;
+      actorId: string;
+      now: string;
+      maxFailures: number;
+    },
+  ): Promise<{ kind: "ready"; registration: AgentAuthRegistration } | { kind: "mismatch" } | null> {
+    const rows = await db
+      .select()
+      .from(agentAuthRegistrations)
+      .where(eq(agentAuthRegistrations.claimAttemptTokenHash, input.claimAttemptTokenHash))
+      .limit(1)
+      .for("update");
+    const row = rows[0];
+    if (
+      !row ||
+      row.registrationType !== "anonymous" ||
+      !["anonymous_claim_pending", "anonymous_claiming", "verified"].includes(row.status) ||
+      !row.claimExpiresAt ||
+      !row.claimAttemptExpiresAt ||
+      row.claimExpiresAt.getTime() <= Date.parse(input.now) ||
+      (row.status === "anonymous_claim_pending" && row.claimAttemptExpiresAt.getTime() <= Date.parse(input.now)) ||
+      (row.status === "anonymous_claim_pending" && row.claimAttemptFailures >= input.maxFailures) ||
+      (row.status !== "anonymous_claim_pending" && row.claimAttemptActorId !== input.actorId)
+    ) {
+      return null;
+    }
+    if (bytesEqual(row.userCodeHash, input.userCodeHash)) {
+      if (row.status !== "anonymous_claim_pending") {
+        return { kind: "ready", registration: mapRegistration(row) };
+      }
+      const reserved = await db
+        .update(agentAuthRegistrations)
+        .set({ status: "anonymous_claiming", claimAttemptActorId: input.actorId })
+        .where(
+          and(
+            eq(agentAuthRegistrations.id, row.id),
+            eq(agentAuthRegistrations.claimAttemptTokenHash, input.claimAttemptTokenHash),
+            eq(agentAuthRegistrations.status, "anonymous_claim_pending"),
+          ),
+        )
+        .returning();
+      return reserved[0] ? { kind: "ready", registration: mapRegistration(reserved[0]) } : null;
+    }
+    if (row.status === "anonymous_claim_pending") {
+      await db
+        .update(agentAuthRegistrations)
+        .set({ claimAttemptFailures: sql`${agentAuthRegistrations.claimAttemptFailures} + 1` })
+        .where(
+          and(
+            eq(agentAuthRegistrations.id, row.id),
+            eq(agentAuthRegistrations.claimAttemptTokenHash, input.claimAttemptTokenHash),
+            eq(agentAuthRegistrations.status, "anonymous_claim_pending"),
+          ),
+        );
+    }
+    return { kind: "mismatch" };
   },
 
   async markAnonymousRegistrationVerified(
@@ -202,7 +266,7 @@ export const agentAuthQueries = defineSqlQuerySourceMap("packages/db/src/queries
         completedAt: new Date(input.completedAt),
         updatedAt: new Date(input.updatedAt),
       })
-      .where(and(eq(agentAuthRegistrations.id, id), eq(agentAuthRegistrations.status, "anonymous_claim_pending")))
+      .where(and(eq(agentAuthRegistrations.id, id), eq(agentAuthRegistrations.status, "anonymous_claiming")))
       .returning();
     const row = rows[0];
     return row ? mapRegistration(row) : null;
@@ -282,9 +346,11 @@ function mapRegistration(row: typeof agentAuthRegistrations.$inferSelect): Agent
     claim_token_id: row.claimTokenId,
     claim_token_hash: row.claimTokenHash,
     claim_attempt_token_hash: row.claimAttemptTokenHash,
+    claim_attempt_actor_id: row.claimAttemptActorId,
     user_code_hash: row.userCodeHash,
     claim_expires_at: row.claimExpiresAt ? row.claimExpiresAt.toISOString() : null,
     claim_attempt_expires_at: row.claimAttemptExpiresAt ? row.claimAttemptExpiresAt.toISOString() : null,
+    claim_attempt_failures: row.claimAttemptFailures,
     completed_at: row.completedAt ? row.completedAt.toISOString() : null,
     expires_at: row.expiresAt.toISOString(),
     created_at: row.createdAt.toISOString(),

@@ -50,6 +50,7 @@ export type AgentAuthVerificationOptions = {
 
 export type AgentAuthServiceAssertionPayload = {
   registration_id: string;
+  jti: string;
   registration_type: "identity_assertion" | "anonymous";
   anonymous_claim_state?: "pre_claim" | "post_claim";
   scopes: string[];
@@ -225,6 +226,7 @@ export async function verifyAgentAuthServiceAssertion(input: {
       ...(input.now ? { currentDate: input.now } : {}),
     });
     const registrationId = stringValue(payload.sub);
+    const jti = stringValue(payload.jti);
     const registrationType = stringValue(payload.registration_type);
     const anonymousClaimState = stringValue(payload.anonymous_claim_state);
     const parsedAnonymousClaimState =
@@ -234,6 +236,7 @@ export async function verifyAgentAuthServiceAssertion(input: {
     const exp = numberValue(payload.exp);
     if (
       !registrationId ||
+      !jti ||
       (registrationType !== "identity_assertion" && registrationType !== "anonymous") ||
       iat === null ||
       exp === null
@@ -245,6 +248,7 @@ export async function verifyAgentAuthServiceAssertion(input: {
     }
     return {
       registration_id: registrationId,
+      jti,
       registration_type: registrationType,
       ...(parsedAnonymousClaimState ? { anonymous_claim_state: parsedAnonymousClaimState } : {}),
       scopes,

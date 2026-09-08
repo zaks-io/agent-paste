@@ -4,6 +4,7 @@ import {
   mapMcpProtocolError,
   mcpWwwAuthenticateHeader,
 } from "@agent-paste/contracts";
+import { isJsonContentType, readBodyTextCapped } from "@agent-paste/worker-runtime";
 import {
   createUnconfiguredMcpBearerAuth,
   createWorkOsMcpBearerAuth,
@@ -27,6 +28,8 @@ export type McpTransportDeps = {
   api?: ApiServiceBinding;
   upload?: UploadServiceBinding;
 };
+
+const MAX_MCP_BODY_BYTES = 1024 * 1024;
 
 function resourceFromEnv(env: McpTransportEnv): string {
   return env.MCP_RESOURCE ?? MCP_RESOURCE_INDICATOR;
@@ -89,15 +92,22 @@ export async function handleMcpEndpoint(
 async function readJsonRpcBody(
   request: Request,
 ): Promise<{ ok: true; body: unknown } | { ok: false; response: Response }> {
-  const contentType = request.headers.get("content-type") ?? "";
-  if (!contentType.toLowerCase().includes("application/json")) {
+  if (!isJsonContentType(request.headers.get("content-type"))) {
     return {
       ok: false,
       response: jsonRpcErrorResponse(undefined, mapMcpProtocolError("invalid_params", "content_type_must_be_json")),
     };
   }
+  const body = await readBodyTextCapped(request, MAX_MCP_BODY_BYTES);
+  if (!body.ok) {
+    const message = body.reason === "too_large" ? "request_body_too_large" : "request_body_unreadable";
+    return {
+      ok: false,
+      response: jsonRpcErrorResponse(undefined, mapMcpProtocolError("invalid_params", message)),
+    };
+  }
   try {
-    return { ok: true, body: await request.json() };
+    return { ok: true, body: JSON.parse(body.text) as unknown };
   } catch {
     return {
       ok: false,
