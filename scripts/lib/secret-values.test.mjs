@@ -1,31 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { envPrefix, resolveSecretValue } from "./secret-values.mjs";
+import { resolveSecretValue } from "./secret-values.mjs";
 
 describe("secret-values", () => {
-  it("maps targets to env prefixes", () => {
-    expect(envPrefix("production")).toBe("PRODUCTION");
-    expect(envPrefix("preview")).toBe("PREVIEW");
-  });
-
   it("throws on an invalid environment instead of silently defaulting", () => {
-    expect(() => envPrefix("local")).toThrow(/Invalid environment/);
-    expect(() => envPrefix("prod")).toThrow(/Invalid environment/);
+    expect(() => resolveSecretValue("CONTENT_SIGNING_SECRET", "local", {})).toThrow(/Invalid environment/);
+    expect(() => resolveSecretValue("CONTENT_SIGNING_SECRET", "prod", {})).toThrow(/Invalid environment/);
   });
 
-  it("prefers the env-prefixed value, falling back to the bare name", () => {
-    expect(resolveSecretValue("CONTENT_SIGNING_SECRET", "production", { PRODUCTION_CONTENT_SIGNING_SECRET: "p" })).toBe(
-      "p",
-    );
+  it("reads the canonical Worker binding name", () => {
     expect(resolveSecretValue("CONTENT_SIGNING_SECRET", "production", { CONTENT_SIGNING_SECRET: "bare" })).toBe("bare");
-    expect(
-      resolveSecretValue("CONTENT_SIGNING_SECRET", "production", {
-        PRODUCTION_CONTENT_SIGNING_SECRET: "p",
-        CONTENT_SIGNING_SECRET: "bare",
-      }),
-    ).toBe("p");
   });
 
-  it("does not read the wrong environment's prefix", () => {
+  it("does not accept an environment-prefixed alias", () => {
     expect(
       resolveSecretValue("CONTENT_SIGNING_SECRET", "preview", {
         PRODUCTION_CONTENT_SIGNING_SECRET: "prod-only",
@@ -37,21 +23,8 @@ describe("secret-values", () => {
     expect(resolveSecretValue("CONTENT_SIGNING_SECRET", "production", {})).toBeUndefined();
   });
 
-  it("treats an empty or whitespace-only value as unset (absent GitHub secret -> empty string)", () => {
-    expect(
-      resolveSecretValue("CONTENT_SIGNING_SECRET", "preview", { PREVIEW_CONTENT_SIGNING_SECRET: "" }),
-    ).toBeUndefined();
-    expect(
-      resolveSecretValue("CONTENT_SIGNING_SECRET", "preview", { PREVIEW_CONTENT_SIGNING_SECRET: "   " }),
-    ).toBeUndefined();
-  });
-
-  it("falls through an empty env-prefixed value to a set bare name", () => {
-    expect(
-      resolveSecretValue("CONTENT_SIGNING_SECRET", "preview", {
-        PREVIEW_CONTENT_SIGNING_SECRET: "",
-        CONTENT_SIGNING_SECRET: "bare",
-      }),
-    ).toBe("bare");
+  it("treats an empty or whitespace-only canonical value as unset", () => {
+    expect(resolveSecretValue("CONTENT_SIGNING_SECRET", "preview", { CONTENT_SIGNING_SECRET: "" })).toBeUndefined();
+    expect(resolveSecretValue("CONTENT_SIGNING_SECRET", "preview", { CONTENT_SIGNING_SECRET: "   " })).toBeUndefined();
   });
 });

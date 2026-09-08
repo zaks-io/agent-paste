@@ -126,32 +126,33 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          # Per ADR 0078: the Production GitHub environment is the single source of
-          # truth for secret VALUES. scripts/deploy.mjs injects these onto each
+          # The GitHub Environment already supplies the production scope, so secret
+          # names match their Worker bindings without a redundant prefix.
+          # scripts/deploy.mjs injects these onto each
           # Worker (wrangler secret bulk over stdin) so the Worker cannot drift from
           # source. Missing generatable symmetric values are created in memory;
           # a required provider secret with no configured value and no existing
           # Worker value fails the deploy fast.
           # Routing/required-set source of truth: scripts/lib/secret-routing.mjs.
-          PRODUCTION_CONTENT_SIGNING_SECRET: ${{ secrets.PRODUCTION_CONTENT_SIGNING_SECRET }}
-          PRODUCTION_UPLOAD_SIGNING_SECRET: ${{ secrets.PRODUCTION_UPLOAD_SIGNING_SECRET }}
-          PRODUCTION_ARTIFACT_BYTES_ENCRYPTION_KEY: ${{ secrets.PRODUCTION_ARTIFACT_BYTES_ENCRYPTION_KEY }}
-          PRODUCTION_API_KEY_PEPPER_V1: ${{ secrets.PRODUCTION_API_KEY_PEPPER_V1 }}
-          PRODUCTION_API_KEY_PEPPER_V2: ${{ secrets.PRODUCTION_API_KEY_PEPPER_V2 }}
-          PRODUCTION_AGENT_AUTH_ASSERTION_SIGNING_SECRET: ${{ secrets.PRODUCTION_AGENT_AUTH_ASSERTION_SIGNING_SECRET }}
-          PRODUCTION_EPHEMERAL_POW_SECRET: ${{ secrets.PRODUCTION_EPHEMERAL_POW_SECRET }}
-          PRODUCTION_STREAM_INTERNAL_SECRET: ${{ secrets.PRODUCTION_STREAM_INTERNAL_SECRET }}
-          PRODUCTION_CF_ACCESS_AUD: ${{ secrets.PRODUCTION_CF_ACCESS_AUD }}
-          PRODUCTION_WORKOS_API_KEY: ${{ secrets.PRODUCTION_WORKOS_API_KEY }}
-          PRODUCTION_WORKOS_COOKIE_PASSWORD: ${{ secrets.PRODUCTION_WORKOS_COOKIE_PASSWORD }}
+          CONTENT_SIGNING_SECRET: ${{ secrets.CONTENT_SIGNING_SECRET }}
+          UPLOAD_SIGNING_SECRET: ${{ secrets.UPLOAD_SIGNING_SECRET }}
+          ARTIFACT_BYTES_ENCRYPTION_KEY: ${{ secrets.ARTIFACT_BYTES_ENCRYPTION_KEY }}
+          API_KEY_PEPPER_V1: ${{ secrets.API_KEY_PEPPER_V1 }}
+          API_KEY_PEPPER_V2: ${{ secrets.API_KEY_PEPPER_V2 }}
+          AGENT_AUTH_ASSERTION_SIGNING_SECRET: ${{ secrets.AGENT_AUTH_ASSERTION_SIGNING_SECRET }}
+          EPHEMERAL_POW_SECRET: ${{ secrets.EPHEMERAL_POW_SECRET }}
+          STREAM_INTERNAL_SECRET: ${{ secrets.STREAM_INTERNAL_SECRET }}
+          CF_ACCESS_AUD: ${{ secrets.CF_ACCESS_AUD }}
+          WORKOS_API_KEY: ${{ secrets.WORKOS_API_KEY }}
+          WORKOS_COOKIE_PASSWORD: ${{ secrets.WORKOS_COOKIE_PASSWORD }}
           # Stripe billing (ADR 0073/0074). Optional per scripts/lib/secret-routing.mjs:
           # the deploy succeeds without them and the routes stay gated by BILLING_ENABLED
           # (off in production until paid plans launch). Injected onto the api Worker so
           # production carries the same Stripe secret surface as preview.
-          PRODUCTION_STRIPE_SECRET_KEY: ${{ secrets.PRODUCTION_STRIPE_SECRET_KEY }}
-          PRODUCTION_STRIPE_WEBHOOK_SIGNING_SECRET: ${{ secrets.PRODUCTION_STRIPE_WEBHOOK_SIGNING_SECRET }}
-          PRODUCTION_STRIPE_PRICE_ID_MONTHLY: ${{ secrets.PRODUCTION_STRIPE_PRICE_ID_MONTHLY }}
-          PRODUCTION_STRIPE_PRICE_ID_ANNUAL: ${{ secrets.PRODUCTION_STRIPE_PRICE_ID_ANNUAL }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SIGNING_SECRET: ${{ secrets.STRIPE_WEBHOOK_SIGNING_SECRET }}
+          STRIPE_PRICE_ID_MONTHLY: ${{ secrets.STRIPE_PRICE_ID_MONTHLY }}
+          STRIPE_PRICE_ID_ANNUAL: ${{ secrets.STRIPE_PRICE_ID_ANNUAL }}
         # --no-migrate: migrations already ran in the gated "Migrate production
         # database" step above. deploy.mjs would otherwise migrate again (idempotent
         # but redundant, and would fail when that step was skipped for a missing URL).

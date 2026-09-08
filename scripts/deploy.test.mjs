@@ -26,8 +26,8 @@ function deterministicRandomBytes(size) {
 /** Minimal preview env with required provider-issued secrets populated. */
 function previewEnv(overrides = {}) {
   return {
-    PREVIEW_WORKOS_API_KEY: "wk_test_mock_provider_key",
-    PREVIEW_WORKOS_COOKIE_PASSWORD: "cookie-password-mock-32-chars-minimum!",
+    WORKOS_API_KEY: "wk_test_mock_provider_key",
+    WORKOS_COOKIE_PASSWORD: "cookie-password-mock-32-chars-minimum!",
     ...overrides,
   };
 }
@@ -35,8 +35,8 @@ function previewEnv(overrides = {}) {
 /** Minimal production env with required provider-issued secrets populated. */
 function productionEnv(overrides = {}) {
   return {
-    PRODUCTION_WORKOS_API_KEY: "wk_live_mock_provider_key",
-    PRODUCTION_WORKOS_COOKIE_PASSWORD: "cookie-password-mock-32-chars-minimum!",
+    WORKOS_API_KEY: "wk_live_mock_provider_key",
+    WORKOS_COOKIE_PASSWORD: "cookie-password-mock-32-chars-minimum!",
     ...overrides,
   };
 }
@@ -322,7 +322,7 @@ describe("runDeployPlan deploy step", () => {
   it("provisions optional Sentry DSN only when the environment provides it", async () => {
     const withDsn = createSecretPlanner({
       target: "preview",
-      env: previewEnv({ PREVIEW_SENTRY_DSN: "https://public@example.ingest.us.sentry.io/1" }),
+      env: previewEnv({ SENTRY_DSN: "https://public@example.ingest.us.sentry.io/1" }),
       listSecretsForWorker: listNoSecrets(),
       randomBytesFn: deterministicRandomBytes,
     });
@@ -438,7 +438,7 @@ describe("deploy secret planning", () => {
 
       const planner = createSecretPlanner({
         target: "preview",
-        env: previewEnv({ PREVIEW_CONTENT_SIGNING_SECRET: secretValue }),
+        env: previewEnv({ CONTENT_SIGNING_SECRET: secretValue }),
         listSecretsForWorker: listNoSecrets(),
         randomBytesFn: deterministicRandomBytes,
       });
@@ -479,7 +479,7 @@ describe("deploy secret planning", () => {
       const withSmoke = createSecretPlanner({
         target: "preview",
         runSmoke: true,
-        env: previewEnv({ PREVIEW_SMOKE_HARNESS_SECRET: "stale-harness-secret" }),
+        env: previewEnv({ SMOKE_HARNESS_SECRET: "stale-harness-secret" }),
         listSecretsForWorker: allSecretsPresent,
         randomBytesFn: deterministicRandomBytes,
       });
