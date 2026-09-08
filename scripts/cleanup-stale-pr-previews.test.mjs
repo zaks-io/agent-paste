@@ -72,8 +72,8 @@ describe("cleanupStalePrPreviews", () => {
     });
 
     expect(cleanupPreview).toHaveBeenCalledTimes(2);
-    expect(cleanupPreview).toHaveBeenNthCalledWith(1, "137", expect.objectContaining({ run }));
-    expect(cleanupPreview).toHaveBeenNthCalledWith(2, "138", expect.objectContaining({ run }));
+    expect(cleanupPreview).toHaveBeenNthCalledWith(1, "137", expect.objectContaining({ run, cloudflare }));
+    expect(cleanupPreview).toHaveBeenNthCalledWith(2, "138", expect.objectContaining({ run, cloudflare }));
     expect(deleteNeonBranch).toHaveBeenCalledTimes(2);
     expect(deleteNeonBranch).toHaveBeenNthCalledWith(1, "137", neon, expect.objectContaining({ fetch }));
     expect(deleteNeonBranch).toHaveBeenNthCalledWith(2, "138", neon, expect.objectContaining({ fetch }));

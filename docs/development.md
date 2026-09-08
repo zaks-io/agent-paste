@@ -213,7 +213,8 @@ deploy production from a laptop.
 - Shared dependency versions live in the pnpm catalog in
   [`pnpm-workspace.yaml`](../pnpm-workspace.yaml) where centralization is intentional.
 - Internal dependencies use `workspace:*` so package boundaries are explicit.
-- `nodeLinker=isolated`, `engine-strict=true`, and `minimumReleaseAge=4320` are
+- `nodeLinker=isolated`, `engine-strict=true`, `minimumReleaseAge=10080`,
+  `blockExoticSubdeps=true`, and `trustPolicy=no-downgrade` are
   enforced by CI.
 - Turborepo runs with `envMode: "strict"` and signed remote cache artifacts.
 - Environment changes that affect tasks must be declared in `turbo.json` task

@@ -35,7 +35,7 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 - Default branch: `main`
 - Branch prefix: `<runtime>/<issue-id>-<slug>`; Conventional Commit prefixes are
   allowed for non-delegated work
-- Package manager: pnpm@10.19.0 via Corepack, Node `>=24 <25`; `.nvmrc` and
+- Package manager: pnpm@10.34.5 via Corepack, Node `>=24 <25`; `.nvmrc` and
   `.node-version` both pin `24`; `.npmrc` has `engine-strict=true`
 - Install: `pnpm install --frozen-lockfile --strict-peer-dependencies`
 - Full local gate: `pnpm verify`

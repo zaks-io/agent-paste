@@ -13,19 +13,9 @@ catalog:
   vitest: ^4.1.7
   zod: ^4.4.3
 
-minimumReleaseAge: 4320
-
-minimumReleaseAgeExclude:
-  - '@biomejs/biome'
-  - '@cloudflare/workers-types'
-  - '@stryker-mutator/*'
-  - '@vitest/*'
-  - hono
-  - lefthook
-  - turbo
-  - typescript
-  - vitest
-  - wrangler
+minimumReleaseAge: 10080
+blockExoticSubdeps: true
+trustPolicy: no-downgrade
 
 nodeLinker: isolated
 

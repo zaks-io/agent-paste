@@ -314,8 +314,8 @@ called with incorrect this reference`. Example failed revisions:
   preview content Worker, which signs tokens with a different secret. Either
   wire a per-PR capability domain and content route, or narrow the `pr` target
   in `scripts/smoke-ephemeral-harness.mjs`. Seen first on PR #619 (2026-09-01).
-- `PR_PREVIEW_ENVIRONMENT_CLEANUP_TOKEN` (set 2026-05-27) now returns
-  `401 Bad credentials`, so every PR Preview Cleanup run ends red at "Delete
-  legacy GitHub PR environment" even when the Cloudflare and Neon resources are
-  gone. Operator action: rotate the token, or drop the step once no legacy
-  `pr-preview-<n>` GitHub Environments remain. Seen on PR #619 (2026-09-01).
+- PR cleanup deletes Workers through Cloudflare's Workers Scripts API so the
+  Preview token needs Workers Scripts edit permission without unrelated KV or
+  membership reads. The obsolete per-PR GitHub Environment deletion and its
+  long-lived administration token were removed after only the shared `Preview`
+  and `Production` environments remained.

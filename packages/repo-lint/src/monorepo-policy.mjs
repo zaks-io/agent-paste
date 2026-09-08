@@ -142,7 +142,14 @@ function validateRootGuardrails() {
   }
 
   const workspace = readText("pnpm-workspace.yaml");
-  for (const expected of ["minimumReleaseAge: 4320", "nodeLinker: isolated", "  - apps/*", "  - packages/*"]) {
+  for (const expected of [
+    "minimumReleaseAge: 10080",
+    "blockExoticSubdeps: true",
+    "trustPolicy: no-downgrade",
+    "nodeLinker: isolated",
+    "  - apps/*",
+    "  - packages/*",
+  ]) {
     if (!workspace.includes(expected)) {
       errors.push(`pnpm-workspace.yaml: missing ${JSON.stringify(expected)}`);
     }
