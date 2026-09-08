@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import {
   appsForSecretProvisioning,
@@ -16,6 +17,7 @@ import {
   TRANSIENT_32_BYTE_SECRETS,
   turboDeployArgs,
 } from "./deploy.mjs";
+import { wranglerEnvVars } from "./lib/wrangler-env-vars.mjs";
 import { workerName } from "./wrangler-secrets.mjs";
 
 /** Deterministic randomBytes stand-in for stable generated-value assertions. */
@@ -165,6 +167,13 @@ describe("deploymentPhases", () => {
 });
 
 describe("content routing readiness", () => {
+  it("forwards the preview content custom domain through the production wildcard route", () => {
+    const vars = wranglerEnvVars(readFileSync("apps/content/wrangler.jsonc", "utf8"), "production");
+    const originHosts = vars.CONTENT_ROUTE_ORIGIN_HOSTS.split(",");
+
+    expect(originHosts).toContain("usercontent.preview.agent-paste.link");
+  });
+
   it("probes the exact content host and the environment's wildcard capability route", () => {
     expect(contentRoutingProbeUrls("preview")).toEqual({
       health: "https://usercontent.preview.agent-paste.link/healthz",
