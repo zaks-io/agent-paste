@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { inferRenderModeFromEntrypoint, Mebibytes, type RenderMode, type UsagePolicy } from "@agent-paste/contracts";
 import { contentTypeForPath } from "@agent-paste/storage";
+import { FsSafeError } from "@openclaw/fs-safe";
 import { root as openSafeRoot, type Root } from "@openclaw/fs-safe/root";
 
 // Absolute per-file ceiling, matching the contract's hard maximum
@@ -213,20 +214,31 @@ export type ReadLocalFile = {
 };
 
 export async function readAndHashLocalFile(file: LocalFile): Promise<ReadLocalFile> {
+  let result: Awaited<ReturnType<Root["read"]>>;
   try {
-    const { buffer, realPath } = await file.safeRoot.read(file.rootRelativePath);
-    if (file.enforceExclusions && resolvesToExcluded(realPath, file.safeRoot.rootReal)) {
-      throw new Error("excluded_target");
+    result = await file.safeRoot.read(file.rootRelativePath);
+  } catch (error) {
+    if (isPostValidationPathChange(error)) {
+      throw new Error(`File ${file.path} changed after validation; retry the publish`, { cause: error });
     }
-    const bytes = new Uint8Array(buffer);
-    return {
-      sha256: createHash("sha256").update(bytes).digest("hex"),
-      sizeBytes: bytes.byteLength,
-      bytes,
-    };
-  } catch {
-    throw new Error(`File ${file.path} changed after validation; retry the publish`);
+    throw error;
   }
+  if (file.enforceExclusions && resolvesToExcluded(result.realPath, file.safeRoot.rootReal)) {
+    throw new Error(`File ${file.path} resolves to an excluded target`);
+  }
+  const bytes = new Uint8Array(result.buffer);
+  return {
+    sha256: createHash("sha256").update(bytes).digest("hex"),
+    sizeBytes: bytes.byteLength,
+    bytes,
+  };
+}
+
+function isPostValidationPathChange(error: unknown): boolean {
+  if (!(error instanceof FsSafeError)) return false;
+  return ["not-file", "not-found", "outside-workspace", "path-alias", "path-mismatch", "symlink", "too-large"].includes(
+    error.code,
+  );
 }
 
 function createSafeRoot(rootPath: string) {

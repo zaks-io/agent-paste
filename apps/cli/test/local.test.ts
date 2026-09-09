@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Mebibytes } from "@agent-paste/contracts";
+import { FsSafeError } from "@openclaw/fs-safe";
 import { describe, expect, it, vi } from "vitest";
 import {
   contentTypeForLocalPath,
@@ -104,6 +105,30 @@ describe("local publish helpers", () => {
     expect(new TextDecoder().decode(read.bytes)).toBe(body);
   });
 
+  it("preserves operational read errors and wraps confirmed path changes", async () => {
+    const operationalError = new Error("permission denied");
+    const pathChangeError = new FsSafeError("path-mismatch", "path changed during read");
+    const file = (error: Error): LocalFile => ({
+      absolutePath: "/publish/index.html",
+      safeRoot: {
+        rootReal: "/publish",
+        async read() {
+          throw error;
+        },
+      },
+      rootRelativePath: "index.html",
+      enforceExclusions: true,
+      path: "index.html",
+      sizeBytes: 1,
+    });
+
+    await expect(readAndHashLocalFile(file(operationalError))).rejects.toBe(operationalError);
+    await expect(readAndHashLocalFile(file(pathChangeError))).rejects.toMatchObject({
+      message: expect.stringMatching(/changed after validation/),
+      cause: pathChangeError,
+    });
+  });
+
   it("reads an excluded filename when the caller selects that single file explicitly", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
     const filePath = path.join(root, ".env");
@@ -162,7 +187,7 @@ describe("local publish helpers", () => {
     await fs.unlink(link);
     await fs.symlink(path.join(root, ".env"), link);
 
-    await expect(readAndHashLocalFile(file)).rejects.toThrow(/changed after validation/);
+    await expect(readAndHashLocalFile(file)).rejects.toThrow(/resolves to an excluded target/);
   });
 
   it("rejects an ancestor directory swapped outside the publish root after validation", async () => {
@@ -190,19 +215,25 @@ describe("local publish helpers", () => {
     await fs.mkdir(directory);
     await fs.writeFile(filePath, "approved");
     await fs.writeFile(path.join(outside, "data.txt"), "secret");
+    const resolvedFilePath = await fs.realpath(filePath);
 
     const stat = fs.stat.bind(fs);
     let swapped = false;
     const statSpy = vi.spyOn(fs, "stat").mockImplementation(async (candidate) => {
-      if (!swapped && candidate === filePath) {
+      if (!swapped && candidate === resolvedFilePath) {
         swapped = true;
         await fs.rename(directory, path.join(root, "approved-assets"));
         await fs.symlink(outside, directory);
       }
       return stat(candidate);
     });
-    const files = await walkLocalPath(root);
-    statSpy.mockRestore();
+    let files: Awaited<ReturnType<typeof walkLocalPath>>;
+    try {
+      files = await walkLocalPath(root);
+    } finally {
+      statSpy.mockRestore();
+    }
+    expect(swapped).toBe(true);
     const file = files.find((candidate) => candidate.path === "assets/data.txt");
     if (!file) throw new Error("expected_file");
 

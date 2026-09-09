@@ -187,6 +187,9 @@ Personal Workspace using a synthetic
 `agent-auth:` member id and a durable provider delegation, so later ID-JAGs for
 the same `(iss, sub, aud)` resume the same account.
 
+After first-link completion, `/oauth2/token` returns `assertion_expires` as the
+earlier of the registration expiry and `AGENT_AUTH_ASSERTION_TTL_SECONDS`.
+
 ## Request Guard Order
 
 Authenticated `api` and `upload` routes enforce guards in a fixed order

@@ -90,10 +90,12 @@ function AgentAuthClaimPage() {
                 id="agent-claim-token"
                 value={claimAttemptToken || registrationId}
                 onChange={(event) => {
-                  if (claimAttemptToken) {
-                    setClaimAttemptToken(event.target.value);
+                  const next = event.target.value;
+                  if (claimAttemptToken || next.trimStart().startsWith("cat_")) {
+                    setClaimAttemptToken(next);
+                    setRegistrationId("");
                   } else {
-                    setRegistrationId(event.target.value);
+                    setRegistrationId(next);
                   }
                 }}
                 autoComplete="off"
