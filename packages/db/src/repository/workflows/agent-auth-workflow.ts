@@ -1,4 +1,4 @@
-import { parseApiKey } from "../../api-keys.js";
+import { parseApiKey, verifyApiKeySecret } from "../../api-keys.js";
 import { createId } from "../../id.js";
 import type { AgentAuthRegistration } from "../../types.js";
 import type { RepositoryCoreContext } from "../core-context.js";
@@ -8,7 +8,7 @@ import {
   type AgentAuthRegistrationView,
   buildAgentAccessToken,
   buildClaim,
-  bytesEqual,
+  claimGrantJti,
   consumeServiceAssertion,
   identityKey,
   insertDelegation,
@@ -69,6 +69,7 @@ export type ExchangeAgentAuthResult =
   | { kind: "invalid_grant" };
 
 const AGENT_AUTH_ACTOR: CommandActor = { type: "system", id: "agent-auth", workspaceId: null };
+const MAX_CLAIM_CODE_FAILURES = 5;
 
 export async function registerAgentVerifiedIdentity(
   ctx: RepositoryCoreContext,
@@ -202,39 +203,34 @@ export async function completeAgentAuthClaim(
   ctx: RepositoryCoreContext,
   input: {
     actor: { id: string; workspace_id: string; email: string };
-    claimToken: string;
+    registrationId: string;
     userCode: string;
     now?: Date;
   },
 ): Promise<AgentAuthRegistrationView | null> {
   const now = nowIso(input.now);
-  const claimTokenHash = await sha256Bytes(input.claimToken);
   const userCodeHash = await sha256Bytes(input.userCode);
   return ctx.uow.command(
     {
       actor: { type: "member", id: input.actor.id, workspaceId: input.actor.workspace_id },
       operation: "agent_auth.claim.complete",
-      idempotencyKey: input.claimToken,
+      idempotencyKey: crypto.randomUUID(),
       scope: PLATFORM_SCOPE,
       now,
     },
     async (entities) => {
-      const registration = await entities.agentAuth.findRegistrationByClaimTokenHash(claimTokenHash);
-      if (!registration || registration.status !== "pending_step_up" || !registration.claim_expires_at) {
+      const checked = await entities.agentAuth.checkVerifiedClaimAttempt({
+        registrationId: input.registrationId,
+        userCodeHash,
+        actorId: input.actor.id,
+        actorEmail: input.actor.email,
+        now,
+        maxFailures: MAX_CLAIM_CODE_FAILURES,
+      });
+      if (!checked || checked.kind === "mismatch") {
         return null;
       }
-      if (Date.parse(registration.claim_expires_at) <= Date.parse(now)) {
-        return null;
-      }
-      if (
-        registration.workspace_member_id !== input.actor.id ||
-        registration.email.toLowerCase() !== input.actor.email.toLowerCase()
-      ) {
-        return null;
-      }
-      if (!bytesEqual(registration.user_code_hash, userCodeHash)) {
-        return null;
-      }
+      const registration = checked.registration;
       const member = await entities.members.findById(input.actor.id);
       if (!member || !registration.workspace_id) {
         return null;
@@ -317,6 +313,8 @@ export async function exchangeAgentAuthClaimToken(
   }
   return exchangeRegistration(ctx, {
     registrationId: registration.id,
+    assertionJti: claimGrantJti(hash),
+    assertionExpiresAt: registration.claim_expires_at,
     accessTokenExpiresInSeconds: input.accessTokenExpiresInSeconds,
     ...(registration.registration_type === "anonymous" ? { anonymousClaimState: "post_claim" as const } : {}),
     ...(input.now ? { now: input.now } : {}),
@@ -338,6 +336,10 @@ export async function revokeAgentAuthAccessToken(
     return apiKey && accessToken ? { apiKey, accessToken } : null;
   });
   if (!row || row.apiKey.revoked_at) {
+    return false;
+  }
+  const pepper = ctx.pepperForRecord(row.apiKey.pepper_kid);
+  if (!pepper || !(await verifyApiKeySecret(input.token, row.apiKey.public_id, row.apiKey.secret_hmac, pepper))) {
     return false;
   }
   await ctx.uow.command(
@@ -446,7 +448,7 @@ async function exchangeRegistration(
       now,
     },
     async (entities) => {
-      const registration = await entities.agentAuth.findRegistrationById(input.registrationId);
+      const registration = await entities.agentAuth.findRegistrationByIdForUpdate(input.registrationId);
       if (!registration) {
         return { kind: "invalid_grant" };
       }
@@ -482,7 +484,7 @@ async function exchangeRegistration(
         if (!registration.delegation_id) {
           return { kind: "expired_token" };
         }
-        const delegation = await entities.agentAuth.findDelegationById(registration.delegation_id);
+        const delegation = await entities.agentAuth.findDelegationByIdForUpdate(registration.delegation_id);
         if (!delegation || delegation.revoked_at) {
           return { kind: "invalid_grant" };
         }

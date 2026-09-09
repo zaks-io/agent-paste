@@ -243,7 +243,12 @@ describe("api worker", () => {
           async getWhoami() {
             return {};
           },
-          async registerAgentAnonymousIdentity() {
+          async registerAgentAnonymousIdentity(input) {
+            expect(input).toEqual({
+              audience: "https://api.test",
+              assertionExpiresInSeconds: 3600,
+              claimTokenExpiresInSeconds: 600,
+            });
             return {
               kind: "registered",
               registration: {
@@ -448,7 +453,10 @@ describe("api worker", () => {
       expect(stepUp.headers.get("www-authenticate")).toContain("interaction_required");
       await expect(stepUp.json()).resolves.toMatchObject({
         error: "interaction_required",
-        claim: { user_code: "123456", verification_uri: "https://app.test/agent-auth/claim?claim_token=claim_step_up" },
+        claim: {
+          user_code: "123456",
+          verification_uri: "https://app.test/agent-auth/claim?registration_id=reg_step_up",
+        },
       });
 
       const verified = await postAgentIdentity(env, await fixture.sign("jti_verified"));
@@ -520,7 +528,7 @@ describe("api worker", () => {
     );
     expect(claim.status).toBe(200);
     await expect(claim.json()).resolves.toMatchObject({
-      claim: { verification_uri: "https://app.test/agent-auth/claim?claim_token=claim_verified" },
+      claim: { verification_uri: "https://app.test/agent-auth/claim?registration_id=reg_verified" },
     });
 
     const jwtBearer = await postToken(env, { grant_type: AGENT_AUTH_JWT_BEARER_GRANT_TYPE, assertion });
@@ -707,7 +715,7 @@ describe("api worker", () => {
       new Request("https://api.test/v1/web/agent-auth/claim/complete", {
         method: "POST",
         headers: { authorization: "Bearer workos-ok", "content-type": "application/json" },
-        body: JSON.stringify({ claim_token: "claim", user_code: "bad" }),
+        body: JSON.stringify({ registration_id: "reg_claim", user_code: "bad" }),
       }),
       { ...authEnv, DB: webMemberDbForTests(["read", "publish"]) },
     );
@@ -718,7 +726,7 @@ describe("api worker", () => {
       new Request("https://api.test/v1/web/agent-auth/claim/complete", {
         method: "POST",
         headers: { authorization: "Bearer workos-ok", "content-type": "application/json" },
-        body: JSON.stringify({ claim_token: "claim", user_code: "123456" }),
+        body: JSON.stringify({ registration_id: "reg_claim", user_code: "123456" }),
       }),
       {
         ...authEnv,
@@ -2214,7 +2222,7 @@ describe("api worker", () => {
     }
   });
 
-  it("returns public Agent View not_found before enforcing artifact rate limits", async () => {
+  it("fails closed before loading a public Agent View when the artifact limiter errors", async () => {
     const limit = vi.fn(async () => {
       throw new Error("binding unavailable");
     });
@@ -2242,13 +2250,21 @@ describe("api worker", () => {
     );
     const response = await handleRequest(new Request(`https://api.test/v1/public/agent-view/${token}`), env);
 
-    expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_found" } });
-    expect(getPublicAgentView).toHaveBeenCalled();
-    expect(limit).not.toHaveBeenCalled();
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_artifact" } });
+    expect(limit).toHaveBeenCalled();
+    expect(getPublicAgentView).not.toHaveBeenCalled();
   });
 
   it("returns 429 with Retry-After when a resolved public Agent View exceeds the artifact limit", async () => {
+    const getPublicAgentView = vi.fn(async () => ({
+      artifact_id: "art_1",
+      revision_id: "rev_1",
+      title: "Public",
+      entrypoint: "index.html",
+      files: [],
+      bundle: { status: "pending" },
+    }));
     const env: Env = {
       AGENT_VIEW_SIGNING_SECRET: "test-secret",
       DB: {
@@ -2258,16 +2274,7 @@ describe("api worker", () => {
         async getAgentView() {
           return null;
         },
-        async getPublicAgentView() {
-          return {
-            artifact_id: "art_1",
-            revision_id: "rev_1",
-            title: "Public",
-            entrypoint: "index.html",
-            files: [],
-            bundle: { status: "pending" },
-          };
-        },
+        getPublicAgentView,
         async runCleanup() {
           return {};
         },
@@ -2288,6 +2295,7 @@ describe("api worker", () => {
     expect(response.status).toBe(429);
     expect(response.headers.get("retry-after")).toBe("60");
     await expect(response.json()).resolves.toMatchObject({ error: { code: "rate_limited_artifact" } });
+    expect(getPublicAgentView).not.toHaveBeenCalled();
   });
 
   it("writes the ADR 0057 artifact denylist key when the smoke harness deletes an artifact", async () => {

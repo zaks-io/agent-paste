@@ -1,10 +1,9 @@
-import { promises as fs } from "node:fs";
 import type { ApiClient, PublishFile } from "@agent-paste/api-client";
 import { diffWithSelfCheck } from "@agent-paste/revise-core";
 import { contentTypeForLocalPath, isUtf8Text, type LocalFile } from "./local.js";
 import type { ManifestCache, ManifestCacheFile } from "./manifest-cache.js";
 
-export type LocalFileWithDigest = LocalFile & { sha256: string };
+export type LocalFileWithDigest = LocalFile & { sha256: string; bytes: Uint8Array };
 
 export type RevisePlan = {
   // The files to send: changed + added only (some as patches). Unchanged files are
@@ -23,7 +22,7 @@ function wholeBlobFile(file: LocalFileWithDigest): PublishFile {
     sizeBytes: file.sizeBytes,
     sha256: file.sha256,
     contentType: contentTypeForLocalPath(file.path),
-    read: () => fs.readFile(file.absolutePath),
+    read: () => file.bytes,
   };
 }
 
@@ -50,12 +49,7 @@ async function buildChangedFile(
   file: LocalFileWithDigest,
   baseSha256: string,
 ): Promise<PublishFile> {
-  let nextBytes: Uint8Array;
-  try {
-    nextBytes = await fs.readFile(file.absolutePath);
-  } catch {
-    return wholeBlobFile(file);
-  }
+  const nextBytes = file.bytes;
   if (!isUtf8Text(nextBytes)) {
     return wholeBlobFile(file);
   }

@@ -49,6 +49,30 @@ describe("LocalUnitOfWork", () => {
     await expect(first).resolves.toBe("first");
   });
 
+  it("serializes commands with different idempotency keys", async () => {
+    const uow = new LocalUnitOfWork(createLocalState());
+    const events: string[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const first = uow.command({ ...baseSpec, idempotencyKey: "idem_first" }, async () => {
+      events.push("first:start");
+      await gate;
+      events.push("first:end");
+    });
+    await Promise.resolve();
+    const second = uow.command({ ...baseSpec, idempotencyKey: "idem_second" }, async () => {
+      events.push("second");
+    });
+    await Promise.resolve();
+
+    expect(events).toEqual(["first:start"]);
+    release();
+    await Promise.all([first, second]);
+    expect(events).toEqual(["first:start", "first:end", "second"]);
+  });
+
   it("evicts in-flight keys when the handler rejects so retries can run", async () => {
     const uow = new LocalUnitOfWork(createLocalState());
     const handler = vi.fn().mockRejectedValueOnce(new Error("handler_failed")).mockResolvedValueOnce("recovered");

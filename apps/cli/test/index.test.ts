@@ -457,7 +457,7 @@ describe("cli command dispatch", () => {
       // Without --render-mode the field must be omitted so the server infers it.
       expect(create.mock.calls[0]?.[0]).not.toHaveProperty("render_mode");
       const idempotencyKey = create.mock.calls[0]?.[1];
-      expect(putFile).toHaveBeenCalledWith("https://upload.test/index", expect.any(Buffer), {
+      expect(putFile).toHaveBeenCalledWith("https://upload.test/index", expect.any(Uint8Array), {
         "content-type": "text/html; charset=utf-8",
       });
       expect(finalize).toHaveBeenCalledWith(uploadSessionId, idempotencyKey);

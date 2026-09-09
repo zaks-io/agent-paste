@@ -20,6 +20,7 @@ import { ClaimedArtifactCapabilityRefreshError, refreshClaimedArtifactCapabiliti
 import { authenticateWebIdentity } from "../auth.js";
 import type { Env } from "../env.js";
 import {
+  AGENT_AUTH_SENSITIVE_PATHS,
   type AgentAuthContext,
   type AgentAuthRuntimeConfig,
   accessTokenTtlSeconds,
@@ -28,6 +29,7 @@ import {
   agentAuthVerifiedConfig,
   assertionTtlSeconds,
   authorizationServerMetadata,
+  claimAssertionExpiresAt,
   claimAttemptVerificationUri,
   claimTtlSeconds,
   claimVerificationUri,
@@ -42,14 +44,6 @@ import {
 } from "./agent-auth-support.js";
 
 const CLAIM_POLL_INTERVAL_SECONDS = 5;
-const AGENT_AUTH_SENSITIVE_PATHS = new Set([
-  "/agent/identity",
-  "/agent/identity/claim",
-  "/oauth2/token",
-  "/oauth2/revoke",
-  "/agent/event/notify",
-  "/v1/web/agent-auth/claim/complete",
-]);
 
 export function mountAgentAuthRoutes(
   app: Hono<{ Bindings: Env; Variables: RequestIdVariables & BoundRespondersVariables }>,
@@ -121,6 +115,8 @@ async function agentIdentity(context: AgentAuthContext, resolveDatabase: (env: E
     }
     const result = await db.registerAgentAnonymousIdentity({
       audience: config.issuer,
+      assertionExpiresInSeconds: assertionTtlSeconds(env),
+      claimTokenExpiresInSeconds: claimTtlSeconds(env),
     });
     return anonymousIdentitySuccessResponse(context, config, result);
   }
@@ -210,7 +206,7 @@ async function agentIdentityClaim(context: AgentAuthContext, resolveDatabase: (e
     claim_token_expires: claim.expires_at,
     claim: {
       expires_in: secondsUntil(claim.expires_at),
-      verification_uri: claimVerificationUri(context.env as Env, claimToken),
+      verification_uri: claimVerificationUri(context.env as Env, claim.registration_id),
       interval: CLAIM_POLL_INTERVAL_SECONDS,
     },
   });
@@ -270,6 +266,7 @@ async function oauthToken(context: AgentAuthContext, resolveDatabase: (env: Env)
     if (result.kind !== "issued") {
       return tokenExchangeResponse(context, result);
     }
+    const assertionExpiresAt = claimAssertionExpiresAt(result.registration.expires_at, assertionTtlSeconds(env));
     const identityAssertion = await mintAgentAuthServiceAssertion({
       issuer: config.issuer,
       secret: config.secret,
@@ -277,7 +274,7 @@ async function oauthToken(context: AgentAuthContext, resolveDatabase: (env: Env)
       registrationType: result.registration.registration_type,
       ...(result.registration.registration_type === "anonymous" ? { anonymousClaimState: "post_claim" } : {}),
       scopes: result.registration.scopes,
-      expiresAt: new Date(result.registration.expires_at),
+      expiresAt: new Date(assertionExpiresAt),
     });
     return context.json({
       access_token: result.access_token,
@@ -285,7 +282,7 @@ async function oauthToken(context: AgentAuthContext, resolveDatabase: (env: Env)
       expires_in: result.expires_in,
       scope: result.registration.scopes.join(" "),
       identity_assertion: identityAssertion,
-      assertion_expires: result.registration.expires_at,
+      assertion_expires: assertionExpiresAt,
     });
   }
   return oauthError(context, 400, "unsupported_grant_type", "Unsupported grant_type.");
@@ -374,10 +371,10 @@ async function webAgentAuthClaimComplete(
     return getBoundResponders(context).respondError("database_unavailable");
   }
   const body = await readJson(context);
-  const claimToken = typeof body?.claim_token === "string" ? body.claim_token.trim() : "";
+  const registrationId = typeof body?.registration_id === "string" ? body.registration_id.trim() : "";
   const claimAttemptToken = typeof body?.claim_attempt_token === "string" ? body.claim_attempt_token.trim() : "";
   const userCode = typeof body?.user_code === "string" ? body.user_code.trim() : "";
-  if ((!claimToken && !claimAttemptToken) || !/^\d{6}$/.test(userCode)) {
+  if ((!registrationId && !claimAttemptToken) || !/^\d{6}$/.test(userCode)) {
     return getBoundResponders(context).respondError("invalid_request", "Invalid claim request.");
   }
   const actor = await db.ensureWebMember({ workosUserId: identity.workos_user_id, email: identity.email });
@@ -399,7 +396,7 @@ async function webAgentAuthClaimComplete(
     return context.json({ ok: true, registration_id: completed.id });
   }
 
-  const completed = await db.completeAgentAuthClaim({ actor, claimToken, userCode });
+  const completed = await db.completeAgentAuthClaim({ actor, registrationId, userCode });
   if (!completed) {
     return getBoundResponders(context).respondError("invalid_request", "Claim code did not match.");
   }
@@ -477,7 +474,7 @@ async function stepUpResponse(
     claim: {
       user_code: result.user_code,
       expires_in: secondsUntil(result.claim_expires_at),
-      verification_uri: claimVerificationUri(env, result.claim_token),
+      verification_uri: claimVerificationUri(env, result.registration.id),
       interval: CLAIM_POLL_INTERVAL_SECONDS,
     },
   };

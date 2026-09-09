@@ -34,19 +34,19 @@ declare module "node:crypto" {
 declare module "node:fs" {
   export function realpathSync(path: string): string;
 
-  export type FileHandle = {
-    read(
-      buffer: Uint8Array,
-      offset: number,
-      length: number,
-      position: number,
-    ): Promise<{ bytesRead: number; buffer: Uint8Array }>;
-    close(): Promise<void>;
+  export type FileStat = {
+    isFile(): boolean;
+    isDirectory(): boolean;
+    mode: number;
+    size: number;
+    dev: number;
+    ino: number;
+    mtimeMs: number;
+    ctimeMs: number;
   };
 
   export const promises: {
-    open(path: string, flags: string): Promise<FileHandle>;
-    stat(path: string): Promise<{ isFile(): boolean; isDirectory(): boolean; mode: number; size: number }>;
+    stat(path: string): Promise<FileStat>;
     lstat(path: string): Promise<{ isSymbolicLink(): boolean }>;
     truncate(path: string, len: number): Promise<void>;
     mkdir(path: string, options?: { recursive?: boolean; mode?: number }): Promise<string | undefined>;
@@ -62,6 +62,7 @@ declare module "node:fs" {
     symlink(target: string, path: string): Promise<void>;
     chmod(path: string, mode: number): Promise<void>;
     rename(oldPath: string, newPath: string): Promise<void>;
+    unlink(path: string): Promise<void>;
     rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>;
   };
 }

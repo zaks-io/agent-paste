@@ -13,20 +13,20 @@ export const Route = createFileRoute("/_authed/agent-auth/claim")({
   component: AgentAuthClaimPage,
 });
 
-function claimTokensFromSearch(): { claimToken: string; claimAttemptToken: string } {
+function claimReferenceFromSearch(): { registrationId: string; claimAttemptToken: string } {
   if (typeof window === "undefined") {
-    return { claimToken: "", claimAttemptToken: "" };
+    return { registrationId: "", claimAttemptToken: "" };
   }
   const params = new URL(window.location.href).searchParams;
   return {
-    claimToken: params.get("claim_token") ?? "",
+    registrationId: params.get("registration_id") ?? "",
     claimAttemptToken: params.get("claim_attempt_token") ?? "",
   };
 }
 
 function AgentAuthClaimPage() {
   const navigate = useNavigate();
-  const [claimToken, setClaimToken] = useState("");
+  const [registrationId, setRegistrationId] = useState("");
   const [claimAttemptToken, setClaimAttemptToken] = useState("");
   const [userCode, setUserCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -34,9 +34,9 @@ function AgentAuthClaimPage() {
   const [error, setError] = useState<{ message: string; requestId?: string } | null>(null);
 
   useEffect(() => {
-    const tokens = claimTokensFromSearch();
-    setClaimToken(tokens.claimToken);
-    setClaimAttemptToken(tokens.claimAttemptToken);
+    const reference = claimReferenceFromSearch();
+    setRegistrationId(reference.registrationId);
+    setClaimAttemptToken(reference.claimAttemptToken);
   }, []);
 
   async function onSubmit(event: React.FormEvent) {
@@ -46,7 +46,7 @@ function AgentAuthClaimPage() {
     try {
       const result = await completeAgentAuthClaimFn({
         data: {
-          ...(claimToken ? { claim_token: claimToken } : {}),
+          ...(registrationId ? { registration_id: registrationId } : {}),
           ...(claimAttemptToken ? { claim_attempt_token: claimAttemptToken } : {}),
           user_code: userCode,
         },
@@ -88,12 +88,12 @@ function AgentAuthClaimPage() {
               <span className="text-muted">Claim reference</span>
               <Input
                 id="agent-claim-token"
-                value={claimAttemptToken || claimToken}
+                value={claimAttemptToken || registrationId}
                 onChange={(event) => {
                   if (claimAttemptToken) {
                     setClaimAttemptToken(event.target.value);
                   } else {
-                    setClaimToken(event.target.value);
+                    setRegistrationId(event.target.value);
                   }
                 }}
                 autoComplete="off"
@@ -115,7 +115,7 @@ function AgentAuthClaimPage() {
             </label>
             <Button
               type="submit"
-              disabled={submitting || !(claimToken.trim() || claimAttemptToken.trim()) || userCode.length !== 6}
+              disabled={submitting || !(registrationId.trim() || claimAttemptToken.trim()) || userCode.length !== 6}
             >
               {submitting ? "Linking..." : "Link agent"}
             </Button>

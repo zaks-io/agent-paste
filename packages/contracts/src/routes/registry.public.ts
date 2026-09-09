@@ -12,7 +12,7 @@ export const publicRouteContracts = [
     auth: "signed_agent_view_token",
     scopes: [],
     idempotency: "none",
-    rateLimit: "none",
+    rateLimit: "artifact",
     responseSchema: "PublicAgentView",
     errors: ["not_found", "database_unavailable", "rate_limited_artifact"],
   },

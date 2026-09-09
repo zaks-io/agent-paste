@@ -7,10 +7,20 @@ import { describe, expect, it, vi } from "vitest";
 import {
   contentTypeForLocalPath,
   inferPublishOptions,
-  sha256HexForFile,
+  type LocalFile,
+  readAndHashLocalFile,
   validateFilesAgainstUsagePolicy,
   walkLocalPath,
 } from "../src/local.js";
+
+function unusedSafeRoot(rootReal: string): LocalFile["safeRoot"] {
+  return {
+    rootReal,
+    async read() {
+      throw new Error("unused_test_reader");
+    },
+  };
+}
 
 describe("local publish helpers", () => {
   it("walks local folders, excludes unsafe defaults, and records size from stat only", async () => {
@@ -79,18 +89,138 @@ describe("local publish helpers", () => {
     warn.mockRestore();
   });
 
-  it("streams file bytes when computing sha256 for upload", async () => {
+  it("buffers file bytes once while computing sha256 for upload", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
     const filePath = path.join(root, "index.html");
     const body = "<h1>Hello</h1>";
     await fs.writeFile(filePath, body);
 
-    const readFile = vi.spyOn(fs, "readFile");
-    const digest = await sha256HexForFile(filePath);
+    const [file] = await walkLocalPath(filePath);
+    if (!file) throw new Error("expected_file");
+    const read = await readAndHashLocalFile(file);
 
-    expect(readFile).not.toHaveBeenCalled();
-    expect(digest.sha256).toBe(createHash("sha256").update(body).digest("hex"));
-    expect(digest.sizeBytes).toBe(new TextEncoder().encode(body).byteLength);
+    expect(read.sha256).toBe(createHash("sha256").update(body).digest("hex"));
+    expect(read.sizeBytes).toBe(new TextEncoder().encode(body).byteLength);
+    expect(new TextDecoder().decode(read.bytes)).toBe(body);
+  });
+
+  it("reads an excluded filename when the caller selects that single file explicitly", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
+    const filePath = path.join(root, ".env");
+    await fs.writeFile(filePath, "SELECTED=yes");
+    const [file] = await walkLocalPath(filePath);
+    if (!file) throw new Error("expected_file");
+
+    const read = await readAndHashLocalFile(file);
+
+    expect(new TextDecoder().decode(read.bytes)).toBe("SELECTED=yes");
+  });
+
+  it("rejects a symlink swapped outside after validation", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-outside-"));
+    const target = path.join(root, "target.txt");
+    const link = path.join(root, "asset.txt");
+    await fs.writeFile(target, "approved");
+    await fs.writeFile(path.join(outside, "secret.txt"), "secret");
+    await fs.symlink(target, link);
+    const files = await walkLocalPath(root);
+    const file = files.find((candidate) => candidate.path === "asset.txt");
+    if (!file) throw new Error("expected_symlink");
+
+    await fs.unlink(link);
+    await fs.symlink(path.join(outside, "secret.txt"), link);
+
+    await expect(readAndHashLocalFile(file)).rejects.toThrow(/changed after validation/);
+  });
+
+  it("rejects the selected root swapped to an outside directory after validation", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-outside-"));
+    await fs.writeFile(path.join(root, "index.html"), "approved");
+    await fs.writeFile(path.join(outside, "index.html"), "secret");
+    const [file] = await walkLocalPath(root);
+    if (!file) throw new Error("expected_file");
+
+    await fs.rename(root, `${root}-approved`);
+    await fs.symlink(outside, root);
+
+    await expect(readAndHashLocalFile(file)).rejects.toThrow(/changed after validation/);
+  });
+
+  it("rejects an allowed symlink retargeted to an excluded file", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
+    const target = path.join(root, "safe.txt");
+    const link = path.join(root, "config.txt");
+    await fs.writeFile(target, "approved");
+    await fs.writeFile(path.join(root, ".env"), "SECRET=excluded");
+    await fs.symlink(target, link);
+    const files = await walkLocalPath(root);
+    const file = files.find((candidate) => candidate.path === "config.txt");
+    if (!file) throw new Error("expected_symlink");
+
+    await fs.unlink(link);
+    await fs.symlink(path.join(root, ".env"), link);
+
+    await expect(readAndHashLocalFile(file)).rejects.toThrow(/changed after validation/);
+  });
+
+  it("rejects an ancestor directory swapped outside the publish root after validation", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-outside-"));
+    const directory = path.join(root, "assets");
+    await fs.mkdir(directory);
+    await fs.writeFile(path.join(directory, "data.txt"), "approved");
+    await fs.writeFile(path.join(outside, "data.txt"), "secret");
+    const files = await walkLocalPath(root);
+    const file = files.find((candidate) => candidate.path === "assets/data.txt");
+    if (!file) throw new Error("expected_file");
+
+    await fs.rename(directory, path.join(root, "approved-assets"));
+    await fs.symlink(outside, directory);
+
+    await expect(readAndHashLocalFile(file)).rejects.toThrow(/changed after validation/);
+  });
+
+  it("rejects an ancestor directory swapped outside while file metadata is recorded", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-outside-"));
+    const directory = path.join(root, "assets");
+    const filePath = path.join(directory, "data.txt");
+    await fs.mkdir(directory);
+    await fs.writeFile(filePath, "approved");
+    await fs.writeFile(path.join(outside, "data.txt"), "secret");
+
+    const stat = fs.stat.bind(fs);
+    let swapped = false;
+    const statSpy = vi.spyOn(fs, "stat").mockImplementation(async (candidate) => {
+      if (!swapped && candidate === filePath) {
+        swapped = true;
+        await fs.rename(directory, path.join(root, "approved-assets"));
+        await fs.symlink(outside, directory);
+      }
+      return stat(candidate);
+    });
+    const files = await walkLocalPath(root);
+    statSpy.mockRestore();
+    const file = files.find((candidate) => candidate.path === "assets/data.txt");
+    if (!file) throw new Error("expected_file");
+
+    const read = await readAndHashLocalFile(file);
+    expect(new TextDecoder().decode(read.bytes)).toBe("approved");
+  });
+
+  it("reads a stable in-root symlink and preserves those exact bytes", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
+    const target = path.join(root, "target.txt");
+    await fs.writeFile(target, "approved");
+    await fs.symlink(target, path.join(root, "asset.txt"));
+    const files = await walkLocalPath(root);
+    const file = files.find((candidate) => candidate.path === "asset.txt");
+    if (!file) throw new Error("expected_symlink");
+
+    const read = await readAndHashLocalFile(file);
+    expect(new TextDecoder().decode(read.bytes)).toBe("approved");
   });
 
   it("fails fast on a file larger than the absolute per-file ceiling, before reading it", async () => {
@@ -155,8 +285,22 @@ describe("local publish helpers", () => {
 
   it("validates usage-policy caps before upload", () => {
     const files = [
-      { path: "a.txt", absolutePath: "/tmp/a.txt", sizeBytes: 10 },
-      { path: "b.txt", absolutePath: "/tmp/b.txt", sizeBytes: 11 },
+      {
+        path: "a.txt",
+        absolutePath: "/tmp/a.txt",
+        safeRoot: unusedSafeRoot("/tmp"),
+        rootRelativePath: "a.txt",
+        enforceExclusions: true,
+        sizeBytes: 10,
+      },
+      {
+        path: "b.txt",
+        absolutePath: "/tmp/b.txt",
+        safeRoot: unusedSafeRoot("/tmp"),
+        rootRelativePath: "b.txt",
+        enforceExclusions: true,
+        sizeBytes: 11,
+      },
     ];
     expect(() =>
       validateFilesAgainstUsagePolicy(files, {
@@ -180,7 +324,16 @@ describe("local publish helpers", () => {
 
     expect(() =>
       validateFilesAgainstUsagePolicy(
-        [{ path: "large.bin", absolutePath: "/tmp/large.bin", sizeBytes: 11 * 1024 * 1024 }],
+        [
+          {
+            path: "large.bin",
+            absolutePath: "/tmp/large.bin",
+            safeRoot: unusedSafeRoot("/tmp"),
+            rootRelativePath: "large.bin",
+            enforceExclusions: true,
+            sizeBytes: 11 * 1024 * 1024,
+          },
+        ],
         {
           file_size_cap_bytes: 10 * 1024 * 1024,
           artifact_size_cap_bytes: 25 * 1024 * 1024,

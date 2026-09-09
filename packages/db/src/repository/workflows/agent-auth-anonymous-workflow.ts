@@ -24,6 +24,7 @@ const MAX_CLAIM_CODE_FAILURES = 5;
 
 export type RegisterAgentAnonymousIdentityInput = {
   audience: string;
+  assertionExpiresInSeconds?: number;
   claimTokenExpiresInSeconds?: number;
   now?: Date;
 };
@@ -58,6 +59,10 @@ export async function registerAgentAnonymousIdentity(
   const now = nowIso(input.now);
   const workspaceId = crypto.randomUUID();
   const claimExpiresAt = secondsFrom(now, input.claimTokenExpiresInSeconds ?? DEFAULT_CLAIM_TOKEN_TTL_SECONDS);
+  const registrationExpiresAt = secondsFrom(
+    now,
+    input.assertionExpiresInSeconds ?? input.claimTokenExpiresInSeconds ?? DEFAULT_CLAIM_TOKEN_TTL_SECONDS,
+  );
   const registrationId = createId("reg");
   return ctx.uow.command(
     {
@@ -105,7 +110,7 @@ export async function registerAgentAnonymousIdentity(
         claim_attempt_expires_at: null,
         claim_attempt_failures: 0,
         completed_at: null,
-        expires_at: claimExpiresAt,
+        expires_at: registrationExpiresAt,
         created_at: now,
         updated_at: now,
       };
@@ -258,6 +263,7 @@ export async function completeAgentAuthAnonymousClaim(
               workspaceMemberId: input.actor.id,
               email: input.actor.email.toLowerCase(),
               completedAt: now,
+              expiresAt: registration.claim_expires_at ?? registration.expires_at,
               updatedAt: now,
             });
       if (!completed) {

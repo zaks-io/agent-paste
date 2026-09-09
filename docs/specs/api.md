@@ -130,6 +130,11 @@ atomically consumes their `jti` before issuing an access token. Agent-auth
 responses that contain assertions, claim credentials, or access tokens carry
 `Cache-Control: no-store` and `Pragma: no-cache`.
 
+Anonymous registrations use the configured assertion TTL for the service
+assertion and the configured claim TTL for the agent-held claim token. Claim
+token grants are also single-use: the successful exchange atomically records a
+derived replay identifier before issuing the access token.
+
 An anonymous browser claim attempt accepts at most five incorrect six-digit
 codes. Starting a new attempt with the agent-held claim token resets the counter
 and issues a new browser attempt token and code. Wrong-code counting and
@@ -174,8 +179,11 @@ Anonymous pre-claim credentials inherit the Ephemeral Workspace trust tier:
 low-cap writes, 24-hour Auto Deletion, `noindex`, and no admin/billing scope.
 Artifact scripts execute on isolated capability origins under the open artifact
 CSP. Existing-user ID-JAG matches without a stored provider delegation require
-first-link step-up in the dashboard before the delegation is bound. No-match
-ID-JAGs JIT provision a normal Personal Workspace using a synthetic
+first-link step-up in the dashboard before the delegation is bound. The browser
+URL contains the non-secret registration id, never the agent-held claim token.
+Completion requires the matching signed-in member, email, and six-digit code,
+with at most five incorrect attempts. No-match ID-JAGs JIT provision a normal
+Personal Workspace using a synthetic
 `agent-auth:` member id and a durable provider delegation, so later ID-JAGs for
 the same `(iss, sub, aud)` resume the same account.
 

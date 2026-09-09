@@ -28,6 +28,53 @@ function serviceAssertion(jti: string) {
 }
 
 describe("agent auth workflow", () => {
+  it("applies separate assertion and claim TTLs to anonymous registrations", async () => {
+    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper", apiKeyEnv: "preview" });
+    const registered = await repo.registerAgentAnonymousIdentity({
+      audience: "https://api.example",
+      assertionExpiresInSeconds: 60,
+      claimTokenExpiresInSeconds: 600,
+      now: new Date("2099-06-20T12:00:00.000Z"),
+    });
+
+    expect(registered.registration.expires_at).toBe("2099-06-20T12:01:00.000Z");
+    expect(registered.claim_expires_at).toBe("2099-06-20T12:10:00.000Z");
+
+    const started = await repo.startAgentAuthAnonymousClaim({
+      claimToken: registered.claim_token,
+      claimAttemptExpiresInSeconds: 600,
+      now: new Date("2099-06-20T12:02:00.000Z"),
+    });
+    if (started.kind !== "initiated") throw new Error("expected_claim_start");
+    const member = await repo.resolveWebMember({
+      workosUserId: "user_ttl",
+      email: "ttl@example.com",
+      idempotencyKey: "agent-auth-anon-ttl-member",
+      now: "2099-06-20T12:02:30.000Z",
+    });
+    const completed = await repo.completeAgentAuthAnonymousClaim({
+      actor: {
+        type: "member",
+        id: member.workspace_member.id,
+        workspace_id: member.workspace.id,
+        email: member.workspace_member.email,
+        scopes: member.scopes,
+      },
+      claimAttemptToken: started.claim_attempt_token,
+      userCode: started.user_code,
+      now: new Date("2099-06-20T12:03:00.000Z"),
+    });
+    expect(completed?.expires_at).toBe("2099-06-20T12:10:00.000Z");
+
+    await expect(
+      repo.exchangeAgentAuthClaimToken({
+        claimToken: registered.claim_token,
+        accessTokenExpiresInSeconds: 3600,
+        now: new Date("2099-06-20T12:03:01.000Z"),
+      }),
+    ).resolves.toMatchObject({ kind: "issued" });
+  });
+
   it("JIT provisions once, resumes by provider delegation, and issues short-lived access tokens", async () => {
     const { repo } = createLocalServices({ apiKeyPepper: "test-pepper", apiKeyEnv: "preview" });
 
@@ -274,6 +321,13 @@ describe("agent auth workflow", () => {
       workspace_id: member.workspace.id,
       scopes: ["publish", "read"],
     });
+    await expect(
+      repo.exchangeAgentAuthClaimToken({
+        claimToken: registered.claim_token,
+        accessTokenExpiresInSeconds: 3600,
+        now: new Date("2099-06-20T12:07:01.000Z"),
+      }),
+    ).resolves.toEqual({ kind: "invalid_grant" });
   });
 
   it("requires browser step-up when a verified provider email already exists", async () => {
@@ -295,7 +349,7 @@ describe("agent auth workflow", () => {
           workspace_id: member.workspace.id,
           email: "other@example.com",
         },
-        claimToken: rejected.claim_token,
+        registrationId: rejected.registration.id,
         userCode: rejected.user_code,
         now: new Date("2099-06-20T12:02:00.000Z"),
       }),
@@ -329,7 +383,7 @@ describe("agent auth workflow", () => {
         workspace_id: member.workspace.id,
         email: member.workspace_member.email,
       },
-      claimToken: pending.claim_token,
+      registrationId: pending.registration.id,
       userCode: pending.user_code,
       now: new Date("2099-06-20T12:02:00.000Z"),
     });
@@ -346,8 +400,20 @@ describe("agent auth workflow", () => {
       workspace_id: member.workspace.id,
       scopes: ["publish", "read"],
     });
+    const keyCount = (repo as LocalRepository).apiKeys.size;
+    await expect(
+      repo.exchangeAgentAuthClaimToken({
+        claimToken: pending.claim_token,
+        accessTokenExpiresInSeconds: 3600,
+        now: new Date("2099-06-20T12:03:01.000Z"),
+      }),
+    ).resolves.toEqual({ kind: "invalid_grant" });
+    expect((repo as LocalRepository).apiKeys.size).toBe(keyCount);
 
     await expect(repo.revokeAgentAuthAccessToken({ token: "not an api key" })).resolves.toBe(false);
+    const forged = `${token.access_token.slice(0, -1)}${token.access_token.endsWith("A") ? "B" : "A"}`;
+    await expect(repo.revokeAgentAuthAccessToken({ token: forged })).resolves.toBe(false);
+    await expect(repo.verifyApiKey(token.access_token)).resolves.not.toBeNull();
     await expect(repo.revokeAgentAuthAccessToken({ token: token.access_token })).resolves.toBe(true);
     await expect(repo.verifyApiKey(token.access_token)).resolves.toBeNull();
   });
@@ -374,11 +440,47 @@ describe("agent auth workflow", () => {
           workspace_id: member.workspace.id,
           email: member.workspace_member.email,
         },
-        claimToken: pending.claim_token,
+        registrationId: pending.registration.id,
         userCode: pending.user_code,
         now: new Date("2099-06-20T12:02:00.000Z"),
       }),
     ).resolves.toMatchObject({ id: pending.registration.id, registration_type: "identity_assertion" });
+  });
+
+  it("caps verified browser claim code attempts", async () => {
+    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper", apiKeyEnv: "preview" });
+    const member = await repo.resolveWebMember({
+      workosUserId: "user_limited",
+      email: "person@example.com",
+      idempotencyKey: "limited-member",
+      now: "2099-06-20T11:59:00.000Z",
+    });
+    const pending = await repo.registerAgentVerifiedIdentity(identity("jti_limited"));
+    if (pending.kind !== "interaction_required") throw new Error("expected_step_up");
+    const actor = {
+      id: member.workspace_member.id,
+      workspace_id: member.workspace.id,
+      email: member.workspace_member.email,
+    };
+    const wrongCode = pending.user_code === "999999" ? "888888" : "999999";
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await expect(
+        repo.completeAgentAuthClaim({
+          actor,
+          registrationId: pending.registration.id,
+          userCode: wrongCode,
+          now: new Date(`2099-06-20T12:01:0${attempt}.000Z`),
+        }),
+      ).resolves.toBeNull();
+    }
+    await expect(
+      repo.completeAgentAuthClaim({
+        actor,
+        registrationId: pending.registration.id,
+        userCode: pending.user_code,
+        now: new Date("2099-06-20T12:02:00.000Z"),
+      }),
+    ).resolves.toBeNull();
   });
 
   it("revokes provider delegations and their issued access tokens", async () => {
@@ -442,6 +544,55 @@ describe("agent auth workflow", () => {
         now: new Date("2099-06-20T12:04:00.000Z"),
       }),
     ).resolves.toEqual({ kind: "invalid_grant" });
+  });
+
+  it("serializes local provider revocation against access-token issuance", async () => {
+    const first = createLocalServices({ apiKeyPepper: "test-pepper", apiKeyEnv: "preview" }).repo;
+    const registered = await first.registerAgentVerifiedIdentity(identity("jti_local_issue_first"));
+    if (registered.kind !== "verified") throw new Error("expected_verified");
+
+    const [issued, revoked] = await Promise.all([
+      first.exchangeAgentAuthIdentityAssertion({
+        ...serviceAssertion("service_local_issue_first"),
+        registrationId: registered.registration.id,
+        accessTokenExpiresInSeconds: 3600,
+        now: new Date("2099-06-20T12:01:00.000Z"),
+      }),
+      first.revokeAgentAuthProviderIdentity({
+        providerIssuer: "https://provider.example",
+        providerSubject: "user_123",
+        audience: "https://api.example",
+        jti: "jti_local_revoke_second",
+        jtiExpiresAt: "2099-06-20T12:05:00.000Z",
+        now: new Date("2099-06-20T12:02:00.000Z"),
+      }),
+    ]);
+    expect(issued.kind).toBe("issued");
+    expect(revoked).toBe("revoked");
+    if (issued.kind !== "issued") throw new Error("expected_token");
+    await expect(first.verifyApiKey(issued.access_token)).resolves.toBeNull();
+
+    const second = createLocalServices({ apiKeyPepper: "test-pepper", apiKeyEnv: "preview" }).repo;
+    const registeredSecond = await second.registerAgentVerifiedIdentity(identity("jti_local_revoke_first"));
+    if (registeredSecond.kind !== "verified") throw new Error("expected_verified");
+    const [revokedFirst, rejected] = await Promise.all([
+      second.revokeAgentAuthProviderIdentity({
+        providerIssuer: "https://provider.example",
+        providerSubject: "user_123",
+        audience: "https://api.example",
+        jti: "jti_local_revoke_first_command",
+        jtiExpiresAt: "2099-06-20T12:05:00.000Z",
+        now: new Date("2099-06-20T12:01:00.000Z"),
+      }),
+      second.exchangeAgentAuthIdentityAssertion({
+        ...serviceAssertion("service_local_revoke_first"),
+        registrationId: registeredSecond.registration.id,
+        accessTokenExpiresInSeconds: 3600,
+        now: new Date("2099-06-20T12:02:00.000Z"),
+      }),
+    ]);
+    expect(revokedFirst).toBe("revoked");
+    expect(rejected).toEqual({ kind: "invalid_grant" });
   });
 
   it("handles anonymous claim expiry and invalid grant paths", async () => {

@@ -58,8 +58,13 @@ export const agentAuthQueries = defineSqlQuerySourceMap("packages/db/src/queries
     return row ? mapDelegation(row) : null;
   },
 
-  async findDelegationById(db: DrizzleDb, id: string): Promise<AgentAuthDelegation | null> {
-    const rows = await db.select().from(agentAuthDelegations).where(eq(agentAuthDelegations.id, id)).limit(1);
+  async findDelegationByIdForUpdate(db: DrizzleDb, id: string): Promise<AgentAuthDelegation | null> {
+    const rows = await db
+      .select()
+      .from(agentAuthDelegations)
+      .where(eq(agentAuthDelegations.id, id))
+      .limit(1)
+      .for("update");
     const row = rows[0];
     return row ? mapDelegation(row) : null;
   },
@@ -125,6 +130,17 @@ export const agentAuthQueries = defineSqlQuerySourceMap("packages/db/src/queries
     return row ? mapRegistration(row) : null;
   },
 
+  async findRegistrationByIdForUpdate(db: DrizzleDb, id: string): Promise<AgentAuthRegistration | null> {
+    const rows = await db
+      .select()
+      .from(agentAuthRegistrations)
+      .where(eq(agentAuthRegistrations.id, id))
+      .limit(1)
+      .for("update");
+    const row = rows[0];
+    return row ? mapRegistration(row) : null;
+  },
+
   async findRegistrationByClaimTokenHash(
     db: DrizzleDb,
     claimTokenHash: Uint8Array,
@@ -136,6 +152,49 @@ export const agentAuthQueries = defineSqlQuerySourceMap("packages/db/src/queries
       .limit(1);
     const row = rows[0];
     return row ? mapRegistration(row) : null;
+  },
+
+  async checkVerifiedClaimAttempt(
+    db: DrizzleDb,
+    input: {
+      registrationId: string;
+      userCodeHash: Uint8Array;
+      actorId: string;
+      actorEmail: string;
+      now: string;
+      maxFailures: number;
+    },
+  ): Promise<{ kind: "ready"; registration: AgentAuthRegistration } | { kind: "mismatch" } | null> {
+    const rows = await db
+      .select()
+      .from(agentAuthRegistrations)
+      .where(eq(agentAuthRegistrations.id, input.registrationId))
+      .limit(1)
+      .for("update");
+    const row = rows[0];
+    if (
+      !row ||
+      row.registrationType !== "identity_assertion" ||
+      row.status !== "pending_step_up" ||
+      !row.claimExpiresAt ||
+      row.claimExpiresAt.getTime() <= Date.parse(input.now) ||
+      row.claimAttemptFailures >= input.maxFailures ||
+      row.workspaceMemberId !== input.actorId ||
+      row.email.toLowerCase() !== input.actorEmail.toLowerCase()
+    ) {
+      return null;
+    }
+    if (bytesEqual(row.userCodeHash, input.userCodeHash)) {
+      return { kind: "ready", registration: mapRegistration(row) };
+    }
+    await db
+      .update(agentAuthRegistrations)
+      .set({
+        claimAttemptFailures: sql`${agentAuthRegistrations.claimAttemptFailures} + 1`,
+        updatedAt: new Date(input.now),
+      })
+      .where(eq(agentAuthRegistrations.id, row.id));
+    return { kind: "mismatch" };
   },
 
   async markRegistrationVerified(
@@ -254,7 +313,14 @@ export const agentAuthQueries = defineSqlQuerySourceMap("packages/db/src/queries
   async markAnonymousRegistrationVerified(
     db: DrizzleDb,
     id: string,
-    input: { workspaceId: string; workspaceMemberId: string; email: string; completedAt: string; updatedAt: string },
+    input: {
+      workspaceId: string;
+      workspaceMemberId: string;
+      email: string;
+      completedAt: string;
+      expiresAt: string;
+      updatedAt: string;
+    },
   ): Promise<AgentAuthRegistration | null> {
     const rows = await db
       .update(agentAuthRegistrations)
@@ -264,6 +330,7 @@ export const agentAuthQueries = defineSqlQuerySourceMap("packages/db/src/queries
         email: input.email,
         status: "verified",
         completedAt: new Date(input.completedAt),
+        expiresAt: new Date(input.expiresAt),
         updatedAt: new Date(input.updatedAt),
       })
       .where(and(eq(agentAuthRegistrations.id, id), eq(agentAuthRegistrations.status, "anonymous_claiming")))

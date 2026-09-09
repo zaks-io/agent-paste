@@ -57,6 +57,31 @@ function checkAnonymousClaimAttempt(
   return { kind: "ready", registration };
 }
 
+function checkVerifiedClaimAttempt(
+  state: LocalState,
+  input: Parameters<Entities["agentAuth"]["checkVerifiedClaimAttempt"]>[0],
+): Awaited<ReturnType<Entities["agentAuth"]["checkVerifiedClaimAttempt"]>> {
+  const registration = state.agentAuthRegistrations.get(input.registrationId);
+  if (
+    !registration ||
+    registration.registration_type !== "identity_assertion" ||
+    registration.status !== "pending_step_up" ||
+    !registration.claim_expires_at ||
+    Date.parse(registration.claim_expires_at) <= Date.parse(input.now) ||
+    registration.claim_attempt_failures >= input.maxFailures ||
+    registration.workspace_member_id !== input.actorId ||
+    registration.email.toLowerCase() !== input.actorEmail.toLowerCase()
+  ) {
+    return null;
+  }
+  if (bytesEqual(registration.user_code_hash, input.userCodeHash)) {
+    return { kind: "ready", registration };
+  }
+  registration.claim_attempt_failures += 1;
+  registration.updated_at = input.now;
+  return { kind: "mismatch" };
+}
+
 export function localAgentAuth(state: LocalState): Entities["agentAuth"] {
   return {
     async insertDelegation(delegation) {
@@ -65,7 +90,7 @@ export function localAgentAuth(state: LocalState): Entities["agentAuth"] {
     async findActiveDelegation(input) {
       return findActiveDelegation(state, input);
     },
-    async findDelegationById(id) {
+    async findDelegationByIdForUpdate(id) {
       return state.agentAuthDelegations.get(id) ?? null;
     },
     async updateDelegationSeen(id, input) {
@@ -89,12 +114,18 @@ export function localAgentAuth(state: LocalState): Entities["agentAuth"] {
     async findRegistrationById(id) {
       return state.agentAuthRegistrations.get(id) ?? null;
     },
+    async findRegistrationByIdForUpdate(id) {
+      return state.agentAuthRegistrations.get(id) ?? null;
+    },
     async findRegistrationByClaimTokenHash(claimTokenHash) {
       return (
         [...state.agentAuthRegistrations.values()].find((registration) =>
           bytesEqual(registration.claim_token_hash, claimTokenHash),
         ) ?? null
       );
+    },
+    async checkVerifiedClaimAttempt(input) {
+      return checkVerifiedClaimAttempt(state, input);
     },
     async markRegistrationVerified(id, input) {
       const registration = state.agentAuthRegistrations.get(id);
@@ -137,6 +168,7 @@ export function localAgentAuth(state: LocalState): Entities["agentAuth"] {
       registration.email = input.email;
       registration.status = "verified";
       registration.completed_at = input.completedAt;
+      registration.expires_at = input.expiresAt;
       registration.updated_at = input.updatedAt;
       return registration;
     },

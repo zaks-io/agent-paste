@@ -311,14 +311,14 @@ describe("web server mutations", () => {
     expect(state.apiFetch).not.toHaveBeenCalled();
   });
 
-  it("completes agent auth claims with either claim token form", async () => {
+  it("completes agent auth claims with either browser reference", async () => {
     state.apiFetch
       .mockResolvedValueOnce({ ok: true, registration_id: "reg_claim_token" })
       .mockResolvedValueOnce({ ok: true, registration_id: "reg_claim_attempt" });
 
     await expect(
       completeAgentAuthClaim({
-        claim_token: "  ap_agent_claim_token  ",
+        registration_id: "  reg_claim_token  ",
         user_code: " 123456 ",
       }),
     ).resolves.toMatchObject({
@@ -341,7 +341,7 @@ describe("web server mutations", () => {
       expect.objectContaining({
         method: "POST",
         accessToken: "access-token",
-        body: JSON.stringify({ claim_token: "ap_agent_claim_token", user_code: "123456" }),
+        body: JSON.stringify({ registration_id: "reg_claim_token", user_code: "123456" }),
       }),
     );
     expect(state.apiFetch).toHaveBeenNthCalledWith(
