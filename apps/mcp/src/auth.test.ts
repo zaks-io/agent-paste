@@ -75,6 +75,26 @@ describe("MCP bearer auth hooks", () => {
       message: "mcp_oauth_verifier_not_configured",
     });
   });
+
+  it("fails closed when the configured WorkOS verifier is unavailable", async () => {
+    const fixture = await oauthFixture();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Promise.reject(new TypeError("fetch failed"))),
+    );
+    const verify = createWorkOsMcpBearerAuth({
+      WORKOS_API_KEY: "sk_test",
+      WORKOS_MCP_JWKS_URL: `${jwksUrl}?unavailable=1`,
+      WORKOS_MCP_ISSUER: issuer,
+      WORKOS_MCP_AUDIENCE: MCP_RESOURCE_INDICATOR,
+    });
+
+    await expect(verify({ authorizationHeader: `Bearer ${fixture.token}` })).resolves.toEqual({
+      ok: false,
+      code: "database_unavailable",
+      message: "oauth_verification_unavailable",
+    });
+  });
 });
 
 async function oauthFixture() {

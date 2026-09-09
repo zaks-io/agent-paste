@@ -16,7 +16,11 @@ describe("rotate-workos-secrets.mjs", () => {
     expect(result.stdout).toContain("agent-paste-api-preview");
     expect(result.stdout).toContain("agent-paste-mcp-preview");
     expect(result.stdout).toContain("agent-paste-web-preview");
-    expect(result.stdout).toContain("Write api, mcp, then web");
+    expect(result.stdout.match(/^[\t ]*wrangler secret put .*$/gm)).toEqual([
+      "  wrangler secret put WORKOS_API_KEY --name agent-paste-api-preview",
+      "  wrangler secret put WORKOS_API_KEY --name agent-paste-mcp-preview",
+      "  wrangler secret put WORKOS_API_KEY --name agent-paste-web-preview",
+    ]);
     expect(result.stdout).toContain("Secret value: provided via --value (hidden)");
     expect(result.stdout).not.toContain("sk_test_example");
   });

@@ -39,9 +39,9 @@ export type McpProtectedResourceMetadata = z.infer<typeof McpProtectedResourceMe
 export const McpPublishRenderMode = z.enum(["text", "markdown", "html"]);
 export type McpPublishRenderMode = z.infer<typeof McpPublishRenderMode>;
 
-// The entire JSON-RPC request is capped at 1 MiB. 192 Ki characters remains
-// below that ceiling even when every character takes four UTF-8 bytes and leaves
-// room for the JSON-RPC/tool envelope.
+// Publish, revision, and edit text shares this limit. The entire JSON-RPC request
+// is capped at 1 MiB; 192 Ki characters remains below that ceiling even when
+// every character takes four UTF-8 bytes and leaves room for the tool envelope.
 export const MAX_MCP_TEXT_CHARACTERS = 192 * 1024;
 const mcpTextBody = z.string().min(1).max(MAX_MCP_TEXT_CHARACTERS);
 

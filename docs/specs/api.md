@@ -67,7 +67,8 @@ Secrets are never accepted as query parameters or flags.
 Contract JSON bodies and MCP JSON-RPC bodies have a 1 MiB hard limit. Agent-auth
 bodies have a 64 KiB limit. Stripe webhook bodies have a 1 MiB limit. Workers
 enforce each limit while streaming, including when `Content-Length` is missing or
-false.
+false. MCP publish, revision, and edit text inputs have a separate 192 Ki-character
+limit so worst-case UTF-8 plus the JSON-RPC envelope remains inside the 1 MiB cap.
 
 ## Auth Labels
 
@@ -197,7 +198,6 @@ Authenticated `api` and `upload` routes enforce guards in a fixed order
 | Method | Path                                                          | Auth                      | Idempotency | Request | Response               |
 | ------ | ------------------------------------------------------------- | ------------------------- | ----------- | ------- | ---------------------- |
 | `GET`  | `/v1/whoami`                                                  | `cli_credential`          | none        | -       | `WhoamiResponse`       |
-| `GET`  | `/v1/mcp/whoami`                                              | `mcp_oauth`               | none        | -       | `McpWhoamiResponse`    |
 | `GET`  | `/v1/artifacts/{artifact_id}/revisions`                       | `cli_or_mcp`              | none        | -       | `RevisionListResponse` |
 | `GET`  | `/v1/artifacts/{artifact_id}/file-content`                    | `cli_or_mcp`              | none        | -       | `ArtifactFileContent`  |
 | `POST` | `/v1/artifacts/{artifact_id}/revisions/{revision_id}/publish` | `cli_or_mcp`              | required    | -       | `PublishResult`        |
@@ -207,7 +207,7 @@ Authenticated `api` and `upload` routes enforce guards in a fixed order
 
 `mcp.whoami` returns the authenticated Workspace Member, workspace, and granted MCP scopes derived from the member record. The route is callable for MCP only through `McpApiEntrypoint`; a bearer sent directly to the public `api` or `upload` host is not accepted as MCP authority.
 
-The `mcp` Worker validates the bearer, Origin, protocol version, and per-IP request cap. It strips `Authorization`, then calls an allowlisted named `api` or `upload` RPC entrypoint with the verified WorkOS subject and Route ID. Downstream route matching, Workspace Member resolution, scope enforcement, and actor/workspace rate limits remain authoritative. Single-call tools rely on that downstream enforcement. Multi-step tools pre-flight against `mcp.whoami` before starting, so a missing scope cannot fail a chain after partial side effects. JSON responses from a downstream binding are capped at 512 KiB before parsing, except `artifacts.fileContent`, whose bounded response allowance preserves the existing 10 MiB plaintext contract plus worst-case JSON escaping.
+The `mcp` Worker validates the bearer, Origin, protocol version, and per-IP request cap. It supports MCP protocol version `2025-06-18`: any present non-empty `MCP-Protocol-Version` header with another value is rejected, and `initialize` responds with `2025-06-18` rather than negotiating an earlier version. The Worker strips `Authorization`, then calls an allowlisted named `api` or `upload` RPC entrypoint with the verified WorkOS subject and Route ID. Downstream route matching, Workspace Member resolution, scope enforcement, and actor/workspace rate limits remain authoritative. Single-call tools rely on that downstream enforcement. Multi-step tools pre-flight against `mcp.whoami` before starting, so a missing scope cannot fail a chain after partial side effects. JSON responses from a downstream binding are capped at 512 KiB before parsing, except `artifacts.fileContent`, whose bounded response allowance preserves the existing 10 MiB plaintext response contract plus worst-case JSON escaping.
 
 `PublicAgentView` is public to anyone with the signed token. It resolves one exact Revision and returns full per-file signed URLs for that Revision, not `content_prefix`; those links stay on the legacy content route during the serialized rollout so later capability-manifest updates cannot make the files disagree with the returned metadata. It does not include lockdown metadata. Authenticated owner/member Agent View routes use the same exact-Revision file-link rule and may include explicit lockdown metadata for dashboard-visible locked Artifacts.
 

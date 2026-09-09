@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import apiWorker, { createMemoryEphemeralProvisionGateNamespace, handleMcpApiRequest } from "../apps/api/dist/index.js";
@@ -16,6 +17,7 @@ import {
 import { encryptArtifactBytes } from "../packages/storage/dist/index.js";
 import { createMemoryWriteAllowanceNamespace } from "../packages/write-allowance/dist/index.js";
 import { loadEnvFiles } from "./lib/load-env-files.mjs";
+import { createLocalMcpRpcWorker } from "./lib/local-mcp-rpc.mjs";
 import { LOCAL_SERVER_PORT_ENV, listenHttpPort } from "./lib/smoke-port.mjs";
 import { loadWranglerEnvVars } from "./lib/wrangler-env-vars.mjs";
 import { createJobsEnv } from "./local-jobs-bridge.mjs";
@@ -37,6 +39,7 @@ const contentPort = intEnv("AGENT_PASTE_LOCAL_CONTENT_PORT", 8789);
 const jobsPort = intEnv("AGENT_PASTE_LOCAL_JOBS_PORT", 8790);
 const streamPort = intEnv("AGENT_PASTE_LOCAL_STREAM_PORT", 8791);
 const smokeHarnessSecret = smokeHarnessSecretFromEnv();
+const localMcpRpcSecret = process.env.AGENT_PASTE_LOCAL_MCP_RPC_SECRET ?? randomBytes(32).toString("base64url");
 const streamInternalSecret = process.env.STREAM_INTERNAL_SECRET ?? "local-stream-internal-secret";
 const apiKeyPepper = process.env.AGENT_PASTE_API_KEY_PEPPER ?? "local-dev-pepper";
 const uploadSecret = process.env.AGENT_PASTE_UPLOAD_SIGNING_SECRET ?? "local-upload-secret";
@@ -397,22 +400,16 @@ if (!postgresBinding) {
 }
 
 const serverDefs = [
-  { name: "api", worker: localMcpRpcWorker(apiWorker, handleMcpApiRequest), env: apiEnv },
-  { name: "upload", worker: localMcpRpcWorker(uploadWorker, handleMcpUploadRequest), env: uploadEnv },
+  { name: "api", worker: createLocalMcpRpcWorker(apiWorker, handleMcpApiRequest, localMcpRpcSecret), env: apiEnv },
+  {
+    name: "upload",
+    worker: createLocalMcpRpcWorker(uploadWorker, handleMcpUploadRequest, localMcpRpcSecret),
+    env: uploadEnv,
+  },
   { name: "content", worker: contentWorker, env: contentEnv },
   { name: "jobs", worker: jobsWorker, env: jobsEnv },
   { name: "stream", worker: streamWorker, env: streamEnv },
 ];
-
-function localMcpRpcWorker(worker, handleMcpRequest) {
-  return {
-    fetch(request, env) {
-      const subject = request.headers.get("x-agent-paste-local-mcp-subject");
-      const routeId = request.headers.get("x-agent-paste-local-mcp-route");
-      return subject && routeId ? handleMcpRequest(request, env, subject, routeId) : worker.fetch(request, env);
-    },
-  };
-}
 
 const servers = serverDefs.map(({ name, worker, env }) => createWorkerServer(name, worker, env));
 

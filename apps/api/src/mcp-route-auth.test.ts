@@ -54,11 +54,20 @@ describe("API MCP route-boundary auth", () => {
   });
 
   it("rejects an MCP bearer sent directly to the public API route", async () => {
+    const externallySuppliedOauthBearer = "test-mcp-oauth-token";
     const response = await handleRequest(
       new Request("https://api.test/v1/mcp/whoami", {
-        headers: { authorization: "Bearer externally-supplied-oauth-token" },
+        headers: { authorization: `Bearer ${externallySuppliedOauthBearer}` },
       }),
-      { ...allowRateLimits(), DB: memberDb() },
+      {
+        ...allowRateLimits(),
+        AUTH: {
+          async verifyApiKey() {
+            throw new Error("public API-key verification must not accept an MCP bearer");
+          },
+        },
+        DB: memberDb(),
+      },
     );
 
     expect(response.status).toBe(401);

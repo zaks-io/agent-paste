@@ -7,6 +7,7 @@ Scope:
 - Preview and production WorkOS environments (one environment per deploy target).
 - `apps/web` AuthKit sign-in/callback/sign-out.
 - `apps/api` WorkOS token verification for dashboard (`/v1/web/*`), web callback (`POST /v1/auth/web/callback`), and CLI login.
+- `apps/mcp` WorkOS OAuth verification for MCP access tokens.
 - Per-PR preview web deploy when `WORKOS_PREVIEW_API_KEY` is set.
 
 Out of scope:
@@ -34,7 +35,7 @@ WorkOS is **per deploy target**, not one project backing both preview and produc
 
 Each environment has:
 
-- **One dashboard AuthKit app** — browser sign-in for `app.{preview.}agent-paste.sh`. Public `WORKOS_CLIENT_ID` lives in `apps/api/wrangler.jsonc` and `apps/web/wrangler.jsonc` vars; the matching `WORKOS_API_KEY` is a Worker secret on `api` and `web`.
+- **One dashboard AuthKit app** — browser sign-in for `app.{preview.}agent-paste.sh`. Public `WORKOS_CLIENT_ID` lives in `apps/api/wrangler.jsonc` and `apps/web/wrangler.jsonc` vars; the matching `WORKOS_API_KEY` is a Worker secret on `api`, `mcp`, and `web`.
 - **One User Management issuer client** — appears in the `WORKOS_ISSUER` path used to verify dashboard session tokens. It differs from `WORKOS_CLIENT_ID` and from the CLI OAuth client. Set only on `api` (see `apps/api/wrangler.jsonc`).
 - **One dedicated CLI Public OAuth (Connect) app** (production WorkOS env only today) — separate public `client_id` in `apps/cli/src/config.ts` (`client_01KSED1S5WMWBYCFWQZX2FHNED`). Tokens verify against the AuthKit domain JWKS (`/oauth2/jwks`), not `api.workos.com/sso/jwks/{client_id}`.
 
@@ -50,13 +51,15 @@ Register these in the WorkOS dashboard for the matching environment **before** d
 
 ### Preview (staging WorkOS environment)
 
-| URI                                                    | Purpose                                              |
-| ------------------------------------------------------ | ---------------------------------------------------- |
-| `https://app.preview.agent-paste.sh/api/auth/callback` | Stable preview web Worker                            |
-| `http://localhost:5173/api/auth/callback`              | Local `wrangler dev` / Vite dev                      |
-| `https://*.preview.agent-paste.sh/api/auth/callback`   | Per-PR preview web (`pr-{N}.preview.agent-paste.sh`) |
+| URI                                                       | Purpose                                           |
+| --------------------------------------------------------- | ------------------------------------------------- |
+| `https://app.preview.agent-paste.sh/api/auth/callback`    | Stable preview web Worker                         |
+| `http://localhost:5173/api/auth/callback`                 | Local `wrangler dev` / Vite dev                   |
+| `https://pr-{N}.preview.agent-paste.sh/api/auth/callback` | Exact callback added for an active per-PR preview |
 
-WorkOS rejects wildcard redirect URIs on public-suffix hosts like `*.workers.dev`. Per-PR OAuth callbacks must use the `*.preview.agent-paste.sh` custom domain, not the immediate `*.workers.dev` hostname.
+WorkOS redirect allowlists must contain each exact callback URI. Per-PR OAuth
+callbacks use the `pr-{N}.preview.agent-paste.sh` custom domain, not a wildcard
+or the immediate `*.workers.dev` hostname.
 
 ### Production (production WorkOS environment)
 
@@ -81,10 +84,10 @@ AuthKit reads `WORKOS_REDIRECT_URI` from Worker vars. A mismatch between this va
 
 ### Secrets (never commit; Cloudflare does not reveal values after write)
 
-| Name                     | Bound on     | Notes                                                                                                                                                              |
-| ------------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `WORKOS_API_KEY`         | `api`, `web` | Server-side WorkOS API credential. Must match the target WorkOS environment. Per-PR web uses `WORKOS_PREVIEW_API_KEY` from GitHub Actions, written at deploy time. |
-| `WORKOS_COOKIE_PASSWORD` | `web`        | 32+ characters. Seals AuthKit session cookie `__agp_session`. Per-PR preview derives a seed value in `deploy-pr-preview.mjs`.                                      |
+| Name                     | Bound on            | Notes                                                                                                                                                              |
+| ------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `WORKOS_API_KEY`         | `api`, `mcp`, `web` | Server-side WorkOS API credential. Must match the target WorkOS environment. Per-PR web uses `WORKOS_PREVIEW_API_KEY` from GitHub Actions, written at deploy time. |
+| `WORKOS_COOKIE_PASSWORD` | `web`               | 32+ characters. Seals AuthKit session cookie `__agp_session`. Per-PR preview derives a seed value in `deploy-pr-preview.mjs`.                                      |
 
 Human operator access is controlled by the WorkOS `admin` role slug on the
 active session.
@@ -112,8 +115,10 @@ List secret binding names (values redacted):
 
 ```sh
 wrangler secret list --cwd apps/api --env preview --format json
+wrangler secret list --cwd apps/mcp --env preview --format json
 wrangler secret list --cwd apps/web --env preview --format json
 wrangler secret list --cwd apps/api --env production --format json
+wrangler secret list --cwd apps/mcp --env production --format json
 wrangler secret list --cwd apps/web --env production --format json
 ```
 
@@ -152,7 +157,7 @@ Do not register `*.workers.dev` callback URIs for OAuth; WorkOS rejects wildcard
 
 Follow the WorkOS sections in [runbook-rotation.md](./runbook-rotation.md#rotate-workos-web-secrets):
 
-- **`WORKOS_API_KEY`** — rotate in WorkOS dashboard, write to both `api` and `web`, verify with `pnpm smoke:web` and the target environment smoke.
+- **`WORKOS_API_KEY`** — rotate in WorkOS dashboard, write to `api`, `mcp`, then `web`, verify with `pnpm smoke:web`, `pnpm smoke:mcp`, and the target environment smoke.
 - **`WORKOS_CLIENT_ID`** — project/client swap only; update Wrangler vars and secrets, configure redirect URIs in the new project first, deploy before verification.
 - **`WORKOS_COOKIE_PASSWORD`** — write to `web` only; **invalidates all existing dashboard sessions** (users must sign in again).
 
@@ -181,10 +186,10 @@ Historical note: production Issue A (2026-05) was `issuer_mismatch` because `WOR
 
 ### Expired or revoked WorkOS API key
 
-| Symptom                                   | Likely cause                               | Fix                                                                                   |
-| ----------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------- |
-| Sign-in or callback provisioning fails    | Invalid `WORKOS_API_KEY` on `web` or `api` | Rotate key per [runbook-rotation.md](./runbook-rotation.md); update **both** Workers. |
-| `user_fetch_failed` with HTTP 401 in logs | Key revoked in WorkOS dashboard            | Create new key; redeploy secrets.                                                     |
+| Symptom                                   | Likely cause                               | Fix                                                                                          |
+| ----------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Sign-in or callback provisioning fails    | Invalid `WORKOS_API_KEY` on `web` or `api` | Rotate key per [runbook-rotation.md](./runbook-rotation.md); update `api`, `mcp`, and `web`. |
+| `user_fetch_failed` with HTTP 401 in logs | Key revoked in WorkOS dashboard            | Create new key; redeploy secrets.                                                            |
 
 ### Cookie password rotation side effects
 

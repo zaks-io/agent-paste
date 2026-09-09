@@ -50,3 +50,6 @@ delegating the credential or trusting an HTTP header.
   WorkOS M2M tokens are not valid for this check because their subject is an
   application rather than a Workspace Member.
 - WorkOS redirect allowlists contain exact callback URIs, never wildcard hosts.
+- MCP publish, revision, and edit text above 192 Ki characters now fails input
+  validation. This replaces the prior 10 MiB tool-text allowance; the 10 MiB
+  limit remains only for inline file-content responses.
