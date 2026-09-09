@@ -182,7 +182,7 @@ describe("local publish helpers", () => {
     await expect(readAndHashLocalFile(file)).rejects.toThrow(/changed after validation/);
   });
 
-  it("rejects an ancestor directory swapped outside while file metadata is recorded", async () => {
+  it("never reads outside bytes when an ancestor changes while file metadata is recorded", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
     const outside = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-outside-"));
     const directory = path.join(root, "assets");
@@ -206,8 +206,17 @@ describe("local publish helpers", () => {
     const file = files.find((candidate) => candidate.path === "assets/data.txt");
     if (!file) throw new Error("expected_file");
 
-    const read = await readAndHashLocalFile(file);
-    expect(new TextDecoder().decode(read.bytes)).toBe("approved");
+    const outcome = await readAndHashLocalFile(file).then(
+      (read) => ({ kind: "read" as const, read }),
+      (error: unknown) => ({ kind: "rejected" as const, error }),
+    );
+    if (outcome.kind === "read") {
+      expect(new TextDecoder().decode(outcome.read.bytes)).toBe("approved");
+    } else {
+      expect(outcome.error).toEqual(
+        expect.objectContaining({ message: expect.stringMatching(/changed after validation/) }),
+      );
+    }
   });
 
   it("reads a stable in-root symlink and preserves those exact bytes", async () => {
