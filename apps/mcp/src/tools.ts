@@ -22,6 +22,7 @@ import {
   mcpToolContractByName,
   mcpToolInputSchemas,
 } from "@agent-paste/contracts";
+import { emitWorkerLog } from "@agent-paste/worker-runtime";
 import type { McpAuthContext } from "./auth.js";
 import { type ForwardToApiResult, forwardToApiRoute } from "./forward.js";
 import { publishViaSharedModule, resolveIdempotencyKey, textPublishInput } from "./publish-helpers.js";
@@ -90,14 +91,14 @@ export async function callMcpTool(
 }
 
 function requiresEdgeScopePreflight(forwardedCalls: readonly { auth: string }[]): boolean {
-  return forwardedCalls.filter((call) => call.auth === "mcp_bearer").length > 1;
+  return forwardedCalls.filter((call) => call.auth === "mcp_principal").length > 1;
 }
 
 async function callWhoami(deps: McpToolDeps): Promise<McpToolResult> {
   const forwarded = await forwardToApiRoute({
     api: deps.api,
     routeId: "mcp.whoami",
-    bearerToken: deps.bearerToken,
+    tokenSub: deps.tokenSub,
   });
   return parseForwardResult(forwarded, McpWhoamiResponse, "mcp.whoami");
 }
@@ -111,7 +112,7 @@ async function resolveGrantedScopes(deps: McpToolDeps): Promise<ResolvedScopes> 
   const forwarded = await forwardToApiRoute({
     api: deps.api,
     routeId: "mcp.whoami",
-    bearerToken: deps.bearerToken,
+    tokenSub: deps.tokenSub,
   });
   if (!forwarded.ok) {
     return forwarded;
@@ -137,7 +138,7 @@ async function callListArtifacts(input: McpListArtifactsInput, deps: McpToolDeps
     api: deps.api,
     routeId: "artifacts.list",
     query: { cursor: input.cursor },
-    bearerToken: deps.bearerToken,
+    tokenSub: deps.tokenSub,
   });
   return parseForwardResult(forwarded, McpListArtifactsOutput, "artifacts.list");
 }
@@ -147,7 +148,7 @@ async function callReadArtifact(input: McpReadArtifactInput, deps: McpToolDeps):
     api: deps.api,
     routeId: "agentView.getLatest",
     params: { artifact_id: input.artifact_id },
-    bearerToken: deps.bearerToken,
+    tokenSub: deps.tokenSub,
   });
   return parseForwardResult(forwarded, AgentView, "agentView.getLatest");
 }
@@ -158,7 +159,7 @@ async function callReadFile(input: McpReadFileInput, deps: McpToolDeps): Promise
     routeId: "artifacts.fileContent",
     params: { artifact_id: input.artifact_id },
     query: { path: input.path, revision_id: input.revision_id },
-    bearerToken: deps.bearerToken,
+    tokenSub: deps.tokenSub,
   });
   return parseForwardResult(forwarded, McpReadFileOutput, "artifacts.fileContent");
 }
@@ -169,7 +170,7 @@ async function callListRevisions(input: McpListRevisionsInput, deps: McpToolDeps
     routeId: "revisions.list",
     params: { artifact_id: input.artifact_id },
     query: { cursor: input.cursor },
-    bearerToken: deps.bearerToken,
+    tokenSub: deps.tokenSub,
   });
   return parseForwardResult(forwarded, McpListRevisionsOutput, "revisions.list");
 }
@@ -179,7 +180,7 @@ async function callDeleteArtifact(input: McpDeleteArtifactInput, deps: McpToolDe
     api: deps.api,
     routeId: "artifacts.delete",
     params: { artifact_id: input.artifact_id },
-    bearerToken: deps.bearerToken,
+    tokenSub: deps.tokenSub,
   });
   return parseForwardResult(forwarded, DeleteArtifactResponse, "artifacts.delete");
 }
@@ -192,7 +193,7 @@ async function callUpdateDisplayMetadata(
     api: deps.api,
     routeId: "artifacts.updateDisplayMetadata",
     params: { artifact_id: input.artifact_id },
-    bearerToken: deps.bearerToken,
+    tokenSub: deps.tokenSub,
     body: JSON.stringify({ title: input.title }),
   });
   return parseForwardResult(forwarded, DisplayMetadata, "artifacts.updateDisplayMetadata");
@@ -231,9 +232,11 @@ function parseBody<T>(
     // A forwarded API response or locally assembled payload failed our contract.
     // This is schema drift, not a client error. Log only issue codes and paths,
     // never the raw value; it can carry artifact content or PII.
-    console.error("mcp: response schema validation failed", {
-      label,
-      issues: zodIssueMetadata(parsed.error),
+    emitWorkerLog({
+      level: "error",
+      component: "mcp",
+      event: "mcp.tool_response_invalid",
+      attributes: { label, issue_count: zodIssueMetadata(parsed.error)?.length ?? 0 },
     });
     return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
   }

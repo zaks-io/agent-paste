@@ -7,6 +7,7 @@ import {
   mapMcpProtocolError,
   mcpEntrypointForRenderMode,
 } from "@agent-paste/contracts";
+import { captureWorkerError, emitWorkerLog } from "@agent-paste/worker-runtime";
 import type { McpAuthContext } from "./auth.js";
 import { ForwardError, serviceBindingTransport } from "./publish-transport.js";
 import type { McpToolDeps, McpToolResult } from "./tool-deps.js";
@@ -47,7 +48,7 @@ export async function publishViaSharedModule(deps: McpToolDeps, input: PublishIn
     // Any other throw (e.g. the shared module's "unknown file" guard) is an
     // internal fault: map it to a JSON-RPC internal_error so the client gets a
     // correlated envelope, never an uncaught HTTP 500.
-    console.error("mcp: publish failed", { error });
+    captureWorkerError({ component: "mcp", event: "mcp.publish_failed", error });
     return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
   }
   return shapePublishOutput(outcome);
@@ -79,8 +80,11 @@ function validatedPublishOutput(output: unknown): McpToolResult {
   if (!parsed.success) {
     // Log only issue metadata, never the raw error — the publish outcome can
     // carry artifact content/PII. Same rule as parseForwardResult.
-    console.error("mcp: publish output schema validation failed", {
-      issues: zodIssueMetadata(parsed.error),
+    emitWorkerLog({
+      level: "error",
+      component: "mcp",
+      event: "mcp.publish_output_invalid",
+      attributes: { issue_count: zodIssueMetadata(parsed.error)?.length ?? 0 },
     });
     return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
   }

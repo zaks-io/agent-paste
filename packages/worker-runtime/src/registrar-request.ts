@@ -82,7 +82,7 @@ export async function parseRequestBody<Contract extends RouteContract>(
  * the instant the cap is crossed, cancelling the stream instead of buffering the rest.
  */
 export async function readBodyTextCapped(
-  request: Request,
+  request: Pick<Request, "body" | "headers">,
   maxBytes: number,
 ): Promise<{ ok: true; text: string } | { ok: false; reason: "too_large" | "read_error" }> {
   const declared = Number(request.headers.get("content-length"));

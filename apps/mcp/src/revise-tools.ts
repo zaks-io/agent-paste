@@ -9,6 +9,7 @@ import {
   mcpEntrypointForRenderMode,
 } from "@agent-paste/contracts";
 import { type Edit, ReviseError, reviseOnePath, reviseWholeBody } from "@agent-paste/revise-core";
+import { captureWorkerError, emitWorkerLog } from "@agent-paste/worker-runtime";
 import type { McpAuthContext } from "./auth.js";
 import {
   noopPublishOutput,
@@ -95,10 +96,15 @@ function addRevisionError(error: unknown): McpToolResult {
     // A non-matching whole-body revise is an internal fault here, not a client error:
     // add_revision replaces the whole entrypoint, so the only ReviseError reachable is a
     // base that is binary/oversize or a tree that lost the entrypoint mid-flight.
-    console.error("mcp: add_revision revise failed", { reason: error.reason });
+    emitWorkerLog({
+      level: "error",
+      component: "mcp",
+      event: "mcp.add_revision_revise_failed",
+      attributes: { reason: error.reason },
+    });
     return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
   }
-  console.error("mcp: add_revision failed", { error });
+  captureWorkerError({ component: "mcp", event: "mcp.add_revision_failed", error });
   return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
 }
 
@@ -159,6 +165,6 @@ function multiEditError(error: unknown): McpToolResult {
     const detail = error.editIndex === undefined ? error.reason : `${error.reason} (edit ${error.editIndex})`;
     return { ok: false, error: mapApiErrorToMcp({ code: "invalid_request", message: detail }) };
   }
-  console.error("mcp: multi_edit failed", { error });
+  captureWorkerError({ component: "mcp", event: "mcp.multi_edit_failed", error });
   return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
 }

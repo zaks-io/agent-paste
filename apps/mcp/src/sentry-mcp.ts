@@ -17,7 +17,6 @@ export async function traceMcpRequest(
     method: string;
     id: McpJsonRpcId;
     params: Record<string, unknown> | undefined;
-    sessionId: string | null;
   },
   handler: () => ProtocolHandlerResult | Promise<ProtocolHandlerResult>,
 ): Promise<ProtocolHandlerResult> {
@@ -29,7 +28,6 @@ export async function traceMcpRequest(
         ...MCP_SERVER_ATTRIBUTES,
         "mcp.method.name": input.method,
         "mcp.request.id": String(input.id),
-        "mcp.session.id": input.sessionId ?? undefined,
         "mcp.tool.name": toolNameFrom(input.method, input.params),
       },
     },

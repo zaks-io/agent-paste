@@ -578,7 +578,7 @@ describe("deploy secret planning", () => {
       expect(withProductionSmoke.generatedValues.has("SMOKE_HARNESS_SECRET")).toBe(false);
     });
 
-    it("fails production deploy planning when stale smoke harness secrets are still bound", async () => {
+    it("fails production deploy planning when forbidden secrets are still bound", async () => {
       const bulkRun = vi.fn(async () => {});
       const deployFn = vi.fn(async () => {});
       const failFn = vi.fn((message) => {
@@ -601,6 +601,7 @@ describe("deploy secret planning", () => {
 
       expect(plan.forbiddenProductionSecrets).toEqual([
         { worker: workerName("api", "production"), name: "SMOKE_HARNESS_SECRET" },
+        { worker: workerName("upload", "production"), name: "WORKOS_API_KEY" },
         { worker: workerName("jobs", "production"), name: "SMOKE_HARNESS_SECRET" },
       ]);
       await expect(
@@ -619,6 +620,9 @@ describe("deploy secret planning", () => {
       expect(failFn.mock.calls[0][0]).toBe(formatForbiddenProductionSecretsMessage(plan.forbiddenProductionSecrets));
       expect(failFn.mock.calls[0][0]).toContain(
         `wrangler secret delete SMOKE_HARNESS_SECRET --name ${workerName("api", "production")}`,
+      );
+      expect(failFn.mock.calls[0][0]).toContain(
+        `wrangler secret delete WORKOS_API_KEY --name ${workerName("upload", "production")}`,
       );
       expect(failFn.mock.calls[0][0]).toContain(
         `wrangler secret delete SMOKE_HARNESS_SECRET --name ${workerName("jobs", "production")}`,

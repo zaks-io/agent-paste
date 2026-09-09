@@ -155,8 +155,8 @@ Launch-readiness secret notes:
 4. Address the active backlog item, or document why it is deferred.
 5. For runtime changes: `pnpm migrate:preview && pnpm deploy:preview && pnpm smoke:preview &&
 pnpm smoke:preview:ephemeral`
-6. After MCP-affecting deploys, run `pnpm smoke:mcp:preview` (optionally with
-   `AGENT_PASTE_MCP_SMOKE_ACCESS_TOKEN` for authenticated tool checks).
+6. After MCP-affecting deploys, run `pnpm smoke:mcp:preview` with a user OAuth
+   access token for authenticated tool checks.
 7. Same-repo PRs exercise job-local Postgres smoke in CI automatically. Add the
    `full-pr-preview` label only when a PR requires deployed Cloudflare Worker
    evidence; that workflow gates on `/healthz` readiness, hosted ephemeral
@@ -166,8 +166,9 @@ pnpm smoke:preview:ephemeral`
 8. Production deploy only with explicit Isaac approval:
    `pnpm migrate:production && pnpm deploy:production && pnpm smoke:production &&
 pnpm smoke:production:ephemeral && pnpm smoke:mcp:production`. The production
-   GitHub deploy workflow runs the unauthenticated MCP smoke automatically;
-   authenticated MCP tool checks stay manual via `AGENT_PASTE_MCP_SMOKE_ACCESS_TOKEN`.
+   GitHub deploy workflow requires a production user OAuth smoke token before
+   any deploy step, then runs the authenticated MCP smoke after deployment. A
+   missing token or failed `whoami`/`list_artifacts` call fails the workflow.
 
 ## Hosted ephemeral publish smoke
 

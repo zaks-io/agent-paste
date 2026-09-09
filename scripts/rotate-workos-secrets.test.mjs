@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 const scriptPath = fileURLToPath(new URL("./rotate-workos-secrets.mjs", import.meta.url));
 
 describe("rotate-workos-secrets.mjs", () => {
-  it("prints a dry-run plan for WORKOS_API_KEY on api, mcp, upload, and web", () => {
+  it("prints a dry-run plan for WORKOS_API_KEY on api, mcp, and web", () => {
     const result = spawnSync(
       process.execPath,
       [scriptPath, "workos-api-key", "preview", "--dry-run", "--value", "sk_test_example"],
@@ -15,9 +15,12 @@ describe("rotate-workos-secrets.mjs", () => {
     expect(result.stdout).toContain("WORKOS_API_KEY");
     expect(result.stdout).toContain("agent-paste-api-preview");
     expect(result.stdout).toContain("agent-paste-mcp-preview");
-    expect(result.stdout).toContain("agent-paste-upload-preview");
     expect(result.stdout).toContain("agent-paste-web-preview");
-    expect(result.stdout).toContain("Write api, mcp, then upload");
+    expect(result.stdout.match(/^[\t ]*wrangler secret put .*$/gm)).toEqual([
+      "  wrangler secret put WORKOS_API_KEY --name agent-paste-api-preview",
+      "  wrangler secret put WORKOS_API_KEY --name agent-paste-mcp-preview",
+      "  wrangler secret put WORKOS_API_KEY --name agent-paste-web-preview",
+    ]);
     expect(result.stdout).toContain("Secret value: provided via --value (hidden)");
     expect(result.stdout).not.toContain("sk_test_example");
   });

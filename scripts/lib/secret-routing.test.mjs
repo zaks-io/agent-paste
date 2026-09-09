@@ -42,11 +42,14 @@ describe("secret-routing", () => {
     expect(secretsForApp("api", "production")).toContain("ARTIFACT_BYTES_ENCRYPTION_KEY_V2");
   });
 
-  it("requires WORKOS_API_KEY on every worker that verifies an MCP bearer", () => {
-    for (const app of ["api", "mcp", "upload"]) {
+  it("requires WORKOS_API_KEY only on workers that verify WorkOS tokens", () => {
+    for (const app of ["api", "mcp"]) {
       expect(requiredSecretsForApp(app, "preview")).toContain("WORKOS_API_KEY");
       expect(requiredSecretsForApp(app, "production")).toContain("WORKOS_API_KEY");
     }
+    expect(secretsForApp("upload", "preview")).not.toContain("WORKOS_API_KEY");
+    expect(forbiddenSecretsForApp("upload", "preview")).toContain("WORKOS_API_KEY");
+    expect(forbiddenSecretsForApp("upload", "production")).toContain("WORKOS_API_KEY");
   });
 
   it("required sets match the wrangler.jsonc secrets.required declarations", () => {
@@ -67,7 +70,6 @@ describe("secret-routing", () => {
       "ARTIFACT_BYTES_ENCRYPTION_KEY",
       "CONTENT_SIGNING_SECRET",
       "UPLOAD_SIGNING_SECRET",
-      "WORKOS_API_KEY",
     ]);
     expect(requiredSecretsForApp("stream", "production")).toEqual(["STREAM_INTERNAL_SECRET"]);
   });

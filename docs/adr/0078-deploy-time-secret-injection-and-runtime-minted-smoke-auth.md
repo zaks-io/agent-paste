@@ -1,6 +1,6 @@
 # Deploy-Time Secret Injection and Runtime-Minted Smoke Auth
 
-Status: Accepted. The symmetric-secret + deploy half is implemented (`scripts/deploy.mjs`, `secrets.required`, `lib/secret-routing.mjs`); the WorkOS M2M smoke half is implemented in code and pending operator wiring of the M2M credentials.
+Status: Accepted. The symmetric-secret + deploy half is implemented (`scripts/deploy.mjs`, `secrets.required`, `lib/secret-routing.mjs`). The M2M smoke decision applies only to organization-scoped smoke actors; [ADR 0097](./0097-mcp-private-principal-handoff.md) corrects the MCP-specific case.
 
 [ADR 0058](./0058-first-deploy-schema-and-secret-bootstrap.md) chose "a checked-in TypeScript script for secrets" whose push path is per-secret `wrangler secret put`, with values captured once into a password manager. That decision was right for a first deploy. It does not survive contact with steady-state operations, and the divergence is now the single biggest source of operational pain in the project: hosted smoke tests fail on authentication, and diagnosing them devolves into "what the fuck is this secret, does the value in CI match the value on the Worker?" — a question that, by design, **cannot be answered**, because Worker secret values are write-only.
 
@@ -26,7 +26,7 @@ The common thread is the universal anti-pattern named by every secrets-managemen
 ## What is actually true today
 
 - Each app builds/deploys with `wrangler deploy --config wrangler.jsonc --env <preview|production>` (e.g. `apps/api/package.json`). Before 0078 the standing-deploy orchestrator (`deploy-preview.mjs`, now replaced by `deploy.mjs`) ran `pnpm --filter <app> deploy:<target>` in service-binding order with no secret step, relying on a one-time `bootstrap-secrets.mjs` push.
-- The API already validates WorkOS tokens by audience/issuer/JWKS, with **distinct audiences** for CLI, MCP, and web surfaces (`apps/api/src/env.ts`: `WORKOS_CLI_AUDIENCE`, `WORKOS_MCP_AUDIENCE`, plus matching `*_ISSUER` / `*_JWKS_URL`). The token-validation surface is already there; only the _minting_ of a test token is missing.
+- At the time of this decision, API validated WorkOS tokens for CLI, MCP, and web. [ADR 0097](./0097-mcp-private-principal-handoff.md) later moved MCP verification exclusively to the `mcp` Worker; the runtime-minted smoke-token decision is unchanged.
 - Secret routing (pre-0078) lived in `bootstrap-secrets.mjs`'s `workerSecrets` map and was mirrored by `set-content-signing-secret.mjs`, `set-upload-signing-secret.mjs`, `set-stream-internal-secret.mjs`, `set-artifact-bytes-encryption-secret.mjs`, and the rotation setters — duplication this ADR collapses into `lib/secret-routing.mjs`.
 
 ## Decision
@@ -47,7 +47,7 @@ Consequence: **the Worker's secrets are reconciled from one routing definition o
 
 The smoke job sources its symmetric secrets (e.g. `SMOKE_HARNESS_SECRET`) from the **same** GitHub-environment-scoped values available to the deploy. Same `${{ secrets.* }}` reference; same value by construction.
 
-### 4. The WorkOS leg stores the durable secret and mints the perishable one at test time — M2M `client_credentials`
+### 4. Organization-scoped WorkOS smoke actors mint tokens at test time with M2M `client_credentials`
 
 Stop storing WorkOS _access tokens_. Create a WorkOS **M2M application** and store only its **`client_secret`** (long-lived, non-expiring) in the secret store. The smoke job mints a fresh short-lived access token per run:
 
@@ -59,7 +59,12 @@ grant_type=client_credentials&client_id=<id>&client_secret=<secret>[&scope=...]
 
 The minted token carries an `org_id` claim and is validated by the API's existing WorkOS JWKS path. This is the textbook split — store the durable credential, mint the perishable one on demand — and it permanently ends the expired-token `401`/silent-skip cycle. Token validity can be checked via WorkOS Token Introspection if needed.
 
-The smoke's silent-skip semantics are also corrected: with minting in place, the authed/MCP/claim assertions **run on every CI run**. Skips become loud and exceptional, not the default.
+The smoke's silent-skip semantics are also corrected: where the tested route
+accepts an organization-scoped machine actor, authenticated assertions run with
+a freshly minted token. MCP is an explicit exception: its authorization model
+requires a current Workspace Member, while WorkOS M2M tokens identify an
+application and organization. MCP smoke therefore requires a user OAuth token
+and fails closed when it is absent.
 
 ## Considered options
 
@@ -74,7 +79,7 @@ The smoke's silent-skip semantics are also corrected: with minting in place, the
 - **[ADR 0058](./0058-first-deploy-schema-and-secret-bootstrap.md) is amended.** Its "push path" (per-secret `wrangler secret put`) is superseded by `scripts/deploy.mjs` reconciling secrets on every deploy for steady-state. `bootstrap-secrets.mjs` is narrowed to a _generator of new random values_ for first deploy; it no longer owns the per-Worker push, and it stops being a thing operators run to "resync." Re-running the generator remains destructive and gated, exactly as 0058 states.
 - **The `set-*-secret.mjs` scripts are retired.** `set-content-signing-secret.mjs`, `set-upload-signing-secret.mjs`, `set-stream-internal-secret.mjs`, and `set-artifact-bytes-encryption-secret.mjs` (and their shared `lib/shared-secret-setter.mjs`) existed only to push one shared secret to its consumers out-of-band. `scripts/deploy.mjs` (generate-if-missing, binds every secret to its consumers each deploy) + `secrets.required` subsume them. Their routing knowledge moved into `lib/secret-routing.mjs` and each Worker's `secrets.required`.
 - **[ADR 0045](./0045-secret-rotation-cadence-and-on-demand-tooling.md) is unaffected.** Rotation cadence and the `rotate-versioned-secret.mjs` / `rotate-workos-secrets.mjs` tooling stand unchanged — `deploy.mjs` is generate-if-missing and deliberately does not rotate. The `V1`/`V2` overlap discipline is unchanged.
-- **WorkOS gains an M2M application per environment.** Its `client_secret` becomes a stored secret; the access token is never stored. The API's existing WorkOS audience/issuer/JWKS validation accepts the minted token (an audience/scope decision for the smoke surface is a follow-up detail, not an architectural change).
+- **Organization-scoped WorkOS smoke surfaces gain an M2M application per environment.** Its `client_secret` becomes a stored secret; the access token is never stored. MCP does not use this path because it resolves a user subject to a Workspace Member.
 - **Smoke auth becomes deterministic.** Symmetric secrets match by construction; the WorkOS token is fresh per run. The `if (target !== "production")` skip in `smoke-hosted.mjs` for destructive checks is a _separate_ prod-safety decision and is out of scope here.
 
 ## Done
@@ -84,6 +89,6 @@ Verifiable outcomes for the implementation that follows this ADR:
 1. Every secret-consuming Worker's `wrangler.jsonc` declares `secrets.required` for the secrets it hard-requires, sourced from `lib/secret-routing.mjs`; a deploy missing a required secret fails at `wrangler deploy` with a named error. (Done: declared on api/upload/content/jobs/stream/web; mcp requires none.)
 2. `scripts/deploy.mjs <local|preview|production>` is the single deploy/secret-application command; `deploy:preview`/`deploy:production` and `deploy-production.yml` call it; no `set-*` script remains. Secrets are bound via `wrangler secret bulk` over stdin (no cleartext file), generate-if-missing, idempotent. (Done.)
 3. The four `set-*-secret.mjs` scripts and `lib/shared-secret-setter.mjs` are deleted with their tests; `bootstrap-secrets.mjs` is generator-only and points operators at `deploy.mjs`. (Done.)
-4. A WorkOS M2M application exists for each environment; only its `client_secret` is stored. `smoke-hosted-ephemeral.mjs` and `smoke-mcp.mjs` mint a fresh access token via `client_credentials` (`lib/workos-m2m.mjs`) and prefer it over any stored `*_WORKOS_ACCESS_TOKEN`. (Code done; the M2M apps + `AGENT_PASTE_*_WORKOS_M2M_*` secrets are operator console/secret wiring.)
-5. The authed/MCP/claim assertions execute (not skip) on a clean CI run once the M2M credentials are wired, proven by the smoke output showing the authenticated summary rather than the "Skipped" line.
+4. A WorkOS M2M application exists for each organization-scoped smoke environment; only its `client_secret` is stored. `smoke-hosted-ephemeral.mjs` mints a fresh access token via `client_credentials` (`lib/workos-m2m.mjs`). MCP smoke instead requires a user OAuth token. (The M2M apps + `AGENT_PASTE_EPHEMERAL_SMOKE_WORKOS_M2M_*` secrets are operator console/secret wiring.)
+5. Authenticated assertions execute rather than silently skip when their required actor credential is configured. Production MCP smoke fails if its user OAuth token is absent.
 6. `pnpm verify` passes; secret-script unit tests are updated or removed to match the retired scripts, and `lib/secret-routing`, `lib/secret-values`, `lib/local-env-secrets`, `lib/workos-m2m` have unit coverage. (Done.)

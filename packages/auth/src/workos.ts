@@ -236,6 +236,7 @@ function isVerificationDependencyError(error: unknown): boolean {
   }
   const message = error.message.toLowerCase();
   return (
+    (error instanceof TypeError && message.includes("invalid url")) ||
     message.includes("json web key set http response") ||
     message.includes("jwks request timed out") ||
     message.includes("fetch failed")

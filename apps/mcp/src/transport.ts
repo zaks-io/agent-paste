@@ -1,6 +1,7 @@
 import {
   MCP_RESOURCE_INDICATOR,
   type McpAuthChallengeError,
+  mapApiErrorToMcp,
   mapMcpProtocolError,
   mcpWwwAuthenticateHeader,
 } from "@agent-paste/contracts";
@@ -12,13 +13,21 @@ import {
   type VerifyMcpBearer,
 } from "./auth.js";
 import type { ApiServiceBinding, UploadServiceBinding } from "./forward.js";
-import { jsonRpcErrorResponse, mapParseFailure, parseMcpJsonRpcBody, respondWithJsonRpc } from "./jsonrpc.js";
+import {
+  jsonRpcErrorResponse,
+  MCP_PROTOCOL_VERSION,
+  mapParseFailure,
+  parseMcpJsonRpcBody,
+  respondWithJsonRpc,
+} from "./jsonrpc.js";
 import { handleMcpProtocolMethod } from "./protocol.js";
 import { traceMcpRequest } from "./sentry-mcp.js";
 import type { McpWorkOsEnv } from "./workos.js";
 
 export type McpTransportEnv = McpWorkOsEnv & {
+  AGENT_PASTE_ENV?: string;
   MCP_RESOURCE?: string;
+  MCP_IP_RATE_LIMIT?: McpRateLimitBinding;
   API?: ApiServiceBinding;
   UPLOAD?: UploadServiceBinding;
 };
@@ -27,6 +36,11 @@ export type McpTransportDeps = {
   verifyBearer?: VerifyMcpBearer;
   api?: ApiServiceBinding;
   upload?: UploadServiceBinding;
+  ipRateLimit?: McpRateLimitBinding;
+};
+
+export type McpRateLimitBinding = {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
 };
 
 const MAX_MCP_BODY_BYTES = 1024 * 1024;
@@ -39,6 +53,10 @@ function unauthorizedMcpResponse(message: string, resource: string): Response {
   return jsonRpcErrorResponse(undefined, mapMcpProtocolError("invalid_token", message), {
     headers: authenticateChallengeHeaders(resource, "invalid_token"),
   });
+}
+
+function unavailableMcpResponse(message: string): Response {
+  return jsonRpcErrorResponse(undefined, mapApiErrorToMcp({ code: "database_unavailable", message }));
 }
 
 function authenticateChallengeHeaders(resource: string, error: McpAuthChallengeError): Headers {
@@ -69,10 +87,27 @@ export async function handleMcpEndpoint(
     return new Response(null, { status: 405 });
   }
 
+  const origin = request.headers.get("origin");
+  if (origin && origin !== new URL(request.url).origin) {
+    return jsonRpcErrorResponse(undefined, mapApiErrorToMcp({ code: "invalid_request", message: "invalid_origin" }));
+  }
+
+  const protocolVersion = request.headers.get("mcp-protocol-version");
+  if (protocolVersion && protocolVersion !== MCP_PROTOCOL_VERSION) {
+    return jsonRpcErrorResponse(undefined, mapMcpProtocolError("invalid_params", "unsupported_mcp_protocol_version"));
+  }
+
+  const rateLimitResponse = await enforceMcpIpRateLimit(request, env, deps);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
   const verifyBearer = deps.verifyBearer ?? bearerVerifierForEnv(env);
   const authResult = await verifyBearer({ authorizationHeader: request.headers.get("authorization") });
   if (!authResult.ok) {
-    return unauthorizedMcpResponse(authResult.message, resource);
+    return authResult.code === "invalid_token"
+      ? unauthorizedMcpResponse(authResult.message, resource)
+      : unavailableMcpResponse(authResult.message);
   }
 
   const bodyResult = await readJsonRpcBody(request);
@@ -149,7 +184,6 @@ async function dispatchMcpRequest(
       method: parsed.request.method,
       params: parsed.request.params,
       id: requestId,
-      sessionId: optionalSessionId(request),
     },
     async () => handleMcpProtocolMethod(buildProtocolInput(parsed, requestId, auth, deps, env)),
   );
@@ -161,7 +195,7 @@ async function dispatchMcpRequest(
     const challenge = challengeHeadersForError(handled.error.code, resource);
     return jsonRpcErrorResponse(requestId, handled.error, challenge ? { headers: challenge } : undefined);
   }
-  return respondWithJsonRpc(handled.response, request.headers.get("accept"), optionalSessionHeader(request));
+  return respondWithJsonRpc(handled.response, request.headers.get("accept"));
 }
 
 function buildProtocolInput(
@@ -183,7 +217,7 @@ function buildProtocolInput(
     protocolInput.toolDeps = {
       api: apiBinding,
       upload: uploadBinding,
-      bearerToken: auth.bearerToken,
+      tokenSub: auth.tokenSub,
       jsonRpcId: requestId,
     };
   }
@@ -191,21 +225,33 @@ function buildProtocolInput(
 }
 
 function bearerVerifierForEnv(env: McpTransportEnv): VerifyMcpBearer {
-  const { API: _api, ...workOsEnv } = env;
-  if (env.WORKOS_API_KEY && (env.WORKOS_MCP_JWKS_URL ?? env.WORKOS_CLI_JWKS_URL)) {
+  const { API: _api, UPLOAD: _upload, MCP_IP_RATE_LIMIT: _rateLimit, ...workOsEnv } = env;
+  if (env.WORKOS_API_KEY && env.WORKOS_MCP_ISSUER && env.WORKOS_MCP_JWKS_URL) {
     return createWorkOsMcpBearerAuth(workOsEnv);
   }
   return createUnconfiguredMcpBearerAuth();
 }
 
-function optionalSessionHeader(request: Request): HeadersInit | undefined {
-  const sessionId = optionalSessionId(request);
-  if (!sessionId) {
-    return undefined;
+async function enforceMcpIpRateLimit(
+  request: Request,
+  env: McpTransportEnv,
+  deps: McpTransportDeps,
+): Promise<Response | null> {
+  const binding = deps.ipRateLimit ?? env.MCP_IP_RATE_LIMIT;
+  if (!binding) {
+    return deps.verifyBearer ? null : unavailableMcpResponse("mcp_rate_limit_unavailable");
   }
-  return { "mcp-session-id": sessionId };
-}
-
-function optionalSessionId(request: Request): string | null {
-  return request.headers.get("mcp-session-id");
+  try {
+    const clientIp = request.headers.get("cf-connecting-ip")?.trim() || "unattributed";
+    const result = await binding.limit({ key: `mcp:${clientIp}` });
+    return result.success
+      ? null
+      : jsonRpcErrorResponse(
+          undefined,
+          mapApiErrorToMcp({ code: "rate_limited_actor", message: "rate_limited_actor" }),
+          { headers: { "retry-after": "60" } },
+        );
+  } catch {
+    return unavailableMcpResponse("mcp_rate_limit_unavailable");
+  }
 }

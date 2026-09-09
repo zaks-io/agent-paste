@@ -10,10 +10,19 @@
 | `upload`  | Resumable upload ingress into private R2.                                              | Public Artifact URLs.                          |
 | `content` | Capability-host resolution, token verification, byte decryption, content headers.      | User sessions or metadata mutation.            |
 | `jobs`    | Asynchronous lifecycle and cleanup work.                                               | Interactive request handling.                  |
+| `mcp`     | OAuth verification, MCP transport validation, tool dispatch, and private RPC calls.    | Public API bearer delegation or durable state. |
 
 `stream` remains deployable only for migration history. No shipped route or
 publish flow calls it. Preview and production expose its health check only;
 historical Live Updates routes are enabled solely by the local migration harness.
+
+The `mcp` Worker is the only runtime that accepts an MCP OAuth bearer. It validates
+the token and passes only the verified WorkOS subject plus an allowlisted Route ID
+to named `McpApiEntrypoint` or `McpUploadEntrypoint` RPC methods. The downstream
+Workers reject MCP bearers on their public HTTP routes, validate that the method
+and path match the Route Contract, resolve the subject to a Workspace Member, and
+apply the normal scope and rate-limit guards. `Authorization` never crosses the
+service binding.
 
 ## Publish flow
 

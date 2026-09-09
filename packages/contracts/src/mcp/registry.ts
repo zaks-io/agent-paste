@@ -6,7 +6,7 @@ const { publishChain: publishChainErrors, read: readErrors } = mcpToolErrorGroup
 const publishChainBaseForwardedCalls = [
   {
     routeId: "uploadSessions.create",
-    auth: "mcp_bearer",
+    auth: "mcp_principal",
     idempotencyKey: "same_as_tool",
   },
   {
@@ -15,12 +15,12 @@ const publishChainBaseForwardedCalls = [
   },
   {
     routeId: "uploadSessions.finalize",
-    auth: "mcp_bearer",
+    auth: "mcp_principal",
     idempotencyKey: "same_as_tool",
   },
   {
     routeId: "revisions.publish",
-    auth: "mcp_bearer",
+    auth: "mcp_principal",
     idempotencyKey: "same_as_tool",
   },
 ] as const satisfies readonly McpForwardedCall[];
@@ -65,11 +65,11 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "agentView.getLatest",
-        auth: "mcp_bearer",
+        auth: "mcp_principal",
       },
       {
         routeId: "artifacts.fileContent",
-        auth: "mcp_bearer",
+        auth: "mcp_principal",
       },
       ...publishChainBaseForwardedCalls,
     ],
@@ -86,7 +86,7 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "artifacts.list",
-        auth: "mcp_bearer",
+        auth: "mcp_principal",
       },
     ],
     errors: readErrors,
@@ -103,7 +103,7 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "agentView.getLatest",
-        auth: "mcp_bearer",
+        auth: "mcp_principal",
       },
     ],
     errors: readErrors,
@@ -120,7 +120,7 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "artifacts.fileContent",
-        auth: "mcp_bearer",
+        auth: "mcp_principal",
       },
     ],
     // read group + storage_unavailable: reading a file decrypts a blob, which the
@@ -141,7 +141,7 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "revisions.list",
-        auth: "mcp_bearer",
+        auth: "mcp_principal",
       },
     ],
     errors: readErrors,
@@ -157,7 +157,7 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "artifacts.delete",
-        auth: "mcp_bearer",
+        auth: "mcp_principal",
       },
     ],
     errors: ["forbidden", "not_found", "artifact_not_found", "database_unavailable"] as const,
@@ -173,7 +173,7 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "artifacts.updateDisplayMetadata",
-        auth: "mcp_bearer",
+        auth: "mcp_principal",
       },
     ],
     errors: ["forbidden", "invalid_request", "not_found", "artifact_not_found", "database_unavailable"] as const,
@@ -189,7 +189,7 @@ export const mcpToolContracts = [
     forwardedCalls: [
       {
         routeId: "mcp.whoami",
-        auth: "mcp_bearer",
+        auth: "mcp_principal",
       },
     ],
     errors: ["database_unavailable"] as const,

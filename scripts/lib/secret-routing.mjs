@@ -35,7 +35,7 @@ export const SECRET_ROUTING = {
     API_KEY_PEPPER_V2: { required: false }, // rotation overlap window (ADR 0045)
     AGENT_AUTH_ASSERTION_SIGNING_SECRET: { required: false }, // service-signed WorkOS auth.md identity_assertion JWTs
     SMOKE_HARNESS_SECRET: { required: false, envs: "preview" }, // non-production only
-    WORKOS_API_KEY: { required: true, source: "workos" }, // MCP bearer verification (mcpVerifyOptions) returns null without it
+    WORKOS_API_KEY: { required: true, source: "workos" }, // Dashboard and agent OAuth identity verification.
     CF_ACCESS_AUD: { required: false, envs: "production", source: "workos" },
     // Stripe billing (ADR 0073/0074). All optional: billing is off-by-default
     // behind BILLING_ENABLED, so a deploy without Stripe configured must succeed
@@ -52,7 +52,6 @@ export const SECRET_ROUTING = {
     API_KEY_PEPPER_V1: { required: true },
     API_KEY_PEPPER_V2: { required: false },
     ARTIFACT_BYTES_ENCRYPTION_KEY: { required: true },
-    WORKOS_API_KEY: { required: true, source: "workos" }, // MCP bearer verification on forwarded upload-session calls
     SENTRY_DSN: { required: false, source: "sentry" }, // Optional backend monitoring; enabled only when configured.
   },
   content: {
@@ -87,6 +86,10 @@ export const FORBIDDEN_SECRET_ROUTING = {
   production: {
     api: ["SMOKE_HARNESS_SECRET"],
     jobs: ["SMOKE_HARNESS_SECRET"],
+    upload: ["WORKOS_API_KEY"],
+  },
+  preview: {
+    upload: ["WORKOS_API_KEY"],
   },
 };
 

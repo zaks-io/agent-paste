@@ -11,7 +11,7 @@ Responsibilities:
 - OAuth protected resource metadata.
 - OAuth authorization-server metadata facade for compatibility clients.
 - WorkOS JWT bearer verification.
-- Forwarding to `api` and `upload` over service bindings.
+- Forwarding to allowlisted `api` and `upload` named RPC entrypoints.
 - Text-only MCP tool surface (ten tools).
 
 Contracts: [ADR 0061](../../docs/adr/0061-mcp-worker-with-oauth-only-via-auth0-dcr.md) and [`packages/contracts/src/mcp/registry.ts`](../../packages/contracts/src/mcp/registry.ts).
@@ -29,9 +29,10 @@ Current endpoints:
 - `GET /.well-known/openid-configuration`
 - `GET /openapi.json`
 
-Transport auth is OAuth-bearer only via WorkOS JWT verification. Authenticated
-tool calls forward to `api` and `upload` over service bindings with the same
-bearer. The current ten-tool surface is defined in
+Transport auth is OAuth-bearer only via WorkOS JWT verification. The bearer
+terminates at this Worker. Tool calls pass only the verified WorkOS subject to
+allowlisted named RPC entrypoints on `api` and `upload`; their public HTTP routes
+reject MCP bearers. The current ten-tool surface is defined in
 `packages/contracts/src/mcp/registry.ts` and implemented in `src/tools.ts` with
 schema validation, scope checks, and API error mapping.
 

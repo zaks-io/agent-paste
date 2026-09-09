@@ -1,5 +1,5 @@
 import { getRequestId, type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
-import { buildApiOpenApiDocument } from "@agent-paste/contracts";
+import { buildApiOpenApiDocument, type RouteId } from "@agent-paste/contracts";
 import { type Repository, repositoryErrorToAppError, type SqlExecutor } from "@agent-paste/db";
 import {
   type BoundRespondersVariables,
@@ -7,8 +7,10 @@ import {
   captureWorkerError,
   createRegistrar,
   getBoundResponders,
+  isAllowedMcpServiceRequest,
   securityHeadersMiddleware,
   sentryOptions,
+  withInternalMcpSubject,
 } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { Hono } from "hono";
@@ -329,3 +331,27 @@ export async function handleRequest(request: Request, env: Env, executionCtx?: E
 }
 
 export { WorkspaceWriteAllowance } from "@agent-paste/write-allowance";
+
+const MCP_API_ROUTE_IDS = new Set<RouteId>([
+  "mcp.whoami",
+  "artifacts.list",
+  "agentView.getLatest",
+  "artifacts.fileContent",
+  "revisions.list",
+  "artifacts.delete",
+  "artifacts.updateDisplayMetadata",
+  "revisions.publish",
+]);
+
+export async function handleMcpApiRequest(
+  request: Request,
+  env: Env,
+  subject: string,
+  routeId: RouteId,
+  executionCtx?: ExecutionContext,
+): Promise<Response> {
+  if (!isAllowedMcpServiceRequest(request, routeId, "api", MCP_API_ROUTE_IDS)) {
+    return Response.json({ error: { code: "not_found", message: "not_found" } }, { status: 404 });
+  }
+  return handleRequest(request, withInternalMcpSubject(env, subject), executionCtx);
+}

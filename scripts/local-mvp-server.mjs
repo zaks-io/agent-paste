@@ -1,12 +1,13 @@
 #!/usr/bin/env node
+import { randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
-import apiWorker, { createMemoryEphemeralProvisionGateNamespace } from "../apps/api/dist/index.js";
+import apiWorker, { createMemoryEphemeralProvisionGateNamespace, handleMcpApiRequest } from "../apps/api/dist/index.js";
 import contentWorker from "../apps/content/dist/index.js";
 import jobsWorker from "../apps/jobs/dist/index.js";
 import streamWorker from "../apps/stream/dist/index.js";
 import { createMemoryArtifactLiveNamespace } from "../apps/stream/dist/memory-artifact-live.js";
-import uploadWorker from "../apps/upload/dist/index.js";
+import uploadWorker, { handleMcpUploadRequest } from "../apps/upload/dist/index.js";
 import {
   createLocalServices,
   createPostgresServices,
@@ -16,6 +17,7 @@ import {
 import { encryptArtifactBytes } from "../packages/storage/dist/index.js";
 import { createMemoryWriteAllowanceNamespace } from "../packages/write-allowance/dist/index.js";
 import { loadEnvFiles } from "./lib/load-env-files.mjs";
+import { createLocalMcpRpcWorker } from "./lib/local-mcp-rpc.mjs";
 import { LOCAL_SERVER_PORT_ENV, listenHttpPort } from "./lib/smoke-port.mjs";
 import { loadWranglerEnvVars } from "./lib/wrangler-env-vars.mjs";
 import { createJobsEnv } from "./local-jobs-bridge.mjs";
@@ -28,15 +30,7 @@ loadEnvFiles([".env", ".env.local", "apps/web/.dev.vars", "apps/api/.dev.vars"],
 loadWranglerEnvVars("apps/api/wrangler.jsonc", {
   cwd: repoRoot,
   envName: process.env.AGENT_PASTE_LOCAL_WORKOS_ENV ?? process.env.CLOUDFLARE_ENV ?? "production",
-  keys: [
-    "WORKOS_ISSUER",
-    "WORKOS_CLI_AUDIENCE",
-    "WORKOS_CLI_ISSUER",
-    "WORKOS_CLI_JWKS_URL",
-    "WORKOS_MCP_AUDIENCE",
-    "WORKOS_MCP_ISSUER",
-    "WORKOS_MCP_JWKS_URL",
-  ],
+  keys: ["WORKOS_ISSUER", "WORKOS_CLI_AUDIENCE", "WORKOS_CLI_ISSUER", "WORKOS_CLI_JWKS_URL"],
 });
 
 const apiPort = intEnv("AGENT_PASTE_LOCAL_API_PORT", 8787);
@@ -45,6 +39,7 @@ const contentPort = intEnv("AGENT_PASTE_LOCAL_CONTENT_PORT", 8789);
 const jobsPort = intEnv("AGENT_PASTE_LOCAL_JOBS_PORT", 8790);
 const streamPort = intEnv("AGENT_PASTE_LOCAL_STREAM_PORT", 8791);
 const smokeHarnessSecret = smokeHarnessSecretFromEnv();
+const localMcpRpcSecret = process.env.AGENT_PASTE_LOCAL_MCP_RPC_SECRET ?? randomBytes(32).toString("base64url");
 const streamInternalSecret = process.env.STREAM_INTERNAL_SECRET ?? "local-stream-internal-secret";
 const apiKeyPepper = process.env.AGENT_PASTE_API_KEY_PEPPER ?? "local-dev-pepper";
 const uploadSecret = process.env.AGENT_PASTE_UPLOAD_SIGNING_SECRET ?? "local-upload-secret";
@@ -345,9 +340,6 @@ const apiEnv = {
   WORKOS_API_BASE_URL: process.env.WORKOS_API_BASE_URL,
   WORKOS_ISSUER: process.env.WORKOS_ISSUER,
   WORKOS_JWKS_URL: process.env.WORKOS_JWKS_URL,
-  WORKOS_MCP_AUDIENCE: process.env.WORKOS_MCP_AUDIENCE ?? "https://mcp.agent-paste.sh/",
-  WORKOS_MCP_ISSUER: process.env.WORKOS_MCP_ISSUER,
-  WORKOS_MCP_JWKS_URL: process.env.WORKOS_MCP_JWKS_URL,
 };
 const artifactLive = createMemoryArtifactLiveNamespace({
   api: {
@@ -383,13 +375,6 @@ const uploadEnv = {
   UPLOAD_URL_TTL_SECONDS: "900",
   ACTOR_RATE_LIMIT: alwaysAllowRateLimit,
   WORKSPACE_BURST_CAP: alwaysAllowRateLimit,
-  WORKOS_API_KEY: process.env.WORKOS_API_KEY,
-  WORKOS_API_BASE_URL: process.env.WORKOS_API_BASE_URL,
-  WORKOS_MCP_AUDIENCE: process.env.WORKOS_MCP_AUDIENCE ?? "https://mcp.agent-paste.sh/",
-  WORKOS_MCP_ISSUER: process.env.WORKOS_MCP_ISSUER,
-  WORKOS_MCP_JWKS_URL: process.env.WORKOS_MCP_JWKS_URL,
-  WORKOS_CLI_ISSUER: process.env.WORKOS_CLI_ISSUER,
-  WORKOS_CLI_JWKS_URL: process.env.WORKOS_CLI_JWKS_URL,
 };
 const contentEnv = {
   ARTIFACTS: artifacts,
@@ -415,8 +400,12 @@ if (!postgresBinding) {
 }
 
 const serverDefs = [
-  { name: "api", worker: apiWorker, env: apiEnv },
-  { name: "upload", worker: uploadWorker, env: uploadEnv },
+  { name: "api", worker: createLocalMcpRpcWorker(apiWorker, handleMcpApiRequest, localMcpRpcSecret), env: apiEnv },
+  {
+    name: "upload",
+    worker: createLocalMcpRpcWorker(uploadWorker, handleMcpUploadRequest, localMcpRpcSecret),
+    env: uploadEnv,
+  },
   { name: "content", worker: contentWorker, env: contentEnv },
   { name: "jobs", worker: jobsWorker, env: jobsEnv },
   { name: "stream", worker: streamWorker, env: streamEnv },

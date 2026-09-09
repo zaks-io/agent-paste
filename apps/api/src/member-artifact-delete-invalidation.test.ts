@@ -1,10 +1,9 @@
-import * as mcpAuth from "@agent-paste/auth";
 import { DeleteArtifactResponse } from "@agent-paste/contracts";
 import { LocalRepository } from "@agent-paste/db";
 import { mintContentUrl } from "@agent-paste/tokens/content";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import contentWorker from "../../content/src/index.js";
-import { type Env, handleRequest } from "./index.js";
+import { type Env, handleMcpApiRequest } from "./index.js";
 
 const artifactBytesEncryptionEnv = {
   ARTIFACT_BYTES_ENCRYPTION_KEY: "test-artifact-bytes-encryption-key",
@@ -98,22 +97,10 @@ describe("member MCP artifact delete invalidation", () => {
   it("denies a minted Revision Content URL after member delete writes the artifact denylist", async () => {
     const repo = new LocalRepository({ apiKeyPepper: "pepper" });
     const denylist = new MemoryKv();
-    const { member, artifactId, revisionId, revisionContentUrl } = await memberWithPublishedArtifact(repo);
-
-    vi.spyOn(mcpAuth, "authenticateMcpBearer").mockResolvedValue({
-      identity: {
-        workos_user_id: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
-        email: "mcp-member@example.com",
-        auth_surface: "mcp",
-      },
-      actor: member,
-    });
-    vi.spyOn(mcpAuth, "resolveMcpMemberActor").mockResolvedValue(member);
+    const { artifactId, revisionId, revisionContentUrl } = await memberWithPublishedArtifact(repo);
 
     const purgeSend = vi.fn(async () => ({}));
     const env: Env = {
-      WORKOS_API_KEY: "sk_test",
-      WORKOS_MCP_AUDIENCE: "https://mcp.agent-paste.sh/",
       DB: repo,
       DENYLIST: denylist,
       ...allowRateLimits(),
@@ -123,12 +110,14 @@ describe("member MCP artifact delete invalidation", () => {
       CONTENT_BASE_URL: "http://content.local",
     };
 
-    const deleteResponse = await handleRequest(
+    const deleteResponse = await handleMcpApiRequest(
       new Request(`https://api.test/v1/artifacts/${artifactId}`, {
         method: "DELETE",
-        headers: { authorization: "Bearer mcp-token", "idempotency-key": "member-delete-1" },
+        headers: { "idempotency-key": "member-delete-1" },
       }),
       env,
+      "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      "artifacts.delete",
     );
     expect(deleteResponse.status).toBe(200);
     const deleteJson = await deleteResponse.json();
@@ -154,12 +143,14 @@ describe("member MCP artifact delete invalidation", () => {
     });
     expect(afterDelete.status).toBe(404);
 
-    const replayResponse = await handleRequest(
+    const replayResponse = await handleMcpApiRequest(
       new Request(`https://api.test/v1/artifacts/${artifactId}`, {
         method: "DELETE",
-        headers: { authorization: "Bearer mcp-token", "idempotency-key": "member-delete-1" },
+        headers: { "idempotency-key": "member-delete-1" },
       }),
       env,
+      "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
+      "artifacts.delete",
     );
     expect(replayResponse.status).toBe(200);
     expect(purgeSend).toHaveBeenCalledTimes(2);

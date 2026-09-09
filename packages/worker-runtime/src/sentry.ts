@@ -34,7 +34,7 @@ export function sentryOptions(env: SentryEnv): CloudflareOptions {
     },
     enabled,
     enableLogs: enabled,
-    // Service bindings (env.API.fetch) are not global fetch, so the SDK's fetch
+    // Service bindings and named RPC entrypoints are not global fetch, so the SDK's fetch
     // instrumentation never sees them. This opts the binding proxy in so a call
     // from web/mcp/stream into api carries sentry-trace/baggage and stays one trace.
     enableRpcTracePropagation: true,

@@ -171,17 +171,18 @@ describe("mcp Sentry options", () => {
     expect(mcpSentryOptions({})).not.toHaveProperty("tracesSampleRate");
   });
 
-  it("enables tracing for MCP monitoring when a DSN is configured", () => {
+  it("uses the configured MCP trace sample rate when a DSN is configured", () => {
     expect(
       mcpSentryOptions({
         SENTRY_DSN: " https://examplePublicKey@example.ingest.sentry.io/1 ",
         AGENT_PASTE_ENV: "preview",
+        SENTRY_TRACES_SAMPLE_RATE: "0.1",
       }),
     ).toMatchObject({
       dsn: "https://examplePublicKey@example.ingest.sentry.io/1",
       enabled: true,
       environment: "preview",
-      tracesSampleRate: 1.0,
+      tracesSampleRate: 0.1,
       dataCollection: {
         userInfo: false,
         httpBodies: [],

@@ -1,106 +1,34 @@
-import { MCP_RESOURCE_INDICATOR, trimTrailingSlashes } from "@agent-paste/contracts";
-import { createRemoteJWKSet, type JWTPayload, jwtVerify } from "jose";
+import {
+  audienceMatchesMcpResource,
+  type McpAuthEnv,
+  mcpVerifyOptions,
+  verifyWorkOsAccessToken,
+} from "@agent-paste/auth";
+import { MCP_RESOURCE_INDICATOR } from "@agent-paste/contracts";
 
-export type McpWorkOsEnv = {
-  WORKOS_API_KEY?: string;
-  WORKOS_API_BASE_URL?: string;
+export type McpWorkOsEnv = McpAuthEnv & {
   MCP_RESOURCE?: string;
-  WORKOS_MCP_AUDIENCE?: string;
-  WORKOS_MCP_ISSUER?: string;
-  WORKOS_MCP_JWKS_URL?: string;
-  WORKOS_CLI_ISSUER?: string;
-  WORKOS_CLI_JWKS_URL?: string;
 };
 
-const WORKOS_JWKS_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
-const remoteJwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
-
-// MCP clients append the resource URL with or without a trailing slash, and
-// AuthKit stamps aud from the requested resource verbatim, so compare normalized.
-function normalizeResource(value: string): string {
-  return trimTrailingSlashes(value);
-}
-
-function audienceMatches(aud: unknown, resource: string): boolean {
-  const expected = normalizeResource(resource);
-  if (typeof aud === "string") {
-    return normalizeResource(aud) === expected;
-  }
-  if (Array.isArray(aud)) {
-    return aud.some((entry) => typeof entry === "string" && normalizeResource(entry) === expected);
-  }
-  return false;
-}
-
-function issuerMatches(actual: string | undefined, expected: readonly string[] | undefined): boolean {
-  if (!actual || !expected || expected.length === 0) {
-    return false;
-  }
-  const normalized = trimTrailingSlashes(actual);
-  return expected.some((issuer) => trimTrailingSlashes(issuer) === normalized);
-}
-
-function remoteJwks(env: McpWorkOsEnv): ReturnType<typeof createRemoteJWKSet> | null {
-  const jwksUrl = env.WORKOS_MCP_JWKS_URL ?? env.WORKOS_CLI_JWKS_URL;
-  const apiKey = env.WORKOS_API_KEY;
-  if (!jwksUrl || !apiKey) {
-    return null;
-  }
-  const authorization = `Bearer ${apiKey}`;
-  const cacheKey = `${jwksUrl}:${authorization}`;
-  const cached = remoteJwksCache.get(cacheKey);
-  if (cached) {
-    return cached;
-  }
-  const remote = createRemoteJWKSet(new URL(jwksUrl), {
-    cacheMaxAge: WORKOS_JWKS_CACHE_MAX_AGE_MS,
-    headers: { authorization },
-  });
-  remoteJwksCache.set(cacheKey, remote);
-  return remote;
-}
-
-function issuers(env: McpWorkOsEnv): string[] {
-  if (env.WORKOS_MCP_ISSUER) {
-    return [env.WORKOS_MCP_ISSUER];
-  }
-  if (env.WORKOS_CLI_ISSUER) {
-    return [env.WORKOS_CLI_ISSUER];
-  }
-  return [];
-}
-
 export async function verifyMcpOAuthToken(token: string, env: McpWorkOsEnv): Promise<{ tokenSub: string } | null> {
-  if (!env.WORKOS_API_KEY) {
-    return null;
-  }
-  const jwks = remoteJwks(env);
-  if (!jwks) {
-    return null;
-  }
   const resource = env.WORKOS_MCP_AUDIENCE ?? env.MCP_RESOURCE ?? MCP_RESOURCE_INDICATOR;
-  try {
-    const { payload } = await jwtVerify(token, jwks, { algorithms: ["RS256"] });
-    if (!payload.sub || typeof payload.exp !== "number") {
-      return null;
-    }
-    if (!issuerMatches(payload.iss, issuers(env))) {
-      return null;
-    }
-    if (!audienceMatches(payload.aud, resource)) {
-      return null;
-    }
-    return { tokenSub: payload.sub };
-  } catch {
+  const options = mcpVerifyOptions({ ...env, WORKOS_MCP_AUDIENCE: resource });
+  if (!options) {
     return null;
   }
+  options.throwOnUnavailable = true;
+  const verified = await verifyWorkOsAccessToken(token, options);
+  if (!verified || !audienceMatchesMcpResource(verified.payload.aud, resource)) {
+    return null;
+  }
+  return { tokenSub: verified.sub };
 }
 
 export function isConfiguredMcpOAuthVerifier(env: McpWorkOsEnv): boolean {
-  return Boolean(env.WORKOS_API_KEY && (env.WORKOS_MCP_JWKS_URL ?? env.WORKOS_CLI_JWKS_URL));
+  return Boolean(env.WORKOS_API_KEY && env.WORKOS_MCP_ISSUER && env.WORKOS_MCP_JWKS_URL);
 }
 
 /** @internal test helper */
-export function audienceFromPayload(payload: JWTPayload, resource: string): boolean {
-  return audienceMatches(payload.aud, resource);
+export function audienceFromPayload(payload: { aud?: unknown }, resource: string): boolean {
+  return audienceMatchesMcpResource(payload.aud, resource);
 }

@@ -4,7 +4,7 @@ import type { ApiServiceBinding, UploadServiceBinding } from "./forward.js";
 export type McpToolDeps = {
   api: ApiServiceBinding;
   upload: UploadServiceBinding;
-  bearerToken: string;
+  tokenSub: string;
   jsonRpcId: string | number;
 };
 

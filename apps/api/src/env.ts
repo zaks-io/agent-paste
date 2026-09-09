@@ -106,9 +106,6 @@ export type Env = {
   WORKOS_CLI_AUDIENCE?: string;
   WORKOS_CLI_JWKS_URL?: string;
   WORKOS_CLI_ISSUER?: string;
-  WORKOS_MCP_AUDIENCE?: string;
-  WORKOS_MCP_JWKS_URL?: string;
-  WORKOS_MCP_ISSUER?: string;
   AGENT_AUTH_ASSERTION_SIGNING_SECRET?: string;
   AGENT_AUTH_TRUSTED_PROVIDERS_JSON?: string;
   AGENT_AUTH_ISSUER?: string;

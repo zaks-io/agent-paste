@@ -1,7 +1,7 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "agent-paste-upload",
-  "main": "src/index.ts",
+  "main": "src/worker.ts",
   "compatibility_date": "2026-05-21",
   "compatibility_flags": ["nodejs_compat"],
   "placement": {
@@ -28,8 +28,7 @@
     "CONTENT_BASE_URL": "http://127.0.0.1:8789",
     "UPLOAD_BASE_URL": "http://127.0.0.1:8788",
     "UPLOAD_URL_TTL_SECONDS": "900",
-    "DOCS_BASE_URL": "",
-    "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh/"
+    "DOCS_BASE_URL": ""
   },
   "r2_buckets": [
     {
@@ -65,8 +64,7 @@
           "API_KEY_PEPPER_V1",
           "ARTIFACT_BYTES_ENCRYPTION_KEY",
           "CONTENT_SIGNING_SECRET",
-          "UPLOAD_SIGNING_SECRET",
-          "WORKOS_API_KEY"
+          "UPLOAD_SIGNING_SECRET"
         ]
       },
       "workers_dev": true,
@@ -83,12 +81,7 @@
         "CONTENT_BASE_URL": "https://usercontent.preview.agent-paste.link",
         "UPLOAD_BASE_URL": "https://agent-paste-upload-preview.isaac-a46.workers.dev",
         "UPLOAD_URL_TTL_SECONDS": "900",
-        "DOCS_BASE_URL": "",
-        "WORKOS_MCP_AUDIENCE": "https://mcp.preview.agent-paste.sh/",
-        "WORKOS_MCP_JWKS_URL": "https://courageous-milestone-75-staging.authkit.app/oauth2/jwks",
-        "WORKOS_MCP_ISSUER": "https://courageous-milestone-75-staging.authkit.app",
-        "WORKOS_CLI_JWKS_URL": "https://courageous-milestone-75-staging.authkit.app/oauth2/jwks",
-        "WORKOS_CLI_ISSUER": "https://courageous-milestone-75-staging.authkit.app"
+        "DOCS_BASE_URL": ""
       },
       "hyperdrive": [
         {
@@ -128,8 +121,7 @@
           "API_KEY_PEPPER_V1",
           "ARTIFACT_BYTES_ENCRYPTION_KEY",
           "CONTENT_SIGNING_SECRET",
-          "UPLOAD_SIGNING_SECRET",
-          "WORKOS_API_KEY"
+          "UPLOAD_SIGNING_SECRET"
         ]
       },
       "workers_dev": false,
@@ -146,12 +138,7 @@
         "CONTENT_BASE_URL": "https://usercontent.agent-paste.link",
         "UPLOAD_BASE_URL": "https://upload.agent-paste.sh",
         "UPLOAD_URL_TTL_SECONDS": "900",
-        "DOCS_BASE_URL": "",
-        "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh/",
-        "WORKOS_MCP_JWKS_URL": "https://soulful-path-50.authkit.app/oauth2/jwks",
-        "WORKOS_MCP_ISSUER": "https://soulful-path-50.authkit.app",
-        "WORKOS_CLI_JWKS_URL": "https://soulful-path-50.authkit.app/oauth2/jwks",
-        "WORKOS_CLI_ISSUER": "https://soulful-path-50.authkit.app"
+        "DOCS_BASE_URL": ""
       },
       "hyperdrive": [
         {

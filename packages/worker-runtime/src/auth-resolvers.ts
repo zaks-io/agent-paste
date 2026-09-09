@@ -1,13 +1,8 @@
-import {
-  authenticateMcpBearer,
-  type McpAuthEnv,
-  resolveMcpMemberActor,
-  WorkOsVerificationUnavailableError,
-} from "@agent-paste/auth";
 import type { ApiKeyActor, Repository } from "@agent-paste/db";
+import { getInternalMcpSubject } from "./mcp-service-auth.js";
 import type { AuthResolver } from "./registrar.js";
 
-export function createMcpOAuthResolver<TEnv extends McpAuthEnv>(options: {
+export function createMcpOAuthResolver<TEnv extends object>(options: {
   resolveDatabase: (env: TEnv) => Repository | undefined;
 }): AuthResolver {
   return async (context) => {
@@ -16,7 +11,7 @@ export function createMcpOAuthResolver<TEnv extends McpAuthEnv>(options: {
   };
 }
 
-export function createApiKeyOrMcpOAuthResolver<TEnv extends McpAuthEnv>(options: {
+export function createApiKeyOrMcpOAuthResolver<TEnv extends object>(options: {
   authenticateApiKey: (request: Request, env: TEnv) => Promise<ApiKeyActor | null>;
   resolveDatabase: (env: TEnv) => Repository | undefined;
 }): AuthResolver {
@@ -31,34 +26,30 @@ export function createApiKeyOrMcpOAuthResolver<TEnv extends McpAuthEnv>(options:
 }
 
 async function resolveMcpPrincipal(
-  request: Request,
-  env: McpAuthEnv,
+  _request: Request,
+  env: object,
   db: Repository | undefined,
 ): Promise<Awaited<ReturnType<AuthResolver>>> {
-  let authenticated: Awaited<ReturnType<typeof authenticateMcpBearer>>;
-  try {
-    authenticated = await authenticateMcpBearer(request, env);
-  } catch (error) {
-    if (error instanceof WorkOsVerificationUnavailableError) {
-      return { ok: false, code: "database_unavailable" } as const;
-    }
-    throw error;
-  }
-  if (!authenticated) {
+  const workOsUserId = getInternalMcpSubject(env);
+  if (!workOsUserId) {
     return { ok: false, code: "not_authenticated" } as const;
   }
   if (!db) {
     return { ok: false, code: "database_unavailable" } as const;
   }
-  const actor = await resolveMcpMemberActor(authenticated, db);
-  if (!actor) {
+  const actor = await db.getWebMemberByWorkOsUserId({ workosUserId: workOsUserId });
+  if (!actor || actor.type !== "member") {
     return { ok: false, code: "forbidden" } as const;
   }
   return {
     ok: true,
     principal: {
       kind: "workos_access_token",
-      identity: authenticated.identity,
+      identity: {
+        workos_user_id: workOsUserId,
+        email: actor.email,
+        auth_surface: "mcp",
+      },
       actor,
     },
   } as const;

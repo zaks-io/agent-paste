@@ -42,8 +42,8 @@ plaintext and its `sha256`, then diff against it.
    - **Oversize files skip the R2 read entirely.** If `size_bytes > 10 MiB` the
      route returns metadata with no body WITHOUT reading or decrypting R2, so a
      single request never buffers a multi-megabyte decrypt (honoring the ADR 0063
-     no-buffering intent on the decrypt path). The inline cap reuses the existing
-     10 MiB MCP text-body limit — no new magic number.
+     no-buffering intent on the decrypt path). This 10 MiB inline response cap is
+     independent from the smaller MCP tool-input limit.
    - Infra failures (missing ring/R2, decrypt/metadata error) map to
      `storage_unavailable` (503), never `not_found` — a transient blob miss must
      not look like a deleted file.

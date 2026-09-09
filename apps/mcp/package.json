@@ -21,17 +21,18 @@
     "typegen": "wrangler types src/worker-configuration.d.ts --config wrangler.jsonc --env preview"
   },
   "devDependencies": {
+    "jose": "^6.2.3",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "wrangler": "^4.93.1"
   },
   "dependencies": {
     "@agent-paste/api-client": "workspace:*",
+    "@agent-paste/auth": "workspace:*",
     "@agent-paste/contracts": "workspace:*",
     "@agent-paste/revise-core": "workspace:*",
     "@agent-paste/worker-runtime": "workspace:*",
     "@sentry/cloudflare": "^10.57.0",
-    "hono": "^4.12.34",
-    "jose": "^6.2.3"
+    "hono": "^4.12.34"
   }
 }

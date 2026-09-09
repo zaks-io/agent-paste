@@ -3,7 +3,7 @@
 /** Local MCP smoke harness: WorkOS stub, in-process MCP worker, and smoke-step helpers. */
 
 import { spawn } from "node:child_process";
-import { createSign, generateKeyPairSync } from "node:crypto";
+import { createSign, generateKeyPairSync, randomBytes } from "node:crypto";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { setTimeout as delay } from "node:timers/promises";
@@ -22,6 +22,7 @@ import {
   mcpToolsList,
   waitForMcpHealth,
 } from "../smoke-mcp-harness.mjs";
+import { addLocalMcpRpcHeaders } from "./local-mcp-rpc.mjs";
 import { listenHttpPort, waitForHarnessHealth } from "./smoke-port.mjs";
 
 const LOCAL_MCP_SMOKE_MEMBER = "user_local_mcp_smoke";
@@ -92,22 +93,39 @@ export function createLocalMcpWorkOsStub(workosBaseUrl, workosApiKey, workosClie
   };
 }
 
-export function buildLocalMcpWorkerEnv({ apiBaseUrl, uploadBaseUrl, workosEnv }) {
+export function buildLocalMcpWorkerEnv({ apiBaseUrl, uploadBaseUrl, workosEnv, localMcpRpcSecret }) {
   return {
     MCP_RESOURCE: MCP_RESOURCE_INDICATOR,
     MCP_AUTHORIZATION_SERVER: workosEnv.WORKOS_API_BASE_URL,
     AGENT_PASTE_ENV: "dev",
     ...workosEnv,
+    MCP_IP_RATE_LIMIT: { limit: async () => ({ success: true }) },
     API: {
-      fetch(request) {
+      fetchMcp(request, subject, routeId) {
+        const headers = new Headers(request.headers);
+        addLocalMcpRpcHeaders(headers, { secret: localMcpRpcSecret, subject, routeId });
         const url = rewriteOrigin(request.url, apiBaseUrl);
-        return fetch(new Request(url, request));
+        return fetch(
+          new Request(url, {
+            method: request.method,
+            headers,
+            ...(request.body ? { body: request.body, duplex: "half" } : {}),
+          }),
+        );
       },
     },
     UPLOAD: {
-      fetch(request) {
+      fetchMcp(request, subject, routeId) {
+        const headers = new Headers(request.headers);
+        addLocalMcpRpcHeaders(headers, { secret: localMcpRpcSecret, subject, routeId });
         const url = rewriteOrigin(request.url, uploadBaseUrl);
-        return fetch(new Request(url, request));
+        return fetch(
+          new Request(url, {
+            method: request.method,
+            headers,
+            ...(request.body ? { body: request.body, duplex: "half" } : {}),
+          }),
+        );
       },
     },
   };
@@ -159,7 +177,7 @@ export function createMcpWorkerHttpServer(name, worker, env) {
   });
 }
 
-export function spawnLocalMvpForMcpSmoke({ root, serverEntry, ports, harnessSecret, workosEnv }) {
+export function spawnLocalMvpForMcpSmoke({ root, serverEntry, ports, harnessSecret, workosEnv, localMcpRpcSecret }) {
   const localServer = spawn(process.execPath, [serverEntry], {
     cwd: root,
     env: {
@@ -168,6 +186,7 @@ export function spawnLocalMvpForMcpSmoke({ root, serverEntry, ports, harnessSecr
       AGENT_PASTE_LOCAL_UPLOAD_PORT: String(ports.uploadPort),
       AGENT_PASTE_LOCAL_CONTENT_PORT: String(ports.contentPort),
       SMOKE_HARNESS_SECRET: harnessSecret,
+      AGENT_PASTE_LOCAL_MCP_RPC_SECRET: localMcpRpcSecret,
       ...workosEnv,
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -277,6 +296,7 @@ export async function runLocalMcpSmoke() {
   const harnessSecret = smokeHarnessSecretFromEnv() ?? DEFAULT_LOCAL_SMOKE_HARNESS_SECRET;
   const workosApiKey = "sk_test_local_mcp_smoke";
   const workosClientId = "client_local_mcp_smoke";
+  const localMcpRpcSecret = randomBytes(32).toString("base64url");
 
   const {
     server: workosServer,
@@ -290,11 +310,13 @@ export async function runLocalMcpSmoke() {
     ports,
     harnessSecret,
     workosEnv,
+    localMcpRpcSecret,
   });
   const mcpEnv = buildLocalMcpWorkerEnv({
     apiBaseUrl: ports.apiBaseUrl,
     uploadBaseUrl: ports.uploadBaseUrl,
     workosEnv,
+    localMcpRpcSecret,
   });
   const mcpHttpServer = createMcpWorkerHttpServer("mcp", mcpWorker, mcpEnv);
 

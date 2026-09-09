@@ -2,7 +2,7 @@ import { mcpToolContracts, mcpToolOutputSchemas } from "@agent-paste/contracts";
 import { describe, expect, it, vi } from "vitest";
 import { handleMcpProtocolMethod } from "./protocol.js";
 
-const auth = { tokenSub: "user_01", scopes: ["read"] as const, bearerToken: "token-read" };
+const auth = { tokenSub: "user_01" };
 
 describe("handleMcpProtocolMethod tools/call", () => {
   it("exposes the required publish response fields through every publish tool contract", () => {
@@ -39,15 +39,15 @@ describe("handleMcpProtocolMethod tools/call", () => {
       method: "tools/call",
       params: { name: "whoami", arguments: {} },
       id: 2,
-      auth: { tokenSub: "user_01", scopes: ["read"], bearerToken: "token-read" },
+      auth,
       toolDeps: {
         api: {
-          fetch: vi.fn(async () =>
+          fetchMcp: vi.fn(async () =>
             Response.json({ error: { code: "not_authenticated", message: "not_authenticated" } }, { status: 401 }),
           ),
         },
-        upload: { fetch: vi.fn() },
-        bearerToken: "token-read",
+        upload: { fetchMcp: vi.fn() },
+        tokenSub: "token-read",
       },
     });
     expect(handled.kind).toBe("error");
@@ -72,9 +72,9 @@ describe("handleMcpProtocolMethod tools/call", () => {
       id: 3,
       auth,
       toolDeps: {
-        api: { fetch: vi.fn(async () => Response.json(whoami)) },
-        upload: { fetch: vi.fn() },
-        bearerToken: auth.bearerToken,
+        api: { fetchMcp: vi.fn(async () => Response.json(whoami)) },
+        upload: { fetchMcp: vi.fn() },
+        tokenSub: auth.tokenSub,
       },
     });
     expect(handled.kind).toBe("result");
@@ -102,9 +102,9 @@ describe("handleMcpProtocolMethod tools/call", () => {
       id: 4,
       auth,
       toolDeps: {
-        api: { fetch: vi.fn(async () => Response.json(whoami)) },
-        upload: { fetch: vi.fn() },
-        bearerToken: auth.bearerToken,
+        api: { fetchMcp: vi.fn(async () => Response.json(whoami)) },
+        upload: { fetchMcp: vi.fn() },
+        tokenSub: auth.tokenSub,
       },
     });
     expect(handled.kind).toBe("result");
@@ -117,7 +117,7 @@ describe("handleMcpProtocolMethod protocol errors", () => {
       method: "unknown/method",
       params: undefined,
       id: 10,
-      auth: { tokenSub: "user_01", scopes: ["read"], bearerToken: "token-read" },
+      auth,
     });
     expect(handled).toEqual({
       kind: "error",
@@ -132,7 +132,7 @@ describe("handleMcpProtocolMethod tools/list", () => {
       method: "tools/list",
       params: undefined,
       id: 9,
-      auth: { tokenSub: "user_01", scopes: ["read"], bearerToken: "token-read" },
+      auth,
     });
     expect(handled.kind).toBe("result");
     if (handled.kind === "result") {

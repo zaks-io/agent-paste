@@ -1,17 +1,11 @@
-import { MCP_RESOURCE_INDICATOR } from "@agent-paste/contracts";
-import { exportJWK, generateKeyPair, type JWK, SignJWT } from "jose";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Env, handleRequest, type UploadSessionRecord } from "./index.js";
+import { describe, expect, it } from "vitest";
+import { type Env, handleMcpUploadRequest, handleRequest, type UploadSessionRecord } from "./index.js";
 
 const mcpSubject = "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ";
-const mcpJwksUrl = "https://tenant.authkit.app/oauth2/jwks";
-const mcpIssuer = "https://tenant.authkit.app";
 const workspaceId = "00000000-0000-4000-8000-000000000001";
 const sessionId = "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
-let mcpKeyPairPromise: ReturnType<typeof generateKeyPair> | undefined;
-
 const memberActor = {
   type: "member" as const,
   id: "mem_mcp",
@@ -27,7 +21,7 @@ function allowRateLimits(): Pick<Env, "ACTOR_RATE_LIMIT" | "WORKSPACE_BURST_CAP"
   };
 }
 
-function createUploadRequestBody() {
+function createBody() {
   return { title: "Demo", entrypoint: "index.html", files: [{ path: "index.html", size_bytes: 12 }] };
 }
 
@@ -42,21 +36,16 @@ function sessionRecord(): UploadSessionRecord {
   };
 }
 
-function mcpEnv(db: Env["DB"]): Env {
-  return {
-    ...allowRateLimits(),
-    UPLOAD_SIGNING_SECRET: "secret",
-    WORKOS_API_KEY: "sk_test_123",
-    WORKOS_MCP_AUDIENCE: MCP_RESOURCE_INDICATOR,
-    WORKOS_MCP_JWKS_URL: mcpJwksUrl,
-    WORKOS_MCP_ISSUER: mcpIssuer,
-    AUTH: {
-      async verifyApiKey() {
-        return null;
-      },
+function createRequest(token?: string) {
+  return new Request("https://upload.test/v1/upload-sessions", {
+    method: "POST",
+    headers: {
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      "idempotency-key": "idem-create",
+      "content-type": "application/json",
     },
-    DB: db,
-  };
+    body: JSON.stringify(createBody()),
+  });
 }
 
 function memberDb(overrides: Partial<NonNullable<Env["DB"]>> = {}): NonNullable<Env["DB"]> {
@@ -80,323 +69,108 @@ function memberDb(overrides: Partial<NonNullable<Env["DB"]>> = {}): NonNullable<
   } as NonNullable<Env["DB"]>;
 }
 
+function env(db: Env["DB"], verifyApiKey: NonNullable<Env["AUTH"]>["verifyApiKey"] = async () => null): Env {
+  return { ...allowRateLimits(), UPLOAD_SIGNING_SECRET: "secret", AUTH: { verifyApiKey }, DB: db };
+}
+
 describe("Upload MCP route-boundary auth", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
+  it("accepts an internal MCP subject at the named service boundary", async () => {
+    const session = sessionRecord();
+    const response = await handleMcpUploadRequest(
+      createRequest(),
+      env(
+        memberDb({
+          async createUploadSession({ actor }) {
+            expect(actor).toEqual(memberActor);
+            return session;
+          },
+        }),
+      ),
+      mcpSubject,
+      "uploadSessions.create",
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ upload_session_id: sessionId });
   });
 
-  describe("uploadSessions.create", () => {
-    it("accepts a signed MCP member token at the route boundary", async () => {
-      const fixture = await mcpTokenFixture({ scope: "read" });
-      stubMcpFetch(fixture.publicJwk);
-      const session = sessionRecord();
-      let createCalled = false;
-
-      const response = await handleRequest(
-        new Request("https://upload.test/v1/upload-sessions", {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${fixture.token}`,
-            "idempotency-key": "idem-create",
-            "content-type": "application/json",
-          },
-          body: JSON.stringify(createUploadRequestBody()),
-        }),
-        mcpEnv(
-          memberDb({
-            async createUploadSession({ actor }) {
-              createCalled = true;
-              expect(actor).toEqual(memberActor);
-              return session;
-            },
-          }),
-        ),
-      );
-
-      expect(response.status).toBe(200);
-      expect(createCalled).toBe(true);
-      await expect(response.json()).resolves.toMatchObject({ upload_session_id: sessionId });
-    });
-
-    it("still accepts API keys on api_key_or_mcp_oauth create", async () => {
-      const session = sessionRecord();
-      const response = await handleRequest(
-        new Request("https://upload.test/v1/upload-sessions", {
-          method: "POST",
-          headers: {
-            authorization: "Bearer ok",
-            "idempotency-key": "idem-api-key",
-            "content-type": "application/json",
-          },
-          body: JSON.stringify(createUploadRequestBody()),
-        }),
-        {
-          ...allowRateLimits(),
-          UPLOAD_SIGNING_SECRET: "secret",
-          AUTH: {
-            async verifyApiKey(token) {
-              return token === "ok"
-                ? { type: "api_key", id: "key_1", workspace_id: workspaceId, scopes: ["publish"] }
-                : null;
-            },
-          },
-          DB: {
-            async createUploadSession({ actor }) {
-              expect(actor).toMatchObject({ type: "api_key", id: "key_1" });
-              return session;
-            },
-            async peekIdempotentReplay() {
-              return null;
-            },
-          },
-        },
-      );
-
-      expect(response.status).toBe(200);
-      await expect(response.json()).resolves.toMatchObject({ upload_session_id: sessionId });
-    });
-
-    it("rejects MCP tokens with the wrong audience", async () => {
-      const fixture = await mcpTokenFixture({ audience: "https://other.example" });
-      stubMcpFetch(fixture.publicJwk);
-
-      const response = await handleRequest(
-        new Request("https://upload.test/v1/upload-sessions", {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${fixture.token}`,
-            "idempotency-key": "idem-bad-aud",
-            "content-type": "application/json",
-          },
-          body: JSON.stringify(createUploadRequestBody()),
-        }),
-        mcpEnv(memberDb()),
-      );
-
-      expect(response.status).toBe(401);
-      await expect(response.json()).resolves.toMatchObject({ error: { code: "not_authenticated" } });
-    });
-
-    it("rejects expired MCP tokens", async () => {
-      const fixture = await mcpTokenFixture({ expiresInSeconds: -60 });
-      stubMcpFetch(fixture.publicJwk);
-
-      const response = await handleRequest(
-        new Request("https://upload.test/v1/upload-sessions", {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${fixture.token}`,
-            "idempotency-key": "idem-expired",
-            "content-type": "application/json",
-          },
-          body: JSON.stringify(createUploadRequestBody()),
-        }),
-        mcpEnv(memberDb()),
-      );
-
-      expect(response.status).toBe(401);
-      await expect(response.json()).resolves.toMatchObject({ error: { code: "not_authenticated" } });
-    });
-
-    it("forbids signed MCP tokens when no workspace member exists", async () => {
-      const fixture = await mcpTokenFixture({ scope: "read" });
-      stubMcpFetch(fixture.publicJwk);
-
-      const response = await handleRequest(
-        new Request("https://upload.test/v1/upload-sessions", {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${fixture.token}`,
-            "idempotency-key": "idem-forbidden",
-            "content-type": "application/json",
-          },
-          body: JSON.stringify(createUploadRequestBody()),
-        }),
-        mcpEnv(
-          memberDb({
-            async getWebMemberByWorkOsUserId() {
-              return null;
-            },
-          }),
-        ),
-      );
-
-      expect(response.status).toBe(403);
-      await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
-    });
+  it("rejects an MCP bearer sent directly to the public upload route", async () => {
+    const response = await handleRequest(createRequest("externally-supplied-oauth-token"), env(memberDb()));
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "not_authenticated" } });
   });
 
-  describe("uploadSessions.finalize", () => {
-    it("accepts a signed MCP member token at the route boundary", async () => {
-      const fixture = await mcpTokenFixture({ scope: "read" });
-      stubMcpFetch(fixture.publicJwk);
-      const finalized = {
-        upload_session_id: sessionId,
-        artifact_id: artifactId,
-        revision_id: revisionId,
-        status: "draft" as const,
-        title: "Demo",
-        entrypoint: "index.html",
-        file_count: 1,
-        size_bytes: 12,
-      };
-
-      const response = await handleRequest(
-        new Request(`https://upload.test/v1/upload-sessions/${sessionId}/finalize`, {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${fixture.token}`,
-            "idempotency-key": "idem-finalize",
-            "content-type": "application/json",
+  it("forbids an internal MCP subject without workspace membership", async () => {
+    const response = await handleMcpUploadRequest(
+      createRequest(),
+      env(
+        memberDb({
+          async getWebMemberByWorkOsUserId() {
+            return null;
           },
         }),
-        mcpEnv(
-          memberDb({
-            async peekIdempotentReplay({ idempotencyKey, operation, actor }) {
-              if (operation === "upload.session.finalize" && idempotencyKey === "idem-finalize") {
-                expect(actor).toEqual(memberActor);
-                return { result: finalized };
-              }
-              return null;
-            },
-          }),
-        ),
-      );
+      ),
+      mcpSubject,
+      "uploadSessions.create",
+    );
+    expect(response.status).toBe(403);
+  });
 
-      expect(response.status).toBe(200);
-      await expect(response.json()).resolves.toMatchObject(finalized);
-    });
+  it("rejects route-id and request-path mismatches", async () => {
+    const response = await handleMcpUploadRequest(
+      createRequest(),
+      env(memberDb()),
+      mcpSubject,
+      "uploadSessions.finalize",
+    );
+    expect(response.status).toBe(404);
+  });
 
-    it("still accepts API keys on api_key_or_mcp_oauth finalize", async () => {
-      const finalized = {
-        upload_session_id: sessionId,
-        artifact_id: artifactId,
-        revision_id: revisionId,
-        status: "draft" as const,
-        title: "Demo",
-        entrypoint: "index.html",
-        file_count: 1,
-        size_bytes: 12,
-      };
-
-      const response = await handleRequest(
-        new Request(`https://upload.test/v1/upload-sessions/${sessionId}/finalize`, {
-          method: "POST",
-          headers: {
-            authorization: "Bearer ok",
-            "idempotency-key": "idem-api-finalize",
-            "content-type": "application/json",
+  it("preserves API-key access", async () => {
+    const session = sessionRecord();
+    const response = await handleRequest(
+      createRequest("ok"),
+      env(
+        memberDb({
+          async createUploadSession({ actor }) {
+            expect(actor).toMatchObject({ type: "api_key", id: "key_1" });
+            return session;
           },
         }),
-        {
-          ...allowRateLimits(),
-          UPLOAD_SIGNING_SECRET: "secret",
-          AUTH: {
-            async verifyApiKey(token) {
-              return token === "ok"
-                ? { type: "api_key", id: "key_1", workspace_id: workspaceId, scopes: ["publish"] }
-                : null;
-            },
-          },
-          DB: {
-            async createUploadSession() {
-              throw new Error("createUploadSession should not run in finalize auth tests");
-            },
-            async peekIdempotentReplay({ idempotencyKey, operation, actor }) {
-              if (operation === "upload.session.finalize" && idempotencyKey === "idem-api-finalize") {
-                expect(actor).toMatchObject({ type: "api_key", id: "key_1" });
-                return { result: finalized };
-              }
-              return null;
-            },
-          },
-        },
-      );
+        async (token) =>
+          token === "ok" ? { type: "api_key", id: "key_1", workspace_id: workspaceId, scopes: ["publish"] } : null,
+      ),
+    );
+    expect(response.status).toBe(200);
+  });
 
-      expect(response.status).toBe(200);
-      await expect(response.json()).resolves.toMatchObject(finalized);
-    });
-
-    it("rejects MCP tokens with the wrong audience", async () => {
-      const fixture = await mcpTokenFixture({ audience: "https://other.example" });
-      stubMcpFetch(fixture.publicJwk);
-
-      const response = await handleRequest(
-        new Request(`https://upload.test/v1/upload-sessions/${sessionId}/finalize`, {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${fixture.token}`,
-            "idempotency-key": "idem-bad-aud-finalize",
-            "content-type": "application/json",
+  it("accepts an internal MCP subject when finalizing", async () => {
+    const finalized = {
+      upload_session_id: sessionId,
+      artifact_id: artifactId,
+      revision_id: revisionId,
+      status: "draft" as const,
+      title: "Demo",
+      entrypoint: "index.html",
+      file_count: 1,
+      size_bytes: 12,
+    };
+    const response = await handleMcpUploadRequest(
+      new Request(`https://upload.test/v1/upload-sessions/${sessionId}/finalize`, {
+        method: "POST",
+        headers: { "idempotency-key": "idem-finalize", "content-type": "application/json" },
+      }),
+      env(
+        memberDb({
+          async peekIdempotentReplay({ actor }) {
+            expect(actor).toEqual(memberActor);
+            return { result: finalized };
           },
         }),
-        mcpEnv(memberDb()),
-      );
-
-      expect(response.status).toBe(401);
-      await expect(response.json()).resolves.toMatchObject({ error: { code: "not_authenticated" } });
-    });
-
-    it("forbids signed MCP tokens when no workspace member exists", async () => {
-      const fixture = await mcpTokenFixture({ scope: "read" });
-      stubMcpFetch(fixture.publicJwk);
-
-      const response = await handleRequest(
-        new Request(`https://upload.test/v1/upload-sessions/${sessionId}/finalize`, {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${fixture.token}`,
-            "idempotency-key": "idem-forbidden-finalize",
-            "content-type": "application/json",
-          },
-        }),
-        mcpEnv(
-          memberDb({
-            async getWebMemberByWorkOsUserId() {
-              return null;
-            },
-          }),
-        ),
-      );
-
-      expect(response.status).toBe(403);
-      await expect(response.json()).resolves.toMatchObject({ error: { code: "forbidden" } });
-    });
+      ),
+      mcpSubject,
+      "uploadSessions.finalize",
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject(finalized);
   });
 });
-
-async function mcpTokenFixture(
-  input: { scope?: string; audience?: string | string[]; expiresInSeconds?: number } = {},
-) {
-  mcpKeyPairPromise ??= generateKeyPair("RS256");
-  const { publicKey, privateKey } = await mcpKeyPairPromise;
-  const publicJwk = await exportJWK(publicKey);
-  publicJwk.kid = "mcp-key";
-  publicJwk.alg = "RS256";
-  const now = Math.floor(Date.now() / 1000);
-  const token = await new SignJWT({ scope: input.scope ?? "read" })
-    .setProtectedHeader({ alg: "RS256", kid: "mcp-key" })
-    .setIssuer(mcpIssuer)
-    .setAudience(input.audience ?? MCP_RESOURCE_INDICATOR)
-    .setSubject(mcpSubject)
-    .setIssuedAt(now + (input.expiresInSeconds ?? 0))
-    .setExpirationTime(now + (input.expiresInSeconds ?? 300))
-    .sign(privateKey);
-  return { token, publicJwk };
-}
-
-function stubMcpFetch(publicJwk: JWK) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (url: string | URL | Request) => {
-      const href = url instanceof Request ? url.url : String(url);
-      if (href === mcpJwksUrl) {
-        return Response.json({ keys: [publicJwk] });
-      }
-      if (href.endsWith(`/user_management/users/${mcpSubject}`)) {
-        return Response.json({ id: mcpSubject, email: memberActor.email });
-      }
-      return new Response("not found", { status: 404 });
-    }),
-  );
-}

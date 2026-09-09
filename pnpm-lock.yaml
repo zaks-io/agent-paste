@@ -437,6 +437,9 @@ importers:
       '@agent-paste/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@agent-paste/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@agent-paste/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -452,10 +455,10 @@ importers:
       hono:
         specifier: ^4.12.34
         version: 4.13.5
+    devDependencies:
       jose:
         specifier: ^6.2.3
         version: 6.2.3
-    devDependencies:
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -517,9 +520,6 @@ importers:
       hono:
         specifier: ^4.12.34
         version: 4.13.5
-      jose:
-        specifier: ^6.2.3
-        version: 6.2.3
     devDependencies:
       typescript:
         specifier: 'catalog:'

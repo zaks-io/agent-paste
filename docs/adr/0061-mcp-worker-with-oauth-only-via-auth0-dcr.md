@@ -1,6 +1,6 @@
 # MCP Worker with OAuth-Only Access via WorkOS AuthKit
 
-Status: Accepted, with the scope-granting mechanism superseded by [ADR 0079](./0079-mcp-scopes-derived-from-member-role-not-workos-token.md). Provider decided as **WorkOS** by AP-26, consistent with [ADR 0068](./0068-workos-authkit-for-web-app-auth.md).
+Status: Accepted, with the scope-granting mechanism superseded by [ADR 0079](./0079-mcp-scopes-derived-from-member-role-not-workos-token.md) and bearer forwarding superseded by [ADR 0097](./0097-mcp-private-principal-handoff.md). Provider decided as **WorkOS** by AP-26, consistent with [ADR 0068](./0068-workos-authkit-for-web-app-auth.md).
 
 Amended 2026-06-11: MCP publish tools no longer create or reuse Share Links by default; `share` defaults to `false`. This replaces the Auth0 framing this ADR originally carried; the filename is historical.
 
@@ -25,7 +25,7 @@ A new `apps/mcp` Worker on `mcp.agent-paste.sh` terminates the Model Context Pro
 
 - **New Worker** `apps/mcp` on `mcp.agent-paste.sh` per [ADR 0014](./0014-single-domain-with-hardened-content-subdomain.md) and [ADR 0006](./0006-small-workers-by-trust-and-scaling-boundary.md). Its trust boundary is "verify the bearer, forward to `api`." It owns no Postgres binding, no R2 binding, no business logic.
 - **Protocol.** Streamable HTTP MCP transport. JSON-RPC over `POST /` with `Content-Type: application/json` and optional `Accept: text/event-stream` for streamed responses. The server is **stateless**: every request authenticates independently against its bearer. `Mcp-Session-Id` is accepted but not required and carries no server-side state in v1.
-- **Forwarding.** Service binding `MCP → API`. The MCP Worker sets `Authorization: Bearer <verified_jwt>` on the internal call. `api`'s middleware verifies the JWT a second time (it does not trust upstream Workers blindly) and proceeds through the same scope and RLS pipeline as any other authenticated actor.
+- **Forwarding.** Historical design: service binding `MCP → API` forwarded the bearer for a second verification. [ADR 0097](./0097-mcp-private-principal-handoff.md) replaces this with allowlisted named RPC entrypoints that receive only the verified subject and Route ID.
 
 ### Discovery and registration
 
@@ -37,7 +37,6 @@ A new `apps/mcp` Worker on `mcp.agent-paste.sh` terminates the Model Context Pro
 - **Redirect-URI allowlist.** DCR compatibility registrations are constrained to documented redirect patterns. The current allowlist:
   - `https://chatgpt.com/connector_platform_oauth_redirect`
   - `https://claude.ai/api/mcp/auth_callback`
-  - `https://*.claude.ai/api/mcp/auth_callback`
   - `claude-desktop://oauth/callback`
   - `cursor://oauth/callback`
     After this initial set, add host redirects only when their production callback URL is known and documented; placeholders are not accepted in WorkOS configuration. Updates to this allowlist are a WorkOS config change, not a code deploy.
@@ -46,7 +45,7 @@ A new `apps/mcp` Worker on `mcp.agent-paste.sh` terminates the Model Context Pro
 ### Token shape and authorization
 
 - **Audience.** `aud` matches the MCP root resource indicator (`https://mcp.agent-paste.sh/`, with no-slash compatibility), derived from the WorkOS Resource Indicator.
-- **Issuer and JWKS.** `mcp` verifies access tokens against the WorkOS AuthKit issuer (`https://<subdomain>.authkit.app`) and JWKS (`https://<subdomain>.authkit.app/oauth2/jwks`). `api` verifies the forwarded bearer independently.
+- **Issuer and JWKS.** `mcp` verifies access tokens against the WorkOS AuthKit issuer (`https://<subdomain>.authkit.app`) and JWKS (`https://<subdomain>.authkit.app/oauth2/jwks`). Per [ADR 0097](./0097-mcp-private-principal-handoff.md), downstream Workers do not accept or reverify MCP bearers.
 - **Scopes.** The consent screen requests from `{write, read, share}`. The user picks; WorkOS enforces the granted subset in the issued token's `scope` claim. **Member-Only Scopes** are not in the consent vocabulary and are unreachable from any MCP-minted token.
 - **No implicit grant.** `api`'s middleware does NOT apply the **Workspace Member** implicit-grant rule for MCP resource-audience JWTs. The `scope` claim is authoritative. This is the same carve-out [ADR 0060](./0060-cli-authentication-via-auth0-loopback.md) introduces for CLI tokens; [ADR 0034](./0034-unified-scope-model-across-actors.md) records the amended rule.
 - **Token lifetime.** Access-token and refresh-token lifetimes are WorkOS AuthKit/Connect environment configuration. MCP code treats them opaquely and relies on standard OAuth refresh behavior in the host.
@@ -91,7 +90,7 @@ Twelve tools, named in snake_case to match common MCP convention. File-bearing o
 ### Audit, rate limiting, observability
 
 - **Audit.** MCP-driven mutations are recorded with `actor.type='member'` and `actor_id` as the resolved **Workspace Member** id per [ADR 0034](./0034-unified-scope-model-across-actors.md). The audience (`aud=mcp`) is not a glossary or schema concept; it appears in operational logs for correlation only.
-- **Rate limits.** **Actor Rate Limit** and **Workspace Burst Cap** from [ADR 0039](./0039-authenticated-rate-limits-under-usage-policy.md) apply identically; the actor is the resolved Workspace Member. MCP introduces no new rate-limit dimension in v1. (A future per-host or per-OAuth-client dimension is conceivable but not needed to ship.)
+- **Rate limits.** **Actor Rate Limit** and **Workspace Burst Cap** from ADR 0039 apply identically after member resolution. [ADR 0097](./0097-mcp-private-principal-handoff.md) adds an MCP-edge per-IP limit before OAuth verification.
 - **Logging.** Operational logs per [ADR 0011](./0011-cloudflare-first-observability.md) include `request_id`, `tool_name`, `actor_id`, `aud`, and the upstream `api` request id. JWT bytes, refresh tokens, and idempotency-key values are never logged.
 
 ### What this ADR does not introduce
