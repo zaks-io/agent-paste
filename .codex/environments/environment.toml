@@ -3,4 +3,10 @@ version = 1
 name = "agent-paste"
 
 [setup]
-script = "pnpm install --frozen-lockfile"
+script = '''
+if [ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]; then
+  . "${NVM_DIR:-$HOME/.nvm}/nvm.sh" --no-use
+  nvm use || exit $?
+fi
+corepack pnpm install --frozen-lockfile
+'''
