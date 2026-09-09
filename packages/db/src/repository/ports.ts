@@ -65,7 +65,7 @@ export type Entities = {
       providerSubject: string;
       audience: string;
     }): Promise<AgentAuthDelegation | null>;
-    findDelegationById(id: string): Promise<AgentAuthDelegation | null>;
+    findDelegationByIdForUpdate(id: string): Promise<AgentAuthDelegation | null>;
     updateDelegationSeen(id: string, input: { email: string; lastSeenAt: string }): Promise<void>;
     revokeActiveDelegation(input: {
       providerIssuer: string;
@@ -75,7 +75,16 @@ export type Entities = {
     }): Promise<AgentAuthDelegation | null>;
     insertRegistration(registration: AgentAuthRegistration): Promise<void>;
     findRegistrationById(id: string): Promise<AgentAuthRegistration | null>;
+    findRegistrationByIdForUpdate(id: string): Promise<AgentAuthRegistration | null>;
     findRegistrationByClaimTokenHash(claimTokenHash: Uint8Array): Promise<AgentAuthRegistration | null>;
+    checkVerifiedClaimAttempt(input: {
+      registrationId: string;
+      userCodeHash: Uint8Array;
+      actorId: string;
+      actorEmail: string;
+      now: string;
+      maxFailures: number;
+    }): Promise<{ kind: "ready"; registration: AgentAuthRegistration } | { kind: "mismatch" } | null>;
     markRegistrationVerified(
       id: string,
       input: { delegationId: string; completedAt: string; updatedAt: string },
@@ -98,7 +107,14 @@ export type Entities = {
     }): Promise<{ kind: "ready"; registration: AgentAuthRegistration } | { kind: "mismatch" } | null>;
     markAnonymousRegistrationVerified(
       id: string,
-      input: { workspaceId: string; workspaceMemberId: string; email: string; completedAt: string; updatedAt: string },
+      input: {
+        workspaceId: string;
+        workspaceMemberId: string;
+        email: string;
+        completedAt: string;
+        expiresAt: string;
+        updatedAt: string;
+      },
     ): Promise<AgentAuthRegistration | null>;
     insertJti(jti: AgentAuthJti): Promise<boolean>;
     insertAccessToken(accessToken: AgentAuthAccessToken): Promise<void>;

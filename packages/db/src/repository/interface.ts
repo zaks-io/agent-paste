@@ -214,7 +214,7 @@ export type Repository = {
   getAgentAuthClaim(input: { claimToken: string; now?: Date }): Promise<AgentAuthClaimView | null>;
   completeAgentAuthClaim(input: {
     actor: WebMemberActor;
-    claimToken: string;
+    registrationId: string;
     userCode: string;
     now?: Date;
   }): Promise<{ id: string; expires_at: string; scopes: Array<"read" | "publish"> } | null>;

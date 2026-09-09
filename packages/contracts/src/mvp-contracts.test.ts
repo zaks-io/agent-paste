@@ -135,7 +135,7 @@ describe("MVP route registry", () => {
         .filter((route) => route.rateLimit === "artifact")
         .map((route) => route.id)
         .sort(),
-    ).toEqual(["content.bundle", "content.bundleHead", "content.get", "content.head"]);
+    ).toEqual(["agentView.public", "content.bundle", "content.bundleHead", "content.get", "content.head"]);
     expect(routeContracts.some((route) => route.id.startsWith("accessLinks."))).toBe(false);
   });
 
@@ -169,7 +169,7 @@ describe("MVP route registry", () => {
     expect(api.security).toContainEqual({ CfAccessServiceToken: [] });
   });
 
-  it("documents handler-level public Agent View throttling", () => {
+  it("documents registrar-level public Agent View throttling", () => {
     const publicAgentView = routeContracts.find((route) => route.id === "agentView.public");
     const apiOpenApi = buildApiOpenApiDocument() as {
       paths?: Record<
@@ -191,7 +191,7 @@ describe("MVP route registry", () => {
     const rateLimitResponse = apiOpenApi.paths?.["/v1/public/agent-view/{token}"]?.get?.responses?.["429"];
 
     expect(publicAgentView).toBeDefined();
-    expect(publicAgentView?.rateLimit).toBe("none");
+    expect(publicAgentView?.rateLimit).toBe("artifact");
     expect(publicAgentView?.responseSchema).toBe("PublicAgentView");
     expect(publicAgentView?.errors).toContain("rate_limited_artifact");
     expect(rateLimitResponse).toBeDefined();

@@ -4,7 +4,7 @@ import { type Parsed, requiredArg, stringFlag } from "./cli-args.js";
 import {
   inferPublishOptions,
   type LocalFile,
-  sha256HexForFile,
+  readAndHashLocalFile,
   validateFilesAgainstUsagePolicy,
   walkLocalPath,
 } from "./local.js";
@@ -82,8 +82,8 @@ export async function preparePublish(parsed: Parsed, options: PreparePublishOpti
 export async function digestPublish(preflight: PublishPreflight): Promise<PreparedPublish> {
   const files = await Promise.all(
     preflight.files.map(async (file): Promise<LocalFileWithDigest> => {
-      const digest = await sha256HexForFile(file.absolutePath);
-      return { ...file, sha256: digest.sha256, sizeBytes: digest.sizeBytes };
+      const read = await readAndHashLocalFile(file);
+      return { ...file, ...read };
     }),
   );
   return { ...preflight, files };

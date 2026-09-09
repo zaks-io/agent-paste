@@ -23,9 +23,18 @@ async function writeFile(rel: string, content: string): Promise<LocalFileWithDig
   const bytes = new TextEncoder().encode(content);
   return {
     absolutePath: abs,
+    safeRoot: {
+      rootReal: tmp,
+      async read() {
+        throw new Error("unused_test_reader");
+      },
+    },
+    rootRelativePath: rel,
+    enforceExclusions: true,
     path: rel,
     sizeBytes: bytes.byteLength,
     sha256: createHash("sha256").update(bytes).digest("hex"),
+    bytes,
   };
 }
 
@@ -66,6 +75,9 @@ describe("buildRevisePlan", () => {
     expect(plan.publishFiles.map((f) => f.path)).toEqual(["new.txt"]);
     expect(plan.baseRevisionId).toBe("rev_1");
     expect(plan.effectiveTree.map((f) => f.path).sort()).toEqual(["keep.txt", "new.txt"]);
+
+    await fs.writeFile(added.absolutePath, "replaced after preflight\n");
+    expect(new TextDecoder().decode(await plan.publishFiles[0]?.read())).toBe("brand new\n");
   });
 
   it("sends a changed text file as a patch against the cached base", async () => {

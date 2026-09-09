@@ -3,6 +3,8 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { inferRenderModeFromEntrypoint, Mebibytes, type RenderMode, type UsagePolicy } from "@agent-paste/contracts";
 import { contentTypeForPath } from "@agent-paste/storage";
+import { FsSafeError } from "@openclaw/fs-safe";
+import { root as openSafeRoot, type Root } from "@openclaw/fs-safe/root";
 
 // Absolute per-file ceiling, matching the contract's hard maximum
 // (UploadSessionFileInput.size_bytes) so no tier can ever accept a larger file.
@@ -12,6 +14,9 @@ const MAX_FILE_BYTES = Mebibytes.twentyFive;
 
 export type LocalFile = {
   absolutePath: string;
+  safeRoot: Pick<Root, "read" | "rootReal">;
+  rootRelativePath: string;
+  enforceExclusions: boolean;
   path: string;
   sizeBytes: number;
 };
@@ -28,14 +33,17 @@ export async function walkLocalPath(inputPath: string): Promise<LocalFile[]> {
   const root = path.resolve(inputPath);
   const stat = await fs.stat(root);
   if (stat.isFile()) {
-    return [await toLocalFile(root, path.basename(root))];
+    const real = await fs.realpath(root);
+    const safeRoot = await createSafeRoot(path.dirname(real));
+    return [await toLocalFile(root, path.basename(root), real, safeRoot, path.basename(real), false)];
   }
   if (!stat.isDirectory()) {
     throw new Error(`${inputPath} is neither a file nor a directory`);
   }
   const realRoot = await fs.realpath(root);
+  const safeRoot = await createSafeRoot(realRoot);
   const files: LocalFile[] = [];
-  await walkDirectory({ root, realRoot, current: root, files, visitedDirs: new Set([realRoot]) });
+  await walkDirectory({ root, realRoot, safeRoot, current: root, files, visitedDirs: new Set([realRoot]) });
   return files.sort((a, b) => a.path.localeCompare(b.path));
 }
 
@@ -98,6 +106,7 @@ function inferRenderMode(entrypoint: string): RenderMode {
 type WalkContext = {
   root: string;
   realRoot: string;
+  safeRoot: Root;
   current: string;
   files: LocalFile[];
   visitedDirs: Set<string>;
@@ -116,7 +125,12 @@ async function walkDirectory(ctx: WalkContext) {
     } else if (entry.isDirectory()) {
       await walkDirectory({ ...ctx, current: absolutePath });
     } else if (entry.isFile()) {
-      files.push(await toLocalFile(absolutePath, path.relative(root, absolutePath).split(path.sep).join("/")));
+      const relativePath = path.relative(root, absolutePath).split(path.sep).join("/");
+      const real = await fs.realpath(absolutePath);
+      if (!isWithinRoot(real, ctx.realRoot) || resolvesToExcluded(real, ctx.realRoot)) {
+        throw new Error(`File ${relativePath} changed during validation; retry the publish`);
+      }
+      files.push(await toLocalFile(absolutePath, relativePath, real, ctx.safeRoot, relativePath, true));
     }
   }
 }
@@ -129,10 +143,6 @@ async function walkDirectory(ctx: WalkContext) {
 // (e.g. `config.json` -> `.env`) would let an innocuously named alias bypass the
 // non-configurable exclusion list. Both are skipped with a warning. Broken links
 // have no bytes and are skipped; symlinked directories are cycle-guarded by realpath.
-// Containment is checked here on the resolved realpath; the bytes are read later
-// in a separate pass, so a local process racing the link target between walk and
-// upload could still defeat the check — an inherent two-pass CLI limitation on the
-// user's own machine, not a boundary this tool can close.
 async function walkSymlink(ctx: WalkContext, absolutePath: string) {
   const { root, realRoot, files, visitedDirs } = ctx;
   const target = await fs.stat(absolutePath).catch(() => null);
@@ -156,7 +166,8 @@ async function walkSymlink(ctx: WalkContext, absolutePath: string) {
     }
     return;
   }
-  files.push(await toLocalFile(absolutePath, rel.split(path.sep).join("/")));
+  const relativePath = rel.split(path.sep).join("/");
+  files.push(await toLocalFile(absolutePath, relativePath, real, ctx.safeRoot, relativePath, true));
 }
 
 function isWithinRoot(target: string, realRoot: string): boolean {
@@ -174,43 +185,68 @@ function warn(message: string) {
   process.stderr.write(`${message}\n`);
 }
 
-async function toLocalFile(absolutePath: string, relativePath: string): Promise<LocalFile> {
-  const { size } = await fs.stat(absolutePath);
+async function toLocalFile(
+  absolutePath: string,
+  relativePath: string,
+  expectedRealPath: string,
+  safeRoot: Root,
+  rootRelativePath: string,
+  enforceExclusions: boolean,
+): Promise<LocalFile> {
+  const { size } = await fs.stat(expectedRealPath);
   if (size > MAX_FILE_BYTES) {
     throw new Error(`File ${relativePath} is ${size} bytes, which exceeds the ${MAX_FILE_BYTES}-byte per-file limit`);
   }
   return {
     absolutePath,
+    safeRoot,
+    rootRelativePath,
+    enforceExclusions,
     path: relativePath,
     sizeBytes: size,
   };
 }
 
-export type LocalFileDigest = {
+export type ReadLocalFile = {
   sha256: string;
   sizeBytes: number;
+  bytes: Uint8Array;
 };
 
-export async function sha256HexForFile(absolutePath: string): Promise<LocalFileDigest> {
-  const hash = createHash("sha256");
-  const handle = await fs.open(absolutePath, "r");
-  let sizeBytes = 0;
+export async function readAndHashLocalFile(file: LocalFile): Promise<ReadLocalFile> {
+  let result: Awaited<ReturnType<Root["read"]>>;
   try {
-    const chunk = new Uint8Array(64 * 1024);
-    let position = 0;
-    while (true) {
-      const { bytesRead } = await handle.read(chunk, 0, chunk.length, position);
-      if (bytesRead === 0) {
-        break;
-      }
-      hash.update(chunk.subarray(0, bytesRead));
-      position += bytesRead;
-      sizeBytes += bytesRead;
+    result = await file.safeRoot.read(file.rootRelativePath);
+  } catch (error) {
+    if (isPostValidationPathChange(error)) {
+      throw new Error(`File ${file.path} changed after validation; retry the publish`, { cause: error });
     }
-  } finally {
-    await handle.close();
+    throw error;
   }
-  return { sha256: hash.digest("hex"), sizeBytes };
+  if (file.enforceExclusions && resolvesToExcluded(result.realPath, file.safeRoot.rootReal)) {
+    throw new Error(`File ${file.path} resolves to an excluded target`);
+  }
+  const bytes = new Uint8Array(result.buffer);
+  return {
+    sha256: createHash("sha256").update(bytes).digest("hex"),
+    sizeBytes: bytes.byteLength,
+    bytes,
+  };
+}
+
+function isPostValidationPathChange(error: unknown): boolean {
+  if (!(error instanceof FsSafeError)) return false;
+  return ["not-file", "not-found", "outside-workspace", "path-alias", "path-mismatch", "symlink", "too-large"].includes(
+    error.code,
+  );
+}
+
+function createSafeRoot(rootPath: string) {
+  return openSafeRoot(rootPath, {
+    hardlinks: "allow",
+    maxBytes: MAX_FILE_BYTES,
+    symlinks: "follow-within-root",
+  });
 }
 
 // True iff the bytes are valid UTF-8. Mirrors the storage decodeUtf8Strict

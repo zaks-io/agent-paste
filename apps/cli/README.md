@@ -112,5 +112,5 @@ override TTY detection.
 Exit codes are `0` success, `1` generic, `2` authentication, `3` quota,
 `4` validation, `5` not found, and `6` network/server failure.
 
-The package has zero runtime dependencies. It is bundled into the published
-`dist/index.js`.
+The package bundles its application code into `dist/index.js` and keeps one
+pinned runtime dependency, `@openclaw/fs-safe`, for root-bounded local reads.

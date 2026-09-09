@@ -248,14 +248,14 @@ export async function claimEphemeral(data: {
 }
 
 export function completeAgentAuthClaim(data: {
-  claim_token?: string;
+  registration_id?: string;
   claim_attempt_token?: string;
   user_code: string;
 }): Promise<MutationResult<{ ok: true; registration_id: string }>> {
-  const claimToken = typeof data.claim_token === "string" ? data.claim_token.trim() : "";
+  const registrationId = typeof data.registration_id === "string" ? data.registration_id.trim() : "";
   const claimAttemptToken = typeof data.claim_attempt_token === "string" ? data.claim_attempt_token.trim() : "";
   const userCode = typeof data.user_code === "string" ? data.user_code.trim() : "";
-  if ((!claimToken && !claimAttemptToken) || !/^\d{6}$/.test(userCode)) {
+  if ((!registrationId && !claimAttemptToken) || !/^\d{6}$/.test(userCode)) {
     return Promise.resolve({
       data: null,
       error: {
@@ -271,7 +271,7 @@ export function completeAgentAuthClaim(data: {
       method: "POST",
       accessToken,
       body: JSON.stringify({
-        ...(claimToken ? { claim_token: claimToken } : {}),
+        ...(registrationId ? { registration_id: registrationId } : {}),
         ...(claimAttemptToken ? { claim_attempt_token: claimAttemptToken } : {}),
         user_code: userCode,
       }),

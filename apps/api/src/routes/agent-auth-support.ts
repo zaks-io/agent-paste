@@ -15,6 +15,14 @@ const ASSERTION_TTL_SECONDS = 60 * 60;
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
 const CLAIM_TTL_SECONDS = 10 * 60;
 const MAX_AGENT_AUTH_BODY_BYTES = 64 * 1024;
+export const AGENT_AUTH_SENSITIVE_PATHS = new Set([
+  "/agent/identity",
+  "/agent/identity/claim",
+  "/oauth2/token",
+  "/oauth2/revoke",
+  "/agent/event/notify",
+  "/v1/web/agent-auth/claim/complete",
+]);
 
 export type AgentAuthContext = AppContext;
 
@@ -94,8 +102,8 @@ export function agentAuthIssuer(env: Env): string {
   return trimTrailingSlash(env.AGENT_AUTH_ISSUER ?? apiBaseUrl(env));
 }
 
-export function claimVerificationUri(env: Env, claimToken: string): string {
-  return `${trimTrailingSlash(webBaseUrl(env))}/agent-auth/claim?claim_token=${encodeURIComponent(claimToken)}`;
+export function claimVerificationUri(env: Env, registrationId: string): string {
+  return `${trimTrailingSlash(webBaseUrl(env))}/agent-auth/claim?registration_id=${encodeURIComponent(registrationId)}`;
 }
 
 export function claimAttemptVerificationUri(env: Env, claimAttemptToken: string): string {
@@ -118,6 +126,10 @@ export function claimTtlSeconds(env: Env): number {
 
 export function secondsUntil(expiresAt: string): number {
   return Math.max(0, Math.ceil((Date.parse(expiresAt) - Date.now()) / 1000));
+}
+
+export function claimAssertionExpiresAt(registrationExpiresAt: string, ttlSeconds: number, now = new Date()): string {
+  return new Date(Math.min(Date.parse(registrationExpiresAt), now.getTime() + ttlSeconds * 1000)).toISOString();
 }
 
 export async function readJson(context: AgentAuthContext): Promise<Record<string, unknown> | null> {

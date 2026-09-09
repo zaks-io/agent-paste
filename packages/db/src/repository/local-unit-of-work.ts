@@ -25,15 +25,16 @@ function commandKey(input: {
 
 type IdempotencyEntry = { kind: "in_flight" } | { kind: "completed"; value: unknown };
 
-// The local backend has no real transactions, but it enforces the Run Scope through a
-// Scoped View (ADR 0083): each read/command binds the entity adapters to a scope-filtered
-// view of the in-memory state, so a foreign read returns nothing and a foreign write
-// throws. Idempotency claims the command key before the handler runs, rejects concurrent
-// same-key calls with IdempotencyInFlightError (matching Postgres 409 semantics), and
-// caches only terminal values. Rejected handlers evict the key so a later retry can run.
+// The local backend has no rollback, but it serializes top-level commands so workflows
+// that rely on Postgres row locks keep the same ordering guarantees. It also enforces the
+// Run Scope through a Scoped View (ADR 0083): each read/command binds the entity adapters
+// to a scope-filtered view of the in-memory state, so a foreign read returns nothing and
+// a foreign write throws. Idempotency claims the command key before waiting for the
+// command lock, preserving the Postgres-style concurrent same-key rejection contract.
 export class LocalUnitOfWork implements UnitOfWork {
   private readonly state: LocalState;
   private readonly idempotency = new Map<string, IdempotencyEntry>();
+  private commandTail: Promise<void> = Promise.resolve();
 
   constructor(state: LocalState) {
     this.state = state;
@@ -62,7 +63,7 @@ export class LocalUnitOfWork implements UnitOfWork {
       command: (nestedSpec, nestedRun) =>
         this.runCached({ ...nestedSpec, scope: spec.scope }, (entities) => nestedRun(entities)),
     };
-    return this.runCachedWithReplay(spec, (entities) => run(entities, ctx));
+    return this.runCachedWithReplay(spec, (entities) => this.runSerializedCommand(() => run(entities, ctx)));
   }
 
   async peekReplay<T>(input: {
@@ -87,6 +88,20 @@ export class LocalUnitOfWork implements UnitOfWork {
     run: (entities: ReturnType<typeof localEntities>) => Promise<T>,
   ): Promise<T> {
     return (await this.runCachedWithReplay(input, run)).result;
+  }
+
+  private async runSerializedCommand<T>(run: () => Promise<T>): Promise<T> {
+    const previous = this.commandTail;
+    let release!: () => void;
+    this.commandTail = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await run();
+    } finally {
+      release();
+    }
   }
 
   private async runCachedWithReplay<T>(

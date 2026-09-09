@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { promises as fs, realpathSync } from "node:fs";
+import { realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -287,7 +287,7 @@ function wholePublishFile(file: LocalFileWithDigest): PublishFile {
     sizeBytes: file.sizeBytes,
     sha256: file.sha256,
     contentType: contentTypeForLocalPath(file.path),
-    read: () => fs.readFile(file.absolutePath),
+    read: () => file.bytes,
   };
 }
 

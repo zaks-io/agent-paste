@@ -22,6 +22,10 @@ export type AgentAuthRegistrationView = {
 
 export const AGENT_AUTH_SCOPES = ["read", "publish"] as const;
 
+export function claimGrantJti(claimTokenHash: Uint8Array): string {
+  return `claim:${base64UrlEncode(claimTokenHash)}`;
+}
+
 export async function consumeServiceAssertion(
   entities: Entities,
   input: { assertionJti?: string; assertionExpiresAt?: string },
@@ -200,15 +204,4 @@ export function secondsFrom(now: string, seconds: number): string {
 export async function sha256Bytes(value: string): Promise<Uint8Array> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return new Uint8Array(digest);
-}
-
-export function bytesEqual(left: Uint8Array | null, right: Uint8Array): boolean {
-  if (!left || left.length !== right.length) {
-    return false;
-  }
-  let diff = 0;
-  for (let index = 0; index < left.length; index += 1) {
-    diff |= (left[index] ?? 0) ^ (right[index] ?? 0);
-  }
-  return diff === 0;
 }

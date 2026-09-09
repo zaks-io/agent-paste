@@ -165,10 +165,13 @@ uploading bytes the caller did not select and keeps the exclusion list from
 being bypassed by symlink aliasing (AP-408). Broken links contribute no bytes
 and are skipped; symlinked directories are cycle-guarded by real path so a link
 loop cannot recurse forever. Single-file publish (`publish <file>`) follows the
-named path directly, since the caller selected it explicitly. Containment is
-checked on the resolved path at walk time; the bytes are read in a later pass,
-so a local process racing the link target between walk and upload is an inherent
-two-pass limitation on the user's own machine, not a boundary the CLI can close.
+named path directly, since the caller selected it explicitly. Before upload,
+the CLI reopens every selected path through `@openclaw/fs-safe`'s root-bounded
+reader, which pins the file descriptor, validates the resolved target against
+the selected root, buffers it within the per-file cap, and computes the digest
+from that buffer. A symlink or ancestor swap therefore fails closed or retains
+the already pinned in-root file. Whole-file and patch uploads use those same
+bytes, so a later path change cannot change what is published.
 
 ## Exit codes
 
@@ -204,10 +207,10 @@ for each completion. In `plain`/`json` mode no progress is emitted.
 
 ## Dependencies
 
-The published CLI has **zero runtime dependencies** — it is bundled with esbuild
-and all tooling lives in `devDependencies`. Rich output is therefore hand-rolled
-ANSI in `apps/cli/src/render.ts` rather than a `chalk`/`ora`-style library, to
-keep the install small and the supply chain clean.
+The published CLI has one pinned runtime dependency, `@openclaw/fs-safe`, for
+descriptor-pinned, root-bounded local file reads. The remaining code is bundled
+with esbuild. Rich output is hand-rolled ANSI in `apps/cli/src/render.ts` rather
+than a `chalk`/`ora`-style library.
 
 ## Credential storage
 

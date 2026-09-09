@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { lockdownRow } from "./fixtures";
@@ -20,6 +20,7 @@ const state = vi.hoisted(() => ({
     roles?: string[];
   },
   apiFetchOrEmpty: vi.fn(),
+  completeAgentAuthClaimFn: vi.fn(),
   liftLockdownFn: vi.fn(),
   setLockdownFn: vi.fn(),
   invalidate: vi.fn(),
@@ -108,6 +109,7 @@ vi.mock("../src/server/api-client", () => ({
 }));
 
 vi.mock("../src/rpc/web-mutations", () => ({
+  completeAgentAuthClaimFn: (...args: unknown[]) => state.completeAgentAuthClaimFn(...args),
   liftLockdownFn: (...args: unknown[]) => state.liftLockdownFn(...args),
   setLockdownFn: (...args: unknown[]) => state.setLockdownFn(...args),
 }));
@@ -137,6 +139,7 @@ const [
   health,
   { ToastProvider },
   claim,
+  agentAuthClaim,
   root,
   signIn,
   signOut,
@@ -154,6 +157,7 @@ const [
   import("../src/routes/healthz"),
   import("../src/components/ui/ToastProvider"),
   import("../src/routes/_authed.claim"),
+  import("../src/routes/_authed.agent-auth.claim"),
   import("../src/routes/index"),
   import("../src/routes/api/auth/sign-in"),
   import("../src/routes/api/auth/sign-out"),
@@ -173,6 +177,7 @@ describe("web routes", () => {
     state.search = {};
     state.auth = { user: { email: "user@example.com" }, accessToken: "workos-token", role: "admin" };
     state.apiFetchOrEmpty.mockReset();
+    state.completeAgentAuthClaimFn.mockReset();
     state.liftLockdownFn.mockReset();
     state.setLockdownFn.mockReset();
     state.invalidate.mockReset();
@@ -184,6 +189,22 @@ describe("web routes", () => {
     );
     state.invalidateQueries.mockReset();
     state.signOut.mockReset();
+  });
+
+  it("submits a manually entered anonymous claim attempt token through the anonymous flow", async () => {
+    window.history.replaceState({}, "", "/agent-auth/claim");
+    state.completeAgentAuthClaimFn.mockResolvedValue({ data: { ok: true }, error: null });
+
+    render(<agentAuthClaim.Route.component />);
+    fireEvent.change(screen.getByLabelText("Claim reference"), { target: { value: "cat_attempt" } });
+    fireEvent.change(screen.getByLabelText("Code"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByRole("button", { name: "Link agent" }));
+
+    await waitFor(() =>
+      expect(state.completeAgentAuthClaimFn).toHaveBeenCalledWith({
+        data: { claim_attempt_token: "cat_attempt", user_code: "123456" },
+      }),
+    );
   });
 
   it("resolves the authenticated layout identity without blocking on the API", async () => {

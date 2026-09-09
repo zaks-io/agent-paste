@@ -129,7 +129,7 @@ export class RepositoryCore implements Repository {
 
   async completeAgentAuthClaim(input: {
     actor: { type: "member"; id: string; workspace_id: string; email: string };
-    claimToken: string;
+    registrationId: string;
     userCode: string;
     now?: Date;
   }) {
