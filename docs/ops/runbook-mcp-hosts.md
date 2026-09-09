@@ -76,13 +76,12 @@ Required WorkOS Dashboard settings (per environment):
 
 Documented production callback patterns (WorkOS config change, not a code deploy):
 
-| Redirect URI                                            | Host                 |
-| ------------------------------------------------------- | -------------------- |
-| `https://chatgpt.com/connector_platform_oauth_redirect` | ChatGPT              |
-| `https://claude.ai/api/mcp/auth_callback`               | Claude.ai (web)      |
-| `https://*.claude.ai/api/mcp/auth_callback`             | Claude.ai subdomains |
-| `claude-desktop://oauth/callback`                       | Claude Desktop       |
-| `cursor://oauth/callback`                               | Cursor               |
+| Redirect URI                                            | Host            |
+| ------------------------------------------------------- | --------------- |
+| `https://chatgpt.com/connector_platform_oauth_redirect` | ChatGPT         |
+| `https://claude.ai/api/mcp/auth_callback`               | Claude.ai (web) |
+| `claude-desktop://oauth/callback`                       | Claude Desktop  |
+| `cursor://oauth/callback`                               | Cursor          |
 
 Add new redirect URIs only when the host's production callback URL is known.
 Do not register placeholder URIs.
@@ -162,8 +161,9 @@ stay enabled in WorkOS until CIMD support is confirmed for your build.
 ### Claude.ai (web)
 
 1. Add a custom MCP connector with server URL `https://mcp.agent-paste.sh`.
-2. OAuth callback lands on `https://claude.ai/api/mcp/auth_callback` (or a
-   documented `*.claude.ai` subdomain pattern).
+2. OAuth callback lands on the exact registered URI
+   `https://claude.ai/api/mcp/auth_callback`. Do not register wildcard callback
+   hosts.
 
 **Quirk:** Web hosts cannot spawn local processes; do not point Claude.ai at
 `stdio` or localhost MCP servers for hosted agent-paste.
@@ -233,7 +233,9 @@ Uses ephemeral ports and a local WorkOS JWKS stub. Does not call hosted Workers.
 Unauthenticated checks always run: `/healthz`, Protected Resource Metadata,
 missing-bearer `401` + `WWW-Authenticate`, and API-key rejection.
 
-Authenticated tool checks run only when an MCP access token is supplied:
+Preview authenticated tool checks run when a user MCP access token is supplied.
+Production smoke requires authenticated coverage and fails if no token is
+configured:
 
 ```sh
 export AGENT_PASTE_MCP_SMOKE_ACCESS_TOKEN="<oauth-access-token>"
@@ -241,6 +243,11 @@ pnpm smoke:mcp:preview
 # or, with explicit Isaac approval and production credentials:
 pnpm smoke:mcp:production
 ```
+
+Production CI reads `AGENT_PASTE_PRODUCTION_MCP_SMOKE_ACCESS_TOKEN`. The token
+must belong to a current Workspace Member. WorkOS M2M credentials cannot be used
+for this smoke because client-credentials tokens identify an application and
+organization, not a user. Replace the CI secret when the user token expires.
 
 Obtain the smoke token by completing a normal host OAuth flow against the target
 environment, then copy the access token from the host's token store or a
@@ -290,7 +297,8 @@ pnpm --filter @agent-paste/mcp test
 | `403` / `insufficient_scope` on tool call                              | Member's role lacks required scopes for that tool (derived in `api`)                                                                       |
 | `401` with API key message                                             | Host sent an API key; MCP accepts OAuth only                                                                                               |
 | `401` with `workos_access_token` message                               | Host sent a dashboard session token instead of MCP OAuth                                                                                   |
-| `mcp_oauth_verifier_not_configured` (local)                            | `WORKOS_API_KEY` or JWKS URL missing on MCP Worker                                                                                         |
+| `mcp_oauth_verifier_not_configured` (local)                            | `WORKOS_API_KEY`, issuer, or JWKS URL missing on MCP Worker                                                                                |
+| `503` on MCP requests                                                  | OAuth verification or the MCP edge rate-limit binding is unavailable; retry without discarding the token                                   |
 | Host OAuth loop never completes                                        | Redirect URI not allowlisted in WorkOS or missing Resource Indicator                                                                       |
 | `whoami` succeeds but publish fails                                    | Member's role lacks `publish read`                                                                                                         |
 | `read_artifact` succeeds but `read_file` returns `storage_unavailable` | API cannot read or decrypt the stored blob; check API R2 binding and `ARTIFACT_BYTES_ENCRYPTION_*` secret parity with upload/content/jobs. |

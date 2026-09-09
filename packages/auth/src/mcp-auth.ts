@@ -14,8 +14,6 @@ export type McpAuthEnv = {
   WORKOS_MCP_AUDIENCE?: string;
   WORKOS_MCP_ISSUER?: string;
   WORKOS_MCP_JWKS_URL?: string;
-  WORKOS_CLI_ISSUER?: string;
-  WORKOS_CLI_JWKS_URL?: string;
 };
 
 export type McpAuthenticatedPrincipal = {
@@ -34,7 +32,7 @@ function bearerToken(request: Request): string | null {
 
 export function mcpVerifyOptions(env: McpAuthEnv): WorkOsVerificationOptions | null {
   const audience = env.WORKOS_MCP_AUDIENCE ?? MCP_RESOURCE_INDICATOR;
-  if (!env.WORKOS_API_KEY || !audience) {
+  if (!env.WORKOS_API_KEY || !audience || !env.WORKOS_MCP_ISSUER || !env.WORKOS_MCP_JWKS_URL) {
     return null;
   }
   const options: WorkOsVerificationOptions = {
@@ -46,16 +44,8 @@ export function mcpVerifyOptions(env: McpAuthEnv): WorkOsVerificationOptions | n
   if (env.WORKOS_API_BASE_URL) {
     options.apiBaseUrl = env.WORKOS_API_BASE_URL;
   }
-  if (env.WORKOS_MCP_ISSUER) {
-    options.issuers = [env.WORKOS_MCP_ISSUER];
-  } else if (env.WORKOS_CLI_ISSUER) {
-    options.issuers = [env.WORKOS_CLI_ISSUER];
-  }
-  if (env.WORKOS_MCP_JWKS_URL) {
-    options.jwksUrl = env.WORKOS_MCP_JWKS_URL;
-  } else if (env.WORKOS_CLI_JWKS_URL) {
-    options.jwksUrl = env.WORKOS_CLI_JWKS_URL;
-  }
+  options.issuers = [env.WORKOS_MCP_ISSUER];
+  options.jwksUrl = env.WORKOS_MCP_JWKS_URL;
   return options;
 }
 

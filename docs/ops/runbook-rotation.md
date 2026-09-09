@@ -48,7 +48,7 @@ Set `--operator <email-or-rotation-agent@platform>` for ops-log attribution. The
 | `ACCESS_LINK_SIGNING_KEY_V1`    | api                        | Signs Access Link Signed URLs; old URLs remain valid until their `exp` or the signing kid is dropped.            |
 | `ARTIFACT_BYTES_ENCRYPTION_KEY` | api, upload, content, jobs | Required for artifact-byte encrypt/decrypt; existing R2 ciphertext stays on its original `enc_kid` per ADR 0063. |
 | `API_KEY_PEPPER_V1`             | api, upload                | Invalidates existing API Keys in the current MVP implementation.                                                 |
-| `WORKOS_API_KEY`                | api, mcp, upload, web      | Swaps the WorkOS server-side API credential.                                                                     |
+| `WORKOS_API_KEY`                | api, mcp, web              | Swaps the WorkOS server-side API credential.                                                                     |
 | `WORKOS_CLIENT_ID`              | api, web                   | Project/client swap only; also update Wrangler vars where present.                                               |
 | `WORKOS_COOKIE_PASSWORD`        | web                        | Invalidates existing AuthKit sealed web sessions.                                                                |
 
@@ -213,12 +213,11 @@ Current status: WorkOS AuthKit is the current web auth stack. Preview and produc
 
 1. Create or rotate the API key in the WorkOS dashboard for the target environment's WorkOS project.
 2. Store the new value in the password manager.
-3. Write it to `api`, `mcp`, `upload`, and `web` during a maintenance window. There is a short propagation window where one service can be on the new WorkOS key while another is still on the old one, so update the bearer-verifying backend services first, then the frontend:
+3. Write it to `api`, `mcp`, and `web` during a maintenance window. There is a short propagation window where one service can be on the new WorkOS key while another is still on the old one, so update the bearer-verifying backend services first, then the frontend:
 
    ```sh
    wrangler secret put WORKOS_API_KEY --cwd apps/api --env preview
    wrangler secret put WORKOS_API_KEY --cwd apps/mcp --env preview
-   wrangler secret put WORKOS_API_KEY --cwd apps/upload --env preview
    wrangler secret put WORKOS_API_KEY --cwd apps/web --env preview
    ```
 

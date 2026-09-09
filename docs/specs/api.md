@@ -56,7 +56,7 @@ advertises the preview hosts.
 
 | Header                           | Direction        | Required                          | Notes                                                                                                                                                                                                                           |
 | -------------------------------- | ---------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Authorization: Bearer ...`      | request          | Authenticated routes              | Stored CLI credential, WorkOS bearer for `/v1/web/*` and operator routes, or MCP OAuth bearer.                                                                                                                                  |
+| `Authorization: Bearer ...`      | request          | Authenticated routes              | Stored CLI credential, WorkOS bearer for `/v1/web/*` and operator routes, or MCP OAuth bearer accepted only by the `mcp` Worker.                                                                                                |
 | `Idempotency-Key`                | request          | Durable mutations                 | Required for upload session create/finalize and other mutations where noted.                                                                                                                                                    |
 | `X-Request-Id`                   | request/response | Optional request, always response | Server generates one when omitted.                                                                                                                                                                                              |
 | `Retry-After`                    | response         | 429                               | Seconds.                                                                                                                                                                                                                        |
@@ -71,15 +71,15 @@ false.
 
 ## Auth Labels
 
-| Label                     | Meaning                                                                                                    |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `cli_credential`          | Stored local CLI credential created by `agent-paste login` or by the ephemeral provision flow.             |
-| `mcp_oauth`               | WorkOS AuthKit/Connect access token minted for the MCP resource indicator, resolved to a Workspace Member. |
-| `cli_or_mcp`              | Either CLI credential auth or `mcp_oauth`; route scope checks apply to the resolved actor.                 |
-| `workos_bearer`           | WorkOS AuthKit access token on `/v1/web/*` and operator lockdown routes.                                   |
-| `signed_upload_url`       | Opaque upload-worker URL minted by `upload`; accepts file bytes only.                                      |
-| `signed_agent_view_token` | Public token in `/v1/public/agent-view/{token}`.                                                           |
-| `signed_content_token`    | Public token in `/v/{token}/{path}`.                                                                       |
+| Label                     | Meaning                                                                                                                                                     |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cli_credential`          | Stored local CLI credential created by `agent-paste login` or by the ephemeral provision flow.                                                              |
+| `mcp_oauth`               | WorkOS AuthKit/Connect access token minted for the MCP resource indicator. The `mcp` Worker verifies it and passes only its subject over private named RPC. |
+| `cli_or_mcp`              | A CLI credential on public HTTP, or a verified MCP subject received over the private named RPC entrypoint. Route scope checks apply to the resolved actor.  |
+| `workos_bearer`           | WorkOS AuthKit access token on `/v1/web/*` and operator lockdown routes.                                                                                    |
+| `signed_upload_url`       | Opaque upload-worker URL minted by `upload`; accepts file bytes only.                                                                                       |
+| `signed_agent_view_token` | Public token in `/v1/public/agent-view/{token}`.                                                                                                            |
+| `signed_content_token`    | Public token in `/v/{token}/{path}`.                                                                                                                        |
 
 The route registry still uses older internal guard identifiers for some CLI
 credential routes. Agent-facing guidance should use the CLI or MCP surfaces, not
@@ -205,9 +205,9 @@ Authenticated `api` and `upload` routes enforce guards in a fixed order
 
 `whoami` returns the workspace id/name, actor, credential id/name, and effective caps. It does not return credential secret material.
 
-`mcp.whoami` returns the authenticated Workspace Member, workspace, and granted MCP scopes derived from the member record.
+`mcp.whoami` returns the authenticated Workspace Member, workspace, and granted MCP scopes derived from the member record. The route is callable for MCP only through `McpApiEntrypoint`; a bearer sent directly to the public `api` or `upload` host is not accepted as MCP authority.
 
-Single-call MCP tools rely on their one forwarded `api` request for authentication and scope enforcement. Multi-step tools pre-flight against `mcp.whoami` before starting, so a missing scope cannot fail a chain after partial side effects.
+The `mcp` Worker validates the bearer, Origin, protocol version, and per-IP request cap. It strips `Authorization`, then calls an allowlisted named `api` or `upload` RPC entrypoint with the verified WorkOS subject and Route ID. Downstream route matching, Workspace Member resolution, scope enforcement, and actor/workspace rate limits remain authoritative. Single-call tools rely on that downstream enforcement. Multi-step tools pre-flight against `mcp.whoami` before starting, so a missing scope cannot fail a chain after partial side effects. JSON responses from a downstream binding are capped at 512 KiB before parsing.
 
 `PublicAgentView` is public to anyone with the signed token. It resolves one exact Revision and returns full per-file signed URLs for that Revision, not `content_prefix`; those links stay on the legacy content route during the serialized rollout so later capability-manifest updates cannot make the files disagree with the returned metadata. It does not include lockdown metadata. Authenticated owner/member Agent View routes use the same exact-Revision file-link rule and may include explicit lockdown metadata for dashboard-visible locked Artifacts.
 

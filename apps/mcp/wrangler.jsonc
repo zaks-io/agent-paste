@@ -19,17 +19,30 @@
   "upload_source_maps": true,
   "vars": {
     "AGENT_PASTE_ENV": "dev",
+    "SENTRY_TRACES_SAMPLE_RATE": "0.1",
     "MCP_RESOURCE": "https://mcp.agent-paste.sh/",
     "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh/"
   },
   "services": [
     {
       "binding": "API",
-      "service": "agent-paste-api"
+      "service": "agent-paste-api",
+      "entrypoint": "McpApiEntrypoint"
     },
     {
       "binding": "UPLOAD",
-      "service": "agent-paste-upload"
+      "service": "agent-paste-upload",
+      "entrypoint": "McpUploadEntrypoint"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "MCP_IP_RATE_LIMIT",
+      "namespace_id": "1000020",
+      "simple": {
+        "limit": 600,
+        "period": 60
+      }
     }
   ],
   "env": {
@@ -48,6 +61,7 @@
       ],
       "vars": {
         "AGENT_PASTE_ENV": "preview",
+        "SENTRY_TRACES_SAMPLE_RATE": "0.1",
         "MCP_RESOURCE": "https://mcp.preview.agent-paste.sh/",
         "MCP_AUTHORIZATION_SERVER": "https://courageous-milestone-75-staging.authkit.app",
         "WORKOS_MCP_AUDIENCE": "https://mcp.preview.agent-paste.sh/",
@@ -57,11 +71,23 @@
       "services": [
         {
           "binding": "API",
-          "service": "agent-paste-api-preview"
+          "service": "agent-paste-api-preview",
+          "entrypoint": "McpApiEntrypoint"
         },
         {
           "binding": "UPLOAD",
-          "service": "agent-paste-upload-preview"
+          "service": "agent-paste-upload-preview",
+          "entrypoint": "McpUploadEntrypoint"
+        }
+      ],
+      "ratelimits": [
+        {
+          "name": "MCP_IP_RATE_LIMIT",
+          "namespace_id": "2000020",
+          "simple": {
+            "limit": 600,
+            "period": 60
+          }
         }
       ]
     },
@@ -79,6 +105,7 @@
       ],
       "vars": {
         "AGENT_PASTE_ENV": "production",
+        "SENTRY_TRACES_SAMPLE_RATE": "0.1",
         "MCP_RESOURCE": "https://mcp.agent-paste.sh/",
         "MCP_AUTHORIZATION_SERVER": "https://soulful-path-50.authkit.app",
         "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh/",
@@ -88,11 +115,23 @@
       "services": [
         {
           "binding": "API",
-          "service": "agent-paste-api-production"
+          "service": "agent-paste-api-production",
+          "entrypoint": "McpApiEntrypoint"
         },
         {
           "binding": "UPLOAD",
-          "service": "agent-paste-upload-production"
+          "service": "agent-paste-upload-production",
+          "entrypoint": "McpUploadEntrypoint"
+        }
+      ],
+      "ratelimits": [
+        {
+          "name": "MCP_IP_RATE_LIMIT",
+          "namespace_id": "3000020",
+          "simple": {
+            "limit": 600,
+            "period": 60
+          }
         }
       ]
     }

@@ -98,16 +98,35 @@ export function buildLocalMcpWorkerEnv({ apiBaseUrl, uploadBaseUrl, workosEnv })
     MCP_AUTHORIZATION_SERVER: workosEnv.WORKOS_API_BASE_URL,
     AGENT_PASTE_ENV: "dev",
     ...workosEnv,
+    MCP_IP_RATE_LIMIT: { limit: async () => ({ success: true }) },
     API: {
-      fetch(request) {
+      fetchMcp(request, subject, routeId) {
+        const headers = new Headers(request.headers);
+        headers.set("x-agent-paste-local-mcp-subject", subject);
+        headers.set("x-agent-paste-local-mcp-route", routeId);
         const url = rewriteOrigin(request.url, apiBaseUrl);
-        return fetch(new Request(url, request));
+        return fetch(
+          new Request(url, {
+            method: request.method,
+            headers,
+            ...(request.body ? { body: request.body, duplex: "half" } : {}),
+          }),
+        );
       },
     },
     UPLOAD: {
-      fetch(request) {
+      fetchMcp(request, subject, routeId) {
+        const headers = new Headers(request.headers);
+        headers.set("x-agent-paste-local-mcp-subject", subject);
+        headers.set("x-agent-paste-local-mcp-route", routeId);
         const url = rewriteOrigin(request.url, uploadBaseUrl);
-        return fetch(new Request(url, request));
+        return fetch(
+          new Request(url, {
+            method: request.method,
+            headers,
+            ...(request.body ? { body: request.body, duplex: "half" } : {}),
+          }),
+        );
       },
     },
   };

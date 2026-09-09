@@ -26,7 +26,6 @@ describe("traceMcpRequest", () => {
         method: "tools/call",
         id: 7,
         params: { name: "whoami", arguments: { ignored: "body" } },
-        sessionId: "session-abc",
       },
       async () => ({
         kind: "result",
@@ -40,7 +39,6 @@ describe("traceMcpRequest", () => {
       attributes: {
         "mcp.method.name": "tools/call",
         "mcp.request.id": "7",
-        "mcp.session.id": "session-abc",
         "mcp.tool.name": "whoami",
         "mcp.server.name": "agent-paste",
         "mcp.protocol.version": "2025-06-18",
@@ -59,7 +57,6 @@ describe("traceMcpRequest", () => {
         method: "tools/call",
         id: "req-1",
         params: { name: "publish_artifact" },
-        sessionId: null,
       },
       async () => ({
         kind: "error",

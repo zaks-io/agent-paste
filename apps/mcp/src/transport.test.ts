@@ -7,11 +7,9 @@ import { handleMcpEndpoint } from "./transport.js";
 const testAuth = createTestMcpBearerAuth({
   "mcp-valid-token": {
     tokenSub: "user_01",
-    bearerToken: "mcp-valid-token",
   },
   "mcp-read-only": {
     tokenSub: "user_02",
-    bearerToken: "mcp-read-only",
   },
 });
 
@@ -29,6 +27,8 @@ function mcpPost(
     authorization?: string;
     accept?: string;
     resource?: string;
+    origin?: string;
+    protocolVersion?: string;
   } = {},
 ) {
   const headers: Record<string, string> = {
@@ -39,6 +39,12 @@ function mcpPost(
   }
   if (options.accept) {
     headers.accept = options.accept;
+  }
+  if (options.origin) {
+    headers.origin = options.origin;
+  }
+  if (options.protocolVersion) {
+    headers["mcp-protocol-version"] = options.protocolVersion;
   }
   return handleMcpEndpoint(
     new Request("https://mcp.test/", {
@@ -148,6 +154,112 @@ describe("MCP streamable HTTP transport", () => {
     expect(payload.error.data.code).toBe("invalid_params");
   });
 
+  it("rejects cross-origin requests before authentication", async () => {
+    const response = await mcpPost(
+      { jsonrpc: "2.0", id: 1, method: "ping" },
+      { authorization: "Bearer mcp-valid-token", origin: "https://attacker.example" },
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { data: { code: "invalid_request" }, message: "invalid_origin" },
+    });
+  });
+
+  it("accepts absent or same-origin Origin headers", async () => {
+    const absent = await mcpPost(
+      { jsonrpc: "2.0", id: 1, method: "ping" },
+      { authorization: "Bearer mcp-valid-token" },
+    );
+    const same = await mcpPost(
+      { jsonrpc: "2.0", id: 2, method: "ping" },
+      { authorization: "Bearer mcp-valid-token", origin: "https://mcp.test" },
+    );
+
+    expect(absent.status).toBe(200);
+    expect(same.status).toBe(200);
+  });
+
+  it("rejects unsupported MCP-Protocol-Version headers", async () => {
+    const response = await mcpPost(
+      { jsonrpc: "2.0", id: 1, method: "ping" },
+      { authorization: "Bearer mcp-valid-token", protocolVersion: "2025-03-26" },
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { data: { code: "invalid_params" }, message: "unsupported_mcp_protocol_version" },
+    });
+  });
+
+  it("rate limits by caller IP before authentication", async () => {
+    let observedKey = "";
+    const response = await handleMcpEndpoint(
+      new Request("https://mcp.test/", {
+        method: "POST",
+        headers: {
+          "cf-connecting-ip": "203.0.113.4",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }),
+      }),
+      {},
+      {
+        verifyBearer: testAuth,
+        ipRateLimit: {
+          async limit({ key }) {
+            observedKey = key;
+            return { success: false };
+          },
+        },
+      },
+    );
+
+    expect(observedKey).toBe("mcp:203.0.113.4");
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("60");
+  });
+
+  it("fails closed when the production rate-limit binding is missing or unavailable", async () => {
+    const request = () => new Request("https://mcp.test/", { method: "POST" });
+    const missing = await handleMcpEndpoint(request(), {});
+    const unavailable = await handleMcpEndpoint(
+      request(),
+      {},
+      {
+        ipRateLimit: {
+          async limit() {
+            throw new Error("binding unavailable");
+          },
+        },
+      },
+    );
+
+    expect(missing.status).toBe(503);
+    expect(unavailable.status).toBe(503);
+  });
+
+  it("returns 503 without an auth challenge when token verification is unavailable", async () => {
+    const response = await handleMcpEndpoint(
+      new Request("https://mcp.test/", {
+        method: "POST",
+        headers: { authorization: "Bearer token", "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }),
+      }),
+      {},
+      {
+        verifyBearer: async () => ({
+          ok: false,
+          code: "database_unavailable",
+          message: "oauth_verification_unavailable",
+        }),
+      },
+    );
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("www-authenticate")).toBeNull();
+  });
+
   it("accepts initialize over JSON", async () => {
     const response = await mcpPost(
       {
@@ -231,10 +343,12 @@ describe("MCP streamable HTTP transport", () => {
   });
 
   it("forwards whoami over the API service binding", async () => {
-    const upload = { fetch: async () => new Response(null, { status: 500 }) };
+    const upload = { fetchMcp: async () => new Response(null, { status: 500 }) };
     const api = {
-      async fetch(request: Request) {
-        expect(request.headers.get("authorization")).toBe("Bearer mcp-valid-token");
+      async fetchMcp(request: Request, subject: string, routeId: string) {
+        expect(request.headers.has("authorization")).toBe(false);
+        expect(subject).toBe("user_01");
+        expect(routeId).toBe("mcp.whoami");
         expect(new URL(request.url).pathname).toBe("/v1/mcp/whoami");
         return Response.json({
           workspace_member: {
@@ -277,8 +391,8 @@ describe("MCP streamable HTTP transport", () => {
   });
 
   it("returns insufficient_scope when the member's granted scopes lack the requirement", async () => {
-    const upload = { fetch: async () => new Response(null, { status: 500 }) };
-    const api = { fetch: async () => whoamiResponse(["read"]) };
+    const upload = { fetchMcp: async () => new Response(null, { status: 500 }) };
+    const api = { fetchMcp: async () => whoamiResponse(["read"]) };
     const response = await handleMcpEndpoint(
       new Request("https://mcp.test/", {
         method: "POST",
@@ -305,9 +419,9 @@ describe("MCP streamable HTTP transport", () => {
   });
 
   it("attaches an invalid_token challenge when forwarded auth fails mid-session", async () => {
-    const upload = { fetch: async () => new Response(null, { status: 500 }) };
+    const upload = { fetchMcp: async () => new Response(null, { status: 500 }) };
     const api = {
-      fetch: async () =>
+      fetchMcp: async () =>
         Response.json({ error: { code: "not_authenticated", message: "not_authenticated" } }, { status: 401 }),
     };
     const response = await handleMcpEndpoint(
@@ -481,7 +595,7 @@ describe("MCP streamable HTTP transport", () => {
     expect(unknown.status).toBe(404);
   });
 
-  it("echoes Mcp-Session-Id on JSON responses when provided", async () => {
+  it("does not reflect caller-provided Mcp-Session-Id on stateless responses", async () => {
     const response = await handleMcpEndpoint(
       new Request("https://mcp.test/", {
         method: "POST",
@@ -501,7 +615,7 @@ describe("MCP streamable HTTP transport", () => {
       { verifyBearer: testAuth },
     );
     expect(response.status).toBe(200);
-    expect(response.headers.get("mcp-session-id")).toBe("session-abc");
+    expect(response.headers.get("mcp-session-id")).toBeNull();
   });
 
   it("lists all ADR 0061 tools with JSON Schema inputs", async () => {

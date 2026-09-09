@@ -1,12 +1,15 @@
-import { MCP_RESOURCE_INDICATOR, routeContracts } from "@agent-paste/contracts";
-import { exportJWK, generateKeyPair, type JWK, SignJWT } from "jose";
+import { routeContracts } from "@agent-paste/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Env, handleRequest, mountedRouteIds, nonContractRoutePaths, type UploadSessionRecord } from "./index.js";
+import {
+  type Env,
+  handleMcpUploadRequest,
+  handleRequest,
+  mountedRouteIds,
+  nonContractRoutePaths,
+  type UploadSessionRecord,
+} from "./index.js";
 
 const mcpSubject = "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ";
-const mcpJwksUrl = "https://tenant.authkit.app/oauth2/jwks";
-const mcpIssuer = "https://tenant.authkit.app";
-let mcpKeyPairPromise: ReturnType<typeof generateKeyPair> | undefined;
 
 function createUploadRequestBody(
   files: Array<{ path: string; size_bytes: number }> = [{ path: "index.html", size_bytes: 12 }],
@@ -279,10 +282,6 @@ describe("upload worker", () => {
     ["api key", undefined] as const,
     ["MCP member", "read"] as const,
   ])("replays cached idempotent %s create before rate limits", async (_label, mcpScope) => {
-    const mcpFixture = mcpScope ? await mcpTokenFixture({ scope: mcpScope }) : null;
-    if (mcpFixture) {
-      stubMcpFetch(mcpFixture.publicJwk);
-    }
     const session: UploadSessionRecord = {
       session_id: "upl_replay",
       workspace_id: "00000000-0000-4000-8000-000000000001",
@@ -301,14 +300,6 @@ describe("upload worker", () => {
     const rateLimitCalls = { actor: 0, workspace: 0 };
     const env: Env = {
       UPLOAD_SIGNING_SECRET: "secret",
-      ...(mcpScope
-        ? {
-            WORKOS_API_KEY: "sk_test_123",
-            WORKOS_MCP_AUDIENCE: MCP_RESOURCE_INDICATOR,
-            WORKOS_MCP_JWKS_URL: mcpJwksUrl,
-            WORKOS_MCP_ISSUER: mcpIssuer,
-          }
-        : {}),
       AUTH: {
         async verifyApiKey(token) {
           if (token === "ok") {
@@ -352,19 +343,18 @@ describe("upload worker", () => {
       },
     };
 
-    const token = mcpFixture?.token ?? "ok";
-    const response = await handleRequest(
-      new Request("https://upload.test/v1/upload-sessions", {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${token}`,
-          "idempotency-key": "replay",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(createUploadRequestBody()),
-      }),
-      env,
-    );
+    const request = new Request("https://upload.test/v1/upload-sessions", {
+      method: "POST",
+      headers: {
+        ...(mcpScope ? {} : { authorization: "Bearer ok" }),
+        "idempotency-key": "replay",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(createUploadRequestBody()),
+    });
+    const response = mcpScope
+      ? await handleMcpUploadRequest(request, env, mcpSubject, "uploadSessions.create")
+      : await handleRequest(request, env);
 
     expect(response.status).toBe(200);
     const body = (await response.json()) as {
@@ -378,8 +368,6 @@ describe("upload worker", () => {
   });
 
   it("replays cached idempotent finalize for MCP member before rate limits", async () => {
-    const fixture = await mcpTokenFixture({ scope: "read" });
-    stubMcpFetch(fixture.publicJwk);
     const finalized = {
       upload_session_id: "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
       artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
@@ -400,10 +388,6 @@ describe("upload worker", () => {
     const rateLimitCalls = { actor: 0, workspace: 0 };
     const env: Env = {
       UPLOAD_SIGNING_SECRET: "secret",
-      WORKOS_API_KEY: "sk_test_123",
-      WORKOS_MCP_AUDIENCE: MCP_RESOURCE_INDICATOR,
-      WORKOS_MCP_JWKS_URL: mcpJwksUrl,
-      WORKOS_MCP_ISSUER: mcpIssuer,
       DB: {
         async createUploadSession() {
           throw new Error("finalize replay must not create sessions");
@@ -439,16 +423,17 @@ describe("upload worker", () => {
       },
     };
 
-    const response = await handleRequest(
+    const response = await handleMcpUploadRequest(
       new Request("https://upload.test/v1/upload-sessions/upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9/finalize", {
         method: "POST",
         headers: {
-          authorization: `Bearer ${fixture.token}`,
           "idempotency-key": "replay-finalize",
           "content-type": "application/json",
         },
       }),
       env,
+      mcpSubject,
+      "uploadSessions.finalize",
     );
 
     expect(response.status).toBe(200);
@@ -567,36 +552,3 @@ describe("upload security headers", () => {
     expectBaseline(await handleRequest(new Request("https://upload.test/nope"), {}));
   });
 });
-
-async function mcpTokenFixture(input: { scope?: string } = {}) {
-  mcpKeyPairPromise ??= generateKeyPair("RS256");
-  const { publicKey, privateKey } = await mcpKeyPairPromise;
-  const publicJwk = await exportJWK(publicKey);
-  publicJwk.kid = "mcp-key";
-  publicJwk.alg = "RS256";
-  const token = await new SignJWT({ scope: input.scope ?? "read" })
-    .setProtectedHeader({ alg: "RS256", kid: "mcp-key" })
-    .setIssuer(mcpIssuer)
-    .setAudience(MCP_RESOURCE_INDICATOR)
-    .setSubject(mcpSubject)
-    .setIssuedAt()
-    .setExpirationTime(Math.floor(Date.now() / 1000) + 300)
-    .sign(privateKey);
-  return { token, publicJwk };
-}
-
-function stubMcpFetch(publicJwk: JWK) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (url: string | URL | Request) => {
-      const href = url instanceof Request ? url.url : String(url);
-      if (href === mcpJwksUrl) {
-        return Response.json({ keys: [publicJwk] });
-      }
-      if (href.endsWith(`/user_management/users/${mcpSubject}`)) {
-        return Response.json({ id: mcpSubject, email: "user@example.com" });
-      }
-      return new Response("not found", { status: 404 });
-    }),
-  );
-}

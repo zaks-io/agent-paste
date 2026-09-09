@@ -31,7 +31,7 @@ describe("MCP bearer auth hooks", () => {
 
   it("rejects WorkOS session-style tokens at the MCP surface", () => {
     const verify = createTestMcpBearerAuth({
-      ok: { tokenSub: "u1", bearerToken: "ok" },
+      ok: { tokenSub: "u1" },
     });
     const response = verify({ authorizationHeader: "Bearer wos_session_abc" });
     expect(response).toEqual({
@@ -45,7 +45,7 @@ describe("MCP bearer auth hooks", () => {
     const verify = createUnconfiguredMcpBearerAuth();
     expect(verify({ authorizationHeader: "Bearer opaque-oauth-token" })).toEqual({
       ok: false,
-      code: "invalid_token",
+      code: "database_unavailable",
       message: "mcp_oauth_verifier_not_configured",
     });
     expect(verify({ authorizationHeader: null })).toEqual(rejectMissingBearer());
@@ -63,7 +63,7 @@ describe("MCP bearer auth hooks", () => {
     });
     await expect(verify({ authorizationHeader: `Bearer ${fixture.token}` })).resolves.toEqual({
       ok: true,
-      context: { tokenSub: "user_01", bearerToken: fixture.token },
+      context: { tokenSub: "user_01" },
     });
   });
 
@@ -71,7 +71,7 @@ describe("MCP bearer auth hooks", () => {
     const verify = createWorkOsMcpBearerAuth({ WORKOS_API_KEY: "sk_test" });
     await expect(verify({ authorizationHeader: "Bearer opaque" })).resolves.toEqual({
       ok: false,
-      code: "invalid_token",
+      code: "database_unavailable",
       message: "mcp_oauth_verifier_not_configured",
     });
   });

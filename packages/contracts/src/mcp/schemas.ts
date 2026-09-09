@@ -1,6 +1,6 @@
 import { AgentView, DisplayMetadata } from "../agentView.js";
 import { ArtifactFileContent, ArtifactListResponse, DeleteArtifactResponse } from "../artifacts.js";
-import { Mebibytes, PaginationRequest } from "../common.js";
+import { PaginationRequest } from "../common.js";
 import {
   ArtifactId,
   Cursor,
@@ -39,7 +39,11 @@ export type McpProtectedResourceMetadata = z.infer<typeof McpProtectedResourceMe
 export const McpPublishRenderMode = z.enum(["text", "markdown", "html"]);
 export type McpPublishRenderMode = z.infer<typeof McpPublishRenderMode>;
 
-const mcpTextBody = z.string().min(1).max(Mebibytes.ten);
+// The entire JSON-RPC request is capped at 1 MiB. 192 Ki characters remains
+// below that ceiling even when every character takes four UTF-8 bytes and leaves
+// room for the JSON-RPC/tool envelope.
+export const MAX_MCP_TEXT_CHARACTERS = 192 * 1024;
+const mcpTextBody = z.string().min(1).max(MAX_MCP_TEXT_CHARACTERS);
 
 export const McpPublishArtifactInput = z
   .object({
@@ -65,16 +69,19 @@ export type McpAddRevisionInput = z.infer<typeof McpAddRevisionInput>;
 
 // One literal old/new replacement, the same shape as Claude's Edit/MultiEdit
 // tools. Matching is LITERAL (no regex): old_string must occur exactly once in
-// the base unless replace_all is set. Bounded to the same 10 MiB ceiling as a
-// publish body so a single oversize string cannot blow the request up.
+// the base unless replace_all is set. Each string is bounded below the 1 MiB
+// transport ceiling so one oversize value cannot blow the request up.
 export const McpEdit = z
   .object({
     old_string: z
       .string()
       .min(1)
-      .max(Mebibytes.ten)
+      .max(MAX_MCP_TEXT_CHARACTERS)
       .describe("Exact text to find in the file. Must match once unless replace_all is true."),
-    new_string: z.string().max(Mebibytes.ten).describe("Text to replace it with (may be empty to delete the match)."),
+    new_string: z
+      .string()
+      .max(MAX_MCP_TEXT_CHARACTERS)
+      .describe("Text to replace it with (may be empty to delete the match)."),
     replace_all: z
       .boolean()
       .optional()

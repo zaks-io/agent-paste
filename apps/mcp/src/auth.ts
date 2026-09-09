@@ -1,8 +1,8 @@
+import { WorkOsVerificationUnavailableError } from "@agent-paste/auth";
 import { isConfiguredMcpOAuthVerifier, type McpWorkOsEnv, verifyMcpOAuthToken } from "./workos.js";
 
 export type McpAuthContext = {
   tokenSub: string;
-  bearerToken: string;
 };
 
 export type McpAuthSuccess = {
@@ -12,7 +12,7 @@ export type McpAuthSuccess = {
 
 export type McpAuthFailure = {
   ok: false;
-  code: "invalid_token";
+  code: "invalid_token" | "database_unavailable";
   message: string;
 };
 
@@ -88,7 +88,7 @@ export function createUnconfiguredMcpBearerAuth(): VerifyMcpBearer {
     }
     return {
       ok: false,
-      code: "invalid_token",
+      code: "database_unavailable",
       message: "mcp_oauth_verifier_not_configured",
     };
   };
@@ -107,11 +107,19 @@ export function createWorkOsMcpBearerAuth(env: McpWorkOsEnv): VerifyMcpBearer {
     if (!isConfiguredMcpOAuthVerifier(env)) {
       return {
         ok: false,
-        code: "invalid_token",
+        code: "database_unavailable",
         message: "mcp_oauth_verifier_not_configured",
       };
     }
-    const verified = await verifyMcpOAuthToken(token, env);
+    let verified: Awaited<ReturnType<typeof verifyMcpOAuthToken>>;
+    try {
+      verified = await verifyMcpOAuthToken(token, env);
+    } catch (error) {
+      if (error instanceof WorkOsVerificationUnavailableError) {
+        return { ok: false, code: "database_unavailable", message: "oauth_verification_unavailable" };
+      }
+      throw error;
+    }
     if (!verified) {
       return rejectMissingBearer();
     }
@@ -119,7 +127,6 @@ export function createWorkOsMcpBearerAuth(env: McpWorkOsEnv): VerifyMcpBearer {
       ok: true,
       context: {
         tokenSub: verified.tokenSub,
-        bearerToken: token,
       },
     };
   };
@@ -139,6 +146,6 @@ export function createTestMcpBearerAuth(tokens: Record<string, McpAuthContext>):
     if (!context) {
       return rejectMissingBearer();
     }
-    return { ok: true, context: { ...context, bearerToken: token } };
+    return { ok: true, context: { ...context } };
   };
 }

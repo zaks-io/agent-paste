@@ -6,6 +6,7 @@ import {
   mapMcpProtocolError,
   PublishResult,
 } from "@agent-paste/contracts";
+import { emitWorkerLog } from "@agent-paste/worker-runtime";
 import {
   type ApiServiceBinding,
   type ForwardToApiResult,
@@ -26,7 +27,7 @@ export class ForwardError extends Error {
 export type PublishTransportDeps = {
   api: ApiServiceBinding;
   upload: UploadServiceBinding;
-  bearerToken: string;
+  tokenSub: string;
 };
 
 /**
@@ -42,7 +43,7 @@ export function serviceBindingTransport(deps: PublishTransportDeps): PublishTran
       forwardToUploadRoute({
         upload: deps.upload,
         routeId: "uploadSessions.create",
-        bearerToken: deps.bearerToken,
+        tokenSub: deps.tokenSub,
         body: JSON.stringify(body),
         idempotencyKey: key,
       }).then((result) => unwrap(result, CreateUploadSessionResponse, "uploadSessions.create")),
@@ -65,7 +66,7 @@ export function serviceBindingTransport(deps: PublishTransportDeps): PublishTran
         upload: deps.upload,
         routeId: "uploadSessions.finalize",
         params: { upload_session_id: uploadSessionId },
-        bearerToken: deps.bearerToken,
+        tokenSub: deps.tokenSub,
         idempotencyKey: key,
       }).then((result) => unwrap(result, FinalizeUploadSessionResponse, "uploadSessions.finalize")),
 
@@ -74,7 +75,7 @@ export function serviceBindingTransport(deps: PublishTransportDeps): PublishTran
         api: deps.api,
         routeId: "revisions.publish",
         params: { artifact_id: artifactId, revision_id: revisionId },
-        bearerToken: deps.bearerToken,
+        tokenSub: deps.tokenSub,
         idempotencyKey: key,
         ...(body ? { body: JSON.stringify(body) } : {}),
       }).then((result) => unwrap(result, PublishResult, "revisions.publish")),
@@ -94,9 +95,12 @@ function unwrap<T>(
     // 200 from upstream but the body failed our contract: deploy skew / schema
     // drift. Log loudly — a silent internal_error here is undebuggable in prod.
     // Log only issue metadata, never the raw error: the body can carry PII.
-    console.error("mcp: publish forward response schema validation failed", {
+    emitWorkerLog({
+      level: "error",
+      component: "mcp",
+      event: "mcp.publish_forward_response_invalid",
       routeId,
-      issues: zodIssueMetadata(parsed.error),
+      attributes: { issue_count: zodIssueMetadata(parsed.error)?.length ?? 0 },
     });
     throw new ForwardError(mapMcpProtocolError("internal_error", "internal_error"));
   }

@@ -56,6 +56,8 @@ export {
   type WorkerLogInput,
   type WorkerLogLevel,
 } from "./logging.js";
+export { getInternalMcpSubject, withInternalMcpSubject } from "./mcp-service-auth.js";
+export { isAllowedMcpServiceRequest } from "./mcp-service-route.js";
 export type {
   ApiKeyPrincipal,
   AuthFailure,

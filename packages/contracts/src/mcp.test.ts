@@ -3,6 +3,7 @@ import { UpdateDisplayMetadataRequest } from "./accessLinks.js";
 import {
   buildMcpToolList,
   deriveMcpIdempotencyKey,
+  MAX_MCP_TEXT_CHARACTERS,
   MCP_API_ERROR_HTTP_STATUS,
   McpAddRevisionInput,
   McpMultiEditInput,
@@ -123,7 +124,7 @@ describe("MCP tool registry", () => {
     expect(addRevision.forwardedCalls.map((call) => call.routeId)).toEqual(expected);
     const allCalls = [...publish.forwardedCalls, ...addRevision.forwardedCalls];
     expect(allCalls.some((call) => call.routeId.startsWith("accessLinks."))).toBe(false);
-    expect(allCalls.every((call) => call.auth === "mcp_bearer" || call.auth === "signed_upload_url")).toBe(true);
+    expect(allCalls.every((call) => call.auth === "mcp_principal" || call.auth === "signed_upload_url")).toBe(true);
   });
 
   it("does not forward to any access-link route from the publish tools (publish is content-only)", () => {
@@ -240,6 +241,33 @@ describe("MCP tool registry", () => {
         artifact_id,
         path: "index.html",
         edits: [{ old_string: "", new_string: "bar" }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("keeps tool text below the JSON-RPC transport ceiling", () => {
+    const artifact_id = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+    const withinLimit = "x".repeat(MAX_MCP_TEXT_CHARACTERS);
+    const overLimit = `${withinLimit}x`;
+
+    expect(McpPublishArtifactInput.safeParse({ title: "Demo", body: withinLimit, render_mode: "text" }).success).toBe(
+      true,
+    );
+    expect(McpPublishArtifactInput.safeParse({ title: "Demo", body: overLimit, render_mode: "text" }).success).toBe(
+      false,
+    );
+    expect(
+      McpMultiEditInput.safeParse({
+        artifact_id,
+        path: "index.html",
+        edits: [{ old_string: withinLimit, new_string: "" }],
+      }).success,
+    ).toBe(true);
+    expect(
+      McpMultiEditInput.safeParse({
+        artifact_id,
+        path: "index.html",
+        edits: [{ old_string: overLimit, new_string: "" }],
       }).success,
     ).toBe(false);
   });

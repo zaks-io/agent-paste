@@ -6,7 +6,7 @@ import type { McpToolInputSchemaName, McpToolOutputSchemaName } from "./tool-sch
 /** MCP accepts OAuth bearer tokens only; API keys and dashboard sessions are rejected. */
 export type McpAuthRequirement = "mcp_oauth";
 
-export type McpForwardedAuth = "mcp_bearer" | "signed_upload_url";
+export type McpForwardedAuth = "mcp_principal" | "signed_upload_url";
 
 export type McpForwardedIdempotencyKey = "same_as_tool" | "derived_share_link";
 

@@ -1,12 +1,13 @@
 import { AgentView, ArtifactFileContent, mapMcpProtocolError } from "@agent-paste/contracts";
 import type { RevisionReader } from "@agent-paste/revise-core";
+import { emitWorkerLog } from "@agent-paste/worker-runtime";
 import { type ApiServiceBinding, type ForwardToApiResult, forwardToApiRoute } from "./forward.js";
 import { ForwardError } from "./publish-transport.js";
 import { zodIssueMetadata } from "./zod-issue-metadata.js";
 
 export type RevisionReaderDeps = {
   api: ApiServiceBinding;
-  bearerToken: string;
+  tokenSub: string;
 };
 
 /**
@@ -23,7 +24,7 @@ export function serviceBindingReader(deps: RevisionReaderDeps): RevisionReader {
         api: deps.api,
         routeId: "agentView.getLatest",
         params: { artifact_id: artifactId },
-        bearerToken: deps.bearerToken,
+        tokenSub: deps.tokenSub,
       }).then((result) => unwrap(result, AgentView, "agentView.getLatest")),
 
     readFile: (artifactId, path, revisionId) =>
@@ -32,7 +33,7 @@ export function serviceBindingReader(deps: RevisionReaderDeps): RevisionReader {
         routeId: "artifacts.fileContent",
         params: { artifact_id: artifactId },
         query: { path, revision_id: revisionId },
-        bearerToken: deps.bearerToken,
+        tokenSub: deps.tokenSub,
       }).then((result) => unwrap(result, ArtifactFileContent, "artifacts.fileContent")),
   };
 }
@@ -50,9 +51,12 @@ function unwrap<T>(
     // 200 from upstream but the body failed our contract: deploy skew / schema
     // drift. Log only issue metadata, never the raw error: the body carries the
     // decrypted file content.
-    console.error("mcp: revise read response schema validation failed", {
+    emitWorkerLog({
+      level: "error",
+      component: "mcp",
+      event: "mcp.revise_read_response_invalid",
       routeId,
-      issues: zodIssueMetadata(parsed.error),
+      attributes: { issue_count: zodIssueMetadata(parsed.error)?.length ?? 0 },
     });
     throw new ForwardError(mapMcpProtocolError("internal_error", "internal_error"));
   }

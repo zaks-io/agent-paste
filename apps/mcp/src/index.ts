@@ -8,9 +8,9 @@ import { captureWorkerError, securityHeadersMiddleware, sentryOptions } from "@a
 import type { CloudflareOptions } from "@sentry/cloudflare";
 import * as Sentry from "@sentry/cloudflare";
 import { type Context, Hono } from "hono";
-import type { ApiServiceBinding } from "./forward.js";
+import type { ApiServiceBinding, UploadServiceBinding } from "./forward.js";
 import { mcpServerCard } from "./server-card.js";
-import { handleMcpEndpoint } from "./transport.js";
+import { handleMcpEndpoint, type McpRateLimitBinding } from "./transport.js";
 import type { McpWorkOsEnv } from "./workos.js";
 
 export type Env = McpWorkOsEnv & {
@@ -18,7 +18,10 @@ export type Env = McpWorkOsEnv & {
   MCP_RESOURCE?: string;
   MCP_AUTHORIZATION_SERVER?: string;
   API?: ApiServiceBinding;
+  UPLOAD?: UploadServiceBinding;
+  MCP_IP_RATE_LIMIT?: McpRateLimitBinding;
   SENTRY_DSN?: string;
+  SENTRY_TRACES_SAMPLE_RATE?: string;
 };
 
 type AppContext = Context<{ Bindings: Env }>;
@@ -61,14 +64,7 @@ const worker = {
 export default Sentry.withSentry((env: Env) => mcpSentryOptions(env), worker);
 
 export function mcpSentryOptions(env: Env): CloudflareOptions {
-  const options = sentryOptions(env);
-  if (!options.enabled) {
-    return options;
-  }
-  return {
-    ...options,
-    tracesSampleRate: 1.0,
-  };
+  return sentryOptions(env);
 }
 
 function protectedResourceMetadata(env: Env): Record<string, unknown> {
@@ -91,9 +87,7 @@ function authorizationServerMetadataResponse(context: AppContext): Response {
 }
 
 function authorizationServerMetadata(env: Env): Record<string, unknown> | null {
-  const authorizationServer = normalizedUrl(
-    env.MCP_AUTHORIZATION_SERVER ?? env.WORKOS_MCP_ISSUER ?? env.WORKOS_CLI_ISSUER,
-  );
+  const authorizationServer = normalizedUrl(env.MCP_AUTHORIZATION_SERVER ?? env.WORKOS_MCP_ISSUER);
   if (!authorizationServer) {
     return null;
   }

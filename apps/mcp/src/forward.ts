@@ -5,9 +5,10 @@ import {
   mapMcpProtocolError,
   routeContractById,
 } from "@agent-paste/contracts";
+import { readBodyTextCapped } from "@agent-paste/worker-runtime";
 
 export type ServiceBinding = {
-  fetch(request: Request): Promise<Response>;
+  fetchMcp(request: Request, subject: string, routeId: RouteId): Promise<Response>;
 };
 
 export type ApiServiceBinding = ServiceBinding;
@@ -17,7 +18,8 @@ export type ForwardToApiInput = {
   api: ApiServiceBinding;
   method: "GET" | "POST" | "PATCH" | "DELETE" | "PUT" | "HEAD";
   path: string;
-  bearerToken: string;
+  routeId: RouteId;
+  tokenSub: string;
   headers?: HeadersInit;
   body?: string;
   idempotencyKey?: string;
@@ -27,7 +29,6 @@ export type RoutePathParams = Record<string, string>;
 export type RouteQueryParams = Record<string, string | number | boolean | null | undefined>;
 
 export type ForwardToApiRouteInput = Omit<ForwardToApiInput, "method" | "path"> & {
-  routeId: RouteId;
   params?: RoutePathParams;
   query?: RouteQueryParams;
 };
@@ -53,6 +54,7 @@ export async function forwardToApiRoute(input: ForwardToApiRouteInput): Promise<
   }
   return forwardToApi({
     ...forward,
+    routeId,
     method: route.method,
     path: buildRoutePath(route.path, params, query),
   });
@@ -64,7 +66,7 @@ type ForwardToBindingInput = Omit<ForwardToApiInput, "api"> & {
 
 async function forwardToBinding(input: ForwardToBindingInput): Promise<ForwardToApiResult> {
   const headers = new Headers(input.headers);
-  headers.set("authorization", `Bearer ${input.bearerToken}`);
+  headers.delete("authorization");
   if (input.idempotencyKey) {
     headers.set("idempotency-key", input.idempotencyKey);
   }
@@ -74,12 +76,14 @@ async function forwardToBinding(input: ForwardToBindingInput): Promise<ForwardTo
 
   let response: Response;
   try {
-    response = await input.binding.fetch(
+    response = await input.binding.fetchMcp(
       new Request(`https://agent-paste.internal${input.path}`, {
         method: input.method,
         headers,
         ...(input.body !== undefined ? { body: input.body } : {}),
       }),
+      input.tokenSub,
+      input.routeId,
     );
   } catch {
     return {
@@ -99,7 +103,6 @@ export async function forwardToApi(input: ForwardToApiInput): Promise<ForwardToA
 export type ForwardToUploadInput = Omit<ForwardToApiInput, "api"> & { upload: UploadServiceBinding };
 
 export type ForwardToUploadRouteInput = Omit<ForwardToUploadInput, "method" | "path"> & {
-  routeId: RouteId;
   params?: RoutePathParams;
   query?: RouteQueryParams;
 };
@@ -112,6 +115,7 @@ export async function forwardToUploadRoute(input: ForwardToUploadRouteInput): Pr
   }
   return forwardToUpload({
     ...forward,
+    routeId,
     method: route.method,
     path: buildRoutePath(route.path, params, query),
   });
@@ -175,15 +179,21 @@ export async function putSignedUploadFile(input: {
 
 type ApiErrorEnvelope = { code?: string; message?: string; request_id?: string; docs?: string };
 
-async function readForwardBody(response: Response): Promise<unknown> {
+export const MAX_MCP_FORWARDED_RESPONSE_BYTES = 512 * 1024;
+
+async function readForwardBody(response: Response): Promise<{ ok: true; body: unknown } | { ok: false }> {
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("application/json")) {
-    return null;
+    return { ok: true, body: null };
+  }
+  const capped = await readBodyTextCapped(response, MAX_MCP_FORWARDED_RESPONSE_BYTES);
+  if (!capped.ok) {
+    return { ok: false };
   }
   try {
-    return await response.json();
+    return { ok: true, body: JSON.parse(capped.text) as unknown };
   } catch {
-    return null;
+    return { ok: true, body: null };
   }
 }
 
@@ -222,7 +232,11 @@ function mapForwardFailure(response: Response, body: unknown): ForwardToApiFailu
 }
 
 async function mapForwardResponse(response: Response): Promise<ForwardToApiResult> {
-  const body = await readForwardBody(response);
+  const parsed = await readForwardBody(response);
+  if (!parsed.ok) {
+    return { ok: false, error: mapMcpProtocolError("internal_error", "upstream_response_too_large") };
+  }
+  const { body } = parsed;
   if (!response.ok) {
     return mapForwardFailure(response, body);
   }

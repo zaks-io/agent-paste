@@ -2,7 +2,7 @@ import type { McpScope } from "@agent-paste/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { callMcpTool } from "./tools.js";
 
-const auth = { tokenSub: "user_01", bearerToken: "token-read" };
+const auth = { tokenSub: "user_01" };
 
 const ARTIFACT_ID = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const REVISION_ID = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
@@ -15,7 +15,7 @@ const UPLOAD_SESSION_ID = "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
  */
 function uploadMockForPublish() {
   return {
-    fetch: vi.fn(async (request: Request) => {
+    fetchMcp: vi.fn(async (request: Request) => {
       if (new URL(request.url).pathname.endsWith("/finalize")) {
         return Response.json({
           upload_session_id: UPLOAD_SESSION_ID,
@@ -123,7 +123,7 @@ const whoamiBody = whoamiBodyFor(["read", "publish", "admin"]);
 function apiMock(grantedScopes: readonly McpScope[], ...routeResponses: Response[]) {
   let next = 0;
   return {
-    fetch: vi.fn(async (request: Request) => {
+    fetchMcp: vi.fn(async (request: Request) => {
       if (new URL(request.url).pathname.endsWith("/mcp/whoami")) {
         return Response.json(whoamiBodyFor(grantedScopes));
       }
@@ -136,14 +136,14 @@ function apiMock(grantedScopes: readonly McpScope[], ...routeResponses: Response
 
 /** The Nth real route request, excluding any multi-step `mcp.whoami` pre-flight. */
 function routeCall(api: ReturnType<typeof apiMock>, index: number): Request {
-  const routeRequests = api.fetch.mock.calls
+  const routeRequests = api.fetchMcp.mock.calls
     .map((call) => call[0] as Request)
     .filter((request) => !new URL(request.url).pathname.endsWith("/mcp/whoami"));
   return routeRequests[index] as Request;
 }
 
 describe("callMcpTool", () => {
-  const upload = { fetch: vi.fn() };
+  const upload = { fetchMcp: vi.fn() };
 
   beforeEach(() => {
     vi.resetAllMocks();
@@ -151,9 +151,9 @@ describe("callMcpTool", () => {
 
   it("rejects invalid tool call params", async () => {
     const result = await callMcpTool("not-a-tool", {}, auth, {
-      api: { fetch: vi.fn() },
+      api: { fetchMcp: vi.fn() },
       upload,
-      bearerToken: auth.bearerToken,
+      tokenSub: auth.tokenSub,
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -166,7 +166,7 @@ describe("callMcpTool", () => {
     const result = await callMcpTool("publish_artifact", { title: "t", body: "b", render_mode: "text" }, auth, {
       api,
       upload,
-      bearerToken: auth.bearerToken,
+      tokenSub: auth.tokenSub,
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -180,25 +180,27 @@ describe("callMcpTool", () => {
       page_info: { next_cursor: null, has_more: false },
     };
     const api = apiMock(["read"], Response.json(listBody));
-    const result = await callMcpTool("list_artifacts", {}, auth, { api, upload, bearerToken: "token-read" });
+    const result = await callMcpTool("list_artifacts", {}, auth, { api, upload, tokenSub: "token-read" });
     expect(result).toEqual({ ok: true, result: listBody });
-    expect(api.fetch).toHaveBeenCalledTimes(1);
-    expect(new URL((api.fetch.mock.calls[0]?.[0] as Request).url).pathname).toBe("/v1/artifacts");
+    expect(api.fetchMcp).toHaveBeenCalledTimes(1);
+    expect(new URL((api.fetchMcp.mock.calls[0]?.[0] as Request).url).pathname).toBe("/v1/artifacts");
   });
 
   it("returns whoami results from the API binding", async () => {
     const api = {
-      fetch: vi.fn(async () => Response.json(whoamiBody)),
+      fetchMcp: vi.fn(async () => Response.json(whoamiBody)),
     };
-    const result = await callMcpTool("whoami", {}, auth, { api, upload, bearerToken: auth.bearerToken });
+    const result = await callMcpTool("whoami", {}, auth, { api, upload, tokenSub: auth.tokenSub });
     expect(result).toEqual({ ok: true, result: whoamiBody });
   });
 
   it("surfaces API forwarding failures", async () => {
     const api = {
-      fetch: vi.fn(async () => Response.json({ error: { code: "forbidden", message: "forbidden" } }, { status: 403 })),
+      fetchMcp: vi.fn(async () =>
+        Response.json({ error: { code: "forbidden", message: "forbidden" } }, { status: 403 }),
+      ),
     };
-    const result = await callMcpTool("whoami", {}, auth, { api, upload, bearerToken: auth.bearerToken });
+    const result = await callMcpTool("whoami", {}, auth, { api, upload, tokenSub: auth.tokenSub });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("insufficient_scope");
@@ -212,7 +214,7 @@ describe("callMcpTool", () => {
     const result = await callMcpTool("delete_artifact", { artifact_id: artifactId }, auth, {
       api,
       upload,
-      bearerToken: "token-write",
+      tokenSub: "token-write",
     });
     expect(result).toEqual({ ok: true, result: deleteBody });
   });
@@ -243,7 +245,7 @@ describe("callMcpTool", () => {
     const result = await callMcpTool("read_artifact", { artifact_id: artifactId }, auth, {
       api,
       upload,
-      bearerToken: auth.bearerToken,
+      tokenSub: auth.tokenSub,
     });
     expect(result).toEqual({ ok: true, result: agentView });
   });
@@ -264,7 +266,7 @@ describe("callMcpTool", () => {
       "read_file",
       { artifact_id: artifactId, path: "index.md", revision_id: revisionId },
       auth,
-      { api, upload, bearerToken: auth.bearerToken },
+      { api, upload, tokenSub: auth.tokenSub },
     );
     expect(result).toEqual({ ok: true, result: fileContent });
     const url = new URL(routeCall(api, 0).url);
@@ -287,7 +289,7 @@ describe("callMcpTool", () => {
     const result = await callMcpTool("read_file", { artifact_id: artifactId, path: "index.md" }, auth, {
       api,
       upload,
-      bearerToken: auth.bearerToken,
+      tokenSub: auth.tokenSub,
     });
     expect(result).toEqual({ ok: true, result: fileContent });
     const url = new URL(routeCall(api, 0).url);
@@ -304,7 +306,7 @@ describe("callMcpTool", () => {
     const result = await callMcpTool("publish_artifact", { title: "Note", body: "hello", render_mode: "text" }, auth, {
       api,
       upload: uploadMockForPublish(),
-      bearerToken: "token-write-read",
+      tokenSub: "token-write-read",
       jsonRpcId: 42,
     });
     expect(result.ok).toBe(true);
@@ -327,13 +329,13 @@ describe("callMcpTool", () => {
       "publish_artifact",
       { title: "Note", body: "hello", render_mode: "text", share: true },
       auth,
-      { api: apiMock(["publish", "read", "admin"]), upload, bearerToken: "token-all", jsonRpcId: 42 },
+      { api: apiMock(["publish", "read", "admin"]), upload, tokenSub: "token-all", jsonRpcId: 42 },
     );
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("invalid_params");
     }
-    expect(upload.fetch).not.toHaveBeenCalled();
+    expect(upload.fetchMcp).not.toHaveBeenCalled();
   });
 
   it("scopes derived publish idempotency keys to the payload, not just the json rpc id", async () => {
@@ -346,10 +348,10 @@ describe("callMcpTool", () => {
       await callMcpTool("publish_artifact", { title: "Note", body, render_mode: "text" }, auth, {
         api: apiMock(["publish", "read", "admin"], Response.json(serverPublishResult())),
         upload,
-        bearerToken: "token-all",
+        tokenSub: "token-all",
         jsonRpcId: 1,
       });
-      const createCall = upload.fetch.mock.calls[0]?.[0] as Request;
+      const createCall = upload.fetchMcp.mock.calls[0]?.[0] as Request;
       return createCall.headers.get("idempotency-key");
     };
 
@@ -374,22 +376,24 @@ describe("callMcpTool", () => {
       {
         api: apiMock(["publish", "read", "admin"], Response.json(serverPublishResult())),
         upload,
-        bearerToken: "token-all",
+        tokenSub: "token-all",
         jsonRpcId: 1,
       },
     );
-    const createCall = upload.fetch.mock.calls[0]?.[0] as Request;
+    const createCall = upload.fetchMcp.mock.calls[0]?.[0] as Request;
     expect(createCall.headers.get("idempotency-key")).toBe("client-key-123");
   });
 
   it("maps an upload forward failure to the corresponding MCP error code", async () => {
     const upload = {
-      fetch: vi.fn(async () => Response.json({ error: { code: "forbidden", message: "forbidden" } }, { status: 403 })),
+      fetchMcp: vi.fn(async () =>
+        Response.json({ error: { code: "forbidden", message: "forbidden" } }, { status: 403 }),
+      ),
     };
     const result = await callMcpTool("publish_artifact", { title: "Note", body: "hello", render_mode: "text" }, auth, {
       api: apiMock(["publish", "read"]),
       upload,
-      bearerToken: "token-write-read",
+      tokenSub: "token-write-read",
       jsonRpcId: 42,
     });
     expect(result.ok).toBe(false);
@@ -402,7 +406,7 @@ describe("callMcpTool", () => {
     const putFetch = vi.fn(async () => new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", putFetch);
     const upload = {
-      fetch: vi.fn(async (request: Request) => {
+      fetchMcp: vi.fn(async (request: Request) => {
         if (new URL(request.url).pathname.endsWith("/finalize")) {
           return Response.json({
             upload_session_id: UPLOAD_SESSION_ID,
@@ -429,7 +433,7 @@ describe("callMcpTool", () => {
     const result = await callMcpTool("publish_artifact", { title: "Note", body: "hello", render_mode: "text" }, auth, {
       api: apiMock(["publish", "read"], Response.json(serverPublishResult())),
       upload,
-      bearerToken: "token-write-read",
+      tokenSub: "token-write-read",
       jsonRpcId: 42,
     });
     expect(result.ok).toBe(true);
@@ -452,7 +456,7 @@ describe("callMcpTool", () => {
     const result = await callMcpTool("list_revisions", { artifact_id: artifactId }, auth, {
       api,
       upload,
-      bearerToken: auth.bearerToken,
+      tokenSub: auth.tokenSub,
     });
     expect(result).toEqual({ ok: true, result: revisions });
   });
@@ -473,7 +477,7 @@ describe("callMcpTool", () => {
       "add_revision",
       { artifact_id: ARTIFACT_ID, body: "next body", render_mode: "text" },
       auth,
-      { api, upload, bearerToken: "token-write-read", jsonRpcId: 43 },
+      { api, upload, tokenSub: "token-write-read", jsonRpcId: 43 },
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -481,7 +485,7 @@ describe("callMcpTool", () => {
     }
     // The create-session request targets the existing artifact, publishes under the base
     // revision, and carries the BASE title — not the literal "Revision" the old code wrote.
-    const createCall = upload.fetch.mock.calls[0]?.[0] as Request;
+    const createCall = upload.fetchMcp.mock.calls[0]?.[0] as Request;
     const createBody = (await createCall.json()) as { artifact_id: string; base_revision_id: string; title: string };
     expect(createBody.artifact_id).toBe(ARTIFACT_ID);
     expect(createBody.base_revision_id).toBe(REVISION_ID);
@@ -501,7 +505,7 @@ describe("callMcpTool", () => {
       "add_revision",
       { artifact_id: ARTIFACT_ID, body: "same body", render_mode: "text" },
       auth,
-      { api, upload, bearerToken: "token-write-read", jsonRpcId: 44 },
+      { api, upload, tokenSub: "token-write-read", jsonRpcId: 44 },
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -511,7 +515,7 @@ describe("callMcpTool", () => {
       });
     }
     // Byte-identical body: no upload session is ever created.
-    expect(upload.fetch).not.toHaveBeenCalled();
+    expect(upload.fetchMcp).not.toHaveBeenCalled();
   });
 
   it("multi_edit applies literal edits to the base file and publishes under the base revision", async () => {
@@ -530,14 +534,14 @@ describe("callMcpTool", () => {
       "multi_edit",
       { artifact_id: ARTIFACT_ID, path: "content.txt", edits: [{ old_string: "old", new_string: "new" }] },
       auth,
-      { api, upload, bearerToken: "token-write-read", jsonRpcId: 51 },
+      { api, upload, tokenSub: "token-write-read", jsonRpcId: 51 },
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.result).toMatchObject({ url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/" });
     }
     // Publishes under the existing artifact + base revision, preserving the base title.
-    const createBody = (await (upload.fetch.mock.calls[0]?.[0] as Request).json()) as {
+    const createBody = (await (upload.fetchMcp.mock.calls[0]?.[0] as Request).json()) as {
       artifact_id: string;
       base_revision_id: string;
       title: string;
@@ -563,7 +567,7 @@ describe("callMcpTool", () => {
       // Replace "same" with "same": the result equals the stored bytes.
       { artifact_id: ARTIFACT_ID, path: "content.txt", edits: [{ old_string: "same", new_string: "same" }] },
       auth,
-      { api, upload, bearerToken: "token-write-read", jsonRpcId: 52 },
+      { api, upload, tokenSub: "token-write-read", jsonRpcId: 52 },
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -572,7 +576,7 @@ describe("callMcpTool", () => {
         url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
       });
     }
-    expect(upload.fetch).not.toHaveBeenCalled();
+    expect(upload.fetchMcp).not.toHaveBeenCalled();
   });
 
   it("multi_edit surfaces a non-matching edit as a client invalid_request, not internal_error", async () => {
@@ -586,7 +590,7 @@ describe("callMcpTool", () => {
       "multi_edit",
       { artifact_id: ARTIFACT_ID, path: "content.txt", edits: [{ old_string: "absent", new_string: "x" }] },
       auth,
-      { api, upload, bearerToken: "token-write-read", jsonRpcId: 53 },
+      { api, upload, tokenSub: "token-write-read", jsonRpcId: 53 },
     );
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -594,7 +598,7 @@ describe("callMcpTool", () => {
       expect(result.error.message).toContain("not_found");
     }
     // The edit never matched, so no upload session is created.
-    expect(upload.fetch).not.toHaveBeenCalled();
+    expect(upload.fetchMcp).not.toHaveBeenCalled();
   });
 
   it("rejects update_display_metadata calls that include description", async () => {
@@ -605,7 +609,7 @@ describe("callMcpTool", () => {
         description: "not supported",
       },
       auth,
-      { api: apiMock(["publish"]), upload, bearerToken: "token-write" },
+      { api: apiMock(["publish"]), upload, tokenSub: "token-write" },
     );
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -620,18 +624,18 @@ describe("callMcpTool", () => {
     const result = await callMcpTool("update_display_metadata", { artifact_id: artifactId, title: "Renamed" }, auth, {
       api,
       upload,
-      bearerToken: "token-write",
+      tokenSub: "token-write",
     });
     expect(result).toEqual({ ok: true, result: metadata });
   });
 
   it("maps rate_limited_actor from forwarded API errors", async () => {
     const api = {
-      fetch: vi.fn(async () =>
+      fetchMcp: vi.fn(async () =>
         Response.json({ error: { code: "rate_limited_actor", message: "rate_limited_actor" } }, { status: 429 }),
       ),
     };
-    const result = await callMcpTool("whoami", {}, auth, { api, upload, bearerToken: auth.bearerToken });
+    const result = await callMcpTool("whoami", {}, auth, { api, upload, tokenSub: auth.tokenSub });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("rate_limited_actor");
@@ -640,9 +644,9 @@ describe("callMcpTool", () => {
 
   it("returns internal_error when whoami payload fails validation", async () => {
     const api = {
-      fetch: vi.fn(async () => Response.json({ workspace_member: { id: "bad" } })),
+      fetchMcp: vi.fn(async () => Response.json({ workspace_member: { id: "bad" } })),
     };
-    const result = await callMcpTool("whoami", {}, auth, { api, upload, bearerToken: auth.bearerToken });
+    const result = await callMcpTool("whoami", {}, auth, { api, upload, tokenSub: auth.tokenSub });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe("internal_error");

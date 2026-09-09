@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
-import apiWorker, { createMemoryEphemeralProvisionGateNamespace } from "../apps/api/dist/index.js";
+import apiWorker, { createMemoryEphemeralProvisionGateNamespace, handleMcpApiRequest } from "../apps/api/dist/index.js";
 import contentWorker from "../apps/content/dist/index.js";
 import jobsWorker from "../apps/jobs/dist/index.js";
 import streamWorker from "../apps/stream/dist/index.js";
 import { createMemoryArtifactLiveNamespace } from "../apps/stream/dist/memory-artifact-live.js";
-import uploadWorker from "../apps/upload/dist/index.js";
+import uploadWorker, { handleMcpUploadRequest } from "../apps/upload/dist/index.js";
 import {
   createLocalServices,
   createPostgresServices,
@@ -28,15 +28,7 @@ loadEnvFiles([".env", ".env.local", "apps/web/.dev.vars", "apps/api/.dev.vars"],
 loadWranglerEnvVars("apps/api/wrangler.jsonc", {
   cwd: repoRoot,
   envName: process.env.AGENT_PASTE_LOCAL_WORKOS_ENV ?? process.env.CLOUDFLARE_ENV ?? "production",
-  keys: [
-    "WORKOS_ISSUER",
-    "WORKOS_CLI_AUDIENCE",
-    "WORKOS_CLI_ISSUER",
-    "WORKOS_CLI_JWKS_URL",
-    "WORKOS_MCP_AUDIENCE",
-    "WORKOS_MCP_ISSUER",
-    "WORKOS_MCP_JWKS_URL",
-  ],
+  keys: ["WORKOS_ISSUER", "WORKOS_CLI_AUDIENCE", "WORKOS_CLI_ISSUER", "WORKOS_CLI_JWKS_URL"],
 });
 
 const apiPort = intEnv("AGENT_PASTE_LOCAL_API_PORT", 8787);
@@ -345,9 +337,6 @@ const apiEnv = {
   WORKOS_API_BASE_URL: process.env.WORKOS_API_BASE_URL,
   WORKOS_ISSUER: process.env.WORKOS_ISSUER,
   WORKOS_JWKS_URL: process.env.WORKOS_JWKS_URL,
-  WORKOS_MCP_AUDIENCE: process.env.WORKOS_MCP_AUDIENCE ?? "https://mcp.agent-paste.sh/",
-  WORKOS_MCP_ISSUER: process.env.WORKOS_MCP_ISSUER,
-  WORKOS_MCP_JWKS_URL: process.env.WORKOS_MCP_JWKS_URL,
 };
 const artifactLive = createMemoryArtifactLiveNamespace({
   api: {
@@ -383,13 +372,6 @@ const uploadEnv = {
   UPLOAD_URL_TTL_SECONDS: "900",
   ACTOR_RATE_LIMIT: alwaysAllowRateLimit,
   WORKSPACE_BURST_CAP: alwaysAllowRateLimit,
-  WORKOS_API_KEY: process.env.WORKOS_API_KEY,
-  WORKOS_API_BASE_URL: process.env.WORKOS_API_BASE_URL,
-  WORKOS_MCP_AUDIENCE: process.env.WORKOS_MCP_AUDIENCE ?? "https://mcp.agent-paste.sh/",
-  WORKOS_MCP_ISSUER: process.env.WORKOS_MCP_ISSUER,
-  WORKOS_MCP_JWKS_URL: process.env.WORKOS_MCP_JWKS_URL,
-  WORKOS_CLI_ISSUER: process.env.WORKOS_CLI_ISSUER,
-  WORKOS_CLI_JWKS_URL: process.env.WORKOS_CLI_JWKS_URL,
 };
 const contentEnv = {
   ARTIFACTS: artifacts,
@@ -415,12 +397,22 @@ if (!postgresBinding) {
 }
 
 const serverDefs = [
-  { name: "api", worker: apiWorker, env: apiEnv },
-  { name: "upload", worker: uploadWorker, env: uploadEnv },
+  { name: "api", worker: localMcpRpcWorker(apiWorker, handleMcpApiRequest), env: apiEnv },
+  { name: "upload", worker: localMcpRpcWorker(uploadWorker, handleMcpUploadRequest), env: uploadEnv },
   { name: "content", worker: contentWorker, env: contentEnv },
   { name: "jobs", worker: jobsWorker, env: jobsEnv },
   { name: "stream", worker: streamWorker, env: streamEnv },
 ];
+
+function localMcpRpcWorker(worker, handleMcpRequest) {
+  return {
+    fetch(request, env) {
+      const subject = request.headers.get("x-agent-paste-local-mcp-subject");
+      const routeId = request.headers.get("x-agent-paste-local-mcp-route");
+      return subject && routeId ? handleMcpRequest(request, env, subject, routeId) : worker.fetch(request, env);
+    },
+  };
+}
 
 const servers = serverDefs.map(({ name, worker, env }) => createWorkerServer(name, worker, env));
 

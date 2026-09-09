@@ -1,5 +1,5 @@
 import { getRequestId, type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
-import { buildUploadOpenApiDocument, routeContractById } from "@agent-paste/contracts";
+import { buildUploadOpenApiDocument, type RouteId, routeContractById } from "@agent-paste/contracts";
 import { type Repository, repositoryErrorToAppError } from "@agent-paste/db";
 import type { SignedUploadPayload } from "@agent-paste/tokens/upload-url";
 import {
@@ -10,9 +10,11 @@ import {
   createAuthenticateApiKey,
   createRegistrar,
   getBoundResponders,
+  isAllowedMcpServiceRequest,
   type SignedUploadUrlPrincipal,
   securityHeadersMiddleware,
   sentryOptions,
+  withInternalMcpSubject,
 } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { Hono } from "hono";
@@ -139,6 +141,20 @@ export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   return await app.fetch(request, env);
+}
+
+const MCP_UPLOAD_ROUTE_IDS = new Set<RouteId>(["uploadSessions.create", "uploadSessions.finalize"]);
+
+export async function handleMcpUploadRequest(
+  request: Request,
+  env: Env,
+  subject: string,
+  routeId: RouteId,
+): Promise<Response> {
+  if (!isAllowedMcpServiceRequest(request, routeId, "upload", MCP_UPLOAD_ROUTE_IDS)) {
+    return Response.json({ error: { code: "not_found", message: "not_found" } }, { status: 404 });
+  }
+  return handleRequest(request, withInternalMcpSubject(env, subject));
 }
 
 function firstNonBlank(...values: Array<string | undefined>): string | undefined {

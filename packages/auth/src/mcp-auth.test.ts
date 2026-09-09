@@ -114,27 +114,22 @@ describe("MCP OAuth bearer verification", () => {
   it("rejects missing bearer tokens and unconfigured verification", async () => {
     expect(await authenticateMcpBearer(new Request("https://upload.test/v1/upload-sessions"), baseEnv())).toBeNull();
     expect(mcpVerifyOptions({})).toBeNull();
-    expect(mcpVerifyOptions({ WORKOS_API_KEY: "sk_test" })).toMatchObject({
+    expect(mcpVerifyOptions({ WORKOS_API_KEY: "sk_test" })).toBeNull();
+    expect(mcpVerifyOptions(baseEnv({ WORKOS_API_KEY: "sk_test" }))).toMatchObject({
       apiKey: "sk_test",
       clientId: MCP_RESOURCE_INDICATOR,
       skipClientIdClaimVerification: true,
     });
   });
 
-  it("builds verify options from CLI fallbacks", () => {
-    expect(
-      mcpVerifyOptions({
-        WORKOS_API_KEY: "sk_test",
-        WORKOS_API_BASE_URL: "https://api.workos.com",
-        WORKOS_CLI_ISSUER: mcpIssuer,
-        WORKOS_CLI_JWKS_URL: mcpJwksUrl,
-      }),
-    ).toMatchObject({
-      apiKey: "sk_test",
-      apiBaseUrl: "https://api.workos.com",
-      issuers: [mcpIssuer],
-      jwksUrl: mcpJwksUrl,
-    });
+  it("does not substitute CLI issuer or JWKS settings for MCP configuration", () => {
+    const cliOnlyEnv = {
+      WORKOS_API_KEY: "sk_test",
+      WORKOS_API_BASE_URL: "https://api.workos.com",
+      WORKOS_CLI_ISSUER: mcpIssuer,
+      WORKOS_CLI_JWKS_URL: mcpJwksUrl,
+    } as McpAuthEnv;
+    expect(mcpVerifyOptions(cliOnlyEnv)).toBeNull();
   });
 
   it("returns null when WorkOS user lookup fails", async () => {
@@ -172,6 +167,17 @@ describe("MCP OAuth bearer verification", () => {
       authenticateMcpBearer(
         request("https://upload.test/v1/upload-sessions", fixture.token),
         baseEnv({ WORKOS_MCP_JWKS_URL: unavailableJwksUrl }),
+      ),
+    ).rejects.toBeInstanceOf(WorkOsVerificationUnavailableError);
+  });
+
+  it("throws when the configured MCP JWKS URL is malformed", async () => {
+    const fixture = await mcpTokenFixture({ scope: "read" });
+
+    await expect(
+      authenticateMcpBearer(
+        request("https://upload.test/v1/upload-sessions", fixture.token),
+        baseEnv({ WORKOS_MCP_JWKS_URL: "not a URL" }),
       ),
     ).rejects.toBeInstanceOf(WorkOsVerificationUnavailableError);
   });

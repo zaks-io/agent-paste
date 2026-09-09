@@ -44,7 +44,13 @@ describe("MCP WorkOS token verification", () => {
   it("returns null when verification prerequisites are missing", async () => {
     expect(isConfiguredMcpOAuthVerifier({})).toBe(false);
     expect(isConfiguredMcpOAuthVerifier({ WORKOS_API_KEY: "sk_test" })).toBe(false);
-    expect(isConfiguredMcpOAuthVerifier({ WORKOS_API_KEY: "sk_test", WORKOS_CLI_JWKS_URL: jwksUrl })).toBe(true);
+    expect(
+      isConfiguredMcpOAuthVerifier({
+        WORKOS_API_KEY: "sk_test",
+        WORKOS_MCP_JWKS_URL: jwksUrl,
+        WORKOS_MCP_ISSUER: issuer,
+      }),
+    ).toBe(true);
 
     await expect(verifyMcpOAuthToken("token", {})).resolves.toBeNull();
     await expect(verifyMcpOAuthToken("token", { WORKOS_API_KEY: "sk_test" })).resolves.toBeNull();
@@ -81,17 +87,15 @@ describe("MCP WorkOS token verification", () => {
     ).resolves.toBeNull();
   });
 
-  it("falls back to CLI issuer and JWKS settings", async () => {
-    const fixture = await tokenFixture({ scope: "read" });
-    stubJwks(fixture.publicJwk);
-
-    const verified = await verifyMcpOAuthToken(fixture.token, {
+  it("does not fall back to CLI issuer and JWKS settings", async () => {
+    const verified = await verifyMcpOAuthToken("opaque", {
       WORKOS_API_KEY: "sk_test",
+      // @ts-expect-error CLI configuration is intentionally outside the MCP auth contract.
       WORKOS_CLI_JWKS_URL: jwksUrl,
       WORKOS_CLI_ISSUER: issuer,
       MCP_RESOURCE: MCP_RESOURCE_INDICATOR,
     });
-    expect(verified?.tokenSub).toBe(subject);
+    expect(verified).toBeNull();
   });
 
   it("reuses cached JWKS fetchers", async () => {

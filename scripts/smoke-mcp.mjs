@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { runLocalMcpSmoke } from "./lib/smoke-mcp-local.mjs";
-import { mintForPrefix } from "./lib/workos-m2m.mjs";
 import {
   assert,
   assertMcpRejectsApiKey,
@@ -41,13 +40,14 @@ async function runHostedMcpSmoke(target) {
   await assertMcpUnauthorizedChallenge(config.mcpBaseUrl, config.resource);
   await assertMcpRejectsApiKey(config.mcpBaseUrl);
 
-  // Per ADR 0078: mint a fresh WorkOS access token at run time via M2M
-  // client_credentials so it cannot go stale. Fall back to a pre-provided token.
-  const minted = await mintForPrefix("AGENT_PASTE_MCP_SMOKE");
-  const accessToken =
-    minted.token ??
-    optionalEnv(["AGENT_PASTE_MCP_SMOKE_ACCESS_TOKEN", `AGENT_PASTE_${target.toUpperCase()}_MCP_SMOKE_ACCESS_TOKEN`]);
-  let authenticatedSummary = `Skipped authenticated MCP tool calls (${minted.reason ?? "no token configured"}).`;
+  const accessToken = optionalEnv([
+    "AGENT_PASTE_MCP_SMOKE_ACCESS_TOKEN",
+    `AGENT_PASTE_${target.toUpperCase()}_MCP_SMOKE_ACCESS_TOKEN`,
+  ]);
+  if (!accessToken && target === "production") {
+    throw new Error("Production MCP smoke requires a user OAuth access token.");
+  }
+  let authenticatedSummary = "Skipped authenticated MCP tool calls (no user OAuth token configured).";
   if (accessToken) {
     await mcpInitializeSession(config.mcpBaseUrl, accessToken);
     const tools = await mcpToolsList(config.mcpBaseUrl, accessToken);
