@@ -1,6 +1,7 @@
 import type { ErrorCode, RouteId } from "@agent-paste/contracts";
 import {
   type McpMappedToolError,
+  Mebibytes,
   mapApiErrorToMcp,
   mapMcpProtocolError,
   routeContractById,
@@ -92,7 +93,7 @@ async function forwardToBinding(input: ForwardToBindingInput): Promise<ForwardTo
     };
   }
 
-  return mapForwardResponse(response);
+  return mapForwardResponse(response, input.routeId);
 }
 
 export async function forwardToApi(input: ForwardToApiInput): Promise<ForwardToApiResult> {
@@ -180,13 +181,17 @@ export async function putSignedUploadFile(input: {
 type ApiErrorEnvelope = { code?: string; message?: string; request_id?: string; docs?: string };
 
 export const MAX_MCP_FORWARDED_RESPONSE_BYTES = 512 * 1024;
+export const MAX_MCP_FILE_CONTENT_RESPONSE_BYTES = Mebibytes.ten * 6 + MAX_MCP_FORWARDED_RESPONSE_BYTES;
 
-async function readForwardBody(response: Response): Promise<{ ok: true; body: unknown } | { ok: false }> {
+async function readForwardBody(
+  response: Response,
+  maxBytes: number,
+): Promise<{ ok: true; body: unknown } | { ok: false }> {
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("application/json")) {
     return { ok: true, body: null };
   }
-  const capped = await readBodyTextCapped(response, MAX_MCP_FORWARDED_RESPONSE_BYTES);
+  const capped = await readBodyTextCapped(response, maxBytes);
   if (!capped.ok) {
     return { ok: false };
   }
@@ -231,8 +236,10 @@ function mapForwardFailure(response: Response, body: unknown): ForwardToApiFailu
   return { ok: false, error: mapApiErrorToMcp({ code: "invalid_request", message: "invalid_request" }) };
 }
 
-async function mapForwardResponse(response: Response): Promise<ForwardToApiResult> {
-  const parsed = await readForwardBody(response);
+async function mapForwardResponse(response: Response, routeId: RouteId): Promise<ForwardToApiResult> {
+  const maxBytes =
+    routeId === "artifacts.fileContent" ? MAX_MCP_FILE_CONTENT_RESPONSE_BYTES : MAX_MCP_FORWARDED_RESPONSE_BYTES;
+  const parsed = await readForwardBody(response, maxBytes);
   if (!parsed.ok) {
     return { ok: false, error: mapMcpProtocolError("internal_error", "upstream_response_too_large") };
   }

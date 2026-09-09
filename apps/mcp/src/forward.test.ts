@@ -5,6 +5,8 @@ import {
   forwardToApiRoute,
   forwardToUpload,
   forwardToUploadRoute,
+  MAX_MCP_FILE_CONTENT_RESPONSE_BYTES,
+  MAX_MCP_FORWARDED_RESPONSE_BYTES,
   putSignedUploadFile,
 } from "./forward.js";
 
@@ -141,6 +143,24 @@ describe("forwardToApi", () => {
       ok: false,
       error: { code: "internal_error", message: "upstream_response_too_large" },
     });
+  });
+
+  it("preserves the 10 MiB file-content contract while bounding its encoded response", async () => {
+    expect(MAX_MCP_FILE_CONTENT_RESPONSE_BYTES).toBeGreaterThanOrEqual(10 * 1024 * 1024 * 6);
+    const body = "x".repeat(MAX_MCP_FORWARDED_RESPONSE_BYTES);
+    const api = {
+      fetchMcp: vi.fn(async () => Response.json({ body }, { headers: { "content-type": "application/json" } })),
+    };
+
+    const result = await forwardToApi({
+      api,
+      method: "GET",
+      path: "/v1/artifacts/art_1/files/content?path=index.txt",
+      routeId: "artifacts.fileContent",
+      tokenSub: subject,
+    });
+
+    expect(result).toMatchObject({ ok: true, body: { body } });
   });
 
   it("maps auth envelope codes to MCP protocol errors", async () => {

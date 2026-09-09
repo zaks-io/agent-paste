@@ -26,7 +26,9 @@ challenge. Caller-supplied session IDs are neither reflected nor traced.
 
 JSON-RPC request bodies remain capped at 1 MiB. Tool text inputs are capped at
 192 Ki characters so worst-case UTF-8 plus the envelope stays below that limit.
-Downstream JSON responses are capped at 512 KiB before parsing.
+Downstream JSON responses are capped at 512 KiB before parsing. The file-content
+route has a larger bounded allowance that covers its existing 10 MiB plaintext
+contract plus worst-case JSON escaping.
 
 ## Rationale
 
