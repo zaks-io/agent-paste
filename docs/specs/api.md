@@ -67,8 +67,9 @@ Secrets are never accepted as query parameters or flags.
 Contract JSON bodies and MCP JSON-RPC bodies have a 1 MiB hard limit. Agent-auth
 bodies have a 64 KiB limit. Stripe webhook bodies have a 1 MiB limit. Workers
 enforce each limit while streaming, including when `Content-Length` is missing or
-false. MCP publish, revision, and edit text inputs have a separate 192 Ki-character
-limit so worst-case UTF-8 plus the JSON-RPC envelope remains inside the 1 MiB cap.
+false. Each MCP publish/revision body and each `multi_edit` old/new string has a
+192 Ki-character limit. A complete `multi_edit` payload must also fit within the
+aggregate 1 MiB JSON-RPC body cap.
 
 ## Auth Labels
 

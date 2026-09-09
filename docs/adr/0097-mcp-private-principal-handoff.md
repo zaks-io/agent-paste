@@ -24,11 +24,11 @@ runs before OAuth verification. Missing or failed rate-limit and OAuth
 dependencies fail with `503`; invalid credentials use `401` and an OAuth
 challenge. Caller-supplied session IDs are neither reflected nor traced.
 
-JSON-RPC request bodies remain capped at 1 MiB. Tool text inputs are capped at
-192 Ki characters so worst-case UTF-8 plus the envelope stays below that limit.
-Downstream JSON responses are capped at 512 KiB before parsing. The file-content
-route has a larger bounded allowance that covers its existing 10 MiB plaintext
-contract plus worst-case JSON escaping.
+JSON-RPC request bodies remain capped at 1 MiB. Each publish/revision body and
+each old/new edit string is capped at 192 Ki characters; multi-edit requests
+must also fit the aggregate body cap. Downstream JSON responses are capped at
+512 KiB before parsing. The file-content route has a larger bounded allowance
+that covers its existing 10 MiB plaintext contract plus worst-case JSON escaping.
 
 ## Rationale
 
@@ -50,6 +50,6 @@ delegating the credential or trusting an HTTP header.
   WorkOS M2M tokens are not valid for this check because their subject is an
   application rather than a Workspace Member.
 - WorkOS redirect allowlists contain exact callback URIs, never wildcard hosts.
-- MCP publish, revision, and edit text above 192 Ki characters now fails input
-  validation. This replaces the prior 10 MiB tool-text allowance; the 10 MiB
-  limit remains only for inline file-content responses.
+- Each MCP publish/revision body and old/new edit string above 192 Ki characters
+  now fails input validation. This replaces the prior 10 MiB tool-text allowance;
+  the 10 MiB limit remains only for inline file-content responses.
