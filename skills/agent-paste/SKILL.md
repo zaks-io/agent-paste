@@ -1,6 +1,6 @@
 ---
 name: agent-paste
-description: Publish files, folders, reports, demos, and generated artifacts as websites with agent-paste. Use when an agent needs to hand work to a human through a URL, revise an existing Artifact, or read or edit published content. Prefer the agent-paste CLI when shell access is available and the hosted MCP server otherwise.
+description: Publish files and folders as websites with agent-paste, or update existing published content. Use this skill for publishing and editing. For reading or downloading an agent-paste.link URL, fetch the supplied URL directly with curl or the available web tool; do not load this skill. Prefer the CLI for publishing when shell access is available, and hosted MCP otherwise.
 ---
 
 # agent-paste
