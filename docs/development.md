@@ -216,6 +216,10 @@ deploy production from a laptop.
 - `nodeLinker=isolated`, `engine-strict=true`, `minimumReleaseAge=10080`,
   `blockExoticSubdeps=true`, and `trustPolicy=no-downgrade` are
   enforced by CI.
+- The `semver@6` override upgrades Babel's version checks to `7.8.5` because
+  `6.3.1` fails pnpm's provenance policy. Semver 7 preserves the APIs Babel
+  uses; its [major-version changes](https://github.com/npm/node-semver/blob/v7.1.0/CHANGELOG.md)
+  reorganize modules and drop old Node versions. Keep the trust policy enabled.
 - Turborepo runs with `envMode: "strict"` and signed remote cache artifacts.
 - Environment changes that affect tasks must be declared in `turbo.json` task
   env/pass-through configuration or included in global dependencies.
