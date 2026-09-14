@@ -1,27 +1,27 @@
 import { promises as fs } from "node:fs";
 import { type ApiClient, createIdempotencyKey, runPublish as runSharedPublish } from "@agent-paste/api-client";
-import { ArtifactId, FilePath, McpEdit } from "@agent-paste/contracts";
+import { ArtifactReference, FilePath, McpEdit } from "@agent-paste/contracts";
 import { type Edit, ReviseError, reviseOnePath } from "@agent-paste/revise-core";
 import { output, outputModeFor, type Parsed, requiredArg, shellQuote, stringFlag } from "./cli-args.js";
-import { formatEditNoop, formatPublishResult } from "./publish-format.js";
+import { artifactUpdateReference, formatEditNoop, formatPublishResult } from "./publish-format.js";
 import { apiClientTransport } from "./publish-transport.js";
 import { apiClientReader } from "./revision-reader.js";
 import { commandInvocation, detectChannel } from "./update-check.js";
 
 export async function edit(parsed: Parsed, client: ApiClient) {
-  const artifactId = ArtifactId.parse(requiredArg(parsed, 0, "artifact-id"));
+  const artifactReference = ArtifactReference.parse(requiredArg(parsed, 0, "artifact-url-or-id"));
   const filePath = FilePath.parse(requiredArg(parsed, 1, "path"));
   const edits = await readEdits(parsed);
 
   const result = await reviseOnePath(
     { reader: apiClientReader(client), transport: apiClientTransport(client), publish: runSharedPublish },
-    { artifactId, path: filePath, edits, idempotencyKey: createIdempotencyKey("cli_edit") },
+    { artifactId: artifactReference, path: filePath, edits, idempotencyKey: createIdempotencyKey("cli_edit") },
   );
 
   const mode = outputModeFor(parsed.global);
   if (result.noop) {
     const payload = {
-      artifact_id: artifactId,
+      artifact_id: result.base.artifact_id,
       noop: true,
       title: result.base.title,
       url: result.base.url,
@@ -39,11 +39,10 @@ export async function edit(parsed: Parsed, client: ApiClient) {
       reused_bytes: result.outcome.uploadStats.reusedBytes,
     },
   };
-  // Teach the revise verb at the moment the agent holds the id: the next edit
-  // reuses the same artifact_id and preserves its Artifact URL.
+  // Teach the revise verb at the moment the agent holds the stable URL.
   const updateCommand = commandInvocation(
     detectChannel(),
-    `edit ${result.outcome.result.artifact_id} ${shellQuote(filePath)}`,
+    `edit ${shellQuote(artifactUpdateReference(shaped))} ${shellQuote(filePath)}`,
   );
   return output(shaped, parsed.global, formatPublishResult(mode, shaped, updateCommand));
 }

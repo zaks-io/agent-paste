@@ -156,6 +156,7 @@ export type Entities = {
   artifacts: {
     insert(artifact: Artifact): Promise<void>;
     findById(artifactId: string, workspaceId?: string): Promise<Artifact | null>;
+    findByCapabilityId(capabilityId: string, workspaceId: string): Promise<Artifact | null>;
     listFiltered(workspaceId?: string, status?: string): Promise<Artifact[]>;
     listWebPage(input: { workspaceId: string; limit: number; cursor?: WebArtifactCursor }): Promise<Artifact[]>;
     updateExpiry(artifactId: string, expiresAt: string): Promise<{ artifact_id: string; expires_at: string } | null>;

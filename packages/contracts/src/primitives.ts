@@ -1,3 +1,4 @@
+import { CONTENT_CAPABILITY_ID_PATTERN_SOURCE } from "@agent-paste/tokens/content-capability-pattern";
 import { z } from "./zod.js";
 
 const ulidBody = "[0-9A-HJKMNP-TV-Z]{26}";
@@ -15,6 +16,30 @@ export type WorkspaceId = z.infer<typeof WorkspaceId>;
 
 export const ArtifactId = prefixedId<"ArtifactId">("art");
 export type ArtifactId = z.infer<typeof ArtifactId>;
+
+// Host ownership and environment are checked by the authenticated API, using
+// its configured capability domain. Responses always retain canonical IDs.
+export const ArtifactReference = z
+  .union([
+    ArtifactId,
+    z
+      .string()
+      .max(63)
+      .regex(
+        new RegExp(`^${CONTENT_CAPABILITY_ID_PATTERN_SOURCE}(?:-[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,28}[a-zA-Z0-9])?)?$`),
+      ),
+    z
+      .string()
+      .url()
+      .regex(
+        /^[hH][tT][tT][pP][sS]:\/\/[^/?#@:]+(?:[/?#]|$)/,
+        "Expected an HTTPS Artifact URL without credentials or a port",
+      ),
+  ])
+  .describe(
+    "Artifact URL, bare subdomain, or Artifact ID. Workspace authorization still applies; bare IDs use the current environment.",
+  );
+export type ArtifactReference = z.infer<typeof ArtifactReference>;
 
 export const RevisionId = prefixedId<"RevisionId">("rev");
 export type RevisionId = z.infer<typeof RevisionId>;

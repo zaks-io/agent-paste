@@ -13,6 +13,7 @@ import type { CreateUploadSessionRequest } from "./upload-session-lifecycle.js";
 import * as accessLinksWorkflow from "./workflows/access-links-workflow.js";
 import * as agentAuthAnonymousWorkflow from "./workflows/agent-auth-anonymous-workflow.js";
 import * as agentAuthWorkflow from "./workflows/agent-auth-workflow.js";
+import * as artifactReferenceWorkflow from "./workflows/artifact-reference-workflow.js";
 import * as cleanupWorkflow from "./workflows/cleanup-workflow.js";
 import * as ephemeralWorkflow from "./workflows/ephemeral-workflow.js";
 import * as lockdownWorkflow from "./workflows/lockdown-workflow.js";
@@ -30,6 +31,15 @@ export class RepositoryCore implements Repository {
 
   constructor(uow: UnitOfWork, options: RepositoryOptions) {
     this.ctx = new RepositoryCoreContext(uow, options);
+  }
+
+  async resolveArtifactReference(input: {
+    actor: ApiActor;
+    reference: string;
+    capabilityDomain?: string;
+    capabilityHostSuffix?: string;
+  }): Promise<string | null> {
+    return artifactReferenceWorkflow.resolveArtifactReference(this.ctx, input);
   }
 
   async createWorkspace(input: {

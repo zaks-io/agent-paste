@@ -718,6 +718,9 @@ importers:
       '@agent-paste/config':
         specifier: workspace:*
         version: link:../config
+      '@agent-paste/tokens':
+        specifier: workspace:*
+        version: link:../tokens
       '@asteasolutions/zod-to-openapi':
         specifier: ^8.5.0
         version: 8.5.0(zod@4.4.3)

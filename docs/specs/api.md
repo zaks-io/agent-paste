@@ -434,6 +434,16 @@ Human operators and rotation agents use WorkOS operator auth or Cloudflare Acces
 6. CLI or MCP calls `POST api /v1/artifacts/{artifact_id}/revisions/{revision_id}/publish`.
 7. CLI human output prints `View` with `url`; CLI JSON output returns `PublishResult`.
 
+Authenticated artifact routes accept an Artifact ID, a bare subdomain, or a percent-encoded HTTPS
+Artifact URL in the `{artifact_id}` path segment. Upload-session creation also
+accepts all three forms in `artifact_id`. The server resolves the URL's capability
+hostname against the authenticated Workspace and the environment's configured
+content domain and suffix, without fetching the URL. Paths, queries, and
+fragments do not change which Artifact is selected. Credentials and explicit
+ports are rejected. Unknown, foreign-Workspace, and wrong-environment URLs
+cannot authorize reads or mutations. Bare subdomains resolve in the current environment; an explicit environment
+suffix must match the configured suffix. Responses retain canonical Artifact IDs.
+
 Publishing without `--artifact-id` creates a new Artifact. Publishing with an
 existing `artifact_id` creates and publishes a new Revision for that Artifact.
 The Artifact's existing capability URL advances to the new Published Revision

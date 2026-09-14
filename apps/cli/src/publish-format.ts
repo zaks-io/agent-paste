@@ -1,3 +1,4 @@
+import { ArtifactReference } from "@agent-paste/contracts";
 import { formatBytes, hyperlink, type OutputMode, paint } from "./render.js";
 
 export type PublishResultShape = {
@@ -15,6 +16,10 @@ export type PublishResultShape = {
     reused_bytes: number;
   };
 };
+
+export function artifactUpdateReference(result: Pick<PublishResultShape, "artifact_id" | "url">): string {
+  return ArtifactReference.safeParse(result.url).success ? result.url : result.artifact_id;
+}
 
 // Render expires_at as a plain calendar date when it parses as an ISO instant;
 // otherwise pass the raw value through unchanged. Never fabricate a date.

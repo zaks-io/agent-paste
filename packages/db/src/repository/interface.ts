@@ -151,6 +151,12 @@ type LockdownDetail = {
 // implement this exactly; the api and upload workers consume it directly.
 /** Domain failures throw {@link RepositoryError}; map with {@link repositoryErrorToAppError}. */
 export type Repository = {
+  resolveArtifactReference(input: {
+    actor: ApiActor;
+    reference: string;
+    capabilityDomain?: string;
+    capabilityHostSuffix?: string;
+  }): Promise<string | null>;
   createWorkspace(input: {
     actor: AdminActor;
     idempotencyKey: string;

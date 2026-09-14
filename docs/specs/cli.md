@@ -76,6 +76,24 @@ automatic; flags override detection.
   exception is `pull`, whose file body _is_ the result (cat-like), so `--quiet`
   never suppresses it — otherwise `pull … --quiet > file` would write an empty file.
 
+## Artifact URLs
+
+Use the published Artifact URL to identify existing work. `publish <path>
+--artifact-id <url>`, `pull <url> <remote-path>`, and `edit <url> <path>` accept
+HTTPS Artifact URLs, bare subdomain IDs, and Artifact IDs. The flag name remains
+`--artifact-id` for compatibility. Authentication and Workspace permissions
+still apply; knowing the URL does not grant write access.
+
+The server resolves the hostname in the current environment. A file path,
+query, or fragment on the URL does not select a different Artifact. The
+`remote-path` or `path` argument still selects the file. Foreign hosts,
+credentials in URLs, explicit ports, and URLs from another environment fail.
+A bare subdomain such as `dzd5k-mdx2y-6hbn2-ptnh6` resolves in the current
+environment. A copied label with an environment suffix, such as
+`dzd5k-mdx2y-6hbn2-ptnh6-preview`, must match that environment. Bare IDs are
+case-insensitive and use the same checksum validation as Artifact URLs.
+Structured output continues to return canonical `artifact_id` values.
+
 ## JSON contract
 
 - Every JSON payload carries a top-level `schema_version` string. The current
@@ -286,12 +304,8 @@ capability `url`, then **Expires**,
 the upload summary, and an **Update** line:
 
 - **Update** — the channel-correct command to revise this Artifact in place
-  (`publish <path> --artifact-id <artifact_id>`). This is the human surface's only
-  explicit revise handle, and it is deliberate: it teaches the agent the revise verb
-  at the moment it holds the id, so an edit adds a Revision under the stable link
-  instead of republishing a new Artifact on a new link.
-  The `Update` line spells out the revise command because the unguessable URL
-  deliberately does not expose the Artifact ID.
+  (`publish <path> --artifact-id <url>`). Agents can carry this URL across
+  handoffs and revise the same Artifact without saving a separate ID.
 
 ## Ephemeral publish human output
 

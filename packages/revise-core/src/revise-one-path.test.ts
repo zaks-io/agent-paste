@@ -87,6 +87,40 @@ describe("reviseOnePath", () => {
     expect(captured?.files[0]?.path).toBe("index.html");
   });
 
+  it("resolves an Artifact URL once and uses the canonical ID for later reads and writes", async () => {
+    const artifactUrl = "https://0123456789abcdef0123456789abcdef.agent-paste.link/";
+    const base = await fileContent("hello world");
+    const artifactReads: string[] = [];
+    const fileReads: string[] = [];
+    const reader: RevisionReader = {
+      readArtifact: async (reference) => {
+        artifactReads.push(reference);
+        return agentView();
+      },
+      readFile: async (reference) => {
+        fileReads.push(reference);
+        return base;
+      },
+    };
+    let captured: PublishInput | undefined;
+    await reviseOnePath(
+      deps(reader, async (_transport, input) => {
+        captured = input;
+        return outcome();
+      }),
+      {
+        artifactId: artifactUrl,
+        path: "index.html",
+        edits: [{ oldString: "world", newString: "there" }],
+        idempotencyKey: "k1" as PublishInput["idempotencyKey"],
+      },
+    );
+
+    expect(artifactReads).toEqual([artifactUrl]);
+    expect(fileReads).toEqual(["art_1"]);
+    expect(captured?.artifactId).toBe("art_1");
+  });
+
   it("sends a patch entry when a verified diff is smaller", async () => {
     const baseBody = `line one\n${"context\n".repeat(20)}line target\n`;
     const base = await fileContent(baseBody);

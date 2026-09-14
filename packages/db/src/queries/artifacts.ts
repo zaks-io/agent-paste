@@ -37,6 +37,16 @@ export const artifactQueries = defineSqlQuerySourceMap("packages/db/src/queries/
     return row ? mapArtifact(row) : null;
   },
 
+  async findByCapabilityId(db: DrizzleDb, capabilityId: string, workspaceId: string): Promise<Artifact | null> {
+    const rows = await db
+      .select()
+      .from(artifacts)
+      .where(and(eq(artifacts.capabilityId, capabilityId), eq(artifacts.workspaceId, workspaceId)))
+      .limit(1);
+    const row = rows[0];
+    return row ? mapArtifact(row) : null;
+  },
+
   async listFiltered(db: DrizzleDb, workspaceId?: string, status?: string): Promise<Artifact[]> {
     const conditions: SQL[] = [];
     if (workspaceId) {

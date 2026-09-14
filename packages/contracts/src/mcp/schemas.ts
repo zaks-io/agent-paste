@@ -3,6 +3,7 @@ import { ArtifactFileContent, ArtifactListResponse, DeleteArtifactResponse } fro
 import { PaginationRequest } from "../common.js";
 import {
   ArtifactId,
+  ArtifactReference,
   Cursor,
   FilePath,
   IdempotencyKey,
@@ -57,8 +58,8 @@ export type McpPublishArtifactInput = z.infer<typeof McpPublishArtifactInput>;
 
 export const McpAddRevisionInput = z
   .object({
-    artifact_id: ArtifactId.describe(
-      "The existing Artifact to revise. Get it from list_artifacts data[].id. The new Revision publishes under this Artifact's stable url.",
+    artifact_id: ArtifactReference.describe(
+      "The existing Artifact URL, bare subdomain, or ID to revise. Pass the published URL directly. The new Revision publishes under this Artifact's stable url.",
     ),
     body: mcpTextBody,
     render_mode: McpPublishRenderMode,
@@ -92,8 +93,8 @@ export type McpEdit = z.infer<typeof McpEdit>;
 
 export const McpMultiEditInput = z
   .object({
-    artifact_id: ArtifactId.describe(
-      "The existing Artifact to edit. Get it from list_artifacts data[].id. The edited Revision publishes under this Artifact's stable url.",
+    artifact_id: ArtifactReference.describe(
+      "The existing Artifact URL, bare subdomain, or ID to edit. Pass the published URL directly. The edited Revision publishes under this Artifact's stable url.",
     ),
     path: FilePath.describe(
       "The stored file to edit within the Artifact (e.g. the entrypoint). Read it first with read_file to get the exact base text the edits must match.",
@@ -111,28 +112,28 @@ export type McpMultiEditInput = z.infer<typeof McpMultiEditInput>;
 export const McpListArtifactsInput = PaginationRequest.pick({ cursor: true }).strict();
 export type McpListArtifactsInput = z.infer<typeof McpListArtifactsInput>;
 
-export const McpReadArtifactInput = z.object({ artifact_id: ArtifactId }).strict();
+export const McpReadArtifactInput = z.object({ artifact_id: ArtifactReference }).strict();
 export type McpReadArtifactInput = z.infer<typeof McpReadArtifactInput>;
 
 export const McpReadFileInput = z
-  .object({ artifact_id: ArtifactId, path: FilePath, revision_id: RevisionId.optional() })
+  .object({ artifact_id: ArtifactReference, path: FilePath, revision_id: RevisionId.optional() })
   .strict();
 export type McpReadFileInput = z.infer<typeof McpReadFileInput>;
 
 export const McpListRevisionsInput = z
   .object({
-    artifact_id: ArtifactId,
+    artifact_id: ArtifactReference,
     cursor: Cursor.optional(),
   })
   .strict();
 export type McpListRevisionsInput = z.infer<typeof McpListRevisionsInput>;
 
-export const McpDeleteArtifactInput = z.object({ artifact_id: ArtifactId }).strict();
+export const McpDeleteArtifactInput = z.object({ artifact_id: ArtifactReference }).strict();
 export type McpDeleteArtifactInput = z.infer<typeof McpDeleteArtifactInput>;
 
 export const McpUpdateDisplayMetadataInput = z
   .object({
-    artifact_id: ArtifactId,
+    artifact_id: ArtifactReference,
     title: PlainTextTitle,
   })
   .strict();

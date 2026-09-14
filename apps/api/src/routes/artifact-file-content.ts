@@ -4,6 +4,7 @@ import { artifactBytesEncryptionRingFromEnv } from "@agent-paste/rotation";
 import { decodeUtf8Strict, readWorkspaceBlobBytes } from "@agent-paste/storage";
 import type { Principal } from "@agent-paste/worker-runtime";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
+import { resolveArtifactReference } from "../artifact-reference.js";
 import type { AppContext } from "../env.js";
 import { workspaceApiActor } from "../principals.js";
 import { contentBaseUrl } from "../runtime.js";
@@ -39,7 +40,12 @@ export async function readArtifactFileContent(
     return responders.respondError("not_found");
   }
 
-  const view = await db.getAgentView(buildViewInput(actor, params, contentBaseUrl(env)));
+  const artifactId = await resolveArtifactReference(db, actor, env, params.artifactId);
+  if (artifactId === null) {
+    return responders.respondError("not_found");
+  }
+
+  const view = await db.getAgentView(buildViewInput(actor, { ...params, artifactId }, contentBaseUrl(env)));
   const file = view?.files.find((entry) => entry.path === params.path);
   if (!file?.sha256) {
     return responders.respondError("not_found");

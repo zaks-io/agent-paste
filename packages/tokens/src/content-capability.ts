@@ -1,9 +1,9 @@
+export { CONTENT_CAPABILITY_ID_PATTERN_SOURCE } from "./content-capability-pattern.js";
+
 const CONTENT_CAPABILITY_BYTES = 19;
 const CONTENT_CAPABILITY_ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz";
 const NEW_CONTENT_CAPABILITY_ID_PATTERN = /^[0-9a-hj-kmnp-tv-z]{5}(?:-[0-9a-hj-kmnp-tv-z]{5}){3}$/;
 const LEGACY_CONTENT_CAPABILITY_ID_PATTERN = /^[a-f0-9]{32}$/;
-export const CONTENT_CAPABILITY_ID_PATTERN_SOURCE: string =
-  "(?:[a-f0-9]{32}|[0-9a-hj-kmnp-tv-z]{5}(?:-[0-9a-hj-kmnp-tv-z]{5}){3})";
 const CONTENT_CAPABILITY_DOMAIN_PATTERN =
   /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const MAX_CONTENT_CAPABILITY_DOMAIN_LENGTH = 217;

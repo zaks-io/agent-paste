@@ -109,6 +109,18 @@ describe("runPublish", () => {
     expect(publishRevision).toHaveBeenLastCalledWith(ARTIFACT_ID, REVISION_ID, "cli_publish_1");
   });
 
+  it("passes an Artifact URL to session creation and publishes with the canonical returned ID", async () => {
+    const artifactUrl = "https://0123456789abcdef0123456789abcdef.agent-paste.link/";
+    const createUploadSession = vi.fn(fakeTransport().transport.createUploadSession);
+    const publishRevision = vi.fn(async () => publishResult());
+    const { transport } = fakeTransport({ createUploadSession, publishRevision });
+
+    await runPublish(transport, input({ artifactId: artifactUrl }));
+
+    expect(createUploadSession.mock.calls[0]?.[0]).toMatchObject({ artifact_id: artifactUrl });
+    expect(publishRevision).toHaveBeenCalledWith(ARTIFACT_ID, REVISION_ID, "cli_publish_1");
+  });
+
   it("returns the server URL as the Artifact link", async () => {
     const { transport } = fakeTransport();
     const outcome = await runPublish(transport, input());

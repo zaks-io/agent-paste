@@ -116,13 +116,16 @@ async function readerOnlyClient(body: string): Promise<ApiClient> {
 }
 
 describe("edit command", () => {
-  async function editsFile(json: string) {
+  async function editsFile(json: string, artifactReference = ARTIFACT_ID) {
     const file = path.join(tmp, "edits.json");
     await fs.writeFile(file, json);
-    return parseArgs(["edit", ARTIFACT_ID, "index.html", "--edits", file, "--json"]);
+    return parseArgs(["edit", artifactReference, "index.html", "--edits", file, "--json"]);
   }
 
-  it("echoes the stable link and reports noop when edits reproduce the stored bytes", async () => {
+  it.each([
+    ARTIFACT_URL,
+    "01234-56789-abcde-fghjd",
+  ])("editing %s echoes the stable link and reports noop when edits reproduce the stored bytes", async (reference) => {
     const writes: string[] = [];
     const spy = vi.spyOn(process.stdout, "write").mockImplementation(((value: string, cb?: unknown) => {
       writes.push(value);
@@ -131,7 +134,7 @@ describe("edit command", () => {
     }) as typeof process.stdout.write);
     try {
       // Replace "keep" with "keep": the result equals the stored content -> no revision.
-      const parsed = await editsFile(JSON.stringify([{ old_string: "keep", new_string: "keep" }]));
+      const parsed = await editsFile(JSON.stringify([{ old_string: "keep", new_string: "keep" }]), reference);
       await edit(parsed, await readerOnlyClient("keep this"));
     } finally {
       spy.mockRestore();

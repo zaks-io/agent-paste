@@ -23,6 +23,7 @@
   "dependencies": {
     "@agent-paste/auth-md": "workspace:*",
     "@agent-paste/config": "workspace:*",
+    "@agent-paste/tokens": "workspace:*",
     "@asteasolutions/zod-to-openapi": "^8.5.0",
     "zod": "catalog:"
   },

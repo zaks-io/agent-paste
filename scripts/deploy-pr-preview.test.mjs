@@ -77,6 +77,11 @@ describe("deploy-pr-preview generated configs", () => {
         CONTENT_CAPABILITY_DOMAIN: "agent-paste.link",
         CONTENT_CAPABILITY_HOST_SUFFIX: "-pr-999173",
       });
+      expect(upload.vars).toMatchObject({
+        CONTENT_BASE_URL: "https://agent-paste-content-pr-999173.example-subdomain.workers.dev",
+        CONTENT_CAPABILITY_DOMAIN: "agent-paste.link",
+        CONTENT_CAPABILITY_HOST_SUFFIX: "-pr-999173",
+      });
       expect(content.vars).toMatchObject({
         CONTENT_BASE_URL: "https://agent-paste-content-pr-999173.example-subdomain.workers.dev",
         CONTENT_CAPABILITY_DOMAIN: "agent-paste.link",

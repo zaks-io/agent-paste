@@ -18,7 +18,12 @@ export function registerArtifactPaths(registry: OpenAPIRegistry, helpers: ApiPat
     summary: "Read the latest Agent View for an artifact.",
     security: [{ ApiKeyBearer: [] }],
     request: {
-      params: params({ artifact_id: pathStringParam("artifact_id", "Artifact id.") }),
+      params: params({
+        artifact_id: pathStringParam(
+          "artifact_id",
+          "Artifact ID, bare subdomain, or percent-encoded HTTPS Artifact URL.",
+        ),
+      }),
       headers: [requestIdHeader],
     },
     responses: standardJsonResponses(schemaRef("AgentView")),
@@ -32,7 +37,10 @@ export function registerArtifactPaths(registry: OpenAPIRegistry, helpers: ApiPat
     security: [{ ApiKeyBearer: [] }],
     request: {
       params: params({
-        artifact_id: pathStringParam("artifact_id", "Artifact id."),
+        artifact_id: pathStringParam(
+          "artifact_id",
+          "Artifact ID, bare subdomain, or percent-encoded HTTPS Artifact URL.",
+        ),
         revision_id: pathStringParam("revision_id", "Revision id."),
       }),
       headers: [requestIdHeader],
@@ -47,7 +55,12 @@ export function registerArtifactPaths(registry: OpenAPIRegistry, helpers: ApiPat
     summary: "Read one stored file's decrypted plaintext for the owning member.",
     security: [{ ApiKeyBearer: [] }],
     request: {
-      params: params({ artifact_id: pathStringParam("artifact_id", "Artifact id.") }),
+      params: params({
+        artifact_id: pathStringParam(
+          "artifact_id",
+          "Artifact ID, bare subdomain, or percent-encoded HTTPS Artifact URL.",
+        ),
+      }),
       query: z.object({
         path: queryStringParam("path", "File path within the artifact tree."),
         revision_id: queryOptionalStringParam("revision_id", "Revision to read; defaults to the latest."),
@@ -64,7 +77,12 @@ export function registerArtifactPaths(registry: OpenAPIRegistry, helpers: ApiPat
     summary: "List revisions for an artifact.",
     security: [{ ApiKeyBearer: [] }],
     request: {
-      params: params({ artifact_id: pathStringParam("artifact_id", "Artifact id.") }),
+      params: params({
+        artifact_id: pathStringParam(
+          "artifact_id",
+          "Artifact ID, bare subdomain, or percent-encoded HTTPS Artifact URL.",
+        ),
+      }),
       headers: [requestIdHeader],
     },
     responses: standardJsonResponses(schemaRef("RevisionListResponse")),
@@ -78,7 +96,10 @@ export function registerArtifactPaths(registry: OpenAPIRegistry, helpers: ApiPat
     security: [{ ApiKeyBearer: [] }],
     request: {
       params: params({
-        artifact_id: pathStringParam("artifact_id", "Artifact id."),
+        artifact_id: pathStringParam(
+          "artifact_id",
+          "Artifact ID, bare subdomain, or percent-encoded HTTPS Artifact URL.",
+        ),
         revision_id: pathStringParam("revision_id", "Draft revision id."),
       }),
       headers: [idempotencyKeyHeader, requestIdHeader],

@@ -1,5 +1,6 @@
 import type {
   ArtifactId,
+  ArtifactReference,
   CreateUploadSessionRequest,
   CreateUploadSessionResponse,
   FilePath,
@@ -46,7 +47,7 @@ export type PublishInput = {
   /** Omitted => server infers from the entrypoint extension. */
   renderMode?: RenderMode;
   /** Present => publish a new Revision on an existing Artifact. */
-  artifactId?: ArtifactId;
+  artifactId?: ArtifactReference;
   /**
    * Present => a partial-manifest publish: `files` lists only changed/added paths
    * (some possibly as patches), `deletedPaths` drops paths, and every other path

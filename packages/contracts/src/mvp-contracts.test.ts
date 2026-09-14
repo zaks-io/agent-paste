@@ -3,6 +3,7 @@ import {
   AgentView,
   buildApiOpenApiDocument,
   buildContentOpenApiDocument,
+  buildUploadOpenApiDocument,
   ClaimTokenBearer,
   CreateUploadSessionRequest,
   CreateUploadSessionResponse,
@@ -29,6 +30,31 @@ type OpenApiDocument = {
 };
 
 describe("MVP route registry", () => {
+  it("emits artifact-reference patterns that generated clients can validate", () => {
+    const upload = buildUploadOpenApiDocument() as {
+      components: {
+        schemas: { CreateUploadSessionRequest: { properties: { artifact_id: { anyOf: { pattern: string }[] } } } };
+      };
+    };
+    const patterns = upload.components.schemas.CreateUploadSessionRequest.properties.artifact_id.anyOf.map(
+      (schema) => new RegExp(schema.pattern),
+    );
+    for (const reference of [
+      artifactId,
+      "dzd5k-mdx2y-6hbn2-ptnh6",
+      "DzD5k-MDX2Y-6hbn2-PTNH6-PrEvIeW",
+      "0123456789abcdef0123456789abcdef",
+      "https://dzd5k-mdx2y-6hbn2-ptnh6.agent-paste.link/",
+      "HTTPS://dzd5k-mdx2y-6hbn2-ptnh6.agent-paste.link/",
+    ]) {
+      expect(
+        patterns.some((pattern) => pattern.test(reference)),
+        reference,
+      ).toBe(true);
+    }
+    expect(patterns.some((pattern) => pattern.test("not-an-artifact"))).toBe(false);
+  });
+
   it("exposes the CLI-first MVP routes plus web dashboard reads", () => {
     expect(routeContracts.map((route) => route.id)).toEqual([
       "whoami.get",
