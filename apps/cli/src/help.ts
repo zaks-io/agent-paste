@@ -15,7 +15,7 @@ Usage:
 Agent publish quick path:
   1. Run agent-paste whoami --json. Signed-out results exit 0;
      parse "authenticated": false.
-  2. If signed out: agent-paste login locally, or login --device-code in a
+  2. If signed out: agent-paste login locally, or agent-paste login --device-code in a
      sandbox. Keep it running while the user approves the URL/code from stderr.
   3. Check whoami again, then agent-paste publish <path> --json. Return url.
   4. For accountless static output: agent-paste publish <path> --ephemeral --json.
@@ -53,7 +53,7 @@ export const PUBLISH_HELP_TEXT = `agent-paste publish help
 
 Start:
   Run agent-paste whoami --json; signed-out results exit 0.
-  If authenticated:false, use login locally or login --device-code in a sandbox.
+  If authenticated:false, use agent-paste login locally or agent-paste login --device-code in a sandbox.
   Keep device login running while the user approves the URL/code from stderr,
   then check whoami again. Use --ephemeral for accountless static output.
 

@@ -5,6 +5,7 @@ const DEFAULT_POLL_INTERVAL_SECONDS = 5;
 const SLOW_DOWN_SECONDS = 5;
 const MAX_OAUTH_RESPONSE_BYTES = 64 * 1024;
 const MAX_REQUEST_MILLISECONDS = 30_000;
+const MAX_TIMER_MILLISECONDS = 2_147_483_647;
 
 export type DeviceLoginToken = {
   access_token: string;
@@ -58,8 +59,11 @@ async function sleepUntilNextPoll(
   intervalMilliseconds: number,
 ): Promise<void> {
   const remaining = expiresAt - now();
-  if (remaining <= 0 || remaining < intervalMilliseconds) throw expiredError();
-  await sleep(intervalMilliseconds);
+  if (remaining <= 0) throw expiredError();
+  if (intervalMilliseconds > MAX_TIMER_MILLISECONDS) {
+    throw new Error("Device authorization polling interval exceeds the supported timer limit.");
+  }
+  await sleep(Math.min(intervalMilliseconds, remaining));
   if (now() >= expiresAt) throw expiredError();
 }
 
@@ -81,14 +85,16 @@ async function pollForToken(
         client_id: config.clientId,
       }),
       "Device token request",
-      Math.min(MAX_REQUEST_MILLISECONDS, expiresAt - now()),
+      MAX_REQUEST_MILLISECONDS,
     );
   } catch (error) {
     if (now() >= expiresAt) throw expiredError();
     throw error;
   }
-  if (now() >= expiresAt) throw expiredError();
-  return parseTokenPoll(result);
+  const token = parseTokenPoll(result);
+  // Tokens issued by the server remain valid if the device code expires in transit.
+  if (typeof token === "string" && now() >= expiresAt) throw expiredError();
+  return token;
 }
 
 function parseTokenPoll({ body, response }: OAuthResponse): DeviceLoginToken | "pending" | "slow_down" {

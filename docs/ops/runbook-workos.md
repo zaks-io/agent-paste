@@ -60,7 +60,8 @@ after approval in a separate browser, saved the CLI credential, and passed
 `whoami --json` against the production API with the expected Workspace and
 `publish`/`read` scopes.
 
-To verify a release from a sandbox, run `agent-paste login --device-code`, keep
+To verify a release from a sandbox, unset `AGENT_PASTE_API_KEY` so the stored
+credential is used. Run `agent-paste login --device-code`, keep
 it running, and approve its displayed URL and code in a separate browser. Then
 run `agent-paste whoami --json` in the sandbox and confirm the expected Workspace
 and scopes. Do not print or copy the stored credential to complete this check.

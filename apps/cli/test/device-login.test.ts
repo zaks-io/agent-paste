@@ -63,6 +63,25 @@ function flow(responses: Response[], overrides: { expiresIn?: number; interval?:
 }
 
 describe("device login", () => {
+  it("rejects polling intervals that overflow the runtime timer", async () => {
+    const harness = flow([], { interval: 2_147_484, expiresIn: 10_000_000 });
+
+    await expect(loginWithDeviceCode(harness.deps)).rejects.toThrow(/timer limit/);
+    expect(harness.sleeps).toEqual([]);
+    expect(harness.fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects slow_down when it pushes the polling interval beyond the timer limit", async () => {
+    const harness = flow([Response.json({ error: "slow_down" }, { status: 400 })], {
+      interval: 2_147_483,
+      expiresIn: 10_000_000,
+    });
+
+    await expect(loginWithDeviceCode(harness.deps)).rejects.toThrow(/timer limit/);
+    expect(harness.sleeps).toEqual([2_147_483_000]);
+    expect(harness.fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it("uses the RFC default interval and adds five seconds after slow_down", async () => {
     const harness = flow([
       Response.json({ error: "slow_down" }, { status: 400 }),
@@ -89,6 +108,38 @@ describe("device login", () => {
     await expect(loginWithDeviceCode(harness.deps)).rejects.toThrow(/authorization expired/);
     expect(harness.sleeps).toEqual([5_000]);
     expect(harness.fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("waits until expiry without polling faster than the provider interval", async () => {
+    const harness = flow([Response.json({ error: "authorization_pending" }, { status: 400 })], {
+      expiresIn: 6,
+      interval: 5,
+    });
+
+    await expect(loginWithDeviceCode(harness.deps)).rejects.toThrow(/authorization expired/);
+    expect(harness.sleeps).toEqual([5_000, 1_000]);
+    expect(harness.fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("accepts an in-flight success after the device code expires", async () => {
+    vi.useFakeTimers();
+    const token = { access_token: "issued_before_expiry" };
+    const fetchImpl = vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+      if (fetchImpl.mock.calls.length === 1) {
+        return Response.json({ ...authorization, expires_in: 6, interval: 5 });
+      }
+      return new Promise<Response>((resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new Error("request aborted")));
+        setTimeout(() => resolve(Response.json(token)), 2_000);
+      });
+    });
+
+    const result = loginWithDeviceCode({ config, fetch: fetchImpl, log: () => {} });
+    const outcome = result.catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(7_000);
+
+    await expect(outcome).resolves.toEqual(token);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
   it("stops when the user denies authorization", async () => {
