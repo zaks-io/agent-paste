@@ -29,7 +29,7 @@ export const mcpToolContracts = [
   {
     name: "publish_artifact",
     description:
-      "Publish a NEW text-only Artifact and return artifact_id, revision_id, and its top-level url. The URL is an unguessable capability, opens without login, and stays stable across revisions. Use this only for something not yet published. To CHANGE an existing Artifact, call add_revision with the published URL in artifact_id instead. Publishing an edit here creates a different Artifact on a different URL.",
+      "Publish a NEW text-only Artifact and return artifact_id, revision_id, and its top-level url. The URL is an unguessable capability, opens without login, and stays stable across revisions. Use this only for something not yet published. To CHANGE an existing Artifact, call add_revision with the artifact ID in artifact_id instead. Full URLs also work. Publishing an edit here creates a different Artifact on a different URL.",
     auth: "mcp_oauth",
     requiredScopes: ["publish", "read"],
     idempotency: "optional_override",
