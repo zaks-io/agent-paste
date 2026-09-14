@@ -47,10 +47,14 @@ separate share link, viewer URL, or visibility command.
 ## Revise instead of republishing
 
 ```sh
-agent-paste publish <path> --artifact-id <artifact-id> --json
-agent-paste pull <artifact-id> <remote-path> --json
-agent-paste edit <artifact-id> <remote-path> --edits <edits.json> --json
+agent-paste publish <path> --artifact-id <artifact-url> --json
+agent-paste pull <artifact-url> <remote-path> --json
+agent-paste edit <artifact-url> <remote-path> --edits <edits.json> --json
 ```
+
+`--artifact-id`, `pull`, and `edit` accept the published HTTPS URL, its bare subdomain
+`01234-56789-abcde-fghjd`, or an existing `art_...` ID. Use the URL when continuing another
+agent's work; no ID lookup is needed. Updates require authentication for the owning Workspace.
 
 `edit` accepts an ordered JSON array of `{ "old_string", "new_string", "replace_all"? }`. If a
 literal match is absent or ambiguous, re-read and correct it. Never silently replace the whole
@@ -65,4 +69,5 @@ proves whether it committed.
 
 Without shell access, connect to `https://mcp.agent-paste.sh` with OAuth and run `whoami` first.
 Use `publish_artifact`, `add_revision`, or `multi_edit`. MCP is text-only; use the CLI for folders,
-binary files, and accountless publishing. Full docs: <https://agent-paste.sh/agents.md>.
+binary files, and accountless publishing. Every MCP `artifact_id` input accepts the same URL,
+bare subdomain, or existing ID. Full docs: <https://agent-paste.sh/agents.md>.

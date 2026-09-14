@@ -40,13 +40,17 @@ Publish a file or directory:
 npx @zaks-io/agent-paste publish ./path --json
 \`\`\`
 
-Return \`url\` to the user. Save \`artifact_id\` if the agent may revise it.
+Return \`url\` to the user. Reuse it when another agent continues the work.
 
 Revise the Artifact at the same URL:
 
 \`\`\`sh
-npx @zaks-io/agent-paste publish ./path --artifact-id <artifact_id> --json
+npx @zaks-io/agent-paste publish ./path --artifact-id https://01234-56789-abcde-fghjd.agent-paste.link/ --json
 \`\`\`
+
+\`--artifact-id\`, \`pull\`, and \`edit\` accept the published HTTPS URL, its bare
+subdomain \`01234-56789-abcde-fghjd\`, or an existing \`art_...\` ID. No ID lookup
+is needed. Updates require authentication for the owning Workspace.
 
 If login is unavailable and static accountless output satisfies the task, or
 the user explicitly asks for accountless publish:
@@ -96,7 +100,8 @@ Connect to \`${MCP_BASE_URL}\`, complete OAuth, and call \`whoami\`.
 - Read: \`list_artifacts\`, \`read_artifact\`, \`read_file\`, \`list_revisions\`
 - Manage: \`delete_artifact\`, \`update_display_metadata\`
 
-MCP text publish and CLI folder publish return the same \`url\` contract.
+Every MCP \`artifact_id\` input accepts the published URL, bare subdomain, or
+existing ID. MCP text publish and CLI folder publish return the same \`url\` contract.
 
 ## Reading this site
 
