@@ -27,13 +27,17 @@ Revision IDs (`rev_` ULID) carry a third shape for the same family of objects.
 2. Every surface emits that ID as `artifact_id`: CLI JSON, MCP results, Agent
    View, list endpoints, Audit Events, and the dashboard route
    `/artifacts/<id>`. The `art_` form is emitted nowhere.
-3. `ArtifactReference` keeps accepting `art_` IDs and full URLs on input so
-   agents and bookmarks holding old values keep working. Existing rows keep
-   their `art_` primary key and existing Capability ID; only new rows use the
-   unified key. Legacy 32-hex Capability IDs remain valid per ADR 0096.
+3. There is no compatibility period. Production checked on 2026-09-14 held
+   one real member with 10 live Artifacts and two unclaimed ephemeral
+   Artifacts due to expire the same day, so existing Artifact and Revision
+   rows are deleted before the change deploys. `ArtifactReference` accepts
+   the base32 ID and the full URL only. The `art_` and `rev_` shapes and the
+   legacy 32-hex Capability ID branch are removed from every contract,
+   database check, and content-host grammar. This supersedes the "legacy IDs
+   remain valid" clause of ADR 0096.
 4. Revision IDs adopt the same grouped base32 shape with no prefix. They are
    not hostnames and carry no read capability; the shape is shared for
-   consistency only. Existing `rev_` values remain valid on input.
+   consistency only.
 5. Because the Artifact ID is now credential material everywhere it appears,
    the `api` and `web` Workers redact the `/artifacts/<id>` path segment in
    request logs the same way `content` already redacts the hostname label.
@@ -53,12 +57,14 @@ symbol catches transcription errors that the prefix never did.
 
 - `docs/specs/cli.md`, `docs/specs/artifacts.md`, `CONTEXT.md`, and the MCP
   contract descriptions drop the "full URLs and `art_` IDs also work" caveats
-  down to a single line about legacy input.
+  entirely.
 - `packages/tokens` content and agent-view codecs stop asserting `art_` and
   `rev_` prefixes and validate the grouped base32 shape instead.
-- The `artifacts.capability_id` column becomes redundant for new rows. It
-  stays for existing rows until a follow-up backfills `id` from it, which is a
-  separate migration with its own rollback plan.
+- The `artifacts.capability_id` column is dropped; `artifacts.id` is the
+  hostname label. The migration truncates Artifact, Revision, and dependent
+  rows and rewrites the ID check constraints. No backfill exists.
+- The 10 live Artifact URLs in the owner's Workspace stop resolving. Anything
+  worth keeping is republished after deploy.
 - CLI JSON `schema_version` stays at `"2"`. Field names and types are
   unchanged; only the ID format differs, and every consumer already accepts the
   base32 form on input.
@@ -71,6 +77,6 @@ symbol catches transcription errors that the prefix never did.
 - New Artifacts publish with `artifact_id` equal to the URL hostname label on
   CLI, MCP, and dashboard surfaces.
 - `pull`, `edit`, `--artifact-id`, and every MCP `artifact_id` input accept the
-  new ID, an `art_` ID, and a full URL.
+  new ID or a full URL and reject `art_`, `rev_`, and 32-hex shapes.
 - Request logs for `api` and `web` never contain a full Artifact ID.
 - Specs and CONTEXT.md describe one Artifact ID and one Revision ID shape.
