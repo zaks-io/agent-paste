@@ -48,7 +48,7 @@ export const SAFETY_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Signed-in Artifact HTML runs with a permissive CSP: inline scripts, external HTTPS dependencies, data and blob assets, dedicated workers, fetch, and secure WebSockets. `frame-ancestors 'none'` keeps other sites from framing it. Service workers are blocked on every Artifact host.",
+          text: "Claimed Artifact HTML runs with a permissive CSP: inline scripts, external HTTPS dependencies, data and blob assets, dedicated workers, fetch, and secure WebSockets. `frame-ancestors 'none'` keeps other sites from framing it. Service workers are blocked on every Artifact host.",
         },
       ],
     },
@@ -58,7 +58,7 @@ export const SAFETY_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Unclaimed ephemeral HTML blocks scripts, connections, forms, frames, objects, and workers. Claiming keeps the URL and switches it to the signed-in policy.",
+          text: "Unclaimed ephemeral HTML blocks scripts, connections, forms, frames, objects, and workers. Claiming keeps the URL and switches it to the claimed policy.",
         },
       ],
     },

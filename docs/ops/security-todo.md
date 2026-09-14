@@ -81,7 +81,10 @@ stays fast and does not run the full bundle.
       `/keys`) and mint only then. Confirm nothing consumes the bootstrap
       `secret` in `webAuthResponse`, then remove the mint and its
       `api_key.created` event. Revoke the existing unused bootstrap key.
-      Done when a fresh sign-in yields zero API keys and `login` still works.
+      Done when browser sign-in creates zero API keys, and first-time CLI
+      `login` through `web.apiKeys.create` provisions the Workspace and member
+      without a Default key, creates exactly one CLI key, and preserves that
+      key's `api_key.created` event.
 
 ## CLI Release supply-chain (AP-154)
 

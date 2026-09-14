@@ -74,7 +74,7 @@ Directory publish keeps relative paths and skips \`.git\`, \`node_modules\`,
 }
 \`\`\`
 
-Signed-in Artifacts run as ordinary top-level pages: inline scripts, external
+Claimed Artifacts run as ordinary top-level pages: inline scripts, external
 HTTPS dependencies, fetch, WebSockets, and dedicated workers all work. Service
 workers are blocked everywhere.
 

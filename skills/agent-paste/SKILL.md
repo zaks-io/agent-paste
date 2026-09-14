@@ -11,7 +11,7 @@ keeps its URL.
 ## Write reports as HTML
 
 When handing a human a report, plan, review, or summary, publish HTML rather than Markdown. Use real
-typography, tables, inline SVG charts, and collapsible sections. Signed-in Artifacts can run inline
+typography, tables, inline SVG charts, and collapsible sections. Claimed Artifacts can run inline
 scripts, the Tailwind browser CDN, and HTTPS libraries; ephemeral Artifacts block scripts and
 network, so keep those static. Lead with the finding, keep the supporting data on the page, and open
 the URL once before handing it over.
