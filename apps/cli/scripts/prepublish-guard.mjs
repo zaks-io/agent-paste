@@ -46,12 +46,14 @@ if (/@agent-paste\//.test(bundle)) {
   fail("bundled dist/index.js still references @agent-paste/* workspace deps; the build did not inline them.");
 }
 
-// 4. The only runtime dependency may be @napi-rs/keyring (ships native .node
-//    binaries, intentionally left external). Anything else is a packaging bug.
+// 4. fs-safe provides the native filesystem bindings used by npm installs.
 const runtimeDeps = Object.keys(pkg.dependencies ?? {});
-const unexpected = runtimeDeps.filter((name) => name !== "@napi-rs/keyring");
+const unexpected = runtimeDeps.filter((name) => name !== "@openclaw/fs-safe");
 if (unexpected.length > 0) {
   fail(`unexpected runtime dependencies (must be bundled or devDeps): ${unexpected.join(", ")}`);
+}
+if (!/^\d+\.\d+\.\d+$/.test(pkg.dependencies?.["@openclaw/fs-safe"] ?? "")) {
+  fail("@openclaw/fs-safe must be a pinned runtime dependency.");
 }
 
 // 5. The files allowlist must ship exactly the build output and nothing stray.

@@ -292,6 +292,9 @@ jobs:
       - name: Run repo security attestation
         run: pnpm security:attest
 
+      - name: Validate npm package before draft release
+        run: pnpm --filter @zaks-io/agent-paste prepublishOnly
+
       - name: Upload repo security attestation
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
