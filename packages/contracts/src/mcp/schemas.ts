@@ -59,7 +59,7 @@ export type McpPublishArtifactInput = z.infer<typeof McpPublishArtifactInput>;
 export const McpAddRevisionInput = z
   .object({
     artifact_id: ArtifactReference.describe(
-      "The existing Artifact URL, bare subdomain, or ID to revise. Pass the published URL directly. The new Revision publishes under this Artifact's stable url.",
+      "Artifact ID to revise, such as 01234-56789-abcde-fghjd. Full URLs also work. The URL stays the same.",
     ),
     body: mcpTextBody,
     render_mode: McpPublishRenderMode,
@@ -94,7 +94,7 @@ export type McpEdit = z.infer<typeof McpEdit>;
 export const McpMultiEditInput = z
   .object({
     artifact_id: ArtifactReference.describe(
-      "The existing Artifact URL, bare subdomain, or ID to edit. Pass the published URL directly. The edited Revision publishes under this Artifact's stable url.",
+      "Artifact ID to edit, such as 01234-56789-abcde-fghjd. Full URLs also work. The URL stays the same.",
     ),
     path: FilePath.describe(
       "The stored file to edit within the Artifact (e.g. the entrypoint). Read it first with read_file to get the exact base text the edits must match.",

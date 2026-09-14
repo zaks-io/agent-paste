@@ -41,7 +41,7 @@ export const mcpToolContracts = [
   {
     name: "add_revision",
     description:
-      "Edit/update an EXISTING Artifact by publishing a new Revision. Pass its published URL, bare subdomain, or ID in artifact_id. The response returns that artifact_id, the new revision_id, and the stable url. The URL shows the newest Revision on refresh, so there is no new link to send. Use this, not publish_artifact, whenever the user wants to revise, fix, or extend existing work.",
+      "Update an existing Artifact. Pass its artifact ID in artifact_id; full URLs also work. Returns artifact_id, revision_id, and the same url, now showing the latest Revision. Use this instead of publish_artifact for updates.",
     auth: "mcp_oauth",
     requiredScopes: ["publish", "read"],
     idempotency: "optional_override",
@@ -94,7 +94,7 @@ export const mcpToolContracts = [
   {
     name: "read_artifact",
     description:
-      "Read the latest Agent View for an Artifact using its published URL, bare subdomain, or ID in artifact_id; returns artifact_id, revision_id, files[].url, and optional bundle metadata without inlining file bytes.",
+      "Read an Artifact's latest Agent View by artifact_id. Full URLs also work. Returns artifact_id, revision_id, files[].url, and optional bundle metadata; file contents are not inlined.",
     auth: "mcp_oauth",
     requiredScopes: ["read"],
     idempotency: "none",

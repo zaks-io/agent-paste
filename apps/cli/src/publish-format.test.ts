@@ -2,9 +2,14 @@ import { describe, expect, it } from "vitest";
 import { artifactUpdateReference } from "./publish-format.js";
 
 describe("artifactUpdateReference", () => {
-  it("uses the published HTTPS URL when the CLI accepts it as an Artifact reference", () => {
-    const url = "https://0123456789abcdef0123456789abcdef.agent-paste.link/";
-    expect(artifactUpdateReference({ artifact_id: "art_1", url })).toBe(url);
+  it.each([
+    "01234-56789-abcde-fghjd",
+    "01234-56789-abcde-fghjd-preview",
+    "01234-56789-abcde-fghjd-pr-651",
+    "0123456789abcdef0123456789abcdef",
+  ])("uses the short artifact ID %s in update commands", (artifactId) => {
+    const url = `https://${artifactId}.agent-paste.link/`;
+    expect(artifactUpdateReference({ artifact_id: "art_1", url })).toBe(artifactId);
   });
 
   it("falls back to the canonical ID for a local HTTP content URL", () => {

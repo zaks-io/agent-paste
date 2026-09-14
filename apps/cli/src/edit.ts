@@ -9,7 +9,7 @@ import { apiClientReader } from "./revision-reader.js";
 import { commandInvocation, detectChannel } from "./update-check.js";
 
 export async function edit(parsed: Parsed, client: ApiClient) {
-  const artifactReference = ArtifactReference.parse(requiredArg(parsed, 0, "artifact-url-or-id"));
+  const artifactReference = ArtifactReference.parse(requiredArg(parsed, 0, "artifact-id"));
   const filePath = FilePath.parse(requiredArg(parsed, 1, "path"));
   const edits = await readEdits(parsed);
 

@@ -37,7 +37,7 @@ export const ArtifactReference = z
       ),
   ])
   .describe(
-    "Artifact URL, bare subdomain, or Artifact ID. Workspace authorization still applies; bare IDs use the current environment.",
+    "Artifact ID, such as 01234-56789-abcde-fghjd. Full URLs and art_ IDs also work. Workspace authorization applies; short IDs use the current environment.",
   );
 export type ArtifactReference = z.infer<typeof ArtifactReference>;
 

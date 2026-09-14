@@ -78,11 +78,10 @@ automatic; flags override detection.
 
 ## Artifact URLs
 
-Use the published Artifact URL to identify existing work. `publish <path>
---artifact-id <url>`, `pull <url> <remote-path>`, and `edit <url> <path>` accept
-HTTPS Artifact URLs, bare subdomain IDs, and Artifact IDs. The flag name remains
-`--artifact-id` for compatibility. Authentication and Workspace permissions
-still apply; knowing the URL does not grant write access.
+Use the artifact ID, such as `01234-56789-abcde-fghjd`, with
+`publish <path> --artifact-id <artifact-id>`, `pull <artifact-id> <remote-path>`,
+or `edit <artifact-id> <path>`. Full URLs also work. Existing `art_...` IDs
+remain supported. Workspace authorization still applies.
 
 The server resolves the hostname in the current environment. A file path,
 query, or fragment on the URL does not select a different Artifact. The

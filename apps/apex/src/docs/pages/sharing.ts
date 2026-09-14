@@ -31,7 +31,7 @@ export const SHARING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Passing the published URL, bare subdomain, or existing `art_...` ID to `--artifact-id` creates a new Revision and repoints the same hostname. Refreshing the URL shows the latest Published Revision. Knowing the URL does not grant write access; updates require authentication for the owning Workspace.",
+          text: "Use the artifact ID with `--artifact-id` to update the same website. Full URLs also work. Updates require Workspace access; the URL alone grants no write access.",
         },
       ],
     },

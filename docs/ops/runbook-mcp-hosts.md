@@ -202,10 +202,9 @@ remain CLI/REST/dashboard territory.
 `publish_artifact`, `add_revision`, and `multi_edit` return one `url`. It opens the Artifact
 directly at the root of its isolated capability subdomain. There is no app
 viewer, iframe, visibility input, or second sharing step. The MCP result returns
-`artifact_id` and `revision_id` with the URL for immediate follow-up work. Every
-MCP `artifact_id` input accepts the published HTTPS URL, bare subdomain, or
-existing ID. Agents handed a URL can reuse it directly without an ID lookup;
-updates still require authentication for the owning Workspace.
+`artifact_id` and `revision_id` with the URL. Use the artifact ID, such as
+`01234-56789-abcde-fghjd`, in MCP `artifact_id` inputs. Full URLs also work.
+Updates require Workspace access.
 
 ### Publish retries
 

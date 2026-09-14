@@ -44,7 +44,7 @@ export const MCP_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Every `artifact_id` input accepts the published HTTPS URL, its bare subdomain `01234-56789-abcde-fghjd`, or an existing `art_...` ID. Updates require authentication for the owning Workspace. MCP publishing is text-only. Use the CLI for folders and binary files. All MCP publish paths return the same `url` contract as the CLI and accept no visibility mode.",
+          text: "Use the artifact ID, such as `01234-56789-abcde-fghjd`, in `artifact_id`. Full URLs also work. Updates require Workspace access. MCP publishes text; use the CLI for folders and binary files.",
         },
       ],
     },
