@@ -68,8 +68,8 @@ stays fast and does not run the full bundle.
       which additionally pins `@cyclonedx/cyclonedx-esbuild@1` — re-verify all
       surfaces together.
 
-- [ ] **Stop minting a "Default" API key at first sign-in.** Linear ticket
-      pending (connector was unauthorized when filed, 2026-09-14).
+- [ ] **Stop minting a "Default" API key at first sign-in** (AP-444, filed
+      2026-09-14).
       `ensureWebMember` in
       `packages/db/src/repository/workflows/web-member-workflow.ts` creates a
       never-expiring key with the member's full scopes the moment WorkOS
