@@ -76,9 +76,9 @@ stays fast and does not run the full bundle.
       returns a new user, before they have done anything. Production on
       2026-09-14 held one drive-by account whose key has never been used.
       The CLI does not depend on it: `agent-paste login` mints its own key
-      through `web.apiKeys.create` (`apps/cli/src/login.ts`). Decide the
-      trigger (first CLI login, first publish, or an explicit create on
-      `/keys`) and mint only then. Confirm nothing consumes the bootstrap
+      through `web.apiKeys.create` (`apps/cli/src/login.ts`). Keep CLI key
+      creation on login and explicit key creation on `/keys`; browser sign-in
+      must not mint a key. Confirm nothing consumes the bootstrap
       `secret` in `webAuthResponse`, then remove the mint and its
       `api_key.created` event. Revoke the existing unused bootstrap key.
       Done when browser sign-in creates zero API keys, and first-time CLI

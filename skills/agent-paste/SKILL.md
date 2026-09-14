@@ -29,7 +29,7 @@ agent-paste publish <path> --json
 `whoami` exits 0 even when signed out, so check `authenticated`. If false, run `login` where a
 browser is available or `login --device-code` in a sandbox. Device login prints a URL and code on
 stderr; keep it running until the user approves, then run `whoami` again. An `AGENT_PASTE_API_KEY`
-env var also authenticates.
+env var takes precedence over stored credentials.
 
 When login is unavailable, or the user asks for accountless publishing:
 
