@@ -29,7 +29,7 @@ export const mcpToolContracts = [
   {
     name: "publish_artifact",
     description:
-      "Publish a NEW text-only Artifact and return artifact_id, revision_id, and its top-level url. The URL is an unguessable capability, opens without login, and stays stable across revisions. Use this only for something not yet published. To CHANGE an existing Artifact, call add_revision with the artifact ID in artifact_id instead. Full URLs also work. Publishing an edit here creates a different Artifact on a different URL.",
+      "Publish a NEW text Artifact. Returns artifact_id, revision_id, and url, which opens without login and stays the same across Revisions. To change an existing Artifact use add_revision or multi_edit; publishing an edit here creates a second Artifact at a second URL.",
     auth: "mcp_oauth",
     requiredScopes: ["publish", "read"],
     idempotency: "optional_override",
@@ -41,7 +41,7 @@ export const mcpToolContracts = [
   {
     name: "add_revision",
     description:
-      "Update an existing Artifact. Pass its artifact ID in artifact_id; full URLs also work. Returns artifact_id, revision_id, and the same url, now showing the latest Revision. Use this instead of publish_artifact for updates.",
+      "Publish a new body for an existing Artifact. artifact_id accepts the ID or the full URL. Returns the same url now showing the new Revision. Keeps the title; a body identical to the stored bytes is a no-op and mints no Revision.",
     auth: "mcp_oauth",
     requiredScopes: ["publish", "read"],
     idempotency: "optional_override",
@@ -53,7 +53,7 @@ export const mcpToolContracts = [
   {
     name: "multi_edit",
     description:
-      "Edit one file inside an EXISTING Artifact with literal find/replace, then publish the result as a new Revision. Read the file first with read_file. Each old_string must match exactly once unless replace_all is set; misses and ambiguous matches fail loud. The Artifact's url stays stable and shows the newest Revision on refresh. A no-op mints no Revision.",
+      "Literal find/replace in one file of an existing Artifact, published as a new Revision at the same url. Call read_file first. Each old_string must match exactly once unless replace_all is set; a miss or ambiguous match fails with invalid_request naming the edit index. A no-op mints no Revision.",
     auth: "mcp_oauth",
     requiredScopes: ["publish", "read"],
     idempotency: "optional_override",
@@ -77,7 +77,7 @@ export const mcpToolContracts = [
   },
   {
     name: "list_artifacts",
-    description: "List Artifacts in the authenticated workspace. Returns data[]; use data[].id as artifact_id.",
+    description: "List Artifacts in the Workspace. Returns data[]; use data[].id as artifact_id.",
     auth: "mcp_oauth",
     requiredScopes: ["read"],
     idempotency: "none",
@@ -94,7 +94,7 @@ export const mcpToolContracts = [
   {
     name: "read_artifact",
     description:
-      "Read an Artifact's latest Agent View by artifact_id. Full URLs also work. Returns artifact_id, revision_id, files[].url, and optional bundle metadata; file contents are not inlined.",
+      "Read an Artifact's latest Agent View. Returns artifact_id, revision_id, files[].url, and optional bundle metadata. File contents are not inlined; use read_file.",
     auth: "mcp_oauth",
     requiredScopes: ["read"],
     idempotency: "none",
@@ -111,7 +111,7 @@ export const mcpToolContracts = [
   {
     name: "read_file",
     description:
-      "Read one file's stored content from an Artifact so you can edit it and revise. Returns the decoded text body plus its sha256 for text files up to 10 MiB; for binary or larger files it returns sha256/size/is_binary with no body (fetch those via the file url or re-upload whole). Use the returned body as the base when producing an edited Revision; the sha256 is the exact base the server validates a diff against.",
+      "Read one stored file so you can edit it. Returns the text body and its sha256 for text files up to 10 MiB; binary or larger files return sha256, size, and is_binary with no body (fetch them from the file url).",
     auth: "mcp_oauth",
     requiredScopes: ["read"],
     idempotency: "none",
@@ -132,7 +132,7 @@ export const mcpToolContracts = [
   {
     name: "list_revisions",
     description:
-      "List Revisions for an Artifact. Returns items[]; use items[].revision_id when another tool needs a Revision ID.",
+      "List an Artifact's Revisions. Returns items[]; use items[].revision_id where a Revision ID is needed.",
     auth: "mcp_oauth",
     requiredScopes: ["read"],
     idempotency: "none",
@@ -148,7 +148,7 @@ export const mcpToolContracts = [
   },
   {
     name: "delete_artifact",
-    description: "Delete an artifact.",
+    description: "Delete an Artifact.",
     auth: "mcp_oauth",
     requiredScopes: ["publish"],
     idempotency: "none",
@@ -164,7 +164,7 @@ export const mcpToolContracts = [
   },
   {
     name: "update_display_metadata",
-    description: "Update artifact display title (description updates are not supported in this phase).",
+    description: "Set an Artifact's title.",
     auth: "mcp_oauth",
     requiredScopes: ["publish"],
     idempotency: "none",
@@ -180,7 +180,7 @@ export const mcpToolContracts = [
   },
   {
     name: "whoami",
-    description: "Return the authenticated workspace member, workspace, and granted MCP scopes.",
+    description: "Return the authenticated member, Workspace, and MCP scopes.",
     auth: "mcp_oauth",
     requiredScopes: [],
     idempotency: "none",

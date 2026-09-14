@@ -4,7 +4,7 @@ export const LIMITS_DOC: DocsPage = {
   slug: "limits",
   title: "Limits and Retention",
   shortTitle: "Limits",
-  summary: "Billing-enabled limits keep handoffs useful without turning the service into permanent storage.",
+  summary: "Plan caps and Auto Deletion keep handoffs useful without becoming permanent storage.",
   sections: [
     {
       id: "plan-limits",
@@ -33,15 +33,15 @@ export const LIMITS_DOC: DocsPage = {
           kind: "list",
           items: [
             "100 files per Revision.",
-            "100 lifetime published Revisions per Artifact.",
+            "100 published Revisions per Artifact, lifetime.",
             "60 authenticated requests per minute per actor.",
             "300 authenticated requests per minute per Workspace.",
-            "Pinned Artifact cap: 50 per Workspace.",
+            "50 pinned Artifacts per Workspace.",
           ],
         },
         {
           kind: "paragraph",
-          text: "Authenticated clients can read their effective machine-readable caps from `GET /v1/usage-policy`.",
+          text: "Authenticated clients can read their effective caps from `GET /v1/usage-policy`.",
         },
       ],
     },
@@ -51,11 +51,7 @@ export const LIMITS_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Every Artifact has Auto Deletion. Free Workspaces default to 3 days and can choose up to 7 days. Pro Workspaces default to 30 days and can choose up to 90 days. Ephemeral Artifacts auto-delete after 24 hours unless claimed.",
-        },
-        {
-          kind: "paragraph",
-          text: "Pinned Artifacts are exempt from Auto Deletion while they remain pinned, subject to the Workspace cap. Non-current Revisions are retained according to policy and Revision links stop working after a retained Revision is removed.",
+          text: "Every Artifact has Auto Deletion. Free Workspaces default to 3 days and can choose up to 7; Pro defaults to 30 and can choose up to 90. Ephemeral Artifacts delete after 24 hours unless claimed. Pinned Artifacts are exempt while pinned.",
         },
       ],
     },
@@ -65,7 +61,7 @@ export const LIMITS_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "The daily allowance counts new Artifacts. New Revisions of an existing Artifact do not count against the daily new-Artifact allowance, but each Artifact still has a 100 lifetime Revision ceiling.",
+          text: "The daily allowance counts new Artifacts only. Revisions of an existing Artifact are free up to its 100-Revision lifetime ceiling.",
         },
       ],
     },

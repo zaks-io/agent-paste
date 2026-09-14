@@ -1,27 +1,27 @@
 # mcp
 
-OAuth-only hosted MCP Worker for agent-paste.
-
-User-facing MCP guide: [`docs/mcp.md`](../../docs/mcp.md). Use MCP when an agent
-can connect to a remote MCP server but cannot run the CLI.
+OAuth-only hosted MCP Worker for agent-paste. Agent-facing guide:
+[`docs/mcp.md`](../../docs/mcp.md).
 
 Responsibilities:
 
 - Streamable HTTP MCP transport.
-- OAuth protected resource metadata.
-- OAuth authorization-server metadata facade for compatibility clients.
-- WorkOS JWT bearer verification.
-- Forwarding to allowlisted `api` and `upload` named RPC entrypoints.
-- Text-only MCP tool surface (ten tools).
+- OAuth protected-resource and authorization-server metadata.
+- WorkOS JWT bearer verification. The bearer terminates here; tool calls forward
+  only the verified subject to allowlisted named RPC entrypoints on `api` and
+  `upload`, whose public HTTP routes reject MCP bearers.
+- Ten text-only tools, defined in
+  [`packages/contracts/src/mcp/registry.ts`](../../packages/contracts/src/mcp/registry.ts)
+  and implemented in `src/tools.ts` with schema validation, scope checks, and
+  API error mapping.
 
-Contracts: [ADR 0061](../../docs/adr/0061-mcp-worker-with-oauth-only-via-auth0-dcr.md) and [`packages/contracts/src/mcp/registry.ts`](../../packages/contracts/src/mcp/registry.ts).
-
+Decision trail: [ADR 0061](../../docs/adr/0061-mcp-worker-with-oauth-only-via-auth0-dcr.md).
 Host onboarding and smoke commands: [`docs/ops/runbook-mcp-hosts.md`](../../docs/ops/runbook-mcp-hosts.md).
 
-Current endpoints:
+Endpoints:
 
-- `POST /` - Streamable HTTP MCP transport (JSON-RPC; optional SSE responses)
-- `GET /` - endpoint metadata for humans and agents opening the MCP URL
+- `POST /` Streamable HTTP MCP transport (JSON-RPC; optional SSE responses)
+- `GET /` endpoint metadata
 - `GET /healthz`
 - `GET /.well-known/mcp/server-card.json`
 - `GET /.well-known/oauth-protected-resource`
@@ -29,37 +29,18 @@ Current endpoints:
 - `GET /.well-known/openid-configuration`
 - `GET /openapi.json`
 
-Transport auth is OAuth-bearer only via WorkOS JWT verification. The bearer
-terminates at this Worker. Tool calls pass only the verified WorkOS subject to
-allowlisted named RPC entrypoints on `api` and `upload`; their public HTTP routes
-reject MCP bearers. The current ten-tool surface is defined in
-`packages/contracts/src/mcp/registry.ts` and implemented in `src/tools.ts` with
-schema validation, scope checks, and API error mapping.
+## Scopes
 
-## Tools
+Tools are gated by `read` and `publish`, taken from the authenticated Workspace
+Member in `api`. WorkOS tokens carry standard OAuth scopes and do not grant
+these directly.
 
-Ten tools, gated by MCP capabilities (`read`, `publish`, `admin`) derived by
-`api` from the authenticated Workspace Member. WorkOS AuthKit tokens carry
-standard OAuth scopes; they do not directly grant these scopes. Canonical
-contract: [`packages/contracts/src/mcp/registry.ts`](../../packages/contracts/src/mcp/registry.ts).
-
-| Tool                      | Scopes          | Purpose                                                                 |
-| ------------------------- | --------------- | ----------------------------------------------------------------------- |
-| `whoami`                  | (none)          | Authenticated member, workspace, and derived scopes.                    |
-| `list_artifacts`          | `read`          | List Artifacts in the workspace.                                        |
-| `read_artifact`           | `read`          | Latest Agent View for an Artifact.                                      |
-| `read_file`               | `read`          | Read one stored Artifact file for edit/revise workflows.                |
-| `list_revisions`          | `read`          | List Revisions for an Artifact.                                         |
-| `publish_artifact`        | `publish, read` | Publish a new text Artifact and return its top-level capability URL.    |
-| `add_revision`            | `publish, read` | Add and publish a Revision while keeping the Artifact URL stable.       |
-| `multi_edit`              | `publish, read` | Apply literal edits to one stored text file and publish a new Revision. |
-| `delete_artifact`         | `publish`       | Delete an Artifact.                                                     |
-| `update_display_metadata` | `publish`       | Update an Artifact's display title.                                     |
-
-`publish_artifact` and `add_revision` return one `url`: the unguessable,
-no-login, top-level Artifact capability URL. It has no app viewer or iframe and
-stays stable across Revisions. Publish output also returns `artifact_id` and
-`revision_id` for immediate follow-up reads or revisions.
+| Scope             | Tools                                                            |
+| ----------------- | ---------------------------------------------------------------- |
+| none              | `whoami`                                                         |
+| `read`            | `list_artifacts`, `read_artifact`, `read_file`, `list_revisions` |
+| `publish`, `read` | `publish_artifact`, `add_revision`, `multi_edit`                 |
+| `publish`         | `delete_artifact`, `update_display_metadata`                     |
 
 ## Local verification
 

@@ -12,7 +12,7 @@ export const MCP_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Connect `https://mcp.agent-paste.sh`, complete OAuth, then call `whoami`. Use MCP when the host cannot run the CLI.",
+          text: "Add `https://mcp.agent-paste.sh` as a remote MCP server, complete OAuth, then call `whoami`. Use MCP only when the host cannot run the CLI.",
         },
       ],
     },
@@ -24,16 +24,16 @@ export const MCP_DOC: DocsPage = {
           kind: "table",
           columns: ["Tool", "Purpose"],
           rows: [
-            ["`whoami`", "Return the member, Workspace, and derived scopes."],
-            ["`publish_artifact`", "Publish a new text-only Artifact and return its top-level `url`."],
-            ["`add_revision`", "Publish a Revision of an existing Artifact at the same `url`."],
-            ["`multi_edit`", "Edit one stored file and publish a Revision."],
-            ["`list_artifacts`", "List Workspace Artifacts."],
-            ["`read_artifact`", "Read the latest Agent View."],
-            ["`read_file`", "Read one stored file or its metadata."],
-            ["`list_revisions`", "List Artifact Revisions."],
+            ["`whoami`", "Return the member, Workspace, and scopes."],
+            ["`publish_artifact`", "Publish a new text Artifact and return its `url`."],
+            ["`add_revision`", "Publish a new body for an existing Artifact; same `url`."],
+            ["`multi_edit`", "Literal find/replace in one stored file; same `url`."],
+            ["`list_artifacts`", "List Workspace Artifacts (`data[].id`)."],
+            ["`read_artifact`", "Read the latest Agent View with per-file URLs."],
+            ["`read_file`", "Read one stored file's text and sha256."],
+            ["`list_revisions`", "List Revisions (`items[].revision_id`)."],
             ["`delete_artifact`", "Delete an Artifact."],
-            ["`update_display_metadata`", "Update the Artifact title."],
+            ["`update_display_metadata`", "Rename an Artifact."],
           ],
         },
       ],
@@ -44,7 +44,7 @@ export const MCP_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Use the artifact ID, such as `01234-56789-abcde-fghjd`, in `artifact_id`. Full URLs also work. Updates require Workspace access. MCP publishes text; use the CLI for folders and binary files.",
+          text: "`artifact_id` accepts the ID (`01234-56789-abcde-fghjd`) or the full URL. MCP publishes text only; folders, binary files, and ephemeral publishing need the CLI. Updates require Workspace access.",
         },
       ],
     },

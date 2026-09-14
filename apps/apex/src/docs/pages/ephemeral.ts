@@ -12,11 +12,11 @@ export const EPHEMERAL_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Run `whoami --json` first. A sandbox without a local browser can authenticate with `login --device-code` and human approval. Use `--ephemeral` when login is unavailable and static accountless output meets the task, or the user explicitly requests accountless publishing.",
+          text: "Check `whoami --json` first; a sandbox can usually still sign in with `login --device-code`. Use `--ephemeral` when login is unavailable or the user asks for accountless publishing.",
         },
         {
           kind: "paragraph",
-          text: "Ephemeral is an unclaimed Workspace with low write caps, 24-hour Auto Deletion, and `noindex`. Its Artifact URL renders static content while scripts, connections, forms, frames, objects, and workers stay blocked.",
+          text: "Ephemeral Artifacts live in an unclaimed Workspace with low write caps, delete after 24 hours, and are `noindex`. They serve static content: scripts, fetch, forms, frames, objects, and workers are blocked.",
         },
       ],
     },
@@ -31,7 +31,7 @@ export const EPHEMERAL_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Return `url` for immediate viewing. Return `claim_url` too when the human wants to keep and own the Artifact.",
+          text: "Return `url`. Also return `claim_url` if the user wants to keep the Artifact.",
         },
       ],
     },
@@ -41,7 +41,7 @@ export const EPHEMERAL_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "The Claim Token lives only in the `claim_url` hash. It is never placed in the Artifact URL or a query string. The signed-in browser session that redeems it selects the destination Workspace.",
+          text: "The Claim Token lives only in the `claim_url` hash, never in the Artifact URL or a query string. Redeeming it in a signed-in browser moves the Artifact into that member's Workspace, keeps the URL, and lifts the script and network blocks.",
         },
       ],
     },

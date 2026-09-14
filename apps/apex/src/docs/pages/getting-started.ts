@@ -5,7 +5,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
   slug: "getting-started",
   title: "Getting Started",
   shortTitle: "Start",
-  summary: "Check auth, publish, and hand off one Artifact URL.",
+  summary: "Check auth, publish, and hand back one URL.",
   sections: [
     {
       id: "install",
@@ -18,7 +18,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Use `npx` for one-shot Node.js 24+ runs or install `@zaks-io/agent-paste` globally for repeated use.",
+          text: "`npx` needs Node.js 24+. Install `@zaks-io/agent-paste` globally for repeated use.",
         },
       ],
     },
@@ -28,7 +28,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Run `whoami --json`; signed-out results exit 0. If authenticated:false, use `login` locally or `login --device-code` in a sandbox. Keep it running while the user approves the URL/code from stderr, then check `whoami` again. See [remote login](/docs/cli#remote-login).",
+          text: "`whoami --json` exits 0 even when signed out, so check `authenticated`. If false, run `login` where a browser is available or `login --device-code` in a sandbox. See [remote login](/docs/cli#remote-login).",
         },
       ],
     },
@@ -38,7 +38,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Install the repository's portable skill directly into Claude Code and Codex. It teaches agents the CLI-first publish, revise, ephemeral, and MCP workflows.",
+          text: "The skill teaches Claude Code and Codex the publish, revise, ephemeral, and MCP workflows.",
         },
         {
           kind: "code",
@@ -53,7 +53,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Publish walks the file tree, uploads changed bytes, finalizes a Revision, and returns `url`.",
+          text: "Publish uploads the file tree and returns `url`, which opens without login.",
         },
         {
           kind: "code",
@@ -62,7 +62,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Use `--artifact-id 01234-56789-abcde-fghjd` to update the same website. Full URLs also work. Omit the flag to create a new Artifact.",
+          text: "Pass `--artifact-id 01234-56789-abcde-fghjd` (or the full URL) to update the same website. Omit it to create a new Artifact.",
         },
       ],
     },
@@ -77,7 +77,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Use this when login is unavailable and static accountless output meets the task, or when explicitly requested. Return `url` for viewing and `claim_url` when the human wants to keep the upload. The Artifact expires after 24 hours. Until it is claimed, scripts and connections stay blocked.",
+          text: "Use this when login is unavailable or the user asks for accountless publishing. Return `url`, plus `claim_url` if the user wants to keep the upload. The Artifact expires in 24 hours and blocks scripts and network until claimed. See [Ephemeral](/docs/ephemeral).",
         },
       ],
     },

@@ -4,7 +4,7 @@ export const DASHBOARD_DOC: DocsPage = {
   slug: "dashboard",
   title: "Dashboard",
   shortTitle: "Dashboard",
-  summary: "The dashboard is the human control plane for Workspaces, Artifacts, billing, and settings.",
+  summary: "The human control plane for Workspaces, Artifacts, billing, and settings.",
   sections: [
     {
       id: "sign-in",
@@ -12,7 +12,7 @@ export const DASHBOARD_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Open [app.agent-paste.sh](https://app.agent-paste.sh) or run `agent-paste login`. Both use WorkOS authentication. For a CLI in a sandbox or SSH session, use `agent-paste login --device-code` and approve from your own browser. See [remote login](/docs/cli#remote-login).",
+          text: "Open [app.agent-paste.sh](https://app.agent-paste.sh) or run `agent-paste login`. From a sandbox or SSH session, use `agent-paste login --device-code` and approve in your own browser. See [remote login](/docs/cli#remote-login).",
         },
       ],
     },
@@ -26,13 +26,10 @@ export const DASHBOARD_DOC: DocsPage = {
           rows: [
             ["`/dashboard`", "Workspace overview, Usage Policy, recent Artifacts, and recent Audit Events."],
             ["`/artifacts`", "Artifact list with status, pinning, Bundle state, URL, and last publish time."],
-            [
-              "`/artifacts/{artifactId}`",
-              "Artifact detail, capability URL, Revisions, Bundle state, warnings, and delete action.",
-            ],
-            ["`/keys`", "Dashboard member credential list, create, and revoke controls."],
-            ["`/audit`", "Workspace Audit Event list."],
-            ["`/settings`", "Workspace name and default retention settings."],
+            ["`/artifacts/{artifactId}`", "Artifact detail, URL, Revisions, Bundle state, warnings, and delete."],
+            ["`/keys`", "Create and revoke member credentials."],
+            ["`/audit`", "Workspace Audit Events."],
+            ["`/settings`", "Workspace name and default retention."],
             ["`/billing`", "Plan, remaining writes, Checkout, Portal, and invoices."],
           ],
         },
@@ -44,7 +41,7 @@ export const DASHBOARD_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "The claim page accepts `/claim#<token>`. It requires a signed-in human and promotes the Ephemeral Workspace's Artifact into that member's Personal Workspace.",
+          text: "`/claim#<token>` requires a signed-in human and moves the ephemeral Artifact into that member's Personal Workspace.",
         },
       ],
     },

@@ -19,14 +19,12 @@ npx @zaks-io/agent-paste publish ./report
   → open https://01234-56789-abcde-fghjd.agent-paste.link/
 ```
 
-The URL opens without login. Use its artifact ID with `--artifact-id`, `pull`,
-or `edit`. Full URLs also work. Updates keep the same URL
-and require Workspace access.
+The URL opens without login and stays the same across updates. Its artifact ID
+is the first label of the hostname; `--artifact-id`, `pull`, and `edit` accept
+the ID or the full URL. Updates require Workspace access.
 
-## Migrating to 0.2
-
-Version 0.2 removes `set-visibility` and replaces `private_url` and
-`unlisted_url` with one `url` field. JSON output uses `schema_version: "2"`.
+The npm package requires Node.js 24. Without a global install, prefix commands
+with `npx @zaks-io/agent-paste`.
 
 ## Agent quick path
 
@@ -35,59 +33,40 @@ agent-paste whoami --json
 agent-paste publish <path> --json
 ```
 
-`whoami` exits `0` when signed out, so inspect `authenticated` in its JSON. Run
-`agent-paste login` when browser login is possible on the same machine. In a
-sandbox or SSH session, use `agent-paste login --device-code` and have the user
-approve the displayed code in their browser. Keep the command running until it
-finishes, then check `whoami` again. Use accountless publish only when login is
-unavailable or explicitly requested:
+`whoami` exits 0 even when signed out, so check `authenticated` in its JSON.
+If false, run `agent-paste login` where a browser is available. In a sandbox or
+SSH session, run `agent-paste login --device-code`: it prints a URL and code on
+stderr, and needs network access to WorkOS and the API but no local browser.
+Keep it running until the user approves, then run `whoami` again. An
+`AGENT_PASTE_API_KEY` env var also authenticates and takes precedence over
+stored credentials.
+
+When login is unavailable, or the user asks for accountless publishing:
 
 ```sh
 agent-paste publish <path> --ephemeral --json
 ```
 
-Return `url` to the user. Ephemeral output also contains `claim_url` for the
-optional keep and ownership step.
-
-## Remote login
-
-Run this in the sandbox or remote shell:
-
-```sh
-agent-paste login --device-code
-agent-paste whoami --json
-```
-
-Keep login running while you approve the URL and code from stderr in your own
-browser. The CLI saves a publish/read credential in the sandbox; check
-`whoami --json` after success. No local browser or callback port is needed.
-
-Device login needs access to WorkOS and the API. Existing credentials work
-without another login; `AGENT_PASTE_API_KEY` takes precedence over stored
-credentials. If authentication is unavailable, report the blocker or use
-`--ephemeral` when accountless static output meets the task.
-
-Without an installed CLI, prefix commands with `npx @zaks-io/agent-paste`.
-The npm package requires Node.js 24.
+Return `url`. Ephemeral output also has `claim_url` for the optional keep step.
 
 ## Commands
 
 | Command                                                  | Purpose                                              |
 | -------------------------------------------------------- | ---------------------------------------------------- |
-| `agent-paste login`                                      | Authenticate through browser PKCE.                   |
+| `agent-paste login`                                      | Authenticate through the browser.                    |
 | `agent-paste login --device-code`                        | Authenticate from a sandbox or remote shell.         |
-| `agent-paste logout`                                     | Remove the stored CLI session.                       |
+| `agent-paste logout`                                     | Remove the stored credential.                        |
 | `agent-paste whoami --json`                              | Report authentication, Workspace, actor, and scopes. |
-| `agent-paste publish <path>`                             | Publish a new Artifact website.                      |
+| `agent-paste publish <path>`                             | Publish a new Artifact.                              |
 | `agent-paste publish <path> --artifact-id <artifact-id>` | Revise an Artifact at the same URL.                  |
 | `agent-paste publish <path> --ephemeral`                 | Accountless 24-hour publish.                         |
-| `agent-paste pull <artifact-id> <remote-path>`           | Read one file; see pull help for output and URLs.    |
+| `agent-paste pull <artifact-id> <remote-path>`           | Read one stored file.                                |
 | `agent-paste edit <artifact-id> <path> --edits <file>`   | Apply literal edits and publish a Revision.          |
 | `agent-paste version`                                    | Print the installed version.                         |
-| `agent-paste upgrade`                                    | Install a selected release tag.                      |
+| `agent-paste upgrade`                                    | Install a release tag (standalone binary).           |
 
-Run `agent-paste help publish` for the full agent-oriented publish guide.
-Run `agent-paste help pull` for remote-path and local redirection examples.
+`agent-paste help publish` and `agent-paste help pull` cover flags, JSON
+fields, and recipes.
 
 ## Publish JSON
 
@@ -115,27 +94,29 @@ Run `agent-paste help pull` for remote-path and local redirection examples.
 `publish --ephemeral --json` also includes `claim_token`, `claim_url`,
 `workspace_id`, `api_key_id`, and `claim_token_id`.
 
+Version 0.2 removed `set-visibility` and replaced `private_url` and
+`unlisted_url` with `url`.
+
 ## Files and entrypoints
 
-`<path>` may be one file or a directory. Directory publishing preserves relative
-paths and skips `.git`, `node_modules`, `.DS_Store`, `.env`, and `.env.*`.
-Symlinks are followed only when the resolved target stays inside the published
-directory and does not cross an excluded path.
+`<path>` may be a file or a directory. Directory publish keeps relative paths
+and skips `.git`, `node_modules`, `.DS_Store`, and `.env*`. Symlinks are
+followed only when the target stays inside the directory and is not an excluded
+path.
 
-The CLI selects `index.html`, `index.md`, `README.md`, or the only file as the
-entrypoint. For any other multi-file directory, pass `--entrypoint <path>`.
-
-Use `--render-mode html|markdown|text|image|audio|video` only when inference is
-not correct.
+The entrypoint is `index.html`, `index.md`, `README.md`, or the only file. Any
+other multi-file directory needs `--entrypoint <path>`. Pass
+`--render-mode html|markdown|text|image|audio|video` only when inference is
+wrong.
 
 ## Output and exit behavior
 
-`--json` reserves stdout for one machine-readable object. Progress and errors go
-to stderr. `--quiet` suppresses human success output. `--color` and `--no-color`
-override TTY detection.
+`--json` reserves stdout for one object; progress and errors go to stderr.
+`--quiet` suppresses the human summary. `--color` and `--no-color` override TTY
+detection.
 
-Exit codes are `0` success, `1` generic, `2` authentication, `3` quota,
-`4` validation, `5` not found, and `6` network/server failure.
+Exit codes: `0` success, `1` generic, `2` authentication, `3` quota, `4`
+validation, `5` not found, `6` network or server failure.
 
-The package bundles its application code into `dist/index.js` and keeps one
-pinned runtime dependency, `@openclaw/fs-safe`, for root-bounded local reads.
+The package bundles its application code into `dist/index.js` with one pinned
+runtime dependency, `@openclaw/fs-safe`, for root-bounded local reads.

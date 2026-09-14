@@ -5,7 +5,7 @@ export const BILLING_DOC: DocsPage = {
   slug: "billing",
   title: "Billing and Plans",
   shortTitle: "Billing",
-  summary: "Hosted billing is enabled: your Plan sets write allowance, retention, and caps.",
+  summary: "Your Plan sets write allowance, retention, and caps. Reads are always free.",
   sections: [
     {
       id: "plans",
@@ -18,7 +18,7 @@ export const BILLING_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Shared caps: 100 files per Revision, 100 lifetime published Revisions per Artifact, 60 actor requests per minute, and 300 Workspace burst requests per minute.",
+          text: "Shared caps: 100 files per Revision, 100 published Revisions per Artifact, 60 requests per minute per actor, 300 per minute per Workspace.",
         },
       ],
     },
@@ -28,11 +28,7 @@ export const BILLING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Open `/billing` in the dashboard and choose the Pro interval. The dashboard creates a Stripe Checkout session and redirects you to Stripe.",
-        },
-        {
-          kind: "paragraph",
-          text: "After a successful Checkout return, the dashboard activates Pro synchronously, refreshes the billing cache, and shows the updated Plan. Stripe webhooks and daily reconciliation keep local entitlement state converged after that.",
+          text: "Open `/billing` in the dashboard and choose a Pro interval. Checkout runs on Stripe; Pro activates as soon as you return, and webhooks plus daily reconciliation keep it in sync after that.",
         },
       ],
     },
@@ -42,11 +38,11 @@ export const BILLING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "The billing page can open Stripe Customer Portal for subscription management and cancellation. It also lists Stripe invoices with hosted invoice and PDF links when Stripe provides them.",
+          text: "The billing page opens the Stripe Customer Portal for changes and cancellation, and lists invoices with hosted and PDF links.",
         },
         {
           kind: "paragraph",
-          text: "Reads are always free. Billing changes write allowance and feature limits; it does not meter recipients opening an Artifact URL.",
+          text: "Billing changes write allowance and limits only. Recipients opening an Artifact URL are never metered.",
         },
       ],
     },
@@ -56,7 +52,7 @@ export const BILLING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Stripe `active`, `trialing`, and `past_due` subscriptions map to Pro. Canceled, unpaid, incomplete, expired, paused, or missing subscriptions map to Free.",
+          text: "Stripe `active`, `trialing`, and `past_due` map to Pro. Everything else, including no subscription, maps to Free.",
         },
       ],
     },
