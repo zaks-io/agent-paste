@@ -1,6 +1,7 @@
 # Agent Config
 
-Last updated: 2026-07-05
+Last updated: 2026-09-13 for CLI remote authentication guidance. Other metadata
+retains the dated verification recorded below.
 
 Metadata-only lookup table for the `ziw-*` skills. Authoritative detail lives in
 the linked docs; when this file and a linked doc disagree, the linked doc wins
@@ -272,11 +273,9 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
   printed by `pnpm dev:all`
 - Development backing services: Cloudflare R2/KV, Neon Postgres; see
   `agent-paste-neon-postgres`
-- Agent publish surfaces: CLI first (`agent-paste whoami --json`,
-  `agent-paste login` only when interactive auth is possible,
-  `agent-paste publish <path>`); use MCP when hosted agents cannot run CLI; use
-  `agent-paste publish <path> --ephemeral` only when no login is available or
-  explicitly requested
+- Agent publish surfaces: [CLI first](../../../AGENTS.md#agent-publish-surfaces),
+  `login --device-code` for sandboxes; MCP for OAuth hosts without shell access;
+  `--ephemeral` for accountless static output
 - Preview: standing Preview environment by manual GitHub workflow or local
   command; PR-scoped preview only with `full-pr-preview`
 - Preview cleanup: PR close/unlabel, workflow dispatch, and six-hour

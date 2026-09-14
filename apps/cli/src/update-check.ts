@@ -114,12 +114,14 @@ export function commandInvocation(channel: Channel, args: string): string {
 export function signedOutHint(channel: Channel): string {
   const login = commandInvocation(channel, "login");
   const ephemeral = commandInvocation(channel, "publish --ephemeral");
-  return `Not signed in. Run \`${login}\` or use \`${ephemeral}\` for an accountless handoff.`;
+  const deviceLogin = commandInvocation(channel, "login --device-code");
+  return `Not signed in. Run \`${login}\` locally, or \`${deviceLogin}\` in a sandbox. For accountless static output: \`${ephemeral}\`.`;
 }
 
 export function authHandoffHint(channel: Channel): string {
   const login = commandInvocation(channel, "login");
-  return `Run ${login} or use --ephemeral for an accountless handoff.`;
+  const deviceLogin = commandInvocation(channel, "login --device-code");
+  return `Run ${login} locally, or ${deviceLogin} in a sandbox. Use --ephemeral for accountless static output.`;
 }
 
 function nag(channel: Channel, latest: string): string | null {

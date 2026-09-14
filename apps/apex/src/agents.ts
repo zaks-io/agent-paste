@@ -28,12 +28,11 @@ Check authentication first:
 npx @zaks-io/agent-paste whoami --json
 \`\`\`
 
-\`whoami\` exits 0 when signed out, so inspect \`authenticated\`. If it is false
-and browser login is possible:
-
-\`\`\`sh
-npx @zaks-io/agent-paste login
-\`\`\`
+\`whoami\` exits 0 when signed out; inspect \`authenticated: false\`.
+Use \`npx @zaks-io/agent-paste login\` locally or add \`--device-code\` in a
+sandbox. Keep device login running while the user approves the URL and code
+from stderr, then check \`whoami\` again. Existing credentials, including an
+injected \`AGENT_PASTE_API_KEY\`, work without another login.
 
 Publish a file or directory:
 
@@ -49,7 +48,8 @@ Revise the Artifact at the same URL:
 npx @zaks-io/agent-paste publish ./path --artifact-id <artifact_id> --json
 \`\`\`
 
-If login is unavailable, or the user explicitly asks for accountless publish:
+If login is unavailable and static accountless output satisfies the task, or
+the user explicitly asks for accountless publish:
 
 \`\`\`sh
 npx @zaks-io/agent-paste publish ./path --ephemeral --json

@@ -71,7 +71,7 @@ export async function main(argv = process.argv.slice(2), client?: ApiClient) {
   validateKnownFlags(command, parsed);
   switch (command) {
     case "login":
-      await login();
+      await login({ deviceCode: booleanFlag(parsed, "device-code", false) });
       return;
     case "logout":
       return logout(parsed.global);
@@ -110,7 +110,7 @@ async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
 const GLOBAL_FLAG_NAMES = new Set(["json", "quiet", "color", "help", "version"]);
 
 const COMMAND_FLAG_NAMES: Record<string, readonly string[]> = {
-  login: [],
+  login: ["device-code"],
   logout: [],
   whoami: [],
   publish: ["claim-code", "artifact-id", "title", "entrypoint", "render-mode", "ephemeral"],

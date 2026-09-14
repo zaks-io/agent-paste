@@ -34,6 +34,13 @@ Use MCP when:
 Use the CLI instead when the agent can run commands and needs to publish a file
 tree, binary files, images, audio, video, or a complete static folder.
 
+When a shell is available but its browser OAuth callback cannot work, use
+`agent-paste login --device-code` and have the human approve from a separate
+browser. Keep the CLI process running until approval completes, then check
+`whoami --json`. See [CLI remote login](../apps/cli/README.md#remote-login).
+Device login still needs access to the auth provider. MCP remains OAuth-only
+and cannot authenticate through the CLI's stored key or `AGENT_PASTE_API_KEY`.
+
 ## Connect
 
 Add `https://mcp.agent-paste.sh` as a remote MCP server in the host, then

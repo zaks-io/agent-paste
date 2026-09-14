@@ -36,8 +36,11 @@ agent-paste publish <path> --json
 ```
 
 `whoami` exits `0` when signed out, so inspect `authenticated` in its JSON. Run
-`agent-paste login` when browser login is possible. Use accountless publish only
-when login is unavailable or explicitly requested:
+`agent-paste login` when browser login is possible on the same machine. In a
+sandbox or SSH session, use `agent-paste login --device-code` and have the user
+approve the displayed code in their browser. Keep the command running until it
+finishes, then check `whoami` again. Use accountless publish only when login is
+unavailable or explicitly requested:
 
 ```sh
 agent-paste publish <path> --ephemeral --json
@@ -46,11 +49,33 @@ agent-paste publish <path> --ephemeral --json
 Return `url` to the user. Ephemeral output also contains `claim_url` for the
 optional keep and ownership step.
 
+## Remote login
+
+Run this in the sandbox or remote shell:
+
+```sh
+agent-paste login --device-code
+agent-paste whoami --json
+```
+
+Keep login running while you approve the URL and code from stderr in your own
+browser. The CLI saves a publish/read credential in the sandbox; check
+`whoami --json` after success. No local browser or callback port is needed.
+
+Device login needs access to WorkOS and the API. Existing credentials work
+without another login; `AGENT_PASTE_API_KEY` takes precedence over stored
+credentials. If authentication is unavailable, report the blocker or use
+`--ephemeral` when accountless static output meets the task.
+
+Without an installed CLI, prefix commands with `npx @zaks-io/agent-paste`.
+The npm package requires Node.js 24.
+
 ## Commands
 
 | Command                                                | Purpose                                              |
 | ------------------------------------------------------ | ---------------------------------------------------- |
 | `agent-paste login`                                    | Authenticate through browser PKCE.                   |
+| `agent-paste login --device-code`                      | Authenticate from a sandbox or remote shell.         |
 | `agent-paste logout`                                   | Remove the stored CLI session.                       |
 | `agent-paste whoami --json`                            | Report authentication, Workspace, actor, and scopes. |
 | `agent-paste publish <path>`                           | Publish a new Artifact website.                      |

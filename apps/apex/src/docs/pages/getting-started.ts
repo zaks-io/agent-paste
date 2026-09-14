@@ -28,7 +28,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "`whoami --json` exits 0 when signed out, so inspect `authenticated`. If false and browser auth is possible, run `agent-paste login` before publishing.",
+          text: "Run `whoami --json`; signed-out results exit 0. If authenticated:false, use `login` locally or `login --device-code` in a sandbox. Keep it running while the user approves the URL/code from stderr, then check `whoami` again. See [remote login](/docs/cli#remote-login).",
         },
       ],
     },
@@ -53,7 +53,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Publish walks the file tree, uploads changed bytes, finalizes a Revision, and returns `url`. That URL opens as a top-level website without login. There is no iframe or second sharing step.",
+          text: "Publish walks the file tree, uploads changed bytes, finalizes a Revision, and returns `url`.",
         },
         {
           kind: "code",
@@ -77,7 +77,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Use this only when login is unavailable or explicitly skipped. Return `url` for viewing and `claim_url` when the human wants to keep the upload. The Artifact expires after 24 hours. Until it is claimed, scripts and connections stay blocked.",
+          text: "Use this when login is unavailable and static accountless output meets the task, or when explicitly requested. Return `url` for viewing and `claim_url` when the human wants to keep the upload. The Artifact expires after 24 hours. Until it is claimed, scripts and connections stay blocked.",
         },
       ],
     },

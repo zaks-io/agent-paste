@@ -29,13 +29,10 @@ the README for any app or package you will edit.
 
 When an agent needs to publish or inspect an Artifact, prefer these surfaces:
 
-- CLI: use `agent-paste whoami`, `agent-paste login`, and
-  `agent-paste publish <path>` when the runtime can execute commands.
-- MCP: use `https://mcp.agent-paste.sh` when a hosted agent cannot run the CLI
-  but can connect to remote MCP with OAuth.
-- Ephemeral CLI: use `agent-paste publish <path> --ephemeral` only when no
-  login is available and interactive auth is not possible, or the user
-  explicitly asks for accountless publish.
+- CLI: follow the [agent CLI flow](../../AGENTS.md#agent-publish-surfaces).
+  Sandbox login uses `agent-paste login --device-code`.
+- MCP: `https://mcp.agent-paste.sh` for hosts without shell access, with OAuth.
+- Accountless static output: `agent-paste publish <path> --ephemeral`.
 
 Do not recommend any other publish surface for agent workflows.
 

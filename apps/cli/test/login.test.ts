@@ -2,6 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 import type { Credential, CredentialStore } from "../src/credentials.js";
 import { login } from "../src/login.js";
 
+const config = {
+  clientId: "client_real",
+  authorizeUrl: "https://tenant.authkit.app/oauth2/authorize",
+  deviceAuthorizationUrl: "https://tenant.authkit.app/oauth2/device_authorization",
+  tokenUrl: "https://tenant.authkit.app/oauth2/token",
+  apiBaseUrl: "https://api.test",
+  loginPort: 0,
+};
+
 function memoryStore(): CredentialStore & { saved: Credential | null } {
   const store = {
     saved: null as Credential | null,
@@ -70,13 +79,7 @@ describe("login flow", () => {
       fetch: fetchImpl as unknown as typeof fetch,
       openBrowser,
       log: () => {},
-      config: {
-        clientId: "client_real",
-        authorizeUrl: "https://tenant.authkit.app/oauth2/authorize",
-        tokenUrl: "https://tenant.authkit.app/oauth2/token",
-        apiBaseUrl: "https://api.test",
-        loginPort: 0,
-      },
+      config,
     });
 
     expect(credential).toEqual({
@@ -96,12 +99,96 @@ describe("login flow", () => {
     expect(tokenCalls[0]).not.toHaveProperty("client_secret");
   });
 
+  it("polls device authorization and stores the same scoped credential", async () => {
+    const store = memoryStore();
+    const openBrowser = vi.fn();
+    const logs: string[] = [];
+    const sleeps: number[] = [];
+    let tokenPolls = 0;
+    let now = 0;
+
+    const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/oauth2/device_authorization")) {
+        expect(Object.fromEntries(new URLSearchParams(String(init?.body)))).toEqual({
+          client_id: "client_real",
+          scope: "openid profile email",
+        });
+        return Response.json({
+          device_code: "device_secret",
+          user_code: "BCDF-GHJK",
+          verification_uri: "https://tenant.authkit.app/device",
+          verification_uri_complete: "https://tenant.authkit.app/device?user_code=BCDF-GHJK",
+          expires_in: 60,
+          interval: 2,
+        });
+      }
+      if (url.endsWith("/oauth2/token")) {
+        const body = Object.fromEntries(new URLSearchParams(String(init?.body)));
+        expect(body).toEqual({
+          grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+          device_code: "device_secret",
+          client_id: "client_real",
+        });
+        expect(body).not.toHaveProperty("client_secret");
+        tokenPolls += 1;
+        return tokenPolls === 1
+          ? Response.json({ error: "authorization_pending" }, { status: 400 })
+          : Response.json({ access_token: "wos_access", id_token: idToken("remote@example.com") });
+      }
+      if (url.endsWith("/v1/web/keys")) {
+        const headers = new Headers(init?.headers);
+        expect(headers.get("authorization")).toBe("Bearer wos_access");
+        return Response.json({
+          api_key: {
+            id: "key_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
+            workspace_id: "22222222-2222-4222-8222-222222222222",
+            name: "agent-paste CLI",
+            public_id: "0123456789ABCDEF",
+            scopes: ["publish", "read"],
+            revoked_at: null,
+            expires_at: "2026-08-22T00:00:00.000Z",
+            created_at: "2026-05-24T00:00:00.000Z",
+            last_used_at: null,
+          },
+          secret: "ap_pk_preview_0123456789ABCDEF_abcdefghijklmnopqrstuvwxyz0123456789",
+        });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+
+    const credential = await login({
+      config,
+      deviceCode: true,
+      store,
+      fetch: fetchImpl as unknown as typeof fetch,
+      openBrowser,
+      log: (message) => logs.push(message),
+      now: () => now,
+      sleep: async (milliseconds) => {
+        sleeps.push(milliseconds);
+        now += milliseconds;
+      },
+    });
+
+    expect(openBrowser).not.toHaveBeenCalled();
+    expect(sleeps).toEqual([2_000, 2_000]);
+    expect(store.saved).toEqual(credential);
+    expect(credential.member_email).toBe("remote@example.com");
+    expect(logs[0]).toContain("https://tenant.authkit.app/device?user_code=BCDF-GHJK");
+    expect(logs[0]).toContain("BCDF-GHJK");
+    expect(logs.join("\n")).not.toContain("device_secret");
+    expect(logs.join("\n")).not.toContain("wos_access");
+    expect(logs.join("\n")).not.toContain(credential.api_key);
+  });
+
   it("aborts when the CLI client is not configured", async () => {
     await expect(
       login({
         config: {
           clientId: "REPLACE_WITH_CLI_PUBLIC_CLIENT_ID",
           authorizeUrl: "https://x/authorize",
+          deviceAuthorizationUrl: "https://x/device",
           tokenUrl: "https://x/token",
           apiBaseUrl: "https://api.test",
           loginPort: 0,

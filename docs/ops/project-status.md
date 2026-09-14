@@ -2,8 +2,8 @@
 
 Project start: 2026-05-18.
 
-Last updated: 2026-09-03 for public repository readiness and the deployed
-one-URL architecture. See [changelog.md](./status/changelog.md) for older shipped
+Last updated: 2026-09-13 for CLI remote authentication.
+The deployed one-URL architecture status below was recorded on 2026-09-03. See [changelog.md](./status/changelog.md) for older shipped
 work.
 
 This is the status entrypoint after `AGENTS.md`. Current behavior is specified
@@ -31,6 +31,16 @@ and [Security run 33800305564](https://github.com/zaks-io/agent-paste/actions/ru
 passed for that same commit. Production readiness is commit-scoped: only call
 a release ready when CI, Security, and Deploy Production all succeed for the
 same head SHA. Independent latest runs are not proof.
+
+## CLI remote authentication
+
+CLI 0.2.1 adds `agent-paste login --device-code` for sandboxes and remote
+shells. On 2026-09-13 it passed repository verification and a Linux install and
+live browser-approval check through credential creation and authenticated
+`whoami`. The test credential was revoked afterward.
+
+The [CLI login contract](../specs/cli.md#login) explains prerequisites, process
+handling, and what to do when authentication is unavailable.
 
 ## Current Product Shape
 

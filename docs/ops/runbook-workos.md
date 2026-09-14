@@ -45,6 +45,27 @@ Production CLI OAuth client and `WORKOS_CLI_AUDIENCE`: `client_01KSED1S5WMWBYCFW
 
 Do not mix preview and production credentials across Workers. Preview and production must not share `WORKOS_API_KEY`, `WORKOS_COOKIE_PASSWORD`, or WorkOS environment keys.
 
+## Remote CLI login
+
+`agent-paste login --device-code` uses the same dedicated CLI Connect app as
+browser login. It requests `/oauth2/device_authorization` on the AuthKit domain
+and polls `/oauth2/token` with the device-code grant. No redirect URI or client
+secret is used for this flow. See the
+[WorkOS Connect CLI Auth reference](https://workos.com/docs/reference/workos-connect/cli-auth)
+and the [CLI login contract](../specs/cli.md#login).
+
+On 2026-09-13, the locally built npm package was installed in an isolated
+Node.js 24 Linux container. Device login against production WorkOS completed
+after approval in a separate browser, saved the CLI credential, and passed
+`whoami --json` against the production API with the expected Workspace and
+`publish`/`read` scopes.
+
+To verify a release from a sandbox, unset `AGENT_PASTE_API_KEY` so the stored
+credential is used. Run `agent-paste login --device-code`, keep
+it running, and approve its displayed URL and code in a separate browser. Then
+run `agent-paste whoami --json` in the sandbox and confirm the expected Workspace
+and scopes. Do not print or copy the stored credential to complete this check.
+
 ## Required redirect URIs
 
 Register these in the WorkOS dashboard for the matching environment **before** deploying or changing `WORKOS_REDIRECT_URI`.
