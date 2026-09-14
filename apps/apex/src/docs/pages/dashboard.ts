@@ -12,7 +12,7 @@ export const DASHBOARD_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Open [app.agent-paste.sh](https://app.agent-paste.sh) or run `agent-paste login`. Both use WorkOS-backed browser auth.",
+          text: "Open [app.agent-paste.sh](https://app.agent-paste.sh) or run `agent-paste login`. Both use WorkOS authentication. For a CLI in a sandbox or SSH session, use `agent-paste login --device-code` and approve from your own browser. See [remote login](/docs/cli#remote-login).",
         },
       ],
     },

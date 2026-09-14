@@ -238,7 +238,8 @@ function CommandBlock() {
         <CommandBox cmd={PUBLISH_CMD} />
       </div>
       <p className="mt-4 text-mono leading-normal text-subtle max-w-[52ch]">
-        Browser OAuth provisions a scoped key on your machine. No key to copy or paste.
+        In a sandbox, run <code>{LOGIN_CMD} --device-code</code> and keep it running while you approve the displayed
+        code in your own browser. The CLI saves its credential in the sandbox. No key to copy or paste.
       </p>
     </div>
   );

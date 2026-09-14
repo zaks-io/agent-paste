@@ -41,19 +41,16 @@ Tell agents to use the CLI when they can run commands, and MCP when they are in
 a hosted tool that can connect to remote MCP but cannot run the CLI. Do not
 recommend any other publish surface for agent workflows.
 
-Agent CLI flow:
+Run `agent-paste whoami --json` first. Signed-out results exit 0; inspect
+`authenticated: false`. Use `login` locally or `login --device-code` in a
+sandbox. Keep device login running while the human approves the URL and code
+from stderr, then check `whoami` again and publish.
 
-```sh
-agent-paste whoami --json
-agent-paste login   # only when whoami shows no active login and interactive auth is possible
-agent-paste publish <path>
-```
+Use `publish <path> --ephemeral` when login is unavailable and static
+accountless output meets the task, or explicitly requested. Return `url` for
+viewing; `claim_url` is the optional ownership step.
 
-Use `agent-paste publish <path> --ephemeral` only when no login is available and
-interactive auth is not possible, or when the user explicitly asks for
-accountless publish. For ephemeral output, hand the human `url` for immediate
-no-login viewing and `claim_url` only for the optional keep/upgrade
-step.
+Details: [CLI authentication](docs/specs/cli.md#login).
 
 ## Agent skills
 

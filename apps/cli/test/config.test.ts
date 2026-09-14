@@ -6,6 +6,7 @@ describe("login config", () => {
     const config = loadLoginConfig({ AGENT_PASTE_WORKOS_CLIENT_ID: "client_abc" });
     expect(config.clientId).toBe("client_abc");
     expect(config.authorizeUrl).toBe("https://soulful-path-50.authkit.app/oauth2/authorize");
+    expect(config.deviceAuthorizationUrl).toBe("https://soulful-path-50.authkit.app/oauth2/device_authorization");
     expect(config.tokenUrl).toBe("https://soulful-path-50.authkit.app/oauth2/token");
   });
 
@@ -19,6 +20,7 @@ describe("login config", () => {
       AGENT_PASTE_WORKOS_BASE_URL: "https://tenant.authkit.app/",
     });
     expect(config.authorizeUrl).toBe("https://tenant.authkit.app/oauth2/authorize");
+    expect(config.deviceAuthorizationUrl).toBe("https://tenant.authkit.app/oauth2/device_authorization");
     expect(config.tokenUrl).toBe("https://tenant.authkit.app/oauth2/token");
   });
 
@@ -26,10 +28,12 @@ describe("login config", () => {
     const config = loadLoginConfig({
       AGENT_PASTE_WORKOS_CLIENT_ID: "client_abc",
       AGENT_PASTE_WORKOS_AUTHORIZE_URL: "https://a.example/authorize",
+      AGENT_PASTE_WORKOS_DEVICE_AUTHORIZATION_URL: "https://a.example/device",
       AGENT_PASTE_WORKOS_TOKEN_URL: "https://a.example/token",
       AGENT_PASTE_API_URL: "https://api.preview.agent-paste.sh/",
     });
     expect(config.authorizeUrl).toBe("https://a.example/authorize");
+    expect(config.deviceAuthorizationUrl).toBe("https://a.example/device");
     expect(config.tokenUrl).toBe("https://a.example/token");
     expect(config.apiBaseUrl).toBe("https://api.preview.agent-paste.sh");
   });

@@ -5,6 +5,46 @@ scripts). This spec is the source of truth for how it renders output and signals
 failure. Command behavior itself is in [`features.md`](./features.md); this
 document owns the cross-command output contract.
 
+## Login
+
+`agent-paste login` uses browser OAuth with a loopback PKCE callback on the
+machine running the CLI. `agent-paste login --device-code` uses the
+[WorkOS Connect device authorization flow](https://workos.com/docs/reference/workos-connect/cli-auth)
+for sandboxes and remote shells. It prints a verification URL and user code to
+stderr, then waits while the human approves that code in their own browser.
+Device login does not start a browser or listen on a local port.
+
+Both flows exchange the WorkOS access token for the existing publish/read CLI
+credential through `/v1/web/keys` and save it through the same credential store.
+The device code and OAuth tokens are never printed or persisted. Login
+instructions remain on stderr, including with `--json`; use `whoami --json`
+after successful login to inspect the authenticated state.
+
+Device login respects the provider's polling interval, increases it by five
+seconds on `slow_down`, and stops on denial, expiry, malformed responses, or
+other errors. It bounds network requests and stops polling when the device
+code expires. The user can start a fresh login after expiry.
+
+The device authorization endpoint defaults to
+`${AGENT_PASTE_WORKOS_BASE_URL}/oauth2/device_authorization`, using the same
+AuthKit domain and public client as browser login.
+`AGENT_PASTE_WORKOS_DEVICE_AUTHORIZATION_URL` overrides that endpoint for
+alternate environments. Token exchange uses the existing token URL override.
+
+### Agent authentication decisions
+
+- Start with `whoami --json`. Signed-out results exit 0 with
+  `authenticated: false`; authenticated results include Workspace and scopes.
+- Use `login` locally or `login --device-code` in a sandbox. Keep the process
+  running while the human approves the URL and user code from stderr, then
+  check `whoami` again.
+- Existing credentials work without another login. `AGENT_PASTE_API_KEY` takes
+  precedence over stored credentials.
+- Device login needs access to WorkOS and the API, but no local browser. If
+  authentication is unavailable, report the blocker or use `--ephemeral` when
+  accountless static output meets the task. MCP requires OAuth and shell-less
+  host support.
+
 ## Output modes
 
 Every command resolves to exactly one of three render modes. Selection is
@@ -232,8 +272,9 @@ lead with mode choice and exact commands before longer flag descriptions:
 | Accountless 24h | Same capability website with short-lived ownership and an optional claim path. | `agent-paste publish <path> --ephemeral --json` or `agent-paste publish <path> --ephemeral --claim-code <clm_...> --json` | `url`; `claim_url` when the human wants to keep it |
 
 The guide should tell agents to run `whoami --json` first, run `agent-paste
-login` when browser auth is possible, use `--artifact-id` when revising an
-existing Artifact. If copied
+login` with a browser on the same machine or `login --device-code` in a
+sandbox, wait for human approval, then check `whoami` again. Use `--artifact-id`
+when revising an existing Artifact. If copied
 instructions include `--claim-code <clm_...>`, the guide
 must tell agents to preserve it on `publish --ephemeral`; it is for attribution
 and claim links.

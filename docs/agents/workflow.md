@@ -25,21 +25,9 @@ runtime can execute commands. Use MCP when the runtime is a hosted agent that
 cannot run the CLI but can connect to remote MCP with OAuth. Do not recommend
 any other publish surface for agent workflows.
 
-Default CLI sequence:
-
-```sh
-agent-paste whoami
-# If whoami reports no active login and interactive auth is possible:
-agent-paste login
-agent-paste publish <path>
-# If login is not available:
-agent-paste publish <path> --ephemeral
-```
-
-Run `agent-paste login` only when `whoami` shows no active login and
-interactive auth is possible. Use `agent-paste publish <path> --ephemeral` only
-when no login is available and interactive auth is not possible, or when the
-user explicitly asks for accountless publish.
+Follow the [agent CLI flow](../../AGENTS.md#agent-publish-surfaces): check
+`whoami --json`, use `login --device-code` in sandboxes, wait for human
+approval, then publish. `--ephemeral` is for accountless static output.
 
 ## Workflow
 

@@ -4,7 +4,7 @@ export const EPHEMERAL_DOC: DocsPage = {
   slug: "ephemeral",
   title: "Ephemeral Publish",
   shortTitle: "Ephemeral",
-  summary: "Accountless 24-hour publishing when interactive login is unavailable.",
+  summary: "Accountless 24-hour static publishing.",
   sections: [
     {
       id: "when",
@@ -12,7 +12,7 @@ export const EPHEMERAL_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Run `whoami --json` first. Use `--ephemeral` only when login is unavailable or the user explicitly requests accountless publishing.",
+          text: "Run `whoami --json` first. A sandbox without a local browser can authenticate with `login --device-code` and human approval. Use `--ephemeral` when login is unavailable and static accountless output meets the task, or the user explicitly requests accountless publishing.",
         },
         {
           kind: "paragraph",

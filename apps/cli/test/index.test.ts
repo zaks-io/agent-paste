@@ -84,6 +84,18 @@ describe("shellQuote (Update-command path safety)", () => {
 });
 
 describe("cli command dispatch", () => {
+  it("routes login --device-code to the remote authorization endpoint", async () => {
+    const fetchImpl = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
+
+    await expect(main(["login", "--device-code"])).rejects.toThrow(
+      "Device authorization request returned an invalid response.",
+    );
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://soulful-path-50.authkit.app/oauth2/device_authorization",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
   it("detects the executable entrypoint from a file URL and filesystem path", () => {
     const argv1 = path.join(os.tmpdir(), "agent paste");
     const metaUrl = pathToFileURL(argv1).href;

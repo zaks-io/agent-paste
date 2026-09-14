@@ -3,7 +3,7 @@ export const HELP_TEXT = `agent-paste
 Usage:
   agent-paste help publish
   agent-paste help pull
-  agent-paste login
+  agent-paste login [--device-code]
   agent-paste logout
   agent-paste whoami [--json]
   agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ephemeral] [--claim-code <clm_...>] [--json]
@@ -13,14 +13,13 @@ Usage:
   agent-paste upgrade [<tag>]
 
 Agent publish quick path:
-  1. Run agent-paste whoami --json.
-     It exits 0 even when signed out; parse "authenticated": false.
-  2. If authenticated, run agent-paste publish <path> --json and return url.
-  3. If not authenticated and browser login is possible, run agent-paste login,
-     then publish.
-  4. If login is unavailable, or the user asks for accountless publish, run:
-     agent-paste publish <path> --ephemeral --json
-     Return url. Return claim_url too when the human wants to keep the upload.
+  1. Run agent-paste whoami --json. Signed-out results exit 0;
+     parse "authenticated": false.
+  2. If signed out: agent-paste login locally, or login --device-code in a
+     sandbox. Keep it running while the user approves the URL/code from stderr.
+  3. Check whoami again, then agent-paste publish <path> --json. Return url.
+  4. For accountless static output: agent-paste publish <path> --ephemeral --json.
+     Return claim_url when the user wants to keep it.
 
 Every publish returns one top-level Artifact URL. It opens without login and
 stays stable when you revise the same Artifact with --artifact-id.
@@ -53,11 +52,10 @@ Recipes:
 export const PUBLISH_HELP_TEXT = `agent-paste publish help
 
 Start:
-  Run agent-paste whoami --json before publishing.
-  - authenticated:true: publish normally.
-  - authenticated:false and browser login is possible: run agent-paste login,
-    then publish.
-  - authenticated:false and no login is available: use --ephemeral.
+  Run agent-paste whoami --json; signed-out results exit 0.
+  If authenticated:false, use login locally or login --device-code in a sandbox.
+  Keep device login running while the user approves the URL/code from stderr,
+  then check whoami again. Use --ephemeral for accountless static output.
 
 Recipes:
   Signed-in publish:

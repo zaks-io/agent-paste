@@ -3,6 +3,7 @@ import { ApiClient, createIdempotencyKey } from "@agent-paste/api-client";
 import { CreateApiKeyRequest } from "@agent-paste/contracts";
 import { isPlaceholderClientId, type LoginConfig, loadLoginConfig } from "./config.js";
 import { type Credential, type CredentialStore, credentialStore } from "./credentials.js";
+import { loginWithDeviceCode } from "./device-login.js";
 import { openBrowser, startLoopbackServer } from "./loopback.js";
 import { createPkce } from "./pkce.js";
 
@@ -12,6 +13,9 @@ export type LoginDeps = {
   log?: (message: string) => void;
   store?: CredentialStore;
   openBrowser?: (url: string) => void;
+  deviceCode?: boolean;
+  now?: () => number;
+  sleep?: (milliseconds: number) => Promise<void>;
 };
 
 type TokenResponse = {
@@ -32,6 +36,17 @@ export async function login(deps: LoginDeps = {}): Promise<Credential> {
     );
   }
 
+  if (deps.deviceCode) {
+    const token = await loginWithDeviceCode({
+      config,
+      fetch: fetchImpl,
+      log,
+      ...(deps.now ? { now: deps.now } : {}),
+      ...(deps.sleep ? { sleep: deps.sleep } : {}),
+    });
+    return storeCredential(config, token, fetchImpl, store, log);
+  }
+
   const pkce = createPkce();
   const server = await startLoopbackServer(pkce.state, config.loginPort);
   try {
@@ -42,13 +57,23 @@ export async function login(deps: LoginDeps = {}): Promise<Credential> {
     const { code } = await server.waitForCallback();
     const token = await exchangeCode(fetchImpl, config, code, server.redirectUri, pkce.verifier);
 
-    const credential = await mintCredential(config, token, fetchImpl);
-    await store.save(credential);
-    log(`Signed in as ${credential.member_email}. Stored local credential ${credential.public_id}.`);
-    return credential;
+    return await storeCredential(config, token, fetchImpl, store, log);
   } finally {
     await server.close();
   }
+}
+
+async function storeCredential(
+  config: LoginConfig,
+  token: TokenResponse,
+  fetchImpl: typeof fetch,
+  store: CredentialStore,
+  log: (message: string) => void,
+): Promise<Credential> {
+  const credential = await mintCredential(config, token, fetchImpl);
+  await store.save(credential);
+  log(`Signed in as ${credential.member_email}. Stored local credential ${credential.public_id}.`);
+  return credential;
 }
 
 function buildAuthorizeUrl(config: LoginConfig, redirectUri: string, challenge: string, state: string): string {

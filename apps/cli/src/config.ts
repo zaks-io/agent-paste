@@ -1,6 +1,7 @@
 export type LoginConfig = {
   clientId: string;
   authorizeUrl: string;
+  deviceAuthorizationUrl: string;
   tokenUrl: string;
   apiBaseUrl: string;
   loginPort: number;
@@ -28,10 +29,12 @@ export function loadLoginConfig(env: Record<string, string | undefined> = proces
   const clientId = env.AGENT_PASTE_WORKOS_CLIENT_ID ?? DEFAULT_CLI_CLIENT_ID;
   const base = trimSlash(env.AGENT_PASTE_WORKOS_BASE_URL ?? DEFAULT_WORKOS_BASE_URL);
   const authorizeUrl = env.AGENT_PASTE_WORKOS_AUTHORIZE_URL ?? `${base}/oauth2/authorize`;
+  const deviceAuthorizationUrl =
+    env.AGENT_PASTE_WORKOS_DEVICE_AUTHORIZATION_URL ?? `${base}/oauth2/device_authorization`;
   const tokenUrl = env.AGENT_PASTE_WORKOS_TOKEN_URL ?? `${base}/oauth2/token`;
   const apiBaseUrl = trimSlash(env.AGENT_PASTE_API_URL ?? "https://api.agent-paste.sh");
   const loginPort = parsePort(env.AGENT_PASTE_LOGIN_PORT) ?? DEFAULT_LOGIN_PORT;
-  return { clientId, authorizeUrl, tokenUrl, apiBaseUrl, loginPort };
+  return { clientId, authorizeUrl, deviceAuthorizationUrl, tokenUrl, apiBaseUrl, loginPort };
 }
 
 function parsePort(value: string | undefined): number | null {

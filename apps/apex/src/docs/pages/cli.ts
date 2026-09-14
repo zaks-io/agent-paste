@@ -15,6 +15,7 @@ export const CLI_DOC: DocsPage = {
           columns: ["Command", "Purpose"],
           rows: [
             ["`agent-paste login`", "Authenticate through browser OAuth."],
+            ["`agent-paste login --device-code`", "Authenticate from a sandbox with approval in your own browser."],
             ["`agent-paste logout`", "Revoke and remove the stored credential."],
             ["`agent-paste whoami --json`", "Report authentication, Workspace, actor, and scopes."],
             ["`agent-paste publish <path>`", "Publish a file or folder and return one top-level `url`."],
@@ -23,6 +24,25 @@ export const CLI_DOC: DocsPage = {
             ["`agent-paste version`", "Print the CLI version."],
             ["`agent-paste upgrade`", "Update a standalone binary install."],
           ],
+        },
+      ],
+    },
+    {
+      id: "remote-login",
+      title: "Remote login",
+      blocks: [
+        {
+          kind: "code",
+          language: "sh",
+          code: "agent-paste whoami --json\nagent-paste login --device-code\nagent-paste whoami --json",
+        },
+        {
+          kind: "paragraph",
+          text: "Keep device login running while the user approves the URL and code from stderr in their browser, then check whoami again. Device login needs access to WorkOS and the API, but no local browser.",
+        },
+        {
+          kind: "paragraph",
+          text: "Existing credentials work without another login. AGENT_PASTE_API_KEY takes precedence over stored credentials. If authentication is unavailable, use --ephemeral for accountless static output or report the blocker.",
         },
       ],
     },
@@ -52,7 +72,7 @@ export const CLI_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Run `whoami --json` first. When login is unavailable or explicitly skipped, use `publish <path> --ephemeral --json`. Return `url`; return `claim_url` too when the human wants to keep the upload. Ephemeral HTML is static until claimed.",
+          text: "Run `whoami --json` first. When login is unavailable and static accountless output meets the task, or when explicitly requested, use `publish <path> --ephemeral --json`. Return `url`; return `claim_url` too when the human wants to keep the upload. Ephemeral HTML is static until claimed.",
         },
       ],
     },

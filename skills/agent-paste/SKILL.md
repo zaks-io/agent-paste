@@ -27,8 +27,12 @@ agent-paste whoami --json
 agent-paste publish <path> --json
 ```
 
-`whoami` exits 0 when signed out, so inspect `authenticated`. If false and browser authentication
-is possible, run `agent-paste login`. Otherwise, or when the user requests accountless publishing:
+`whoami` exits 0 when signed out; inspect `authenticated: false`. Use `login` locally or
+`login --device-code` in a sandbox. Keep device login running while the user approves the URL
+and code from stderr, then check `whoami` again. Existing credentials, including an injected
+`AGENT_PASTE_API_KEY`, work without another login.
+
+When login is unavailable and static accountless output meets the task, or the user requests it:
 
 ```sh
 agent-paste publish <path> --ephemeral --json
