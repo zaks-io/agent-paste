@@ -281,9 +281,9 @@ function isSensitiveArtifactReferenceSegment(segment: string): boolean {
   try {
     decoded = decodeURIComponent(segment);
   } catch {
-    return false;
+    return true;
   }
-  if (/^https:\/\//iu.test(decoded)) {
+  if (decoded.includes("%") || /^https:\/\//iu.test(decoded)) {
     return true;
   }
 

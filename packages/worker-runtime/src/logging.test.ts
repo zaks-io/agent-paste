@@ -183,6 +183,25 @@ describe("worker logging", () => {
     expect(sanitizeString("capability=ilou0-ilou0-ilou0-ilou0")).toBe("capability=ilou0-ilou0-ilou0-ilou0");
   });
 
+  it("redacts nested and malformed encodings in artifact references", () => {
+    const capabilityId = "01234-56789-abcde-fghjd";
+    const encodedCapabilityId = Array.from(capabilityId)
+      .map((character) => `%${character.charCodeAt(0).toString(16)}`)
+      .join("");
+    const encodedUrl = encodeURIComponent(`https://${capabilityId}.agent-paste.link/private/plan`);
+    for (const reference of [
+      encodeURIComponent(encodedUrl),
+      encodeURIComponent(encodedCapabilityId),
+      encodeURIComponent(encodeURIComponent(encodedCapabilityId)),
+      `${encodedCapabilityId}%`,
+      encodeURIComponent(`${encodedCapabilityId}%`),
+    ]) {
+      expect(pathFromUrl(`https://api.test/v1/artifacts/${reference}/revisions`)).toBe(
+        "/v1/artifacts/[redacted_artifact_reference]/revisions",
+      );
+    }
+  });
+
   it("redacts JSON-style secret assignments before truncating", () => {
     const escapedSecret = sanitizeString('failed {"token":"abc\\"def","safe":"ok"}');
     expect(escapedSecret).toBe('failed {"token":"[redacted]","safe":"ok"}');
