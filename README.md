@@ -50,7 +50,7 @@ In a sandbox or SSH session, replace `login` with `login --device-code`. Keep
 that process running and approve its displayed URL and code in your own
 browser, then run `npx @zaks-io/agent-paste whoami --json` before publishing.
 Device login needs network access to WorkOS and the API, but no browser in the
-sandbox. See the [remote login guide](apps/cli/README.md#remote-login).
+sandbox. See the [remote login guide](apps/cli/README.md#agent-quick-path).
 
 Expected output:
 

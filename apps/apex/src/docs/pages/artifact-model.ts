@@ -15,13 +15,13 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
           columns: ["Object", "Meaning"],
           rows: [
             ["Workspace", "Tenant that owns Artifacts, members, policy, and Audit Events."],
-            ["Artifact", "Durable folder-like package containing one or more files."],
+            ["Artifact", "Folder-like package of one or more files."],
             ["Revision", "Immutable saved state of an Artifact."],
-            ["Published Revision", "Revision currently visible at the Artifact URL."],
-            ["Artifact URL", "Unguessable top-level capability website returned by publish."],
-            ["Artifact Console", "Login-walled management page at `/artifacts/<id>`; never returned by publish."],
+            ["Published Revision", "Revision currently served at the Artifact URL."],
+            ["Artifact URL", "Unguessable website returned by publish."],
+            ["Artifact Console", "Login-walled management page at `/artifacts/<id>`."],
             ["Agent View", "Machine-readable Artifact and Revision metadata with per-file URLs."],
-            ["Bundle", "Downloadable archive of a complete Revision tree."],
+            ["Bundle", "Downloadable archive of a complete Revision."],
           ],
         },
       ],
@@ -32,7 +32,7 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Artifact and Revision IDs are management identities. The Artifact URL uses an independent random capability ID, so it does not expose either management ID.",
+          text: "Artifact and Revision IDs are management identities. The Artifact URL uses a separate random capability ID, so it exposes neither.",
         },
         {
           kind: "code",
@@ -47,7 +47,7 @@ export const ARTIFACT_MODEL_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Publishing to an existing Artifact creates a new Published Revision and rewrites the capability manifest in place. The URL stays unchanged. Draft Revisions are never served there.",
+          text: "Publishing to an existing Artifact creates a new Published Revision at the same URL. Draft Revisions are never served.",
         },
       ],
     },

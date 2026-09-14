@@ -2,6 +2,10 @@
 
 Status: Accepted and implemented. Amends [ADR 0093](./0093-capability-scoped-content-origins.md) and [ADR 0094](./0094-capability-url-is-the-artifact-link.md).
 
+[ADR 0098](./0098-one-artifact-id.md) proposes superseding this ADR's legacy-ID
+compatibility guarantee. Until that proposal is implemented, the compatibility
+rules below remain in effect.
+
 ## Decision
 
 New Capability IDs contain 20 lowercase Crockford-base32 symbols from

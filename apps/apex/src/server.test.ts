@@ -471,7 +471,7 @@ describe("billing-gated text assets", () => {
     expect(response.status).toBe(200);
     const body = await response.text();
     expect(body).toContain("# Billing and Plans");
-    expect(body).toContain("Stripe Checkout");
+    expect(body).toContain("## Upgrade");
   });
 });
 

@@ -4,7 +4,7 @@ export const SAFETY_DOC: DocsPage = {
   slug: "safety",
   title: "Safety and Content Isolation",
   shortTitle: "Safety",
-  summary: "agent-paste treats uploaded work as untrusted content and isolates serving from control-plane auth.",
+  summary: "Uploaded work is untrusted content, served apart from the control plane.",
   sections: [
     {
       id: "what-not-to-publish",
@@ -12,23 +12,19 @@ export const SAFETY_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Every published Artifact has an unguessable capability URL. Anyone holding that URL can read it until the Artifact expires, is disabled, or is deleted. Treat Artifact URLs as sensitive.",
-        },
-        {
-          kind: "paragraph",
-          text: "Do not upload secrets or other people's data. In particular:",
+          text: "Anyone holding an Artifact URL can read it until the Artifact expires, is disabled, or is deleted. Treat the URL as sensitive. Do not upload:",
         },
         {
           kind: "list",
           items: [
             "Tokens, passwords, private keys, `.env` files, or any other credential.",
-            "Personal or customer data you are not authorized to share or required to protect.",
-            "Anything you would not be comfortable handing to whoever holds the link.",
+            "Personal or customer data you are not authorized to share.",
+            "Anything you would not hand to whoever holds the link.",
           ],
         },
         {
           kind: "paragraph",
-          text: "If you publish a secret by mistake, rotate it and delete or revoke the Artifact. Deletion can make content unreachable before every backup, cache, or queued cleanup job has finished.",
+          text: "If you publish a secret by mistake, rotate it and delete the Artifact. Deletion makes content unreachable before every cache and cleanup job finishes.",
         },
       ],
     },
@@ -38,7 +34,7 @@ export const SAFETY_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Every Artifact is served top-level from its own `{capability}.agent-paste.link` origin, never the dashboard or API origin. R2 stays private and clients never receive direct storage URLs. The authentication cookie is host-only and is not sent to Artifact hosts.",
+          text: "Each Artifact is served top-level from its own `{capability}.agent-paste.link` origin, never from the dashboard or API origin. Storage stays private; clients never receive direct storage URLs. The auth cookie is host-only and never reaches Artifact hosts.",
         },
       ],
     },
@@ -48,11 +44,11 @@ export const SAFETY_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "The content origin verifies signed tokens, expiration, scope, denylist state, and requested path. Authorization failures return generic not found responses.",
+          text: "The content origin verifies signed tokens, expiration, scope, denylist state, and requested path. Authorization failures return a generic not found.",
         },
         {
           kind: "paragraph",
-          text: "Claimed Artifact HTML runs top-level with a compatibility-oriented CSP that allows inline scripts, external HTTPS dependencies, data and blob assets, dedicated workers, fetch, and secure WebSockets. `frame-ancestors 'none'` prevents another site from putting it back inside an iframe.",
+          text: "Claimed Artifact HTML runs with a permissive CSP: inline scripts, external HTTPS dependencies, data and blob assets, dedicated workers, fetch, and secure WebSockets. `frame-ancestors 'none'` keeps other sites from framing it. Service workers are blocked on every Artifact host.",
         },
       ],
     },
@@ -62,7 +58,7 @@ export const SAFETY_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Unclaimed ephemeral HTML renders top-level with scripts, connections, forms, frames, objects, and workers blocked. Claiming the Artifact rewrites its capability with the claimed execution policy.",
+          text: "Unclaimed ephemeral HTML blocks scripts, connections, forms, frames, objects, and workers. Claiming keeps the URL and switches it to the claimed policy.",
         },
       ],
     },
@@ -72,7 +68,7 @@ export const SAFETY_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "agent-paste does not certify uploaded content as safe. Artifacts can be deleted or disabled without exposing private storage URLs.",
+          text: "agent-paste does not certify uploaded content as safe. Artifacts can be deleted or disabled at any time.",
         },
       ],
     },
@@ -83,10 +79,10 @@ export const SAFETY_DOC: DocsPage = {
         {
           kind: "list",
           items: [
-            "Stored credentials are non-recoverable after creation.",
+            "Stored credentials cannot be recovered after creation.",
             "Claim Tokens ride the URL hash and are stored hashed.",
-            "Capability hostnames are bearer locators and must not be logged in full.",
-            "Tokens, signed URLs, and credential secret material must not be logged.",
+            "Capability hostnames are bearer locators; do not log them in full.",
+            "Tokens, signed URLs, and credential secrets are never logged.",
           ],
         },
       ],

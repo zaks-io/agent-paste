@@ -14,16 +14,20 @@ export const CLI_DOC: DocsPage = {
           kind: "table",
           columns: ["Command", "Purpose"],
           rows: [
-            ["`agent-paste login`", "Authenticate through browser OAuth."],
-            ["`agent-paste login --device-code`", "Authenticate from a sandbox with approval in your own browser."],
+            ["`agent-paste login`", "Authenticate through the browser."],
+            ["`agent-paste login --device-code`", "Authenticate from a sandbox; approve in your own browser."],
             ["`agent-paste logout`", "Revoke and remove the stored credential."],
             ["`agent-paste whoami --json`", "Report authentication, Workspace, actor, and scopes."],
-            ["`agent-paste publish <path>`", "Publish a file or folder and return one top-level `url`."],
+            ["`agent-paste publish <path>`", "Publish a file or folder and return `url`."],
             ["`agent-paste pull <artifact-id> <path>`", "Read one stored file."],
             ["`agent-paste edit <artifact-id> <path>`", "Apply literal edits and publish a Revision."],
             ["`agent-paste version`", "Print the CLI version."],
             ["`agent-paste upgrade`", "Update a standalone binary install."],
           ],
+        },
+        {
+          kind: "paragraph",
+          text: "`--json` writes one object to stdout with `schema_version`; progress and errors go to stderr. Exit codes: 0 success, 1 generic, 2 authentication, 3 quota, 4 validation, 5 not found, 6 network or server. `agent-paste help publish` and `help pull` list flags and JSON fields.",
         },
       ],
     },
@@ -38,11 +42,7 @@ export const CLI_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Keep device login running while the user approves the URL and code from stderr in their browser, then check whoami again. Device login needs access to WorkOS and the API, but no local browser.",
-        },
-        {
-          kind: "paragraph",
-          text: "Existing credentials work without another login. AGENT_PASTE_API_KEY takes precedence over stored credentials. If authentication is unavailable, use --ephemeral for accountless static output or report the blocker.",
+          text: "`whoami` exits 0 even when signed out, so check `authenticated`. Device login prints a URL and code on stderr and needs network access to WorkOS and the API but no local browser. Keep it running until the user approves, then run `whoami` again. An `AGENT_PASTE_API_KEY` env var also authenticates and takes precedence over stored credentials.",
         },
       ],
     },
@@ -57,22 +57,16 @@ export const CLI_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Publish returns a URL that opens without login. Use its artifact ID with `--artifact-id`, `pull`, or `edit`. Full URLs also work. Updates keep the same URL and require Workspace access.",
+          text: "The returned `url` opens without login and stays the same across updates. Its artifact ID is the first label of the hostname; `--artifact-id`, `pull`, and `edit` accept that ID, the `art_...` `artifact_id` from JSON output, or the full URL. Updates require Workspace access.",
         },
         {
           kind: "code",
           language: "text",
           code: '✓ Published "report"\n\n  View      https://01234-56789-abcde-fghjd.agent-paste.link/\n  Expires   <expiration date>\n\n  Update    agent-paste publish ./report --artifact-id 01234-56789-abcde-fghjd\n\n  → open https://01234-56789-abcde-fghjd.agent-paste.link/',
         },
-      ],
-    },
-    {
-      id: "ephemeral",
-      title: "Accountless publish",
-      blocks: [
         {
           kind: "paragraph",
-          text: "Run `whoami --json` first. When login is unavailable and static accountless output meets the task, or when explicitly requested, use `publish <path> --ephemeral --json`. Return `url`; return `claim_url` too when the human wants to keep the upload. Ephemeral HTML is static until claimed.",
+          text: "When login is unavailable, `publish <path> --ephemeral --json` publishes without an account. See [Ephemeral](/docs/ephemeral).",
         },
       ],
     },
@@ -82,7 +76,7 @@ export const CLI_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Directory publish preserves relative paths and skips `.git`, `node_modules`, `.DS_Store`, and `.env*`. Entrypoint inference is `index.html`, `index.md`, `README.md`, then the only file. Otherwise pass `--entrypoint <path>`.",
+          text: "Directory publish keeps relative paths and skips `.git`, `node_modules`, `.DS_Store`, and `.env*`. The entrypoint is `index.html`, `index.md`, `README.md`, or the only file; otherwise pass `--entrypoint <path>`. Pass `--render-mode html|markdown|text|image|audio|video` only when inference is wrong.",
         },
       ],
     },

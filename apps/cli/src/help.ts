@@ -12,69 +12,55 @@ Usage:
   agent-paste version [--json]
   agent-paste upgrade [<tag>]
 
-Agent publish quick path:
-  1. Run agent-paste whoami --json. Signed-out results exit 0;
-     parse "authenticated": false.
-  2. If signed out: agent-paste login locally, or agent-paste login --device-code in a
-     sandbox. Keep it running while the user approves the URL/code from stderr.
-  3. Check whoami again, then agent-paste publish <path> --json. Return url.
-  4. For accountless static output: agent-paste publish <path> --ephemeral --json.
-     Return claim_url when the user wants to keep it.
+Agent quick path:
+  1. agent-paste whoami --json. Exits 0 even when signed out; check "authenticated".
+  2. If false: agent-paste login (browser available) or agent-paste login --device-code
+     (sandbox). Device login prints a URL and code on stderr; keep it running
+     until the user approves, then run whoami again.
+  3. agent-paste publish <path> --json. Return url.
+  4. No login available: agent-paste publish <path> --ephemeral --json.
+     Return claim_url too when the user wants to keep it.
 
-Every publish returns one top-level Artifact URL. It opens without login and
-stays stable across updates. Use its artifact ID with --artifact-id, pull, or edit.
-Full URLs also work.
+Every publish returns one URL that opens without login and stays the same
+across updates. Its artifact ID is the first label of the hostname; --artifact-id,
+pull, and edit accept that ID, the art_... artifact_id from --json, or the full URL.
 
 Output:
-  --json        Machine-readable JSON on stdout (stable, carries schema_version).
+  --json        One machine-readable object on stdout, with schema_version.
   --quiet       Suppress the human summary; errors and exit code still apply.
-  --color       Force colour/rich output; --no-color forces plain.
+  --color       Force rich output; --no-color forces plain.
                 Default: rich on a TTY, plain when piped or NO_COLOR/CI is set.
 `;
 
 export const PULL_HELP_TEXT = `agent-paste pull help
 
-Read one remote file stored inside an Artifact. Plain mode writes an inline text
-body to stdout. --json writes metadata and a content URL; binary or oversized
-files omit body and can be fetched from that URL. <remote-path> is relative to
-the Artifact root, not a local destination.
+Read one file stored in an Artifact. <remote-path> is relative to the Artifact
+root. Plain mode writes the text body to stdout. --json writes metadata and a
+content URL; binary or oversized files omit body and are fetched from that URL.
 
 Usage:
   agent-paste pull <artifact-id> <remote-path> [--revision-id <id>] [--json]
 
-Full URLs also work.
-
 Recipes:
-  Save a remote file locally:
-    agent-paste pull 01234-56789-abcde-fghjd index.html > ./index.html
-
-  Hash a remote file without saving it:
-    agent-paste pull 01234-56789-abcde-fghjd index.html | shasum -a 256
+  agent-paste pull 01234-56789-abcde-fghjd index.html > ./index.html
+  agent-paste pull 01234-56789-abcde-fghjd index.html | shasum -a 256
 `;
 
 export const PUBLISH_HELP_TEXT = `agent-paste publish help
 
-Start:
-  Run agent-paste whoami --json; signed-out results exit 0.
-  If authenticated:false, use agent-paste login locally or agent-paste login --device-code in a sandbox.
-  Keep device login running while the user approves the URL/code from stderr,
-  then check whoami again. Use --ephemeral for accountless static output.
+Start with agent-paste whoami --json. It exits 0 even when signed out; if
+"authenticated" is false, run agent-paste login (browser available) or
+agent-paste login --device-code (sandbox), approve the URL and code it prints
+on stderr, then run whoami again.
 
 Recipes:
-  Signed-in publish:
-    agent-paste publish <path> --json
-
-  Revise an existing Artifact at the same URL:
-    agent-paste publish <path> --artifact-id 01234-56789-abcde-fghjd --json
-
-  Accountless 24-hour publish:
-    agent-paste publish <path> --ephemeral --json
-    Add --claim-code <clm_...> only when copied instructions include it.
+  agent-paste publish <path> --json
+  agent-paste publish <path> --artifact-id 01234-56789-abcde-fghjd --json   # revise, same URL
+  agent-paste publish <path> --ephemeral --json                              # no login, 24 hours
 
 What to hand back:
-  url        Top-level Artifact capability URL. It opens without login.
-  claim_url  Ephemeral keep/claim link. Include it when the human wants to keep
-             or claim the upload.
+  url        The Artifact. Opens without login.
+  claim_url  Ephemeral only. Include it when the user wants to keep the upload.
 
 JSON fields:
   publish --json returns:
@@ -85,20 +71,18 @@ JSON fields:
     { claim_token, claim_url, workspace_id, api_key_id, claim_token_id }
 
 Path behavior:
-  <path> may be a file or directory. Directory publish uploads every included
-  file except .git, node_modules, .DS_Store, and .env*. Symlinks are followed
-  only when their target stays inside the published directory and is not an
-  excluded path. Relative paths are preserved, so the entrypoint can load
-  sibling JS, CSS, JSON, and assets. Entrypoint defaults to index.html,
-  index.md, README.md, then the only file. A multi-file directory without an
-  inferred entrypoint fails; pass --entrypoint <path>.
+  <path> may be a file or directory. Directory publish keeps relative paths and
+  skips .git, node_modules, .DS_Store, and .env*. Symlinks are followed only
+  when the target stays inside the directory and is not an excluded path. The
+  entrypoint is index.html, index.md, README.md, or the only file; any other
+  multi-file directory needs --entrypoint <path>.
 
-  --artifact-id Update an Artifact by artifact ID. Full URLs also work.
+Flags:
+  --artifact-id Revise an existing Artifact. Accepts the ID or the full URL.
   --title       Set the Artifact title.
-  --entrypoint  Override the entrypoint file within <path>.
+  --entrypoint  Entrypoint file within <path>.
   --render-mode html | markdown | text | image | audio | video
-  --ephemeral   Accountless 24-hour publish with the same top-level page behavior
-                and a one-time claim_url.
-  --claim-code  Optional attribution for --ephemeral. Preserve it when copied
-                Agent Paste instructions include one.
+  --ephemeral   Accountless 24-hour publish. Static until claimed via claim_url.
+  --claim-code  Attribution for --ephemeral. Keep it when the user's
+                instructions include one.
 `;

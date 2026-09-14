@@ -3,18 +3,13 @@ import { API_BASE_URL, APP_BASE_URL, MCP_BASE_URL, SKILL_INSTALL_CMD } from "./c
 
 export const AGENTS_MD = `# agent-paste for agents
 
-Agent Paste turns a file or directory into a top-level website. Use it when the
-next step should be a URL instead of a deploy, repository, zip, screenshot, or
-local server.
+agent-paste publishes a file or directory as a website and returns one URL that
+opens without login. Use it when the next step should be a link instead of a
+deploy, zip, screenshot, or local server.
 
-Every publish returns one no-login \`url\` on the Artifact's own capability
-subdomain. There is no iframe, viewer wrapper, or second sharing step. Revising
-the same Artifact keeps the URL.
+Default to the CLI. Use MCP only when the host cannot run commands.
 
-Default to the CLI. Use MCP only when the host can connect to remote MCP but
-cannot run commands.
-
-## Install the skill
+## Skill
 
 \`\`\`sh
 ${SKILL_INSTALL_CMD}
@@ -22,19 +17,17 @@ ${SKILL_INSTALL_CMD}
 
 ## CLI
 
-Check authentication first:
-
 \`\`\`sh
 npx @zaks-io/agent-paste whoami --json
 \`\`\`
 
-\`whoami\` exits 0 when signed out; inspect \`authenticated: false\`.
-Use \`npx @zaks-io/agent-paste login\` locally or add \`--device-code\` in a
-sandbox. Keep device login running while the user approves the URL and code
-from stderr, then check \`whoami\` again. Existing credentials, including an
-injected \`AGENT_PASTE_API_KEY\`, work without another login.
+\`whoami\` exits 0 even when signed out, so check \`authenticated\`. If it is
+false, run \`login\` where a browser is available or \`login --device-code\` in a
+sandbox. Device login prints a URL and code on stderr; keep it running until the
+user approves, then run \`whoami\` again. An \`AGENT_PASTE_API_KEY\` env var also
+authenticates and takes precedence over stored credentials.
 
-Publish a file or directory:
+Publish:
 
 \`\`\`sh
 npx @zaks-io/agent-paste publish ./path --json
@@ -42,34 +35,31 @@ npx @zaks-io/agent-paste publish ./path --json
 
 Return \`url\` to the user.
 
-Revise the Artifact at the same URL:
+Revise at the same URL:
 
 \`\`\`sh
 npx @zaks-io/agent-paste publish ./path --artifact-id 01234-56789-abcde-fghjd --json
 \`\`\`
 
-Use the artifact ID with \`--artifact-id\`, \`pull\`, or \`edit\`.
-Full URLs also work. Updates require Workspace access.
+The artifact ID is the first label of the URL hostname. \`--artifact-id\`,
+\`pull\`, and \`edit\` accept that ID, the \`art_...\` \`artifact_id\` from JSON
+output, or the full URL.
 
-If login is unavailable and static accountless output satisfies the task, or
-the user explicitly asks for accountless publish:
+When login is unavailable, or the user asks for accountless publishing:
 
 \`\`\`sh
 npx @zaks-io/agent-paste publish ./path --ephemeral --json
 \`\`\`
 
-Return \`url\`. Return \`claim_url\` too when the human wants to keep and own the
-upload. Unclaimed ephemeral Artifacts expire after 24 hours and render with
-scripts, connections, forms, frames, objects, and workers blocked. Claiming
-promotes the same Artifact URL to the claimed execution policy.
+Return \`url\`. Also return \`claim_url\` if the user wants to keep the Artifact.
+Unclaimed ephemeral Artifacts expire in 24 hours and serve static HTML only:
+scripts, fetch, forms, frames, and workers are blocked. Claiming keeps the URL
+and lifts those blocks. If the instructions you were given include
+\`--claim-code <clm_...>\`, keep it on the command.
 
-If copied instructions include \`--claim-code <clm_...>\`, preserve it on the
-ephemeral publish command. It is attribution, not part of the Artifact URL.
-
-Directory publish preserves relative paths. Entrypoint inference is
-\`index.html\`, \`index.md\`, \`README.md\`, then the only file. Otherwise pass
-\`--entrypoint <path>\`. Folder publishing excludes \`.git/\`, \`node_modules/\`,
-\`.DS_Store\`, \`.env\`, and \`.env.*\`.
+Directory publish keeps relative paths and skips \`.git\`, \`node_modules\`,
+\`.DS_Store\`, and \`.env*\`. The entrypoint is \`index.html\`, \`index.md\`,
+\`README.md\`, or the only file; otherwise pass \`--entrypoint <path>\`.
 
 ## Result
 
@@ -84,35 +74,31 @@ Directory publish preserves relative paths. Entrypoint inference is
 }
 \`\`\`
 
-The URL is an unguessable bearer locator with at least 95 bits of entropy. It opens without login and
-serves the latest Published Revision. Authenticated publishes can use inline
-scripts, external HTTPS dependencies, root-relative assets, fetch, secure
-WebSockets, and dedicated workers. Service workers are blocked on every
-Artifact host.
+Claimed Artifacts run as ordinary top-level pages: inline scripts, external
+HTTPS dependencies, fetch, WebSockets, and dedicated workers all work. Service
+workers are blocked everywhere.
 
 ## MCP
 
-Connect to \`${MCP_BASE_URL}\`, complete OAuth, and call \`whoami\`.
+Connect to \`${MCP_BASE_URL}\` with OAuth and call \`whoami\`.
 
 - Create: \`publish_artifact\`
-- Revise: \`add_revision\` or \`multi_edit\`
+- Revise: \`add_revision\` (whole file) or \`multi_edit\` (literal find/replace)
 - Read: \`list_artifacts\`, \`read_artifact\`, \`read_file\`, \`list_revisions\`
 - Manage: \`delete_artifact\`, \`update_display_metadata\`
 
-Use the artifact ID in \`artifact_id\`; full URLs also work.
-MCP and CLI publishing return the same \`url\` contract.
+MCP publishes text only; folders and binary files need the CLI. \`artifact_id\`
+accepts the ID or the full URL.
 
 ## Reading this site
 
-Every page on https://agent-paste.sh answers \`Accept: text/markdown\` with a clean
-Markdown twin of that page. Each twin also has a direct address: /index.md,
+Every page answers \`Accept: text/markdown\` and has a \`.md\` twin: /index.md,
 /docs.md, /docs/{slug}.md, /about.md, /how-it-works.md, /terms.md, /privacy.md.
 
 ## Links
 
 - Dashboard: ${APP_BASE_URL}
 - API auth metadata: ${API_BASE_URL}/auth.md
-- Human docs: https://agent-paste.sh/docs
-- Markdown docs: https://agent-paste.sh/docs.md
+- Docs: https://agent-paste.sh/docs.md
 - Full corpus: https://agent-paste.sh/llms-full.txt
 `;

@@ -4,7 +4,7 @@ export const SHARING_DOC: DocsPage = {
   slug: "sharing",
   title: "Artifact URLs",
   shortTitle: "URLs",
-  summary: "Every publish returns one top-level website URL.",
+  summary: "Every publish returns one website URL.",
   sections: [
     {
       id: "one-url",
@@ -12,16 +12,12 @@ export const SHARING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Publish returns `url`, the complete unguessable capability URL that opens without login. Its hostname is the 23-character capability ID under `agent-paste.link`. It is the Artifact itself, not an app viewer or redirect.",
+          text: "Publish returns `url`. It opens without login, and its hostname is the 23-character artifact ID under `agent-paste.link`. Send it to the recipient as is.",
         },
         {
           kind: "code",
           language: "text",
           code: "https://01234-56789-abcde-fghjd.agent-paste.link/",
-        },
-        {
-          kind: "paragraph",
-          text: "There is no iframe, sandbox, Access Link wrapper, private viewer URL, or separate visibility command. Send `url` to the recipient.",
         },
       ],
     },
@@ -31,7 +27,7 @@ export const SHARING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Use the artifact ID with `--artifact-id` to update the same website. Full URLs also work. Updates require Workspace access; the URL alone grants no write access.",
+          text: "Pass the artifact ID or full URL to `--artifact-id` to update the same website. Updates require Workspace access; the URL alone grants read only.",
         },
       ],
     },
@@ -41,7 +37,7 @@ export const SHARING_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "The hostname carries at least 95 bits of random entropy and acts as the bearer locator. The content Worker validates its manifest, signed authorization, expiry, denylist, and requested path before serving encrypted R2 bytes.",
+          text: "The hostname carries at least 95 bits of random entropy and is the only credential a reader needs. The content Worker checks the manifest, signed authorization, expiry, denylist, and requested path before serving encrypted R2 bytes.",
         },
       ],
     },

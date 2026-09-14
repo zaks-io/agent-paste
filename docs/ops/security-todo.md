@@ -68,6 +68,24 @@ stays fast and does not run the full bundle.
       which additionally pins `@cyclonedx/cyclonedx-esbuild@1` — re-verify all
       surfaces together.
 
+- [ ] **Stop minting a "Default" API key at first sign-in** (AP-444, filed
+      2026-09-14).
+      `ensureWebMember` in
+      `packages/db/src/repository/workflows/web-member-workflow.ts` creates a
+      never-expiring key with the member's full scopes the moment WorkOS
+      returns a new user, before they have done anything. Production on
+      2026-09-14 held one drive-by account whose key has never been used.
+      The CLI does not depend on it: `agent-paste login` mints its own key
+      through `web.apiKeys.create` (`apps/cli/src/login.ts`). Keep CLI key
+      creation on login and explicit key creation on `/keys`; browser sign-in
+      must not mint a key. Confirm nothing consumes the bootstrap
+      `secret` in `webAuthResponse`, then remove the mint and its
+      `api_key.created` event. Revoke the existing unused bootstrap key.
+      Done when browser sign-in creates zero API keys, and first-time CLI
+      `login` through `web.apiKeys.create` provisions the Workspace and member
+      without a Default key, creates exactly one CLI key, and preserves that
+      key's `api_key.created` event.
+
 ## CLI Release supply-chain (AP-154)
 
 - [x] **Phase 1 (capture, non-blocking)** — `.github/workflows/cli-release.yml`
