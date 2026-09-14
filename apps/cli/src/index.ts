@@ -433,7 +433,7 @@ async function resolveExistingArtifact(client: ApiClient, artifactReference: Art
 // oversize files carry no body — fetch those via the content URL). Plain mode refuses
 // a binary file (raw bytes would corrupt a terminal / piped text).
 async function pull(parsed: Parsed, client: ApiClient) {
-  const artifactReference = ArtifactReference.parse(requiredArg(parsed, 0, "artifact-url-or-id"));
+  const artifactReference = ArtifactReference.parse(requiredArg(parsed, 0, "artifact-id"));
   const rawFilePath = requiredArg(parsed, 1, "remote-path");
   const parsedFilePath = FilePath.safeParse(rawFilePath);
   if (!parsedFilePath.success) {

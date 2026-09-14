@@ -52,12 +52,10 @@ viewing; `claim_url` is the optional ownership step.
 
 Details: [CLI authentication](docs/specs/cli.md#login).
 
-To update existing work, pass its published URL to
-`publish <path> --artifact-id <url>`. `pull` and `edit` also accept the URL in
-place of an Artifact ID. Bare subdomain IDs also work in these positions and
-in MCP `artifact_id` inputs. Keep the same
-Artifact across handoffs; a separate ID lookup is unnecessary. Workspace
-authorization still applies.
+To update existing work, use its artifact ID, such as `01234-56789-abcde-fghjd`,
+with `publish <path> --artifact-id <artifact-id>`, `pull`, or `edit`.
+MCP uses the same ID in `artifact_id`. Full URLs also work. Keep the same
+Artifact across handoffs. Workspace authorization still applies.
 
 ## Agent skills
 

@@ -18,7 +18,9 @@ export type PublishResultShape = {
 };
 
 export function artifactUpdateReference(result: Pick<PublishResultShape, "artifact_id" | "url">): string {
-  return ArtifactReference.safeParse(result.url).success ? result.url : result.artifact_id;
+  if (!ArtifactReference.safeParse(result.url).success) return result.artifact_id;
+  const artifactId = ArtifactReference.safeParse(new URL(result.url).hostname.split(".")[0]);
+  return artifactId.success ? artifactId.data : result.url;
 }
 
 // Render expires_at as a plain calendar date when it parses as an ISO instant;

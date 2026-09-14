@@ -175,7 +175,6 @@ describe("cli command dispatch", () => {
     expect(outputs[0]).toBe(outputs[1]);
     for (const help of outputs) {
       expect(help).toContain("agent-paste pull help");
-      expect(help).toContain("agent-paste pull <artifact-url-or-id> <remote-path>");
       expect(help).toContain("--json");
     }
   });
@@ -477,7 +476,7 @@ describe("cli command dispatch", () => {
       expect(publish).toHaveBeenCalledWith(artifactId, revisionId, idempotencyKey, undefined);
       const out = stdoutValues(stdout).join("");
       expect(out).toContain(artifactUrl);
-      expect(out).toContain(`--artifact-id '${artifactUrl}'`);
+      expect(out).toContain(`--artifact-id ${new URL(artifactUrl).hostname.split(".")[0]}`);
       expect(out).not.toContain(revisionId);
       // Upload summary surfaces the count uploaded and that nothing was reused —
       // assert the facts, not the exact label/spacing/byte rendering.

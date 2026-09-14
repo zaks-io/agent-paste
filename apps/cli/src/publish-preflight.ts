@@ -118,7 +118,7 @@ export function validatePublishUsage(files: LocalFile[], policy: UsagePolicy): v
 function parseArtifactReference(value: string): ArtifactReference {
   const parsed = ArtifactReference.safeParse(value);
   if (!parsed.success) {
-    throw invalidRequest("--artifact-id must be an Artifact URL, bare subdomain, or ID");
+    throw invalidRequest("--artifact-id must be an artifact ID or full URL");
   }
   return parsed.data;
 }

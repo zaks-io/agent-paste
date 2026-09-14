@@ -62,7 +62,7 @@ export const GETTING_STARTED_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "Pass the published URL, bare subdomain, or existing `art_...` ID to `--artifact-id` to publish a new Revision at the same URL. Publishing without `--artifact-id` creates a different Artifact and URL.",
+          text: "Use `--artifact-id 01234-56789-abcde-fghjd` to update the same website. Full URLs also work. Omit the flag to create a new Artifact.",
         },
       ],
     },
