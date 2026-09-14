@@ -8,6 +8,8 @@ export function postgresArtifacts(ctx: PostgresContext): Entities["artifacts"] {
   return {
     insert: (artifact) => artifactQueries.insert(drizzle, artifact),
     findById: (artifactId, workspaceId) => artifactQueries.findById(drizzle, artifactId, workspaceId),
+    findByCapabilityId: (capabilityId, workspaceId) =>
+      artifactQueries.findByCapabilityId(drizzle, capabilityId, workspaceId),
     listFiltered: (workspaceId, status) => artifactQueries.listFiltered(drizzle, workspaceId, status),
     listWebPage: (input) => artifactQueries.listWebPage(drizzle, input),
     updateExpiry: (artifactId, expiresAt) => artifactQueries.updateExpiry(drizzle, artifactId, expiresAt),

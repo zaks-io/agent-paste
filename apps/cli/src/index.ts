@@ -12,7 +12,15 @@ import {
   runPublish as runSharedPublish,
 } from "@agent-paste/api-client";
 import type { EphemeralProvisionResponse } from "@agent-paste/contracts";
-import { ArtifactId, CLAIM_CODE_HEADER, ClaimCode, FilePath, mvpUsagePolicy, RevisionId } from "@agent-paste/contracts";
+import {
+  ArtifactId,
+  ArtifactReference,
+  CLAIM_CODE_HEADER,
+  ClaimCode,
+  FilePath,
+  mvpUsagePolicy,
+  RevisionId,
+} from "@agent-paste/contracts";
 import {
   booleanFlag,
   type GlobalFlags,
@@ -31,7 +39,12 @@ import { HELP_TEXT, PUBLISH_HELP_TEXT, PULL_HELP_TEXT } from "./help.js";
 import { contentTypeForLocalPath } from "./local.js";
 import { login } from "./login.js";
 import { loadManifestCache, type ManifestCacheFile, saveManifestCache } from "./manifest-cache.js";
-import { ephemeralClaimUrl, formatEphemeralPublishResult, formatPublishResult } from "./publish-format.js";
+import {
+  artifactUpdateReference,
+  ephemeralClaimUrl,
+  formatEphemeralPublishResult,
+  formatPublishResult,
+} from "./publish-format.js";
 import { digestPublish, type PreparedPublish, preparePublish, validatePublishUsage } from "./publish-preflight.js";
 import { apiClientTransport } from "./publish-transport.js";
 import { createProgress, exitCodeFor, formatError, type OutputMode } from "./render.js";
@@ -300,7 +313,7 @@ async function publish(parsed: Parsed, client: ApiClient) {
   const inputPath = requiredArg(parsed, 0, "path");
   const updateCommand = commandInvocation(
     detectChannel(),
-    `publish ${shellQuote(inputPath)} --artifact-id ${result.artifact_id}`,
+    `publish ${shellQuote(inputPath)} --artifact-id ${shellQuote(artifactUpdateReference(result))}`,
   );
   return output(result, parsed.global, formatPublishResult(mode, result, updateCommand));
 }
@@ -309,7 +322,7 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
   const preflight = await preparePublish(parsed, {
     allowArtifactId: true,
     resolveUsagePolicy: () => client.usagePolicy(),
-    resolveExistingTitle: (artifactId) => existingArtifactTitle(client, artifactId),
+    resolveExistingArtifact: (artifactReference) => resolveExistingArtifact(client, artifactReference),
   });
   const prepared = await digestPublish(preflight);
   validatePublishUsage(prepared.files, preflight.usagePolicy);
@@ -318,6 +331,8 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
 
 async function runPreparedPublish(client: ApiClient, mode: OutputMode, prepared: PreparedPublish) {
   const { artifactId, explicitRenderMode, files: filesWithDigest, inferred } = prepared;
+  const parsedArtifactId = artifactId === undefined ? undefined : ArtifactId.safeParse(artifactId);
+  const canonicalArtifactId = parsedArtifactId?.success ? parsedArtifactId.data : undefined;
 
   const wholeManifest = (): PublishFile[] => filesWithDigest.map(wholePublishFile);
   const fullTree = (): ManifestCacheFile[] =>
@@ -326,10 +341,16 @@ async function runPreparedPublish(client: ApiClient, mode: OutputMode, prepared:
   // On a revise with a matching local cache, send only changed/added files (some
   // as verified unified diffs) against the base Revision; unchanged files inherit.
   // No cache (first publish elsewhere / fresh machine) => a full whole-blob publish.
-  const cache = artifactId ? await loadManifestCache(artifactId) : null;
+  const cache = canonicalArtifactId ? await loadManifestCache(canonicalArtifactId) : null;
   const built =
-    artifactId && cache
-      ? await buildRevisePlan({ client, artifactId, cache, files: filesWithDigest, entrypoint: inferred.entrypoint })
+    canonicalArtifactId && cache
+      ? await buildRevisePlan({
+          client,
+          artifactId: canonicalArtifactId,
+          cache,
+          files: filesWithDigest,
+          entrypoint: inferred.entrypoint,
+        })
       : null;
   // A no-op delta (working tree identical to the base: nothing changed, added, or
   // deleted) cannot be sent as a partial manifest — the server requires a delta to
@@ -401,9 +422,9 @@ async function runPreparedPublish(client: ApiClient, mode: OutputMode, prepared:
   };
 }
 
-async function existingArtifactTitle(client: ApiClient, artifactId: string): Promise<string> {
-  const view = await client.artifacts.getAgentView(artifactId);
-  return view.title;
+async function resolveExistingArtifact(client: ApiClient, artifactReference: ArtifactReference) {
+  const view = await client.artifacts.getAgentView(artifactReference);
+  return { artifactId: view.artifact_id, title: view.title };
 }
 
 // Read one stored file's content for the owning member (ADR 0090). Default
@@ -412,7 +433,7 @@ async function existingArtifactTitle(client: ApiClient, artifactId: string): Pro
 // oversize files carry no body — fetch those via the content URL). Plain mode refuses
 // a binary file (raw bytes would corrupt a terminal / piped text).
 async function pull(parsed: Parsed, client: ApiClient) {
-  const artifactId = ArtifactId.parse(requiredArg(parsed, 0, "artifact-id"));
+  const artifactReference = ArtifactReference.parse(requiredArg(parsed, 0, "artifact-url-or-id"));
   const rawFilePath = requiredArg(parsed, 1, "remote-path");
   const parsedFilePath = FilePath.safeParse(rawFilePath);
   if (!parsedFilePath.success) {
@@ -423,8 +444,9 @@ async function pull(parsed: Parsed, client: ApiClient) {
   const filePath = parsedFilePath.data;
   const revisionId = stringFlag(parsed, "revision-id");
   const view = revisionId
-    ? await client.artifacts.getRevisionAgentView(artifactId, revisionId)
-    : await client.artifacts.getAgentView(artifactId);
+    ? await client.artifacts.getRevisionAgentView(artifactReference, revisionId)
+    : await client.artifacts.getAgentView(artifactReference);
+  const artifactId = view.artifact_id;
   const remoteFile = view.files.find((candidate) => candidate.path === filePath);
   if (!remoteFile) {
     throw new AgentPasteError({

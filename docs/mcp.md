@@ -90,8 +90,11 @@ Publishing tools return one `url`: the unguessable, no-login, top-level
 Artifact capability URL. It has no app viewer or iframe and stays stable across
 Revisions. Publish output also includes `artifact_id`, `revision_id`, `title`,
 `expires_at`, and upload statistics. A no-op publish returns zeroed upload
-statistics. The returned IDs can be passed directly to the read, edit, revise,
-and metadata tools.
+statistics. Every tool's `artifact_id` input accepts the published HTTPS
+Artifact URL, a bare subdomain ID, or an Artifact ID. Pass the URL directly when updating work from
+a handoff. Read, edit, revise, list revisions, delete, and metadata operations
+resolve it within the authenticated Workspace. URL possession does not grant
+write access. Response `artifact_id` fields remain canonical IDs.
 
 Output shapes to keep straight:
 

@@ -267,8 +267,22 @@
         "type": "object",
         "properties": {
           "artifact_id": {
-            "type": "string",
-            "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              {
+                "type": "string",
+                "maxLength": 63,
+                "pattern": "^(?:[a-fA-F0-9]{32}|[0-9a-hj-kmnp-tv-zA-HJ-KMNP-TV-Z]{5}(?:-[0-9a-hj-kmnp-tv-zA-HJ-KMNP-TV-Z]{5}){3})(?:-[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,28}[a-zA-Z0-9])?)?$"
+              },
+              {
+                "type": "string",
+                "pattern": "^[hH][tT][tT][pP][sS]:\\/\\/[^/?#@:]+(?:[/?#]|$)"
+              }
+            ],
+            "description": "Artifact URL, bare subdomain, or Artifact ID. Workspace authorization still applies; bare IDs use the current environment."
           },
           "base_revision_id": {
             "type": "string",
@@ -812,8 +826,22 @@
                 "type": "object",
                 "properties": {
                   "artifact_id": {
-                    "type": "string",
-                    "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
+                      },
+                      {
+                        "type": "string",
+                        "maxLength": 63,
+                        "pattern": "^(?:[a-fA-F0-9]{32}|[0-9a-hj-kmnp-tv-zA-HJ-KMNP-TV-Z]{5}(?:-[0-9a-hj-kmnp-tv-zA-HJ-KMNP-TV-Z]{5}){3})(?:-[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,28}[a-zA-Z0-9])?)?$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^[hH][tT][tT][pP][sS]:\\/\\/[^/?#@:]+(?:[/?#]|$)"
+                      }
+                    ],
+                    "description": "Artifact URL, bare subdomain, or Artifact ID. Workspace authorization still applies; bare IDs use the current environment."
                   },
                   "base_revision_id": {
                     "type": "string",

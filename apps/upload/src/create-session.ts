@@ -1,5 +1,5 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
-import type { CreateUploadSessionRequest, routeContracts } from "@agent-paste/contracts";
+import { ArtifactId, type CreateUploadSessionRequest, type routeContracts } from "@agent-paste/contracts";
 import {
   buildCreateUploadSessionWireResponse,
   type Repository,
@@ -31,6 +31,21 @@ export async function createUploadSession(
   }
   const idempotencyKey = guard.idempotencyKey;
   const body: CreateUploadSessionRequest = guard.body;
+  let artifactId: string | undefined;
+  if (body.artifact_id) {
+    const parsedArtifactId = ArtifactId.safeParse(body.artifact_id);
+    artifactId = parsedArtifactId.success
+      ? parsedArtifactId.data
+      : ((await db.resolveArtifactReference({
+          actor,
+          reference: body.artifact_id,
+          ...(env.CONTENT_CAPABILITY_DOMAIN ? { capabilityDomain: env.CONTENT_CAPABILITY_DOMAIN } : {}),
+          ...(env.CONTENT_CAPABILITY_HOST_SUFFIX ? { capabilityHostSuffix: env.CONTENT_CAPABILITY_HOST_SUFFIX } : {}),
+        })) ?? undefined);
+    if (!artifactId) {
+      return getBoundResponders(context).respondError("artifact_not_found");
+    }
+  }
   // TTL is omitted so the repository derives it from the workspace tier (ephemeral
   // workspaces are hard-capped at one day). Clients cannot influence artifact lifetime.
   const files = body.files.map((file) => ({
@@ -43,7 +58,7 @@ export async function createUploadSession(
     entrypoint: body.entrypoint,
     files,
     ...(body.title === undefined ? {} : { title: body.title }),
-    ...(body.artifact_id === undefined ? {} : { artifact_id: body.artifact_id }),
+    ...(artifactId === undefined ? {} : { artifact_id: artifactId }),
     ...(body.base_revision_id === undefined ? {} : { base_revision_id: body.base_revision_id }),
     ...(body.render_mode === undefined ? {} : { render_mode: body.render_mode }),
     ...(body.deleted_paths === undefined ? {} : { deleted_paths: body.deleted_paths }),

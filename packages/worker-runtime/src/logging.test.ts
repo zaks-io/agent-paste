@@ -153,6 +153,33 @@ describe("worker logging", () => {
       "/[redacted_capability_path]",
     );
     expect(sanitizeString(`capability=${newCapabilityId}`)).toBe("capability=[redacted_capability_id]");
+    expect(
+      pathFromUrl(
+        `https://api.test/v1/artifacts/${encodeURIComponent(`https://${newCapabilityId}-preview.agent-paste.link/`)}/revisions`,
+      ),
+    ).toBe("/v1/artifacts/[redacted_artifact_reference]/revisions");
+    const fullyEncodedArtifactUrl = Array.from(`https://${newCapabilityId}-preview.agent-paste.link/private/plan`)
+      .map((character) => `%${character.charCodeAt(0).toString(16)}`)
+      .join("");
+    expect(pathFromUrl(`https://api.test/v1/artifacts/${fullyEncodedArtifactUrl}/revisions`)).toBe(
+      "/v1/artifacts/[redacted_artifact_reference]/revisions",
+    );
+    expect(
+      pathFromUrl(
+        `https://api.test/v1/artifacts/${encodeURIComponent(
+          `https://%30${newCapabilityId.slice(1)}-preview.agent-paste.link/private/customer.html?draft=secret#note`,
+        )}/revisions`,
+      ),
+    ).toBe("/v1/artifacts/[redacted_artifact_reference]/revisions");
+    expect(pathFromUrl(`https://api.test/v1/artifacts/${newCapabilityId}/revisions`)).toBe(
+      "/v1/artifacts/[redacted_artifact_reference]/revisions",
+    );
+    const fullyEncodedCapabilityId = Array.from(`${newCapabilityId}-preview`)
+      .map((character) => `%${character.charCodeAt(0).toString(16)}`)
+      .join("");
+    expect(pathFromUrl(`https://api.test/v1/artifacts/${fullyEncodedCapabilityId}/revisions`)).toBe(
+      "/v1/artifacts/[redacted_artifact_reference]/revisions",
+    );
     expect(sanitizeString("capability=ilou0-ilou0-ilou0-ilou0")).toBe("capability=ilou0-ilou0-ilou0-ilou0");
   });
 

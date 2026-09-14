@@ -2,6 +2,7 @@ import { Mebibytes } from "./common.js";
 import { UploadSessionStatus } from "./enums.js";
 import {
   ArtifactId,
+  ArtifactReference,
   FilePath,
   IsoDateTime,
   PlainTextTitle,
@@ -51,7 +52,7 @@ export type UploadSessionFileInput = z.infer<typeof UploadSessionFileInput>;
 // base, patch base_sha256 matches the base file) run server-side at finalize.
 export const CreateUploadSessionRequest = z
   .object({
-    artifact_id: ArtifactId.optional(),
+    artifact_id: ArtifactReference.optional(),
     base_revision_id: RevisionId.optional(),
     title: PlainTextTitle,
     entrypoint: FilePath,

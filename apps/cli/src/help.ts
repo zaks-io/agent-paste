@@ -6,9 +6,9 @@ Usage:
   agent-paste login [--device-code]
   agent-paste logout
   agent-paste whoami [--json]
-  agent-paste publish <path> [--artifact-id <id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ephemeral] [--claim-code <clm_...>] [--json]
-  agent-paste pull <artifact-id> <remote-path> [--revision-id <id>] [--json]
-  agent-paste edit <artifact-id> <path> [--edits <file>] [--json]
+  agent-paste publish <path> [--artifact-id <url-or-id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ephemeral] [--claim-code <clm_...>] [--json]
+  agent-paste pull <artifact-url-or-id> <remote-path> [--revision-id <id>] [--json]
+  agent-paste edit <artifact-url-or-id> <path> [--edits <file>] [--json]
   agent-paste version [--json]
   agent-paste upgrade [<tag>]
 
@@ -22,7 +22,7 @@ Agent publish quick path:
      Return claim_url when the user wants to keep it.
 
 Every publish returns one top-level Artifact URL. It opens without login and
-stays stable when you revise the same Artifact with --artifact-id.
+stays stable when you pass that URL to --artifact-id, pull, or edit.
 
 Output:
   --json        Machine-readable JSON on stdout (stable, carries schema_version).
@@ -39,14 +39,14 @@ files omit body and can be fetched from that URL. <remote-path> is relative to
 the Artifact root, not a local destination.
 
 Usage:
-  agent-paste pull <artifact-id> <remote-path> [--revision-id <id>] [--json]
+  agent-paste pull <artifact-url-or-id> <remote-path> [--revision-id <id>] [--json]
 
 Recipes:
   Save a remote file locally:
-    agent-paste pull <artifact-id> index.html > ./index.html
+    agent-paste pull https://<artifact-host>.agent-paste.link/ index.html > ./index.html
 
   Hash a remote file without saving it:
-    agent-paste pull <artifact-id> index.html | shasum -a 256
+    agent-paste pull https://<artifact-host>.agent-paste.link/ index.html | shasum -a 256
 `;
 
 export const PUBLISH_HELP_TEXT = `agent-paste publish help
@@ -62,7 +62,7 @@ Recipes:
     agent-paste publish <path> --json
 
   Revise an existing Artifact at the same URL:
-    agent-paste publish <path> --artifact-id <artifact_id> --json
+    agent-paste publish <path> --artifact-id https://<artifact-host>.agent-paste.link/ --json
 
   Accountless 24-hour publish:
     agent-paste publish <path> --ephemeral --json
@@ -90,8 +90,8 @@ Path behavior:
   index.md, README.md, then the only file. A multi-file directory without an
   inferred entrypoint fails; pass --entrypoint <path>.
 
-  --artifact-id Revise an EXISTING Artifact. The same url shows the newest
-                Published Revision on refresh.
+  --artifact-id Revise an EXISTING Artifact by URL, bare subdomain, or ID.
+                Pass the URL when available. It shows the newest Published Revision.
   --title       Set the Artifact title.
   --entrypoint  Override the entrypoint file within <path>.
   --render-mode html | markdown | text | image | audio | video

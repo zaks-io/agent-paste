@@ -1,5 +1,12 @@
 import { AgentPasteError } from "@agent-paste/api-client";
-import { ArtifactId, FilePath, PlainTextTitle, RenderMode, type UsagePolicy } from "@agent-paste/contracts";
+import {
+  type ArtifactId,
+  ArtifactReference,
+  FilePath,
+  PlainTextTitle,
+  RenderMode,
+  type UsagePolicy,
+} from "@agent-paste/contracts";
 import { type Parsed, requiredArg, stringFlag } from "./cli-args.js";
 import {
   inferPublishOptions,
@@ -14,7 +21,7 @@ export type PublishPreflight = {
   inputPath: string;
   files: LocalFile[];
   inferred: ReturnType<typeof inferPublishOptions>;
-  artifactId: ArtifactId | undefined;
+  artifactId: ArtifactReference | undefined;
   explicitRenderMode: RenderMode | undefined;
   usagePolicy: UsagePolicy;
 };
@@ -23,7 +30,9 @@ export type PreparedPublish = Omit<PublishPreflight, "files"> & { files: LocalFi
 
 type PreparePublishOptions = {
   allowArtifactId: boolean;
-  resolveExistingTitle?: (artifactId: ArtifactId) => Promise<string>;
+  resolveExistingArtifact?: (
+    artifactReference: ArtifactReference,
+  ) => Promise<{ artifactId: ArtifactId; title: string }>;
 } & (
   | { usagePolicy: UsagePolicy; resolveUsagePolicy?: never }
   | { usagePolicy?: never; resolveUsagePolicy: () => Promise<UsagePolicy> }
@@ -38,7 +47,7 @@ export async function preparePublish(parsed: Parsed, options: PreparePublishOpti
   if (options.allowArtifactId && stringFlag(parsed, "claim-code") !== undefined) {
     throw invalidRequest("--claim-code requires --ephemeral");
   }
-  const artifactId = artifactIdFlag === undefined ? undefined : parseArtifactId(artifactIdFlag);
+  const artifactReference = artifactIdFlag === undefined ? undefined : parseArtifactReference(artifactIdFlag);
   const renderModeFlag = stringFlag(parsed, "render-mode");
   const explicitRenderMode = renderModeFlag === undefined ? undefined : parseRenderMode(renderModeFlag);
   const titleFlag = stringFlag(parsed, "title");
@@ -72,8 +81,17 @@ export async function preparePublish(parsed: Parsed, options: PreparePublishOpti
   const usagePolicy = options.usagePolicy ?? (await options.resolveUsagePolicy());
   validatePublishUsage(files, usagePolicy);
 
-  if (titleFlag === undefined && artifactId !== undefined && options.resolveExistingTitle) {
-    inferred = { ...inferred, title: parseTitle(await options.resolveExistingTitle(artifactId)) };
+  let artifactId: ArtifactReference | undefined;
+  if (artifactReference !== undefined) {
+    artifactId = artifactReference;
+    if (titleFlag === undefined) {
+      if (!options.resolveExistingArtifact) {
+        throw invalidRequest("Cannot resolve the existing Artifact");
+      }
+      const existing = await options.resolveExistingArtifact(artifactReference);
+      artifactId = existing.artifactId;
+      inferred = { ...inferred, title: parseTitle(existing.title) };
+    }
   }
 
   return { inputPath, files, inferred, artifactId, explicitRenderMode, usagePolicy };
@@ -97,10 +115,10 @@ export function validatePublishUsage(files: LocalFile[], policy: UsagePolicy): v
   }
 }
 
-function parseArtifactId(value: string): ArtifactId {
-  const parsed = ArtifactId.safeParse(value);
+function parseArtifactReference(value: string): ArtifactReference {
+  const parsed = ArtifactReference.safeParse(value);
   if (!parsed.success) {
-    throw invalidRequest("--artifact-id is not a valid Artifact ID");
+    throw invalidRequest("--artifact-id must be an Artifact URL, bare subdomain, or ID");
   }
   return parsed.data;
 }

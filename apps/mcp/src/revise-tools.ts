@@ -82,7 +82,7 @@ async function addRevisionWithNewEntrypoint(
   const file = await textPublishInput(input, idempotencyKey, base.title);
   return publishViaSharedModule(deps, {
     ...file,
-    artifactId: input.artifact_id,
+    artifactId: base.artifact_id,
     baseRevisionId: base.revision_id,
   });
 }

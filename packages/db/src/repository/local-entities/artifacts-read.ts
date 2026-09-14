@@ -4,7 +4,7 @@ import { compareArtifactsForWeb } from "./artifacts-helpers.js";
 
 export function localArtifactReadMethods(
   state: LocalState,
-): Pick<Entities["artifacts"], "insert" | "findById" | "listFiltered" | "listWebPage"> {
+): Pick<Entities["artifacts"], "insert" | "findById" | "findByCapabilityId" | "listFiltered" | "listWebPage"> {
   return {
     async insert(artifact) {
       state.artifacts.set(artifact.id, artifact);
@@ -15,6 +15,13 @@ export function localArtifactReadMethods(
         return null;
       }
       return artifact;
+    },
+    async findByCapabilityId(capabilityId, workspaceId) {
+      return (
+        [...state.artifacts.values()].find(
+          (artifact) => artifact.capability_id === capabilityId && artifact.workspace_id === workspaceId,
+        ) ?? null
+      );
     },
     async listFiltered(workspaceId, status) {
       return [...state.artifacts.values()]

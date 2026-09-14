@@ -58,6 +58,8 @@ export type Env = {
   API_BASE_URL?: string;
   AGENT_AUTH_ISSUER?: string;
   CONTENT_BASE_URL?: string;
+  CONTENT_CAPABILITY_DOMAIN?: string;
+  CONTENT_CAPABILITY_HOST_SUFFIX?: string;
   CONTENT_SIGNING_SECRET?: string;
   AGENT_VIEW_SIGNING_SECRET?: string;
   UPLOAD_SIGNING_SECRET?: string;

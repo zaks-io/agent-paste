@@ -77,6 +77,7 @@ function artifactRow(input: {
   workspaceId: string;
   status: Artifact["status"];
   expiresAt: string;
+  capabilityId?: string | null;
   pinnedAt?: string | null;
   deletedAt?: string | null;
   deleteReason?: string | null;
@@ -85,7 +86,7 @@ function artifactRow(input: {
     id: input.id,
     workspace_id: input.workspaceId,
     revision_id: null,
-    capability_id: null,
+    capability_id: input.capabilityId ?? null,
     status: input.status,
     title: "demo",
     entrypoint: "index.html",
@@ -263,6 +264,25 @@ describe("postgresEntities PGlite coverage", () => {
   }, 60_000);
 
   describe.sequential("artifact cleanup SQL", () => {
+    it("finds a capability ID only inside the requested workspace", async () => {
+      const targetId = createId("art");
+      const capabilityId = "11112222333344445555666677778888";
+
+      await fixture.uow.read({ kind: "workspace", workspaceId }, async (entities) => {
+        await entities.artifacts.insert(
+          artifactRow({ id: targetId, workspaceId, status: "active", expiresAt: future, capabilityId }),
+        );
+        await expect(entities.artifacts.findByCapabilityId(capabilityId, workspaceId)).resolves.toMatchObject({
+          id: targetId,
+          workspace_id: workspaceId,
+        });
+      });
+
+      await fixture.uow.read({ kind: "workspace", workspaceId: otherWorkspaceId }, async (entities) => {
+        await expect(entities.artifacts.findByCapabilityId(capabilityId, otherWorkspaceId)).resolves.toBeNull();
+      });
+    });
+
     it("persists the first capability ID and preserves it on later attempts", async () => {
       const targetId = createId("art");
       const firstCandidate = "00112233445566778899aabbccddeeff";

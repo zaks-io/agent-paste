@@ -5,6 +5,7 @@ import type { Principal } from "@agent-paste/worker-runtime";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
 import { signAgentViewContentUrls } from "../agent-view.js";
 import { htmlAgentViewResponse, wantsHtml } from "../agent-view-html.js";
+import { resolveArtifactReference } from "../artifact-reference.js";
 import type { AppContext } from "../env.js";
 import { workspaceApiActor } from "../principals.js";
 import { createPublishCoordinator } from "../publish-coordinator.js";
@@ -24,9 +25,14 @@ export async function authenticatedAgentView(
     return getBoundResponders(context).respondError("not_authenticated");
   }
 
+  const artifactId = await resolveArtifactReference(db, actor, context.env, params.artifactId ?? "");
+  if (artifactId === null) {
+    return getBoundResponders(context).respondError("not_found");
+  }
+
   const input: { actor: ApiActor; artifactId: string; revisionId?: string; contentBaseUrl: string } = {
     actor,
-    artifactId: params.artifactId ?? "",
+    artifactId,
     contentBaseUrl: contentBaseUrl(env),
   };
   if (params.revisionId) {
@@ -37,7 +43,7 @@ export async function authenticatedAgentView(
 
   if (!view) {
     if (params.revisionId) {
-      const revisions = await db.listRevisions({ actor, artifactId: params.artifactId ?? "" });
+      const revisions = await db.listRevisions({ actor, artifactId });
       const revision = revisions?.items.find((row) => row.revision_id === params.revisionId);
       if (revision?.status === "retained") {
         return getBoundResponders(context).respondError("revision_retained");
@@ -65,7 +71,11 @@ export async function listRevisions(
   if (!actor) {
     return getBoundResponders(context).respondError("not_authenticated");
   }
-  const result = await db.listRevisions({ actor, artifactId: params.artifactId ?? "" });
+  const artifactId = await resolveArtifactReference(db, actor, context.env, params.artifactId ?? "");
+  if (artifactId === null) {
+    return getBoundResponders(context).respondError("artifact_not_found");
+  }
+  const result = await db.listRevisions({ actor, artifactId });
   return result
     ? getBoundResponders(context).respondJson(result)
     : getBoundResponders(context).respondError("artifact_not_found");
@@ -82,6 +92,10 @@ export async function publishRevision(
   if (!actor) {
     return getBoundResponders(context).respondError("not_authenticated");
   }
+  const artifactId = await resolveArtifactReference(db, actor, context.env, params.artifactId ?? "");
+  if (artifactId === null) {
+    return getBoundResponders(context).respondError("artifact_not_found");
+  }
   const waitUntil = waitUntilFor(context);
   const coordinator = createPublishCoordinator({
     db,
@@ -95,7 +109,7 @@ export async function publishRevision(
       coordinator.publishRevision({
         actor,
         idempotencyKey: guard.idempotencyKey,
-        artifactId: params.artifactId ?? "",
+        artifactId,
         revisionId: params.revisionId ?? "",
         claimCode: claimCodeFromHeader(context.req.raw.headers),
       }),

@@ -240,6 +240,8 @@ function uploadConfig() {
       API_KEY_ENV: "preview",
       API_BASE_URL: urls.api,
       CONTENT_BASE_URL: urls.content,
+      CONTENT_CAPABILITY_DOMAIN: contentCapabilityDomain,
+      CONTENT_CAPABILITY_HOST_SUFFIX: contentCapabilityHostSuffix,
       UPLOAD_BASE_URL: urls.upload,
       UPLOAD_URL_TTL_SECONDS: "900",
       AGENT_PASTE_ENV: "preview",

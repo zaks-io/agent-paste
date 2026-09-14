@@ -127,6 +127,26 @@ class MemoryDb {
     };
   }
 
+  async resolveArtifactReference(input: {
+    actor: { workspace_id: string };
+    reference: string;
+    capabilityDomain?: string;
+    capabilityHostSuffix?: string;
+  }) {
+    if (
+      input.actor.workspace_id !== this.workspace.id ||
+      input.capabilityDomain !== "artifact.test" ||
+      input.capabilityHostSuffix
+    ) {
+      return null;
+    }
+    const hostname = input.reference.startsWith("https://") ? new URL(input.reference).hostname : input.reference;
+    return hostname.toLowerCase() === "00112233445566778899aabbccddeeff.artifact.test" ||
+      hostname.toLowerCase() === "00112233445566778899aabbccddeeff"
+      ? "art_00000000000000000000000000"
+      : null;
+  }
+
   async createWorkspace() {
     return { ...this.workspace, contact_email: "user@example.com" };
   }
@@ -302,7 +322,10 @@ class MemoryDb {
 }
 
 describe("local MVP vertical slice", () => {
-  it("publishes and serves a single HTML artifact", async () => {
+  it.each([
+    "url",
+    "bare",
+  ] as const)("publishes and revises a single HTML artifact by %s reference", async (referenceKind) => {
     const db = new MemoryDb();
     const auth = {
       verifyApiKey: async (apiKey: string) =>
@@ -416,6 +439,7 @@ describe("local MVP vertical slice", () => {
     expect(publishResponse.status).toBe(200);
     const published = (await publishResponse.json()) as { url: string };
     expect(published.url).toBe("https://00112233445566778899aabbccddeeff.artifact.test");
+    const updateReference = referenceKind === "url" ? published.url : "00112233445566778899aabbccddeeff";
     const contentResponse = await contentWorker.fetch(new Request(published.url), {
       ARTIFACTS: artifacts,
       DENYLIST: new MemoryKv(),
@@ -452,7 +476,7 @@ describe("local MVP vertical slice", () => {
         method: "POST",
         headers: { ...apiHeaders, "idempotency-key": "publish-2" },
         body: JSON.stringify({
-          artifact_id: finalized.artifact_id,
+          artifact_id: updateReference,
           title: "demo v2",
           ttl_seconds: 86_400,
           entrypoint: "index.html",
@@ -469,6 +493,7 @@ describe("local MVP vertical slice", () => {
         CONTENT_SIGNING_SECRET: "content-secret",
         API_BASE_URL: "http://api.local",
         CONTENT_BASE_URL: "http://content.local",
+        CONTENT_CAPABILITY_DOMAIN: "artifact.test",
       },
     );
     expect(updateSessionResponse.status).toBe(200);
@@ -522,7 +547,7 @@ describe("local MVP vertical slice", () => {
 
     const updatePublishResponse = await apiWorker.fetch(
       new Request(
-        `http://api.local/v1/artifacts/${finalized.artifact_id}/revisions/${updateFinalized.revision_id}/publish`,
+        `http://api.local/v1/artifacts/${encodeURIComponent(updateReference)}/revisions/${updateFinalized.revision_id}/publish`,
         {
           method: "POST",
           headers: { ...apiHeaders, "idempotency-key": "publish-2" },
@@ -541,6 +566,21 @@ describe("local MVP vertical slice", () => {
       },
     );
     expect(updatePublishResponse.status).toBe(200);
+    await expect(updatePublishResponse.json()).resolves.toMatchObject({
+      artifact_id: finalized.artifact_id,
+      url: published.url,
+    });
+
+    const updatedContentResponse = await contentWorker.fetch(new Request(published.url), {
+      ARTIFACTS: artifacts,
+      DENYLIST: new MemoryKv(),
+      ...rateLimitEnv,
+      CONTENT_CAPABILITY_DOMAIN: "artifact.test",
+      CONTENT_SIGNING_SECRET: "content-secret",
+      ...artifactBytesEncryptionEnv,
+    });
+    expect(updatedContentResponse.status).toBe(200);
+    await expect(updatedContentResponse.text()).resolves.toBe("hello world!!");
 
     const updatedRevisionsResponse = await apiWorker.fetch(
       new Request(`http://api.local/v1/artifacts/${finalized.artifact_id}/revisions`, {

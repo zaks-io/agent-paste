@@ -29,7 +29,7 @@ export const mcpToolContracts = [
   {
     name: "publish_artifact",
     description:
-      "Publish a NEW text-only Artifact and return artifact_id, revision_id, and its top-level url. The URL is an unguessable capability, opens without login, and stays stable across revisions. Use this only for something not yet published. To CHANGE an existing Artifact, call add_revision with the returned artifact_id instead. Publishing an edit here creates a different Artifact on a different URL.",
+      "Publish a NEW text-only Artifact and return artifact_id, revision_id, and its top-level url. The URL is an unguessable capability, opens without login, and stays stable across revisions. Use this only for something not yet published. To CHANGE an existing Artifact, call add_revision with the published URL in artifact_id instead. Publishing an edit here creates a different Artifact on a different URL.",
     auth: "mcp_oauth",
     requiredScopes: ["publish", "read"],
     idempotency: "optional_override",
@@ -41,7 +41,7 @@ export const mcpToolContracts = [
   {
     name: "add_revision",
     description:
-      "Edit/update an EXISTING Artifact by publishing a new Revision under artifact_id. The response returns that artifact_id, the new revision_id, and the stable url. The URL shows the newest Revision on refresh, so there is no new link to send. Use this, not publish_artifact, whenever the user wants to revise, fix, or extend existing work.",
+      "Edit/update an EXISTING Artifact by publishing a new Revision. Pass its published URL, bare subdomain, or ID in artifact_id. The response returns that artifact_id, the new revision_id, and the stable url. The URL shows the newest Revision on refresh, so there is no new link to send. Use this, not publish_artifact, whenever the user wants to revise, fix, or extend existing work.",
     auth: "mcp_oauth",
     requiredScopes: ["publish", "read"],
     idempotency: "optional_override",
@@ -94,7 +94,7 @@ export const mcpToolContracts = [
   {
     name: "read_artifact",
     description:
-      "Read the latest Agent View for an Artifact after you know artifact_id; returns artifact_id, revision_id, files[].url, and optional bundle metadata without inlining file bytes.",
+      "Read the latest Agent View for an Artifact using its published URL, bare subdomain, or ID in artifact_id; returns artifact_id, revision_id, files[].url, and optional bundle metadata without inlining file bytes.",
     auth: "mcp_oauth",
     requiredScopes: ["read"],
     idempotency: "none",

@@ -175,7 +175,7 @@ describe("cli command dispatch", () => {
     expect(outputs[0]).toBe(outputs[1]);
     for (const help of outputs) {
       expect(help).toContain("agent-paste pull help");
-      expect(help).toContain("agent-paste pull <artifact-id> <remote-path>");
+      expect(help).toContain("agent-paste pull <artifact-url-or-id> <remote-path>");
       expect(help).toContain("--json");
     }
   });
@@ -477,7 +477,7 @@ describe("cli command dispatch", () => {
       expect(publish).toHaveBeenCalledWith(artifactId, revisionId, idempotencyKey, undefined);
       const out = stdoutValues(stdout).join("");
       expect(out).toContain(artifactUrl);
-      expect(out).toContain(`--artifact-id ${artifactId}`);
+      expect(out).toContain(`--artifact-id '${artifactUrl}'`);
       expect(out).not.toContain(revisionId);
       // Upload summary surfaces the count uploaded and that nothing was reused —
       // assert the facts, not the exact label/spacing/byte rendering.
@@ -811,14 +811,74 @@ describe("cli command dispatch", () => {
         putFile: vi.fn().mockResolvedValue(undefined),
       });
 
-      await main(["publish", root, "--artifact-id", artifactId], client);
+      await main(["publish", root, "--artifact-id", artifactUrl], client);
 
-      expect(getAgentView).toHaveBeenCalledWith(artifactId);
+      expect(getAgentView).toHaveBeenCalledWith(artifactUrl);
       expect(create).toHaveBeenCalledWith(
         expect.objectContaining({
           artifact_id: artifactId,
           title: "Original Report",
         }),
+        expect.stringMatching(/^cli_publish_/),
+      );
+      const manifests = path.join(configHome ?? "", "agent-paste", "manifests");
+      await expect(fs.stat(path.join(manifests, `${encodeURIComponent(artifactId)}.json`))).resolves.toBeDefined();
+      await expect(fs.stat(path.join(manifests, `${encodeURIComponent(artifactUrl)}.json`))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    } finally {
+      await removePublishFixture(root);
+    }
+  });
+
+  it.each([
+    artifactUrl,
+    "01234-56789-abcde-fghjd",
+  ])("revises by %s with an explicit title without requiring an Agent View read", async (reference) => {
+    mockStdout();
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-"));
+    try {
+      await fs.writeFile(path.join(root, "index.html"), "<h1>Hello</h1>");
+      const getAgentView = vi.fn();
+      const create = vi.fn().mockResolvedValue({
+        upload_session_id: uploadSessionId,
+        artifact_id: artifactId,
+        revision_id: revisionId,
+        status: "pending",
+        expires_at: "2026-01-01T00:00:00.000Z",
+        files: [{ status: "reused", path: "index.html" }],
+      });
+      const client = fakeClient({
+        artifacts: { getAgentView },
+        uploadSessions: {
+          create,
+          finalize: vi.fn().mockResolvedValue({
+            upload_session_id: uploadSessionId,
+            artifact_id: artifactId,
+            revision_id: revisionId,
+            status: "draft",
+            title: "Renamed",
+            entrypoint: "index.html",
+            file_count: 1,
+            size_bytes: 14,
+          }),
+        },
+        revisions: {
+          publish: vi.fn().mockResolvedValue({
+            artifact_id: artifactId,
+            revision_id: revisionId,
+            title: "Renamed",
+            url: artifactUrl,
+            expires_at: "2026-02-01T00:00:00.000Z",
+          }),
+        },
+      });
+
+      await main(["publish", root, "--artifact-id", reference, "--title", "Renamed"], client);
+
+      expect(getAgentView).not.toHaveBeenCalled();
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({ artifact_id: reference, title: "Renamed" }),
         expect.stringMatching(/^cli_publish_/),
       );
     } finally {
@@ -972,7 +1032,10 @@ describe("cli command dispatch", () => {
     }
   });
 
-  it("pull writes the file body to stdout, and --quiet does not suppress it", async () => {
+  it.each([
+    artifactUrl,
+    "01234-56789-abcde-fghjd",
+  ])("pull %s writes the file body to stdout, and --quiet does not suppress it", async (reference) => {
     const body = "line one\nline two\n";
     const contentUrl = "https://content.example.test/v/demo/notes.md";
     const readFile = vi.fn().mockResolvedValue({
@@ -987,16 +1050,16 @@ describe("cli command dispatch", () => {
     const client = fakeClient({ artifacts: { getAgentView, getRevisionAgentView: vi.fn(), readFile } });
 
     const stdout = mockStdout();
-    await main(["pull", artifactId, "notes.md"], client);
+    await main(["pull", reference, "notes.md"], client);
     expect(stdoutValues(stdout).join("")).toBe(body);
-    expect(getAgentView).toHaveBeenCalledWith(artifactId);
+    expect(getAgentView).toHaveBeenCalledWith(reference);
     expect(readFile).toHaveBeenCalledWith(artifactId, "notes.md", revisionId);
     stdout.mockRestore();
 
     // The body IS the result (cat-like), so --quiet must not suppress it — otherwise
     // `pull … --quiet > file` writes an empty file.
     const quietStdout = mockStdout();
-    await main(["pull", artifactId, "notes.md", "--quiet"], client);
+    await main(["pull", reference, "notes.md", "--quiet"], client);
     expect(stdoutValues(quietStdout).join("")).toBe(body);
     quietStdout.mockRestore();
   });
@@ -1093,10 +1156,10 @@ describe("cli command dispatch", () => {
     });
 
     const stdout = mockStdout();
-    await main(["pull", artifactId, "notes.md", "--revision-id", pinnedRevision], client);
+    await main(["pull", artifactUrl, "notes.md", "--revision-id", pinnedRevision], client);
 
     expect(stdoutValues(stdout).join("")).toBe("hello");
-    expect(getRevisionAgentView).toHaveBeenCalledWith(artifactId, pinnedRevision);
+    expect(getRevisionAgentView).toHaveBeenCalledWith(artifactUrl, pinnedRevision);
     expect(readFile).toHaveBeenCalledWith(artifactId, "notes.md", pinnedRevision);
     stdout.mockRestore();
   });

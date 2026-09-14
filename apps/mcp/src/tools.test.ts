@@ -7,6 +7,7 @@ const auth = { tokenSub: "user_01" };
 const ARTIFACT_ID = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const REVISION_ID = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const UPLOAD_SESSION_ID = "upl_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
+const ARTIFACT_URL = "https://0123456789abcdef0123456789abcdef.agent-paste.link/";
 
 /**
  * An upload binding that answers the publish sequence: uploadSessions.create
@@ -475,7 +476,7 @@ describe("callMcpTool", () => {
     const upload = uploadMockForPublish();
     const result = await callMcpTool(
       "add_revision",
-      { artifact_id: ARTIFACT_ID, body: "next body", render_mode: "text" },
+      { artifact_id: ARTIFACT_URL, body: "next body", render_mode: "text" },
       auth,
       { api, upload, tokenSub: "token-write-read", jsonRpcId: 43 },
     );
@@ -490,6 +491,8 @@ describe("callMcpTool", () => {
     expect(createBody.artifact_id).toBe(ARTIFACT_ID);
     expect(createBody.base_revision_id).toBe(REVISION_ID);
     expect(createBody.title).toBe("Original Title");
+    expect(decodeURIComponent(new URL(routeCall(api, 0).url).pathname)).toContain(ARTIFACT_URL);
+    expect(decodeURIComponent(new URL(routeCall(api, 1).url).pathname)).toContain(ARTIFACT_ID);
   });
 
   it("add_revision is a no-op when the new body matches the stored bytes, echoing the stable link", async () => {
@@ -503,13 +506,14 @@ describe("callMcpTool", () => {
     const upload = uploadMockForPublish();
     const result = await callMcpTool(
       "add_revision",
-      { artifact_id: ARTIFACT_ID, body: "same body", render_mode: "text" },
+      { artifact_id: ARTIFACT_URL, body: "same body", render_mode: "text" },
       auth,
       { api, upload, tokenSub: "token-write-read", jsonRpcId: 44 },
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.result).toMatchObject({
+        artifact_id: ARTIFACT_ID,
         title: "Original Title",
         url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
       });

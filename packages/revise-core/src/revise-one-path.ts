@@ -160,11 +160,12 @@ async function reviseAttempt(
   computeNextText: (baseBody: string) => string,
 ): Promise<ReviseResult> {
   const base = await deps.reader.readArtifact(artifactId);
+  const canonicalArtifactId = base.artifact_id;
   if (!base.files.some((file) => file.path === path)) {
     throw new ReviseError("path_not_in_base", `${path}: not in the base revision`);
   }
 
-  const file = await deps.reader.readFile(artifactId, path, base.revision_id);
+  const file = await deps.reader.readFile(canonicalArtifactId, path, base.revision_id);
   if (file.is_binary || file.body === undefined) {
     throw new ReviseError("base_not_text", `${path}: base is binary or too large to edit`);
   }
@@ -177,7 +178,7 @@ async function reviseAttempt(
   }
 
   const publishInput = await buildPublishInput({
-    artifactId,
+    artifactId: canonicalArtifactId,
     base,
     path,
     file,

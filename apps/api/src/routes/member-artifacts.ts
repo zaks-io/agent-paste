@@ -1,6 +1,7 @@
 import type { Repository } from "@agent-paste/db";
 import type { Principal } from "@agent-paste/worker-runtime";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
+import { resolveArtifactReference } from "../artifact-reference.js";
 import { runPostCommitArtifactDeletionInvalidation } from "../deletion-invalidation.js";
 import type { AppContext } from "../env.js";
 import { parsePagination } from "../pagination.js";
@@ -34,7 +35,10 @@ export async function deleteMemberArtifactRoute(
   if (!actor) {
     return getBoundResponders(context).respondError("not_authenticated");
   }
-  const artifactId = context.req.param("artifact_id") ?? "";
+  const artifactId = await resolveArtifactReference(db, actor, context.env, context.req.param("artifact_id") ?? "");
+  if (artifactId === null) {
+    return getBoundResponders(context).respondError("artifact_not_found");
+  }
   const idempotencyKey = guard.idempotencyKey ?? `mcp-delete:${artifactId}`;
   const env = context.env;
   return runIdempotent(context, async () => {
@@ -66,10 +70,14 @@ export async function updateDisplayMetadataRoute(
     return getBoundResponders(context).respondError("not_authenticated");
   }
   const body = guard.body;
+  const artifactId = await resolveArtifactReference(db, actor, context.env, context.req.param("artifact_id") ?? "");
+  if (artifactId === null) {
+    return getBoundResponders(context).respondError("artifact_not_found");
+  }
   return executeRepositoryRoute(context, () =>
     db.updateArtifactDisplayMetadata({
       actor,
-      artifactId: context.req.param("artifact_id") ?? "",
+      artifactId,
       title: body.title,
     }),
   );

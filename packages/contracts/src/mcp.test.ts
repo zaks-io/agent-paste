@@ -18,6 +18,7 @@ import {
   mcpTokenHasRequiredScopes,
   mcpToolContractByName,
   mcpToolContracts,
+  mcpToolInputSchemas,
   mcpToolOutputSchemas,
   mcpWwwAuthenticateHeader,
   resolveMcpForwardedCall,
@@ -28,6 +29,24 @@ import { IdempotencyKey } from "./primitives.js";
 import { routeContractById } from "./routes.js";
 
 describe("MCP tool registry", () => {
+  it.each([
+    "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
+    "01234-56789-abcde-fghjd",
+  ])("accepts reference %s in every existing artifact input", (artifact_id) => {
+    const inputs = {
+      add_revision: { artifact_id, body: "updated", render_mode: "text" },
+      multi_edit: { artifact_id, path: "index.txt", edits: [{ old_string: "old", new_string: "new" }] },
+      read_artifact: { artifact_id },
+      read_file: { artifact_id, path: "index.txt" },
+      list_revisions: { artifact_id },
+      delete_artifact: { artifact_id },
+      update_display_metadata: { artifact_id, title: "Updated title" },
+    } as const;
+    for (const name of Object.keys(inputs) as (keyof typeof inputs)[]) {
+      expect(mcpToolInputSchemas[name].safeParse(inputs[name]).success).toBe(true);
+    }
+  });
+
   it("registers the ADR 0061 tools in snake_case", () => {
     expect(mcpToolContracts.map((tool) => tool.name)).toEqual([
       "publish_artifact",
@@ -64,6 +83,7 @@ describe("MCP tool registry", () => {
     for (const toolName of ["publish_artifact", "add_revision", "multi_edit"] as const) {
       expect(mcpToolOutputSchemas[toolName].safeParse(output).success).toBe(true);
       expect(mcpToolOutputSchemas[toolName].safeParse({ ...output, artifact_id: undefined }).success).toBe(false);
+      expect(mcpToolOutputSchemas[toolName].safeParse({ ...output, artifact_id: output.url }).success).toBe(false);
       expect(mcpToolOutputSchemas[toolName].safeParse({ ...output, revision_id: undefined }).success).toBe(false);
       expect(mcpToolOutputSchemas[toolName].safeParse({ ...output, url: undefined }).success).toBe(false);
     }

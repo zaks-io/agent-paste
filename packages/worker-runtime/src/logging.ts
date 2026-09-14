@@ -1,4 +1,4 @@
-import { CONTENT_CAPABILITY_ID_PATTERN_SOURCE } from "@agent-paste/tokens";
+import { CONTENT_CAPABILITY_ID_PATTERN_SOURCE, isContentCapabilityId } from "@agent-paste/tokens";
 import * as Sentry from "@sentry/cloudflare";
 
 export type WorkerLogLevel = "info" | "warn" | "error" | "fatal";
@@ -267,9 +267,34 @@ export function pathFromUrl(raw: string): string {
 
 function redactSensitivePath(path: string): string {
   return path
+    .replace(/(\/v1\/artifacts\/)([^/]+)(?=\/|$)/giu, (match, prefix: string, segment: string) => {
+      return isSensitiveArtifactReferenceSegment(segment) ? `${prefix}[redacted_artifact_reference]` : match;
+    })
+    .replace(CONTENT_CAPABILITY_ID_GLOBAL_PATTERN, "[redacted_capability_id]")
     .replace(/^\/v\/[^/]+(?=\/|$)/u, "/v/[redacted_content_token]")
     .replace(/^\/b\/[^/]+(?=\/|$)/u, "/b/[redacted_content_token]")
     .replace(/^\/v1\/public\/agent-view\/[^/]+(?=\/|$)/u, "/v1/public/agent-view/[redacted_agent_view_token]");
+}
+
+function isSensitiveArtifactReferenceSegment(segment: string): boolean {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(segment);
+  } catch {
+    return false;
+  }
+  if (/^https:\/\//iu.test(decoded)) {
+    return true;
+  }
+
+  const normalized = decoded.toLowerCase();
+  if (isContentCapabilityId(normalized)) {
+    return true;
+  }
+  return [23, 32].some((length) => {
+    const capabilityId = normalized.slice(0, length);
+    return isContentCapabilityId(capabilityId) && normalized.charAt(length) === "-";
+  });
 }
 
 function errorMessage(error: unknown): string {
