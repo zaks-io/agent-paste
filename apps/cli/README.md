@@ -21,7 +21,7 @@ npx @zaks-io/agent-paste publish ./report
 
 The URL opens without login and stays the same across updates. Its artifact ID
 is the first label of the hostname; `--artifact-id`, `pull`, and `edit` accept
-the ID or the full URL. Updates require Workspace access.
+that ID, the `art_...` `artifact_id` from JSON output, or the full URL. Updates require Workspace access.
 
 The npm package requires Node.js 24. Without a global install, prefix commands
 with `npx @zaks-io/agent-paste`.

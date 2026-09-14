@@ -82,8 +82,8 @@ returns `invalid_request` (HTTP 400) naming the edit index, so re-read with
 ## Scopes
 
 OAuth authenticates the user; scopes come from the Workspace Member record in
-`api`, not from the OAuth token. `read` covers `whoami`, `list_artifacts`,
-`read_artifact`, `read_file`, and `list_revisions`. Publishing tools need `publish`
+`api`, not from the OAuth token. `whoami` needs no scope. `read` covers
+`list_artifacts`, `read_artifact`, `read_file`, and `list_revisions`. Publishing tools need `publish`
 and `read`; `delete_artifact` and `update_display_metadata` need `publish`. Normal
 members hold both. `admin` exists but no MCP tool needs it.
 

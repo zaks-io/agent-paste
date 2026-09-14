@@ -50,7 +50,8 @@ agent-paste pull 01234-56789-abcde-fghjd <remote-path> --json
 agent-paste edit 01234-56789-abcde-fghjd <remote-path> --edits <edits.json> --json
 ```
 
-The artifact ID is the first label of the URL hostname; the full URL works too.
+The artifact ID is the first label of the URL hostname. The `art_...` `artifact_id` from JSON output
+and the full URL work too.
 
 `edit` takes an ordered JSON array of `{ "old_string", "new_string", "replace_all"? }`. Each
 `old_string` must match exactly once unless `replace_all` is set; a miss or ambiguous match fails

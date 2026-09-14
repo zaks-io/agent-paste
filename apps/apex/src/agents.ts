@@ -42,7 +42,8 @@ npx @zaks-io/agent-paste publish ./path --artifact-id 01234-56789-abcde-fghjd --
 \`\`\`
 
 The artifact ID is the first label of the URL hostname. \`--artifact-id\`,
-\`pull\`, and \`edit\` accept the ID or the full URL.
+\`pull\`, and \`edit\` accept that ID, the \`art_...\` \`artifact_id\` from JSON
+output, or the full URL.
 
 When login is unavailable, or the user asks for accountless publishing:
 

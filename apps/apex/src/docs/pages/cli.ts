@@ -57,7 +57,7 @@ export const CLI_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "The returned `url` opens without login and stays the same across updates. Its artifact ID is the first label of the hostname; `--artifact-id`, `pull`, and `edit` accept the ID or the full URL. Updates require Workspace access.",
+          text: "The returned `url` opens without login and stays the same across updates. Its artifact ID is the first label of the hostname; `--artifact-id`, `pull`, and `edit` accept that ID, the `art_...` `artifact_id` from JSON output, or the full URL. Updates require Workspace access.",
         },
         {
           kind: "code",

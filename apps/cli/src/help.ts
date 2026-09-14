@@ -23,7 +23,7 @@ Agent quick path:
 
 Every publish returns one URL that opens without login and stays the same
 across updates. Its artifact ID is the first label of the hostname; --artifact-id,
-pull, and edit accept the ID or the full URL.
+pull, and edit accept that ID, the art_... artifact_id from --json, or the full URL.
 
 Output:
   --json        One machine-readable object on stdout, with schema_version.
