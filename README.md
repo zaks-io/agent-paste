@@ -61,14 +61,16 @@ Expected output:
   Expires   <expiration date>
   Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached
 
-  Update    npx @zaks-io/agent-paste publish ./report --artifact-id art_01H...
+  Update    npx @zaks-io/agent-paste publish ./report --artifact-id https://01234-56789-abcde-fghjd.agent-paste.link/
             (revises this Artifact; the same link shows the latest revision)
 
   → open https://01234-56789-abcde-fghjd.agent-paste.link/
 ```
 
 Publishing with `--artifact-id` revises the existing Artifact. Its URL stays the
-same and shows the latest Published Revision on refresh.
+same and shows the latest Published Revision on refresh. Pass the published URL,
+its bare subdomain `01234-56789-abcde-fghjd`, or an existing `art_...` ID.
+Updates require authentication for the owning Workspace.
 
 ## Use it with your agent
 

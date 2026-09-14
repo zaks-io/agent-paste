@@ -199,10 +199,13 @@ Text-only artifact operations per ADR 0061 plus ADR 0090/0091 read/edit parity:
 Binary uploads, multi-file artifacts, bundle download, and lockdown controls
 remain CLI/REST/dashboard territory.
 
-`publish_artifact` and `add_revision` return one `url`. It opens the Artifact
+`publish_artifact`, `add_revision`, and `multi_edit` return one `url`. It opens the Artifact
 directly at the root of its isolated capability subdomain. There is no app
 viewer, iframe, visibility input, or second sharing step. The MCP result returns
-`artifact_id` and `revision_id` with the URL for immediate follow-up work.
+`artifact_id` and `revision_id` with the URL for immediate follow-up work. Every
+MCP `artifact_id` input accepts the published HTTPS URL, bare subdomain, or
+existing ID. Agents handed a URL can reuse it directly without an ID lookup;
+updates still require authentication for the owning Workspace.
 
 ### Publish retries
 

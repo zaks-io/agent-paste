@@ -13,7 +13,7 @@ npx @zaks-io/agent-paste publish ./report
   Expires   <expiration date>
   Upload    3/3 uploaded, 0 reused · 42 KB sent, 0 B cached
 
-  Update    npx @zaks-io/agent-paste publish ./report --artifact-id art_01H...
+  Update    npx @zaks-io/agent-paste publish ./report --artifact-id https://01234-56789-abcde-fghjd.agent-paste.link/
             (revises this Artifact; the same link shows the latest revision)
 
   → open https://01234-56789-abcde-fghjd.agent-paste.link/
@@ -21,7 +21,9 @@ npx @zaks-io/agent-paste publish ./report
 
 The returned URL opens top-level without login. There is no iframe, viewer
 wrapper, or visibility command. Revising with `--artifact-id` keeps the URL and
-updates the website shown there.
+updates the website shown there. Pass the published HTTPS URL, its bare subdomain
+`01234-56789-abcde-fghjd`, or an existing `art_...` ID. `pull` and `edit` accept
+the same forms. Updates require authentication for the owning Workspace.
 
 ## Migrating to 0.2
 
@@ -72,19 +74,19 @@ The npm package requires Node.js 24.
 
 ## Commands
 
-| Command                                                | Purpose                                              |
-| ------------------------------------------------------ | ---------------------------------------------------- |
-| `agent-paste login`                                    | Authenticate through browser PKCE.                   |
-| `agent-paste login --device-code`                      | Authenticate from a sandbox or remote shell.         |
-| `agent-paste logout`                                   | Remove the stored CLI session.                       |
-| `agent-paste whoami --json`                            | Report authentication, Workspace, actor, and scopes. |
-| `agent-paste publish <path>`                           | Publish a new Artifact website.                      |
-| `agent-paste publish <path> --artifact-id <id>`        | Revise an Artifact at the same URL.                  |
-| `agent-paste publish <path> --ephemeral`               | Accountless 24-hour publish.                         |
-| `agent-paste pull <artifact-id> <remote-path>`         | Read one file; see pull help for output and URLs.    |
-| `agent-paste edit <artifact-id> <path> --edits <file>` | Apply literal edits and publish a Revision.          |
-| `agent-paste version`                                  | Print the installed version.                         |
-| `agent-paste upgrade`                                  | Install a selected release tag.                      |
+| Command                                                   | Purpose                                              |
+| --------------------------------------------------------- | ---------------------------------------------------- |
+| `agent-paste login`                                       | Authenticate through browser PKCE.                   |
+| `agent-paste login --device-code`                         | Authenticate from a sandbox or remote shell.         |
+| `agent-paste logout`                                      | Remove the stored CLI session.                       |
+| `agent-paste whoami --json`                               | Report authentication, Workspace, actor, and scopes. |
+| `agent-paste publish <path>`                              | Publish a new Artifact website.                      |
+| `agent-paste publish <path> --artifact-id <artifact-url>` | Revise an Artifact at the same URL.                  |
+| `agent-paste publish <path> --ephemeral`                  | Accountless 24-hour publish.                         |
+| `agent-paste pull <artifact-url> <remote-path>`           | Read one file; see pull help for output and URLs.    |
+| `agent-paste edit <artifact-url> <path> --edits <file>`   | Apply literal edits and publish a Revision.          |
+| `agent-paste version`                                     | Print the installed version.                         |
+| `agent-paste upgrade`                                     | Install a selected release tag.                      |
 
 Run `agent-paste help publish` for the full agent-oriented publish guide.
 Run `agent-paste help pull` for remote-path and local redirection examples.
