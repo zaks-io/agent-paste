@@ -81,7 +81,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --strict-peer-dependencies
 
-      # --conditions=types resolves @agent-paste/* workspace deps to their TS
+      # --conditions=source resolves @agent-paste/* workspace deps to their TS
       # source (mirrors apps/cli/build.mjs), so no pre-compile of workspace pkgs.
       - name: Compile binary
         working-directory: apps/cli
@@ -101,7 +101,7 @@ jobs:
           # actually ships. Platform-independent, so one leg's metafile suffices.
           bun build src/index.ts \
             --compile \
-            --conditions=types \
+            --conditions=source \
             --define __AGENT_PASTE_CLI_VERSION__="\"$VERSION\"" \
             --target="$BUN_TARGET" \
             --outfile "$ASSET" \
@@ -113,7 +113,7 @@ jobs:
 
       # Generate the SBOM from the bundler metafile so it lists exactly the deps
       # compiled into the binary (workspace pkgs bundled from TS source + the
-      # external closure: zod, @asteasolutions/zod-to-openapi) — not the whole
+      # external closure, including zod) — not the whole
       # monorepo and not hollow. The closure is platform-independent, so generate
       # it once on the linux-x64 leg. CycloneDX is grype-scannable.
       - name: Generate SBOM from bundle (CycloneDX)

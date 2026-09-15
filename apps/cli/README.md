@@ -118,5 +118,5 @@ detection.
 Exit codes: `0` success, `1` generic, `2` authentication, `3` quota, `4`
 validation, `5` not found, `6` network or server failure.
 
-The package bundles its application code into `dist/index.js` with one pinned
-runtime dependency, `@openclaw/fs-safe`, for root-bounded local reads.
+The package bundles its JavaScript into `dist/index.js`. npm installs the
+matching platform-native filesystem helper for root-bounded local reads.

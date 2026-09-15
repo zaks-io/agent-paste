@@ -1,7 +1,7 @@
+import * as z from "zod";
 import { AccessLinkPublicId } from "./accessLinks.js";
 import { ArtifactId, PlainTextTitle, RevisionId, UrlString } from "./primitives.js";
 import { RenderMode } from "./revisions.js";
-import { z } from "./zod.js";
 
 // Dormant migration contract for the removed iframe viewer. No current API or
 // web route authorizes or consumes this stream.

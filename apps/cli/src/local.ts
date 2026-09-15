@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { inferRenderModeFromEntrypoint, Mebibytes, type RenderMode, type UsagePolicy } from "@agent-paste/contracts";
+import { Mebibytes } from "@agent-paste/contracts/common";
+import { inferRenderModeFromEntrypoint } from "@agent-paste/contracts/render-mode";
+import type { RenderMode } from "@agent-paste/contracts/revisions";
+import type { UsagePolicy } from "@agent-paste/contracts/workspace";
 import { contentTypeForPath } from "@agent-paste/storage";
 import { FsSafeError } from "@openclaw/fs-safe";
 import { root as openSafeRoot, type Root } from "@openclaw/fs-safe/root";

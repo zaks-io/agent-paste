@@ -1,9 +1,9 @@
+import * as z from "zod";
 import { ApiKeySummary, CreateApiKeyResponse } from "./apiKeys.js";
 import { PageInfo } from "./common.js";
 import { ActorType, OperationEventTargetType, Scope } from "./enums.js";
 import { ArtifactId, IsoDateTime, OperationEventId, RevisionId, UrlString, WorkspaceId } from "./primitives.js";
 import { UsagePolicy, WorkspaceSummary } from "./workspace.js";
-import { z } from "./zod.js";
 
 const MIN_AUTO_DELETION_DAYS = 1;
 // Static request validation is syntax-only. Repository policy enforces the

@@ -1,4 +1,4 @@
-import { z } from "./zod.js";
+import * as z from "zod";
 
 /** Suggested operator reason codes for Platform Lockdown (ADR 0040). Free-form codes remain allowed. */
 export const PLATFORM_LOCKDOWN_REASON_CODES = [

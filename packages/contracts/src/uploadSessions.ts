@@ -1,3 +1,4 @@
+import * as z from "zod";
 import { Mebibytes } from "./common.js";
 import { UploadSessionStatus } from "./enums.js";
 import {
@@ -12,7 +13,6 @@ import {
   UrlString,
 } from "./primitives.js";
 import { RenderMode } from "./revisions.js";
-import { z } from "./zod.js";
 
 // Re-exported from primitives so existing importers (@agent-paste/contracts
 // Sha256Hex) keep working; agentView.ts and artifacts.ts also need it.

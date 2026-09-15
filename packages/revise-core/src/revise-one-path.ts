@@ -1,13 +1,8 @@
 import type { PublishFile, PublishInput, PublishOutcome, PublishTransport } from "@agent-paste/api-client/publish";
-import type {
-  AgentView,
-  ArtifactFileContent,
-  ArtifactId,
-  IdempotencyKey,
-  RenderMode,
-  RevisionId,
-  Sha256Hex,
-} from "@agent-paste/contracts";
+import type { AgentView } from "@agent-paste/contracts/agent-view";
+import type { ArtifactFileContent } from "@agent-paste/contracts/artifacts";
+import type { ArtifactId, IdempotencyKey, RevisionId, Sha256Hex } from "@agent-paste/contracts/primitives";
+import type { RenderMode } from "@agent-paste/contracts/revisions";
 import { contentTypeForPath } from "@agent-paste/storage";
 import { type ApplyEditsFailure, applyEdits, type Edit } from "./apply-edits.js";
 import { diffWithSelfCheck } from "./unified-diff-gen.js";

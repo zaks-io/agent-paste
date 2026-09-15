@@ -1,7 +1,7 @@
+import * as z from "zod";
 import { Mebibytes, PageInfo } from "./common.js";
 import { ArtifactStatus } from "./enums.js";
 import { ArtifactId, FilePath, IsoDateTime, PlainTextTitle, RevisionId, Sha256Hex } from "./primitives.js";
-import { z } from "./zod.js";
 
 export const ArtifactSummary = z.object({
   id: ArtifactId,

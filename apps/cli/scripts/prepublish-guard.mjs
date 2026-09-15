@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 // Runs as `prepublishOnly`. npm/pnpm abort the publish if this exits non-zero,
@@ -46,19 +47,33 @@ if (/@agent-paste\//.test(bundle)) {
   fail("bundled dist/index.js still references @agent-paste/* workspace deps; the build did not inline them.");
 }
 
-// 4. fs-safe provides the native filesystem bindings used by npm installs.
+// 4. Bundle JavaScript; install only the exact native packages its loader expects.
 const runtimeDeps = Object.keys(pkg.dependencies ?? {});
-const unexpected = runtimeDeps.filter((name) => name !== "@openclaw/fs-safe");
-if (unexpected.length > 0) {
-  fail(`unexpected runtime dependencies (must be bundled or devDeps): ${unexpected.join(", ")}`);
+if (runtimeDeps.length > 0) {
+  fail(`unexpected runtime dependencies (must be bundled or devDeps): ${runtimeDeps.join(", ")}`);
 }
-if (!/^\d+\.\d+\.\d+$/.test(pkg.dependencies?.["@openclaw/fs-safe"] ?? "")) {
-  fail("@openclaw/fs-safe must be a pinned runtime dependency.");
+const fsSafeVersion = pkg.devDependencies?.["@openclaw/fs-safe"];
+if (!/^\d+\.\d+\.\d+$/.test(fsSafeVersion ?? "")) {
+  fail("@openclaw/fs-safe must be a pinned build dependency.");
+}
+const require = createRequire(import.meta.url);
+const fsSafe = require("@openclaw/fs-safe/package.json");
+if (fsSafe.version !== fsSafeVersion) fail("installed @openclaw/fs-safe does not match the pinned build dependency.");
+const nativeDeps = Object.fromEntries(
+  Object.entries(fsSafe.optionalDependencies).filter(([name]) => name.startsWith("@openclaw/fs-safe-")),
+);
+const optionalDeps = pkg.optionalDependencies ?? {};
+if (
+  Object.keys(nativeDeps).length === 0 ||
+  Object.keys(optionalDeps).length !== Object.keys(nativeDeps).length ||
+  Object.entries(nativeDeps).some(([name, version]) => optionalDeps[name] !== version)
+) {
+  fail("optional dependencies must match fs-safe's complete, pinned native package set.");
 }
 
 // 5. The files allowlist must ship exactly the build output and nothing stray.
 const files = pkg.files ?? [];
-for (const required of ["dist", "README.md"]) {
+for (const required of ["dist/index.js", "README.md", "LICENSE"]) {
   if (!files.includes(required)) fail(`package.json "files" must include "${required}".`);
 }
 

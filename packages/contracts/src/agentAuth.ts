@@ -1,5 +1,5 @@
 import { AGENT_AUTH_ID_JAG_ASSERTION_TYPE } from "@agent-paste/auth-md";
-import { z } from "./zod.js";
+import * as z from "zod";
 
 // The protocol URNs are defined alongside the auth.md document that documents
 // them and re-exported here so schema consumers keep one import site.

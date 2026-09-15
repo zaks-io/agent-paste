@@ -1,5 +1,5 @@
+import * as z from "zod";
 import { IsoDateTime } from "./primitives.js";
-import { z } from "./zod.js";
 
 export const BundleStatus = z.enum(["pending", "ready", "failed", "disabled"]);
 export type BundleStatus = z.infer<typeof BundleStatus>;

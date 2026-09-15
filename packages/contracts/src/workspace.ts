@@ -1,7 +1,7 @@
 import { USAGE_POLICY } from "@agent-paste/config";
+import * as z from "zod";
 import { ActorType, Scope } from "./enums.js";
 import { ApiKeyId, IsoDateTime, WorkspaceId } from "./primitives.js";
-import { z } from "./zod.js";
 
 export const UsagePolicy = z.object({
   file_size_cap_bytes: z.number().int().positive(),

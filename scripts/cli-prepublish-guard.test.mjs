@@ -6,15 +6,25 @@ import { describe, expect, it } from "vitest";
 
 describe("CLI prepublish dependency contract", () => {
   it.each([
-    ["pinned filesystem dependency", { "@openclaw/fs-safe": "0.7.2" }, 0],
-    ["missing filesystem dependency", {}, 1],
-    ["unpinned filesystem dependency", { "@openclaw/fs-safe": "^0.7.2" }, 1],
-    ["unexpected dependency", { "@openclaw/fs-safe": "0.7.2", other: "1.0.0" }, 1],
-    ["obsolete keyring dependency", { "@napi-rs/keyring": "1.0.0" }, 1],
-  ])("checks %s", (_name, dependencies, expectedStatus) => {
+    ["pinned native dependency", {}, "0.7.2", { "@openclaw/fs-safe-darwin-arm64": "0.7.2" }, 0],
+    ["missing native dependency", {}, "0.7.2", {}, 1],
+    ["mismatched native dependency", {}, "0.7.2", { "@openclaw/fs-safe-darwin-arm64": "0.7.1" }, 1],
+    ["unpinned build dependency", {}, "^0.7.2", { "@openclaw/fs-safe-darwin-arm64": "0.7.2" }, 1],
+    ["mismatched installed build dependency", {}, "0.7.1", { "@openclaw/fs-safe-darwin-arm64": "0.7.2" }, 1],
+    ["unexpected dependency", { other: "1.0.0" }, "0.7.2", { "@openclaw/fs-safe-darwin-arm64": "0.7.2" }, 1],
+    ["archive dependency", {}, "0.7.2", { "@openclaw/fs-safe-darwin-arm64": "0.7.2", tar: "7.5.22" }, 1],
+  ])("checks %s", (_name, dependencies, version, optionalDependencies, expectedStatus) => {
     const root = mkdtempSync(join(tmpdir(), "cli-prepublish-"));
     try {
       mkdirSync(join(root, "scripts"));
+      mkdirSync(join(root, "node_modules", "@openclaw", "fs-safe"), { recursive: true });
+      writeFileSync(
+        join(root, "node_modules", "@openclaw", "fs-safe", "package.json"),
+        JSON.stringify({
+          version: "0.7.2",
+          optionalDependencies: { "@openclaw/fs-safe-darwin-arm64": "0.7.2", tar: "7.5.22" },
+        }),
+      );
       copyFileSync(
         new URL("../apps/cli/scripts/prepublish-guard.mjs", import.meta.url),
         join(root, "scripts", "prepublish-guard.mjs"),
@@ -25,8 +35,10 @@ describe("CLI prepublish dependency contract", () => {
           type: "module",
           version: "1.0.0",
           license: "Apache-2.0",
-          files: ["dist", "README.md"],
+          files: ["dist/index.js", "README.md", "LICENSE"],
           dependencies,
+          devDependencies: { "@openclaw/fs-safe": version },
+          optionalDependencies,
         }),
       );
       writeFileSync(

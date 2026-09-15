@@ -264,10 +264,31 @@ for each completion. In `plain`/`json` mode no progress is emitted.
 
 ## Dependencies
 
-The published CLI has one pinned runtime dependency, `@openclaw/fs-safe`, for
-descriptor-pinned, root-bounded local file reads. The remaining code is bundled
-with esbuild. Rich output is hand-rolled ANSI in `apps/cli/src/render.ts` rather
-than a `chalk`/`ora`-style library.
+The published CLI bundles its JavaScript, including `@openclaw/fs-safe` for
+descriptor-pinned, root-bounded local file reads. Its optional dependencies are
+the exact platform-native packages declared by the pinned `fs-safe` build
+dependency. npm selects the matching platform package; the full `fs-safe`
+package and its archive dependencies are not installed for CLI users. The
+prepublish guard checks that the native package set matches the bundled version.
+
+Runtime validation remains enabled. CLI consumers import domain contracts
+without OpenAPI generation or server registries. The executable is minified
+with line wrapping, and the npm files allowlist includes only `dist/index.js`,
+README, license, and npm's package metadata. Type declarations and source maps
+are not shipped.
+
+Both npm and standalone builds use the workspace `source` export condition.
+Third-party packages resolve through their normal JavaScript exports, so their
+TypeScript declarations do not select a different runtime module format.
+
+The npm CLI bundle build enforces a 512 KiB executable limit, 8,192 lines, and 16 KiB per
+line. These leave headroom below the pinned Hermes lifecycle scanner's shared
+1 MiB, 16,384-line, and 64 KiB-per-line limits. They measure the uncompressed
+executable, not the npm tarball or native binaries. See the
+[upstream scanner](https://github.com/NousResearch/hermes-agent/blob/a7254e2d4c170725a4136591e96efc5066251d2c/cron/lifecycle_guard.py#L313).
+
+Rich output is hand-rolled ANSI in `apps/cli/src/render.ts` rather than a
+`chalk`/`ora`-style library.
 
 ## Credential storage
 

@@ -58,7 +58,7 @@ import {
   WorkspaceMemberSummary,
 } from "../web.js";
 import { UsagePolicy, WhoamiResponse } from "../workspace.js";
-import { z } from "../zod.js";
+import { z } from "../zod-openapi.js";
 
 export function registerSharedSchemas(registry: OpenAPIRegistry): void {
   registry.register("ErrorEnvelope", ErrorEnvelope);

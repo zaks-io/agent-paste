@@ -1,3 +1,4 @@
+import * as z from "zod";
 import { BundleAvailability } from "./bundle.js";
 import {
   ArtifactId,
@@ -9,7 +10,6 @@ import {
   Sha256Hex,
   UrlString,
 } from "./primitives.js";
-import { z } from "./zod.js";
 
 export const DisplayMetadata = z.object({
   title: PlainTextTitle,

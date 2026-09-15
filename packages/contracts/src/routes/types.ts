@@ -1,6 +1,6 @@
+import type * as z from "zod";
 import type { ErrorCode } from "../common.js";
 import type { Scope } from "../enums.js";
-import type { z } from "../zod.js";
 import type { RequestSchemaName, requestSchemas } from "./request-schemas.js";
 
 export type AppSurface = "api" | "upload" | "content";

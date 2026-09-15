@@ -1,5 +1,5 @@
 import { Cursor } from "../primitives.js";
-import { z } from "../zod.js";
+import { z } from "../zod-openapi.js";
 import { idempotencyKeyHeader, requestIdHeader } from "./shared.js";
 
 export const pathStringParam = (name: string, description: string) =>

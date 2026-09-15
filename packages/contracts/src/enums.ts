@@ -1,4 +1,4 @@
-import { z } from "./zod.js";
+import * as z from "zod";
 
 // In-workspace authorization: what a member may do to artifacts in their own
 // workspace. Distinct from a WorkOS "role" (platform identity — operator or not,

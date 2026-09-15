@@ -1,4 +1,5 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
+import "../zod-openapi.js";
 import { registerActorPaths } from "./api.actor.js";
 import { registerArtifactPaths } from "./api.artifacts.js";
 import { registerBillingPaths } from "./api.billing.js";

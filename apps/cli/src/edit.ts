@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import { type ApiClient, createIdempotencyKey, runPublish as runSharedPublish } from "@agent-paste/api-client";
-import { ArtifactReference, FilePath, McpEdit } from "@agent-paste/contracts";
+import { McpEdit } from "@agent-paste/contracts/mcp/edit";
+import { ArtifactReference, FilePath } from "@agent-paste/contracts/primitives";
 import { type Edit, ReviseError, reviseOnePath } from "@agent-paste/revise-core";
 import { output, outputModeFor, type Parsed, requiredArg, shellQuote, stringFlag } from "./cli-args.js";
 import { artifactUpdateReference, formatEditNoop, formatPublishResult } from "./publish-format.js";

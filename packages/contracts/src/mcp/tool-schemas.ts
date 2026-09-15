@@ -1,4 +1,4 @@
-import type { z } from "../zod.js";
+import type * as z from "zod";
 import {
   McpAddRevisionInput,
   McpDeleteArtifactInput,

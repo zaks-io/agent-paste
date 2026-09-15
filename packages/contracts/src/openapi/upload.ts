@@ -1,6 +1,7 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
+import "../zod-openapi.js";
 import { CreateUploadSessionRequest } from "../uploadSessions.js";
-import { z } from "../zod.js";
+import { z } from "../zod-openapi.js";
 import { emptyOkResponse, errorResponse, rateLimitResponse, schemaRef, standardJsonResponses } from "./responses.js";
 import { idempotencyKeyHeader, registerUploadSchemas, requestIdHeader, securitySchemes } from "./shared.js";
 

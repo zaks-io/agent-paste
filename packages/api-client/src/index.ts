@@ -1,26 +1,25 @@
+import { RevokeApiKeyResponse } from "@agent-paste/contracts/admin";
+import { AgentView } from "@agent-paste/contracts/agent-view";
+import { type CreateApiKeyRequest, CreateApiKeyResponse } from "@agent-paste/contracts/api-keys";
+import { ArtifactFileContent } from "@agent-paste/contracts/artifacts";
+import { ErrorEnvelope } from "@agent-paste/contracts/common";
+import { EphemeralProvisionResponse } from "@agent-paste/contracts/ephemeral";
+import { trimTrailingSlashes } from "@agent-paste/contracts/mcp/scopes";
+import type {
+  ArtifactId,
+  ClaimCode,
+  IdempotencyKey,
+  RevisionId,
+  UploadSessionId,
+} from "@agent-paste/contracts/primitives";
+import { type PublishRevisionRequest, RevisionListResponse } from "@agent-paste/contracts/revisions";
 import {
-  AgentView,
-  ArtifactFileContent,
-  type ArtifactId,
-  type ClaimCode,
-  type CreateApiKeyRequest,
-  CreateApiKeyResponse,
   type CreateUploadSessionRequest,
   CreateUploadSessionResponse,
-  EphemeralProvisionResponse,
-  ErrorEnvelope,
   FinalizeUploadSessionResponse,
-  type IdempotencyKey,
   PublishResult,
-  type PublishRevisionRequest,
-  type RevisionId,
-  RevisionListResponse,
-  RevokeApiKeyResponse,
-  trimTrailingSlashes,
-  type UploadSessionId,
-  UsagePolicy,
-  WhoamiResponse,
-} from "@agent-paste/contracts";
+} from "@agent-paste/contracts/upload-sessions";
+import { UsagePolicy, WhoamiResponse } from "@agent-paste/contracts/workspace";
 
 type Schema<Output> = {
   parse: (value: unknown) => Output;

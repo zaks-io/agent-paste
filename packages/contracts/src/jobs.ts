@@ -1,5 +1,5 @@
+import * as z from "zod";
 import { ArtifactId, RevisionId, WorkspaceId } from "./primitives.js";
-import { z } from "./zod.js";
 
 export const BytePurgeReason = z.enum(["deletion", "retention", "upload_cleanup"]);
 export type BytePurgeReason = z.infer<typeof BytePurgeReason>;

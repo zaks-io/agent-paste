@@ -2,9 +2,9 @@ import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { ActorType, OperationEventAction, OperationEventTargetType } from "../enums.js";
 import { WorkspaceId } from "../primitives.js";
 import { WebOperatorEventFocus } from "../web.js";
-import { z } from "../zod.js";
-import { schemaRef, standardJsonResponses } from "./responses.js";
+import { z } from "../zod-openapi.js";
 import type { ApiPathHelpers } from "./api.helpers.js";
+import { schemaRef, standardJsonResponses } from "./responses.js";
 
 /**
  * Web operator-admin OpenAPI paths, split out of `api.ts` to keep

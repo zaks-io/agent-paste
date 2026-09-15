@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { RevisionId } from "@agent-paste/contracts";
+import { RevisionId } from "@agent-paste/contracts/primitives";
 import { configDir } from "./credentials.js";
 
 // Per-artifact record of what the CLI last published, so a revise can diff the
