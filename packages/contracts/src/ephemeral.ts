@@ -1,5 +1,5 @@
+import * as z from "zod";
 import { OptionalClaimCodeInput } from "./primitives.js";
-import { z } from "./zod.js";
 
 export const EphemeralProvisionRequest = z
   .object({

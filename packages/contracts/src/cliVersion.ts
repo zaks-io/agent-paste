@@ -1,4 +1,4 @@
-import { z } from "./zod.js";
+import * as z from "zod";
 
 // `major.minor.patch` with optional `-prerelease`/`+build` (semver core). The
 // CLI compares these to its baked-in version, so a non-version string (e.g. a

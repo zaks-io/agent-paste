@@ -1,3 +1,5 @@
+import "../zod-openapi.js";
+
 export type { ApiOpenApiOptions } from "./api.js";
 export { buildApiOpenApiDocument } from "./api.js";
 export type { ContentOpenApiOptions } from "./content.js";

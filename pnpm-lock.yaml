@@ -282,10 +282,6 @@ importers:
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.12.4)(@vitest/coverage-v8@4.1.11)(jsdom@26.1.0)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.3)(yaml@2.9.0))
 
   apps/cli:
-    dependencies:
-      '@openclaw/fs-safe':
-        specifier: 0.7.2
-        version: 0.7.2
     devDependencies:
       '@agent-paste/api-client':
         specifier: workspace:*
@@ -299,6 +295,9 @@ importers:
       '@agent-paste/storage':
         specifier: workspace:*
         version: link:../../packages/storage
+      '@openclaw/fs-safe':
+        specifier: 0.7.2
+        version: 0.7.2
       esbuild:
         specifier: 0.28.1
         version: 0.28.1
@@ -308,6 +307,28 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.12.4)(@vitest/coverage-v8@4.1.11)(jsdom@26.1.0)(vite@7.3.5(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.3)(yaml@2.9.0))
+    optionalDependencies:
+      '@openclaw/fs-safe-darwin-arm64':
+        specifier: 0.7.2
+        version: 0.7.2
+      '@openclaw/fs-safe-darwin-x64':
+        specifier: 0.7.2
+        version: 0.7.2
+      '@openclaw/fs-safe-linux-arm64-gnu':
+        specifier: 0.7.2
+        version: 0.7.2
+      '@openclaw/fs-safe-linux-arm64-musl':
+        specifier: 0.7.2
+        version: 0.7.2
+      '@openclaw/fs-safe-linux-x64-gnu':
+        specifier: 0.7.2
+        version: 0.7.2
+      '@openclaw/fs-safe-linux-x64-musl':
+        specifier: 0.7.2
+        version: 0.7.2
+      '@openclaw/fs-safe-win32-x64-msvc':
+        specifier: 0.7.2
+        version: 0.7.2
 
   apps/content:
     dependencies:

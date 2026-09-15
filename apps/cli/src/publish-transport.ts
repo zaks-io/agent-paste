@@ -1,5 +1,5 @@
 import type { ApiClient, PublishTransport } from "@agent-paste/api-client";
-import { PublishResult } from "@agent-paste/contracts";
+import { PublishResult } from "@agent-paste/contracts/upload-sessions";
 
 /**
  * CLI transport for the shared publish module: a thin pass-through to the

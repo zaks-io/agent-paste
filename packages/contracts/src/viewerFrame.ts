@@ -1,4 +1,4 @@
-import { z } from "./zod.js";
+import * as z from "zod";
 
 /** postMessage `type` from viewer-framed HTML to the hosting app origin. */
 export const VIEWER_FRAME_HEIGHT_MESSAGE_TYPE = "agent-paste:viewer-height" as const;

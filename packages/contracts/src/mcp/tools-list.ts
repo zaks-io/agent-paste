@@ -1,4 +1,5 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
+import "../zod-openapi.js";
 import { mcpToolContracts } from "./registry.js";
 import { mcpToolInputSchemas } from "./tool-schemas.js";
 import type { McpToolListEntry } from "./types.js";

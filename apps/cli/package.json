@@ -23,7 +23,7 @@
   "files": [
     "LICENSE",
     "README.md",
-    "dist"
+    "dist/index.js"
   ],
   "publishConfig": {
     "access": "public"
@@ -43,11 +43,18 @@
     "@agent-paste/contracts": "workspace:*",
     "@agent-paste/revise-core": "workspace:*",
     "@agent-paste/storage": "workspace:*",
+    "@openclaw/fs-safe": "0.7.2",
     "esbuild": "^0.28.1",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
-  "dependencies": {
-    "@openclaw/fs-safe": "0.7.2"
+  "optionalDependencies": {
+    "@openclaw/fs-safe-darwin-arm64": "0.7.2",
+    "@openclaw/fs-safe-darwin-x64": "0.7.2",
+    "@openclaw/fs-safe-linux-arm64-gnu": "0.7.2",
+    "@openclaw/fs-safe-linux-arm64-musl": "0.7.2",
+    "@openclaw/fs-safe-linux-x64-gnu": "0.7.2",
+    "@openclaw/fs-safe-linux-x64-musl": "0.7.2",
+    "@openclaw/fs-safe-win32-x64-msvc": "0.7.2"
   }
 }

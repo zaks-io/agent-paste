@@ -11,16 +11,16 @@ import {
   type PublishFile,
   runPublish as runSharedPublish,
 } from "@agent-paste/api-client";
-import type { EphemeralProvisionResponse } from "@agent-paste/contracts";
+import type { EphemeralProvisionResponse } from "@agent-paste/contracts/ephemeral";
 import {
   ArtifactId,
   ArtifactReference,
   CLAIM_CODE_HEADER,
   ClaimCode,
   FilePath,
-  mvpUsagePolicy,
   RevisionId,
-} from "@agent-paste/contracts";
+} from "@agent-paste/contracts/primitives";
+import { mvpUsagePolicy } from "@agent-paste/contracts/workspace";
 import {
   booleanFlag,
   type GlobalFlags,

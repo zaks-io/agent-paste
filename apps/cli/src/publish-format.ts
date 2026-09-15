@@ -1,4 +1,4 @@
-import { ArtifactReference } from "@agent-paste/contracts";
+import { ArtifactReference } from "@agent-paste/contracts/primitives";
 import { formatBytes, hyperlink, type OutputMode, paint } from "./render.js";
 
 export type PublishResultShape = {

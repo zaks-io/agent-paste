@@ -1,6 +1,6 @@
+import * as z from "zod";
 import { PageInfo } from "./common.js";
 import { ArtifactId, FilePath, IsoDateTime, RevisionId } from "./primitives.js";
-import { z } from "./zod.js";
 
 export const RevisionStatus = z.enum(["draft", "published", "retained"]);
 export type RevisionStatus = z.infer<typeof RevisionStatus>;

@@ -1,4 +1,4 @@
-import { z } from "../zod.js";
+import * as z from "zod";
 import { MCP_JSONRPC_VERSION } from "./constants.js";
 import { McpToolErrorCode } from "./error-codes.js";
 import { McpToolName } from "./schemas.js";

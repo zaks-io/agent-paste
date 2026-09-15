@@ -1,6 +1,6 @@
 import type { ResponseConfig, ZodMediaTypeObject } from "@asteasolutions/zod-to-openapi";
 import { ErrorEnvelope } from "../common.js";
-import { z } from "../zod.js";
+import { z } from "../zod-openapi.js";
 
 const errorEnvelopeContent = {
   "application/json": { schema: ErrorEnvelope },

@@ -1,6 +1,6 @@
+import * as z from "zod";
 import { PageInfo } from "./common.js";
 import { IsoDateTime } from "./primitives.js";
-import { z } from "./zod.js";
 
 export const LockdownScope = z.enum(["workspace", "artifact"]);
 export type LockdownScope = z.infer<typeof LockdownScope>;

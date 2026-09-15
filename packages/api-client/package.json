@@ -6,10 +6,12 @@
   "type": "module",
   "exports": {
     ".": {
+      "source": "./src/index.ts",
       "types": "./src/index.ts",
       "import": "./dist/src/index.js"
     },
     "./publish": {
+      "source": "./src/publish.ts",
       "types": "./src/publish.ts",
       "import": "./dist/src/publish.js"
     }

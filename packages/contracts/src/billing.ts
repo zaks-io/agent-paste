@@ -1,6 +1,6 @@
 import { WORKSPACE_PLANS } from "@agent-paste/config";
+import * as z from "zod";
 import { IsoDateTime, UrlString } from "./primitives.js";
-import { z } from "./zod.js";
 
 export const WorkspacePlan = z.enum(WORKSPACE_PLANS);
 export type WorkspacePlan = z.infer<typeof WorkspacePlan>;

@@ -1,3 +1,5 @@
+import "./zod-openapi.js";
+
 export * from "./accessLinks.js";
 export * from "./admin.js";
 export * from "./agentAuth.js";

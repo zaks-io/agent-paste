@@ -1,12 +1,7 @@
 import { AgentPasteError } from "@agent-paste/api-client";
-import {
-  type ArtifactId,
-  ArtifactReference,
-  FilePath,
-  PlainTextTitle,
-  RenderMode,
-  type UsagePolicy,
-} from "@agent-paste/contracts";
+import { type ArtifactId, ArtifactReference, FilePath, PlainTextTitle } from "@agent-paste/contracts/primitives";
+import { RenderMode } from "@agent-paste/contracts/revisions";
+import type { UsagePolicy } from "@agent-paste/contracts/workspace";
 import { type Parsed, requiredArg, stringFlag } from "./cli-args.js";
 import {
   inferPublishOptions,

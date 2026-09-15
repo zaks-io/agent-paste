@@ -1,5 +1,5 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { z } from "../zod.js";
+import { z } from "../zod-openapi.js";
 import type { ApiPathHelpers } from "./api.helpers.js";
 import { errorResponse, jsonOk, schemaRef, standardJsonResponses } from "./responses.js";
 

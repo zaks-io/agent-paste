@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { resolveApiBaseUrl } from "@agent-paste/api-client";
-import { CliVersionResponse } from "@agent-paste/contracts";
+import { CliVersionResponse } from "@agent-paste/contracts/cli-version";
 import { configDir, ensureConfigDir } from "./credentials.js";
 import { type Channel, compareSemver, detectChannel, upgradeCommand } from "./update-check.js";
 import { CLI_VERSION } from "./version.js";

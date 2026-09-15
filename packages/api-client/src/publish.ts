@@ -1,20 +1,21 @@
 import type {
   ArtifactId,
   ArtifactReference,
-  CreateUploadSessionRequest,
-  CreateUploadSessionResponse,
   FilePath,
-  FinalizeUploadSessionResponse,
   IdempotencyKey,
   PlainTextTitle,
-  PublishResult,
-  PublishRevisionRequest,
-  RenderMode,
   RevisionId,
   Sha256Hex,
-  UploadSessionFileInput,
   UploadSessionId,
-} from "@agent-paste/contracts";
+} from "@agent-paste/contracts/primitives";
+import type { PublishRevisionRequest, RenderMode } from "@agent-paste/contracts/revisions";
+import type {
+  CreateUploadSessionRequest,
+  CreateUploadSessionResponse,
+  FinalizeUploadSessionResponse,
+  PublishResult,
+  UploadSessionFileInput,
+} from "@agent-paste/contracts/upload-sessions";
 
 /** A unified-diff patch a changed file is sent as instead of whole bytes (ADR 0090). */
 export type PublishFilePatch = {

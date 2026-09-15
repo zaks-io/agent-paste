@@ -1,5 +1,5 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
-import { z } from "../zod.js";
+import { z } from "../zod-openapi.js";
 import { artifactRateLimitResponse } from "./responses.js";
 import { registerContentSchemas, requestIdHeader, securitySchemes } from "./shared.js";
 

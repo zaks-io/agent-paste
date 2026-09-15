@@ -1,5 +1,5 @@
 import { CONTENT_CAPABILITY_ID_PATTERN_SOURCE } from "@agent-paste/tokens/content-capability-pattern";
-import { z } from "./zod.js";
+import * as z from "zod";
 
 const ulidBody = "[0-9A-HJKMNP-TV-Z]{26}";
 

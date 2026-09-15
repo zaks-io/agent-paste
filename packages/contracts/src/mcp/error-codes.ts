@@ -1,5 +1,5 @@
+import * as z from "zod";
 import { ErrorCode as ErrorCodeSchema } from "../common.js";
-import { z } from "../zod.js";
 
 export const McpProtocolErrorCode = z.enum([
   "invalid_token",

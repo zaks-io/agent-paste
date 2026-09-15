@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import { resolveApiBaseUrl } from "@agent-paste/api-client";
-import { CliVersionResponse } from "@agent-paste/contracts";
+import { CliVersionResponse } from "@agent-paste/contracts/cli-version";
 import { ensureConfigDir, updateCheckCachePath } from "./credentials.js";
 import type { GlobalFlags } from "./global-flags.js";
 import { CLI_VERSION } from "./version.js";

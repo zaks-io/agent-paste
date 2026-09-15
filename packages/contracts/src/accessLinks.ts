@@ -1,7 +1,7 @@
+import * as z from "zod";
 import { PublicAgentView } from "./agentView.js";
 import { AccessLinkId, ArtifactId, IsoDateTime, PlainTextTitle, RevisionId, UrlString } from "./primitives.js";
 import { RenderMode } from "./revisions.js";
-import { z } from "./zod.js";
 
 // Dormant migration contract. No current HTTP, MCP, CLI, or dashboard route
 // exposes Access Links; keep these shapes only while retained rows and codecs

@@ -1,3 +1,4 @@
+import * as z from "zod";
 import { AgentView, DisplayMetadata } from "../agentView.js";
 import { ArtifactFileContent, ArtifactListResponse, DeleteArtifactResponse } from "../artifacts.js";
 import { PaginationRequest } from "../common.js";
@@ -15,8 +16,10 @@ import {
 import { RevisionListResponse } from "../revisions.js";
 import { WorkspaceMemberId } from "../web.js";
 import { WorkspaceSummary } from "../workspace.js";
-import { z } from "../zod.js";
 import { MCP_DELEGATED_SCOPES } from "./constants.js";
+import { MAX_MCP_TEXT_CHARACTERS, McpEdit } from "./edit.js";
+
+export { MAX_MCP_TEXT_CHARACTERS, McpEdit } from "./edit.js";
 
 export const McpScope = z.enum(MCP_DELEGATED_SCOPES);
 export type McpScope = z.infer<typeof McpScope>;
@@ -40,10 +43,6 @@ export type McpProtectedResourceMetadata = z.infer<typeof McpProtectedResourceMe
 export const McpPublishRenderMode = z.enum(["text", "markdown", "html"]);
 export type McpPublishRenderMode = z.infer<typeof McpPublishRenderMode>;
 
-// This limit applies to each publish/revision body and each old/new edit string.
-// The complete JSON-RPC request is separately capped at 1 MiB, so multi-edit
-// callers must also keep the aggregate payload below the transport limit.
-export const MAX_MCP_TEXT_CHARACTERS = 192 * 1024;
 const mcpTextBody = z.string().min(1).max(MAX_MCP_TEXT_CHARACTERS);
 
 export const McpPublishArtifactInput = z
@@ -67,29 +66,6 @@ export const McpAddRevisionInput = z
   })
   .strict();
 export type McpAddRevisionInput = z.infer<typeof McpAddRevisionInput>;
-
-// One literal old/new replacement, the same shape as Claude's Edit/MultiEdit
-// tools. Matching is LITERAL (no regex): old_string must occur exactly once in
-// the base unless replace_all is set. Each string is bounded below the 1 MiB
-// transport ceiling so one oversize value cannot blow the request up.
-export const McpEdit = z
-  .object({
-    old_string: z
-      .string()
-      .min(1)
-      .max(MAX_MCP_TEXT_CHARACTERS)
-      .describe("Exact text to find in the file. Must match once unless replace_all is true."),
-    new_string: z
-      .string()
-      .max(MAX_MCP_TEXT_CHARACTERS)
-      .describe("Text to replace it with (may be empty to delete the match)."),
-    replace_all: z
-      .boolean()
-      .optional()
-      .describe("Replace every occurrence instead of requiring a single unique match."),
-  })
-  .strict();
-export type McpEdit = z.infer<typeof McpEdit>;
 
 export const McpMultiEditInput = z
   .object({

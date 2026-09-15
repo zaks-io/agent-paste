@@ -1,6 +1,6 @@
 import os from "node:os";
 import { ApiClient, createIdempotencyKey } from "@agent-paste/api-client";
-import { CreateApiKeyRequest } from "@agent-paste/contracts";
+import { CreateApiKeyRequest } from "@agent-paste/contracts/api-keys";
 import { isPlaceholderClientId, type LoginConfig, loadLoginConfig } from "./config.js";
 import { type Credential, type CredentialStore, credentialStore } from "./credentials.js";
 import { loginWithDeviceCode } from "./device-login.js";
