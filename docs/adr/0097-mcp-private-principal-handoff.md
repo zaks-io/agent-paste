@@ -45,9 +45,11 @@ delegating the credential or trusting an HTTP header.
 - `upload` no longer receives `WORKOS_API_KEY` or MCP issuer/JWKS configuration.
 - Scope changes and membership removal still take effect on the next tool call
   because downstream Workers resolve the current member row.
-- Production deploy smoke must include an authenticated MCP `whoami` and
-  `list_artifacts` call; a missing user OAuth smoke token fails before deployment.
-  WorkOS M2M tokens are not valid for this check because their subject is an
+- Amended 2026-09-15: production deployment uses credential-free smoke checks.
+  The original authenticated MCP deploy gate required manual replacement of
+  short-lived user OAuth tokens and was removed. Authenticated `whoami` and
+  `list_artifacts` checks remain operator-run with a current session token.
+  WorkOS M2M tokens are not valid for these checks because their subject is an
   application rather than a Workspace Member.
 - WorkOS redirect allowlists contain exact callback URIs, never wildcard hosts.
 - Each MCP publish/revision body and old/new edit string above 192 Ki characters

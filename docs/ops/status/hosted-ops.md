@@ -166,9 +166,10 @@ pnpm smoke:preview:ephemeral`
 8. Production deploy only with explicit Isaac approval:
    `pnpm migrate:production && pnpm deploy:production && pnpm smoke:production &&
 pnpm smoke:production:ephemeral && pnpm smoke:mcp:production`. The production
-   GitHub deploy workflow requires a production user OAuth smoke token before
-   any deploy step, then runs the authenticated MCP smoke after deployment. A
-   missing token or failed `whoami`/`list_artifacts` call fails the workflow.
+   GitHub deploy workflow runs `pnpm smoke:prod:readonly` after deployment,
+   including MCP metadata, OAuth challenges, and API-key rejection. It does not
+   require a stored user OAuth token. Authenticated MCP checks are operator-run
+   with a current session token.
 
 ## Hosted ephemeral publish smoke
 

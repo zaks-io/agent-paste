@@ -246,10 +246,12 @@ pnpm smoke:mcp:preview
 pnpm smoke:mcp:production
 ```
 
-Production CI reads `AGENT_PASTE_PRODUCTION_MCP_SMOKE_ACCESS_TOKEN`. The token
-must belong to a current Workspace Member. WorkOS M2M credentials cannot be used
-for this smoke because client-credentials tokens identify an application and
-organization, not a user. Replace the CI secret when the user token expires.
+Production CI runs `pnpm smoke:prod:readonly`, including MCP metadata, OAuth
+challenges, and API-key rejection. Deployment does not require a stored user
+OAuth token. Authenticated MCP smoke is an operator check using a current
+session token belonging to a Workspace Member. WorkOS M2M credentials cannot
+be used for this check because client-credentials tokens identify an
+application and organization, not a user.
 
 Obtain the smoke token by completing a normal host OAuth flow against the target
 environment, then copy the access token from the host's token store or a
