@@ -281,7 +281,7 @@ Both npm and standalone builds use the workspace `source` export condition.
 Third-party packages resolve through their normal JavaScript exports, so their
 TypeScript declarations do not select a different runtime module format.
 
-Every CLI build enforces a 512 KiB executable limit, 8,192 lines, and 16 KiB per
+The npm CLI bundle build enforces a 512 KiB executable limit, 8,192 lines, and 16 KiB per
 line. These leave headroom below the pinned Hermes lifecycle scanner's shared
 1 MiB, 16,384-line, and 64 KiB-per-line limits. They measure the uncompressed
 executable, not the npm tarball or native binaries. See the
