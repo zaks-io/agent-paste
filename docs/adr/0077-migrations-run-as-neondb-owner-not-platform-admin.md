@@ -16,7 +16,7 @@ This was found while fixing [AP-119](https://linear.app/zaks-io/issue/AP-119): a
 ## What does _not_ change
 
 - **`platform_admin` keeps its runtime role.** [ADR 0044](./0044-workspace-isolation-via-postgres-rls.md) uses `platform_admin` at request time through `withPlatformContext()` / `SET LOCAL ROLE platform_admin` for the narrow cross-tenant reads (Access Link / Agent View resolve) and the `jobs` cross-workspace sweeps. That is unaffected; this ADR is only about which role _applies migrations_, not which role serves privileged reads.
-- **`app_role` is unchanged.** Workers still reach Postgres as `app_role` (`NOBYPASSRLS`) through Hyperdrive. Migrations using the owner role do not weaken tenant RLS, which `app_role` is still subject to.
+- **`app_role` is unchanged.** Workers still reach Postgres as `app_role` (`NOBYPASSRLS`) through Hyperdrive. **Amended 2026-10-01 (AP-446):** this was the intent, not the deployed state: both hosted Hyperdrive configs connected as `neondb_owner` until 2026-10-01, and `platform_admin` is not used at runtime (platform context is the `app.platform` setting under `app_role`). Migrations using the owner role do not weaken tenant RLS, which `app_role` is still subject to.
 - **The migration tooling and expand/contract discipline** from [ADR 0007](./0007-database-migrations-and-preview-environments.md) are unchanged. Only the connecting role differs from what 0058 described.
 
 ## Considered Options
