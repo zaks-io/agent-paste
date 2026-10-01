@@ -108,17 +108,20 @@ async function assertWritableTarget(target: string): Promise<void> {
   throw alreadyExists(target);
 }
 
-// "wx" makes the no-overwrite promise atomic even if the file appears while we wait.
+// "wx" makes the no-overwrite promise atomic even if the file appears while we
+// wait. Only a file this command created is removed after a failed write.
 async function writeNewFile(target: string, bytes: Uint8Array): Promise<void> {
+  const handle = await fs.open(target, "wx").catch((error: unknown) => {
+    throw (error as { code?: string }).code === "EEXIST" ? alreadyExists(target) : error;
+  });
   try {
-    await fs.writeFile(target, bytes, { flag: "wx" });
+    await handle.writeFile(bytes);
   } catch (error) {
-    if ((error as { code?: string }).code === "EEXIST") {
-      throw alreadyExists(target);
-    }
+    await handle.close();
     await fs.rm(target, { force: true });
     throw error;
   }
+  await handle.close();
 }
 
 function alreadyExists(target: string): Error {
