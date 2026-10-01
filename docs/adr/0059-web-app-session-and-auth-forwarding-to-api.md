@@ -32,7 +32,7 @@ The `web` Worker on `app.agent-paste.sh` holds an authenticated user's WorkOS Au
 
 ### Resolving Workspace Member on each request
 
-- `api`'s auth middleware extracts the WorkOS user id from the verified JWT/resolved WorkOS identity and runs `SELECT workspace_member_id, workspace_id, scopes FROM workspace_members WHERE workos_user_id = $1` under `platform_admin` (this is the only path that legitimately needs to find a workspace before knowing which workspace to scope to). The query is bounded to that one row and that column set; it does not pull tenant data.
+- `api`'s auth middleware extracts the WorkOS user id from the verified JWT/resolved WorkOS identity and runs `SELECT workspace_member_id, workspace_id, scopes FROM workspace_members WHERE workos_user_id = $1` under `platform_admin` (amended 2026-10-01, AP-446: implemented as platform scope, `app.platform = 'on'` under `app_role`; this is the only path that legitimately needs to find a workspace before knowing which workspace to scope to). The query is bounded to that one row and that column set; it does not pull tenant data.
 - The result is attached to the request context. Subsequent middleware (scope check from [ADR 0034](./0034-unified-scope-model-across-actors.md), RLS setup from [ADR 0044](./0044-workspace-isolation-via-postgres-rls.md), audit recording from [ADR 0004](./0004-audit-state-changes-through-wrapper.md)) reads from the context rather than re-querying.
 - `workos_user_id` is the immutable join key per ADR 0055. Email or display-name changes upstream do not detach the **Workspace Member** row.
 - Workspace Member rows have a unique index on `(workos_user_id)`; lookup is sub-millisecond and adds no measurable cost.

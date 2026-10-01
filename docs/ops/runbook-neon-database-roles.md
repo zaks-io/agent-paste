@@ -4,15 +4,15 @@ Last updated: 2026-10-01.
 
 Workers reach Postgres through Hyperdrive as `app_role` (`NOBYPASSRLS`). Schema migrations and other DDL run as the Neon owner role (`neondb_owner`) from GitHub Actions only — see [ADR 0077](../adr/0077-migrations-run-as-neondb-owner-not-platform-admin.md). Migration connection strings must never be bound to Workers or Hyperdrive.
 
-> **Migration role reality ([ADR 0077](../adr/0077-migrations-run-as-neondb-owner-not-platform-admin.md)).** Although `0010_db_roles.sql` creates `platform_admin` and earlier ADRs intended it to be the migration runner, migrations actually run as `neondb_owner` in every environment, because `platform_admin` holds `GRANT ALL` but is not the _owner_ of any table and so cannot run ownership-only DDL (`ALTER TABLE`, `DROP`) — attempting it fails with `42501 must be owner of table ...`. `platform_admin` is still used at _runtime_ for the narrow cross-tenant reads and `jobs` sweeps in [ADR 0044](../adr/0044-workspace-isolation-via-postgres-rls.md). Do not set a migration URL to `platform_admin` expecting it to work.
+> **Migration role reality ([ADR 0077](../adr/0077-migrations-run-as-neondb-owner-not-platform-admin.md)).** Although `0010_db_roles.sql` creates `platform_admin` and earlier ADRs intended it to be the migration runner, migrations actually run as `neondb_owner` in every environment, because `platform_admin` holds `GRANT ALL` but is not the _owner_ of any table and so cannot run ownership-only DDL (`ALTER TABLE`, `DROP`) — attempting it fails with `42501 must be owner of table ...`. Cross-tenant reads and `jobs` sweeps do not use `platform_admin` either: they run as `app_role` with `app.platform = 'on'`, which every table's `*_platform` RLS policy admits (`packages/db/src/postgres/rls.ts`). Do not set a migration URL to `platform_admin` expecting it to work.
 
 ## Roles
 
-| Role             | RLS                        | Used by                                                               |
-| ---------------- | -------------------------- | --------------------------------------------------------------------- |
-| `app_role`       | `NOBYPASSRLS` (tenant RLS) | `api` and `upload` via Hyperdrive                                     |
-| `platform_admin` | `BYPASSRLS`                | Runtime cross-tenant reads / `jobs` sweeps (ADR 0044); not migrations |
-| `neondb_owner`   | Neon default owner         | The migration runner in every environment (ADR 0077); table owner     |
+| Role             | RLS                        | Used by                                                           |
+| ---------------- | -------------------------- | ----------------------------------------------------------------- |
+| `app_role`       | `NOBYPASSRLS` (tenant RLS) | `api`, `upload`, and `jobs` via Hyperdrive                        |
+| `platform_admin` | `BYPASSRLS`                | Not used at runtime or for migrations                             |
+| `neondb_owner`   | Neon default owner         | The migration runner in every environment (ADR 0077); table owner |
 
 Migration `packages/db/migrations/0010_db_roles.sql` creates `app_role` and `platform_admin` as separate roles. Runtime `app_role` must not receive `platform_admin` or any other privilege that would let Workers bypass tenant RLS.
 
@@ -20,14 +20,14 @@ Migration `packages/db/migrations/0010_db_roles.sql` creates `app_role` and `pla
 
 `scripts/migrate.mjs` resolves the migration URL via `packages/db/scripts/credentials.mjs`: the canonical `DATABASE_URL_MIGRATIONS_*` name wins if set, otherwise it falls back to the legacy `*_DATABASE_URL` name (logging a cosmetic deprecation warning). Production still uses the legacy `neondb_owner` URL, so that warning fires on every production migration. Preview uses the canonical name.
 
-| Variable                             | Scope        | Role / purpose                                                           |
-| ------------------------------------ | ------------ | ------------------------------------------------------------------------ |
-| `PREVIEW_DATABASE_URL`               | Preview / PR | Legacy name for the preview `neondb_owner` direct URL; not set in GitHub |
-| `PRODUCTION_DATABASE_URL`            | Production   | `neondb_owner` direct URL — the only DB secret in the `Production` env   |
-| `DATABASE_URL_MIGRATIONS_PREVIEW`    | Preview / PR | `neondb_owner` direct URL to the `preview` branch; in GitHub `Preview`   |
-| `DATABASE_URL_MIGRATIONS_PRODUCTION` | Production   | Canonical name; no such secret exists today                              |
-| `DATABASE_URL_RUNTIME_PREVIEW`       | Preview      | `app_role` direct URL when updating preview Hyperdrive                   |
-| `DATABASE_URL_RUNTIME_PRODUCTION`    | Production   | `app_role` direct URL when updating production Hyperdrive                |
+| Variable                             | Scope        | Role / purpose                                                             |
+| ------------------------------------ | ------------ | -------------------------------------------------------------------------- |
+| `PREVIEW_DATABASE_URL`               | Preview / PR | Legacy name for the preview `neondb_owner` direct URL; not set in GitHub   |
+| `PRODUCTION_DATABASE_URL`            | Production   | `neondb_owner` direct URL — the only DB secret in the `Production` env     |
+| `DATABASE_URL_MIGRATIONS_PREVIEW`    | Preview / PR | `neondb_owner` direct URL to the `preview` branch; in GitHub `Preview`     |
+| `DATABASE_URL_MIGRATIONS_PRODUCTION` | Production   | Canonical name; no such secret exists today                                |
+| `DATABASE_URL_RUNTIME_PREVIEW`       | Preview      | `app_role` pooled URL behind preview Hyperdrive; in GitHub `Preview`       |
+| `DATABASE_URL_RUNTIME_PRODUCTION`    | Production   | `app_role` direct URL behind production Hyperdrive; in GitHub `Production` |
 
 Do not point Hyperdrive at any migration URL. If a `DATABASE_URL_MIGRATIONS_*` value is set, it must point at the same Neon branch as that environment's Hyperdrive origin; the `pnpm migrate:*` pre-flight guard (`scripts/lib/hyperdrive-branch-guard.mjs`) refuses to migrate on a branch mismatch.
 
@@ -36,10 +36,10 @@ Local development (`docker-compose`) may keep using the single `DATABASE_URL` su
 ## Hosted bootstrap order
 
 1. Run migrations with the Neon `neondb_owner` direct URL so ownership-only DDL and `0010_db_roles.sql` can apply.
-2. In the Neon console, set passwords for `app_role` and `platform_admin` on the target branch (or rely on inherited branch passwords after they exist on `main`).
+2. Set the `app_role` password on the target branch with `alter role app_role password ...` as `neondb_owner`. SQL-created roles are not managed by Neon `reset_password`.
 3. Store the `neondb_owner` direct URL in GitHub Environment secrets (the migration runner per [ADR 0077](../adr/0077-migrations-run-as-neondb-owner-not-platform-admin.md)): `DATABASE_URL_MIGRATIONS_PREVIEW` in `Preview`, and `PRODUCTION_DATABASE_URL` (legacy name, still in use) in `Production`. Either must point at the same branch as that environment's Hyperdrive.
-4. Store `app_role` direct URLs locally for Hyperdrive maintenance as `DATABASE_URL_RUNTIME_*` (not required in GitHub unless a workflow updates Hyperdrive).
-5. Update each environment Hyperdrive config to the `app_role` connection string (`node scripts/create-hyperdrive.mjs` or Wrangler dashboard). Preview/production IDs live in `apps/api/wrangler.jsonc` and `apps/upload/wrangler.jsonc`.
+4. Store the `app_role` URL in the GitHub environment as `DATABASE_URL_RUNTIME_*` (pipe it into `gh secret set`; never print it).
+5. Point the environment's Hyperdrive config at `app_role` (`wrangler hyperdrive update <id> --origin-user app_role --origin-password ...`). Preview/production IDs live in `apps/api/wrangler.jsonc`, `apps/upload/wrangler.jsonc`, and `apps/jobs/wrangler.jsonc`. Verify with `wrangler hyperdrive get <id>`: `origin.user` must be `app_role`, never `neondb_owner`.
 6. Remove migration URLs from any non-migration secret stores.
 
 ## PR preview workflow
