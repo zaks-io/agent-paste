@@ -62,30 +62,10 @@ jobs:
       - name: Validate dispatch
         run: pnpm verify
 
-      # Migration needs the preview migration URL. When it is not configured in the
-      # Preview environment, skip the step rather than fail the deploy: preview schema
-      # migration stays a manual/local step until the URL is added. Detect via an env
-      # var so the secret value never reaches an `if:` expression.
-      - name: Detect preview migration URL
-        id: migrate_gate
-        env:
-          # Mirror migrationDatabaseUrlEnvName() (packages/db/scripts/credentials.mjs):
-          # migrate.mjs resolves the canonical name first, then falls back to the legacy
-          # PREVIEW_DATABASE_URL. Gating on only the canonical name would skip a migration
-          # that would actually run from the legacy URL, leaving a silently un-migrated DB.
-          DATABASE_URL_MIGRATIONS_PREVIEW: ${{ secrets.DATABASE_URL_MIGRATIONS_PREVIEW }}
-          PREVIEW_DATABASE_URL: ${{ secrets.PREVIEW_DATABASE_URL }}
-        run: |
-          set -euo pipefail
-          if [ -n "${DATABASE_URL_MIGRATIONS_PREVIEW:-}" ] || [ -n "${PREVIEW_DATABASE_URL:-}" ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No preview migration URL set (DATABASE_URL_MIGRATIONS_PREVIEW or PREVIEW_DATABASE_URL); skipping preview migration."
-          fi
-
+      # Unconditional, like Deploy Production: deploying Workers against an
+      # unmigrated database ships code that queries columns that do not exist.
+      # migrate.mjs throws when neither migration URL is set.
       - name: Migrate preview database
-        if: ${{ steps.migrate_gate.outputs.run == 'true' }}
         env:
           DATABASE_URL_MIGRATIONS_PREVIEW: ${{ secrets.DATABASE_URL_MIGRATIONS_PREVIEW }}
           PREVIEW_DATABASE_URL: ${{ secrets.PREVIEW_DATABASE_URL }}
@@ -126,9 +106,8 @@ jobs:
           STRIPE_WEBHOOK_SIGNING_SECRET: ${{ secrets.STRIPE_WEBHOOK_SIGNING_SECRET }}
           STRIPE_PRICE_ID_MONTHLY: ${{ secrets.STRIPE_PRICE_ID_MONTHLY }}
           STRIPE_PRICE_ID_ANNUAL: ${{ secrets.STRIPE_PRICE_ID_ANNUAL }}
-        # --no-migrate: migrations already ran in the gated "Migrate preview database"
-        # step above. deploy.mjs would otherwise migrate again (idempotent but redundant,
-        # and would fail when that step was skipped for a missing migration URL).
+        # --no-migrate: migrations already ran in the "Migrate preview database" step
+        # above. deploy.mjs would otherwise migrate again (idempotent but redundant).
         run: node scripts/deploy.mjs preview --no-migrate
 
       - name: Smoke preview (read-only, no credentials)
