@@ -183,8 +183,6 @@ export type AgentAuthAccessToken = {
 
 export type RevisionStatus = "draft" | "published" | "retained";
 
-export type RenderMode = "html" | "markdown" | "text" | "image" | "audio" | "video";
-
 export type BundleStatus = "pending" | "ready" | "failed" | "disabled";
 
 /** Bundle status set when a revision is first published (not replayed terminal states). */
@@ -202,7 +200,6 @@ export type Revision = {
   revision_number: number | null;
   status: RevisionStatus;
   entrypoint: string;
-  render_mode: RenderMode;
   file_count: number;
   size_bytes: number;
   bundle_status: BundleStatus;
@@ -265,8 +262,6 @@ export type UploadSession = {
   status: "pending" | "finalized" | "expired" | "failed";
   title: string;
   entrypoint: string;
-  // Explicit client-requested Render Mode; null means infer from entrypoint at finalize.
-  render_mode: RenderMode | null;
   artifact_expires_at: string;
   file_count: number;
   size_bytes: number;

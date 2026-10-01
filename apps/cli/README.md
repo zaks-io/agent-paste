@@ -62,6 +62,7 @@ Return `url`. Ephemeral output also has `claim_url` for the optional keep step.
 | `agent-paste publish <path> --ephemeral`                 | Accountless 24-hour publish.                         |
 | `agent-paste pull <artifact-id> <remote-path>`           | Read one stored file.                                |
 | `agent-paste edit <artifact-id> <path> --edits <file>`   | Apply literal edits and publish a Revision.          |
+| `agent-paste download <artifact-id> [--output <file>]`   | Save a Revision as a zip.                            |
 | `agent-paste version`                                    | Print the installed version.                         |
 | `agent-paste upgrade`                                    | Install a release tag (standalone binary).           |
 
@@ -105,9 +106,7 @@ followed only when the target stays inside the directory and is not an excluded
 path.
 
 The entrypoint is `index.html`, `index.md`, `README.md`, or the only file. Any
-other multi-file directory needs `--entrypoint <path>`. Pass
-`--render-mode html|markdown|text|image|audio|video` only when inference is
-wrong.
+other multi-file directory needs `--entrypoint <path>`.
 
 ## Output and exit behavior
 

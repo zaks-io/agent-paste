@@ -2,7 +2,7 @@
 
 Project start: 2026-05-18.
 
-Last updated: 2026-09-13 for CLI remote authentication.
+Last updated: 2026-10-01 for CLI 0.2.4 and the current production deploy.
 The deployed one-URL architecture status below was recorded on 2026-09-03. See [changelog.md](./status/changelog.md) for older shipped
 work.
 
@@ -32,9 +32,29 @@ passed for that same commit. Production readiness is commit-scoped: only call
 a release ready when CI, Security, and Deploy Production all succeed for the
 same head SHA. Independent latest runs are not proof.
 
+Production now runs commit [`780a8ce2`](https://github.com/zaks-io/agent-paste/commit/780a8ce2d222615a690b5d508d9d49a1335d16ba):
+[CI run 36908766360](https://github.com/zaks-io/agent-paste/actions/runs/36908766360),
+[Security run 36908766124](https://github.com/zaks-io/agent-paste/actions/runs/36908766124),
+and [Deploy Production run 36909034284](https://github.com/zaks-io/agent-paste/actions/runs/36909034284)
+all succeeded for it on 2026-10-01.
+
+## CLI releases
+
+The current npm release is CLI 0.2.4.
+
+- **0.2.2:** `login --device-code` for sandboxes and remote shells. 0.2.1 was
+  versioned in the repository but never published.
+- **0.2.3:** accepts an Artifact URL or bare subdomain wherever it takes an
+  artifact ID (AP-443). MCP tools accept the same references.
+- **0.2.4:** smaller npm install.
+- **Unreleased:** adds `download` to save a revision's zip bundle. Removes
+  `--render-mode`, which now fails as an unknown flag, and the
+  unknown-extension publish check it existed for. The unused `render_mode`
+  database columns are dropped by a follow-up migration.
+
 ## CLI remote authentication
 
-CLI 0.2.1 adds `agent-paste login --device-code` for sandboxes and remote
+CLI 0.2.2 adds `agent-paste login --device-code` for sandboxes and remote
 shells. On 2026-09-13 it passed repository verification and a Linux install and
 live browser-approval check through credential creation and authenticated
 `whoami`. The test credential was revoked afterward.
@@ -43,6 +63,9 @@ The [CLI login contract](../specs/cli.md#login) explains prerequisites, process
 handling, and what to do when authentication is unavailable.
 
 ## Current Product Shape
+
+The shipped feature list is [`features.md`](../specs/features.md). This section
+summarizes runtime boundaries only.
 
 - **CLI:** `agent-paste publish <path>` is the primary agent workflow. It
   returns `artifact_id`, `revision_id`, `title`, `url`, and `expires_at`.

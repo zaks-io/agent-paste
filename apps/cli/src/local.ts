@@ -2,8 +2,6 @@ import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { Mebibytes } from "@agent-paste/contracts/common";
-import { inferRenderModeFromEntrypoint } from "@agent-paste/contracts/render-mode";
-import type { RenderMode } from "@agent-paste/contracts/revisions";
 import type { UsagePolicy } from "@agent-paste/contracts/workspace";
 import { contentTypeForPath } from "@agent-paste/storage";
 import { FsSafeError } from "@openclaw/fs-safe";
@@ -27,7 +25,6 @@ export type LocalFile = {
 export type PublishInference = {
   title: string;
   entrypoint: string;
-  renderMode: RenderMode;
 };
 
 const entrypointCandidates = ["index.html", "index.md", "README.md"];
@@ -57,8 +54,7 @@ export function inferPublishOptions(
 ): PublishInference {
   const title = overrides.title ?? path.basename(path.resolve(inputPath));
   const entrypoint = overrides.entrypoint ?? inferEntrypoint(files);
-  const renderMode = overrides.renderMode ?? inferRenderMode(entrypoint);
-  return { title, entrypoint, renderMode };
+  return { title, entrypoint };
 }
 
 export function validateFilesAgainstUsagePolicy(files: LocalFile[], policy: UsagePolicy) {
@@ -93,17 +89,6 @@ function inferEntrypoint(files: LocalFile[]) {
     return onlyFile.path;
   }
   throw new Error("Could not infer entrypoint. Pass --entrypoint <path>.");
-}
-
-// Shared map with the server (contracts) so what the CLI predicts is what the
-// server stores. Unlike the server (which falls back to html for unknown
-// extensions), the CLI refuses to guess and asks for an explicit flag.
-function inferRenderMode(entrypoint: string): RenderMode {
-  const mode = inferRenderModeFromEntrypoint(entrypoint);
-  if (!mode) {
-    throw new Error(`Could not infer render mode for ${entrypoint}. Pass --render-mode <mode>.`);
-  }
-  return mode;
 }
 
 type WalkContext = {

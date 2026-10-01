@@ -48,6 +48,7 @@ claim.
 agent-paste publish <path> --artifact-id 01234-56789-abcde-fghjd --json
 agent-paste pull 01234-56789-abcde-fghjd <remote-path> --json
 agent-paste edit 01234-56789-abcde-fghjd <remote-path> --edits <edits.json> --json
+agent-paste download 01234-56789-abcde-fghjd --output <file.zip> --json
 ```
 
 The artifact ID is the first label of the URL hostname. The `art_...` `artifact_id` from JSON output
@@ -56,6 +57,9 @@ and the full URL work too.
 `edit` takes an ordered JSON array of `{ "old_string", "new_string", "replace_all"? }`. Each
 `old_string` must match exactly once unless `replace_all` is set; a miss or ambiguous match fails
 with exit 4. Re-read the file and correct the edit rather than replacing the whole file.
+
+`download` saves the revision as a zip. It waits up to a minute while the zip is built, then exits
+6; retry later.
 
 ## Safety and MCP
 

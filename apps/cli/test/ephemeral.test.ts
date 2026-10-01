@@ -116,7 +116,6 @@ describe("cli ephemeral publish", () => {
       for (const flags of [
         {},
         { entrypoint: "missing.html" },
-        { entrypoint: "page.html", "render-mode": "quicktime" },
         { entrypoint: "page.html", title: "forged\u001b[31moutput" },
       ]) {
         const provision = vi.fn().mockResolvedValue(provisionedCredentials());

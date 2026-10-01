@@ -24,7 +24,6 @@ type AgentViewRecord = {
   revision_id?: unknown;
   revision_number?: unknown;
   entrypoint?: unknown;
-  render_mode?: unknown;
   expires_at?: unknown;
   revision_content_url?: unknown;
   ephemeral_tier?: unknown;
@@ -36,13 +35,7 @@ function stripInternalAgentViewFields(
   data: AgentViewRecord,
 ): Omit<
   AgentViewRecord,
-  | "workspace_id"
-  | "capability_id"
-  | "pinned_at"
-  | "artifact_updated_at"
-  | "revision_number"
-  | "revision_content_url"
-  | "render_mode"
+  "workspace_id" | "capability_id" | "pinned_at" | "artifact_updated_at" | "revision_number" | "revision_content_url"
 > {
   const {
     workspace_id: _internalWorkspaceId,
@@ -51,7 +44,6 @@ function stripInternalAgentViewFields(
     artifact_updated_at: _internalArtifactUpdatedAt,
     revision_number: _internalRevisionNumber,
     revision_content_url: _rawRevisionContentUrl,
-    render_mode: _internalRenderMode,
     ...publicFields
   } = data;
   // Strip internal R2 object keys here too, so the early-return paths (missing

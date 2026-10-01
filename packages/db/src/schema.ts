@@ -306,6 +306,7 @@ export const uploadSessions = pgTable(
     status: text("status").notNull(),
     title: text("title").notNull(),
     entrypoint: text("entrypoint").notNull(),
+    // Unread and unwritten since Render Mode was removed; dropped by a follow-up migration.
     renderMode: text("render_mode"),
     artifactExpiresAt: timestamp("artifact_expires_at", { withTimezone: true }).notNull(),
     fileCount: integer("file_count").notNull(),
@@ -382,6 +383,7 @@ export const revisions = pgTable(
     revisionNumber: integer("revision_number"),
     status: text("status").notNull(),
     entrypoint: text("entrypoint").notNull(),
+    // Unread and unwritten since Render Mode was removed; dropped by a follow-up migration.
     renderMode: text("render_mode").notNull().default("html"),
     fileCount: integer("file_count").notNull(),
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),

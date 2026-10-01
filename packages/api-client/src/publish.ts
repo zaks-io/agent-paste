@@ -8,7 +8,7 @@ import type {
   Sha256Hex,
   UploadSessionId,
 } from "@agent-paste/contracts/primitives";
-import type { PublishRevisionRequest, RenderMode } from "@agent-paste/contracts/revisions";
+import type { PublishRevisionRequest } from "@agent-paste/contracts/revisions";
 import type {
   CreateUploadSessionRequest,
   CreateUploadSessionResponse,
@@ -45,8 +45,6 @@ export type PublishInput = {
   files: PublishFile[];
   title: PlainTextTitle;
   entrypoint: string;
-  /** Omitted => server infers from the entrypoint extension. */
-  renderMode?: RenderMode;
   /** Present => publish a new Revision on an existing Artifact. */
   artifactId?: ArtifactReference;
   /**
@@ -195,7 +193,6 @@ function buildCreateSessionRequest(input: PublishInput): CreateUploadSessionRequ
     ...(input.baseRevisionId ? { base_revision_id: input.baseRevisionId } : {}),
     title: input.title,
     entrypoint: input.entrypoint,
-    ...(input.renderMode ? { render_mode: input.renderMode } : {}),
     ...(input.deletedPaths && input.deletedPaths.length > 0 ? { deleted_paths: input.deletedPaths } : {}),
     // A patched entry omits sha256 (the contract forbids both) and carries the
     // diff descriptor; the uploaded bytes are the diff and size_bytes is its size.

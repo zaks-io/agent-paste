@@ -62,6 +62,7 @@ declare module "node:fs" {
     symlink(target: string, path: string): Promise<void>;
     chmod(path: string, mode: number): Promise<void>;
     rename(oldPath: string, newPath: string): Promise<void>;
+    open(path: string, flags: string): Promise<{ writeFile(data: Uint8Array): Promise<void>; close(): Promise<void> }>;
     unlink(path: string): Promise<void>;
     rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>;
   };

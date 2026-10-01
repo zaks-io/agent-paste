@@ -90,22 +90,6 @@ describe("signAgentViewContentUrls characterization", () => {
     expect(signed.workspace_id).toBeUndefined();
   });
 
-  it("strips render_mode from the public response", async () => {
-    const signed = (await signAgentViewContentUrls(
-      {
-        workspace_id: workspaceId,
-        artifact_id: "art_1",
-        revision_id: "rev_1",
-        entrypoint: "index.html",
-        render_mode: "markdown",
-      },
-      signingEnv,
-      { workspaceId },
-    )) as { render_mode?: string };
-
-    expect(signed.render_mode).toBeUndefined();
-  });
-
   it("returns unsigned public fields when no content signing secret is configured", async () => {
     const view = {
       workspace_id: workspaceId,

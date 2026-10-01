@@ -465,8 +465,6 @@ describe("cli command dispatch", () => {
         }),
         expect.stringMatching(/^cli_publish_/),
       );
-      // Without --render-mode the field must be omitted so the server infers it.
-      expect(create.mock.calls[0]?.[0]).not.toHaveProperty("render_mode");
       const idempotencyKey = create.mock.calls[0]?.[1];
       expect(putFile).toHaveBeenCalledWith("https://upload.test/index", expect.any(Uint8Array), {
         "content-type": "text/html; charset=utf-8",
@@ -578,7 +576,7 @@ describe("cli command dispatch", () => {
         putFile,
       });
 
-      await main(["publish", root, "--entrypoint=index.html", "--render-mode", "html", "--json"], client);
+      await main(["publish", root, "--entrypoint=index.html", "--json"], client);
 
       expect(putFile).not.toHaveBeenCalled();
       const payload = JSON.parse(stdoutValues(stdout).join("")) as {
@@ -603,7 +601,7 @@ describe("cli command dispatch", () => {
     }
   });
 
-  it("transmits render_mode only when --render-mode is passed, and rejects junk values", async () => {
+  it("rejects the removed --render-mode flag before uploading", async () => {
     mockStdout();
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-cli-"));
     try {
@@ -647,14 +645,10 @@ describe("cli command dispatch", () => {
         putFile: vi.fn().mockResolvedValue(undefined),
       });
 
-      await main(["publish", root, "--render-mode", "markdown"], client);
-      expect(create).toHaveBeenCalledWith(
-        expect.objectContaining({ render_mode: "markdown" }),
-        expect.stringMatching(/^cli_publish_/),
-      );
-
-      await expect(main(["publish", root, "--render-mode", "quicktime"], client)).rejects.toThrow();
-      expect(create).toHaveBeenCalledTimes(1);
+      await expect(main(["publish", root, "--render-mode", "markdown"], client)).rejects.toMatchObject({
+        code: "invalid_request",
+      });
+      expect(create).not.toHaveBeenCalled();
     } finally {
       await removePublishFixture(root);
     }
@@ -675,7 +669,7 @@ describe("cli command dispatch", () => {
         },
       });
 
-      await expect(main(["publish", root, "--entrypoint=index.html", "--render-mode", "html"], client)).rejects.toThrow(
+      await expect(main(["publish", root, "--entrypoint=index.html"], client)).rejects.toThrow(
         /unknown file.*missing\.html/,
       );
     } finally {

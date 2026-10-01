@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { isNotFound } from "./fs-errors.js";
 import { execEntry } from "./keychain.js";
 
 export type Credential = {
@@ -193,10 +194,6 @@ function parseCredential(raw: string): Credential | null {
     };
   }
   return null;
-}
-
-function isNotFound(error: unknown): boolean {
-  return typeof error === "object" && error !== null && (error as { code?: string }).code === "ENOENT";
 }
 
 async function rejectSymlink(filePath: string): Promise<void> {

@@ -121,7 +121,7 @@ describe("upload worker", () => {
     expect(fileExpiresAtMs).toBeLessThan(Date.parse(session.expires_at));
   });
 
-  it("forwards an explicit render_mode to the repository and omits it when absent", async () => {
+  it("drops render_mode sent by CLI 0.2.4 and older instead of rejecting the publish", async () => {
     const session: UploadSessionRecord = {
       session_id: "upl_1",
       workspace_id: "00000000-0000-4000-8000-000000000001",
@@ -167,19 +167,14 @@ describe("upload worker", () => {
         env,
       );
 
-    const explicit = await post({ ...createUploadRequestBody(), render_mode: "markdown" }, "idem-explicit");
-    expect(explicit.status).toBe(200);
-    expect(createUploadSession).toHaveBeenLastCalledWith(
-      expect.objectContaining({ request: expect.objectContaining({ render_mode: "markdown" }) }),
-    );
-
-    const absent = await post(createUploadRequestBody(), "idem-absent");
-    expect(absent.status).toBe(200);
-    expect(createUploadSession.mock.lastCall?.[0].request).not.toHaveProperty("render_mode");
-
-    const junk = await post({ ...createUploadRequestBody(), render_mode: "quicktime" }, "idem-junk");
-    expect(junk.status).toBe(400);
-    expect(createUploadSession).toHaveBeenCalledTimes(2);
+    for (const [renderMode, idempotencyKey] of [
+      ["markdown", "idem-legacy"],
+      ["quicktime", "idem-junk"],
+    ]) {
+      const response = await post({ ...createUploadRequestBody(), render_mode: renderMode }, idempotencyKey);
+      expect(response.status).toBe(200);
+      expect(createUploadSession.mock.lastCall?.[0].request).not.toHaveProperty("render_mode");
+    }
   });
 
   it("returns 429 when the workspace rate limit fires", async () => {

@@ -65,11 +65,6 @@
       "types": "./src/primitives.ts",
       "import": "./dist/primitives.js"
     },
-    "./render-mode": {
-      "source": "./src/renderMode.ts",
-      "types": "./src/renderMode.ts",
-      "import": "./dist/renderMode.js"
-    },
     "./revisions": {
       "source": "./src/revisions.ts",
       "types": "./src/revisions.ts",

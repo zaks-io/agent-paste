@@ -449,7 +449,6 @@ export type Repository = {
       revision_number: number | null;
       status: string;
       entrypoint: string;
-      render_mode: string;
       file_count: number;
       size_bytes: number;
       created_at: string;
@@ -462,7 +461,6 @@ export type Repository = {
     access_link_type: AccessLinkType;
     workspace_id: string;
     agent_view: AgentView;
-    render_mode: string;
     title: string;
     iframe_src: string;
   } | null>;

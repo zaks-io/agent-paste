@@ -71,9 +71,10 @@ URL, or a legacy `art_...` ID. Workspace authorization applies to every call.
 ([ADR 0091](./adr/0091-client-side-revise-engine-and-literal-edit-tools.md)).
 Both preserve the title; rename with `update_display_metadata`. A body or edit
 set that reproduces the stored bytes is a no-op: no Revision is minted and the
-call echoes the unchanged link, title, and expiry. `add_revision` inherits the
-base Render Mode unless the call sets one; changing it publishes a fresh
-entrypoint. `multi_edit` takes `artifact_id`, `path`, and an ordered `edits`
+call echoes the unchanged link, title, and expiry. The `render_mode` argument
+only chooses the file the tool writes: `html` writes `index.html`, `markdown`
+writes `index.md`, and `text` writes `content.txt`. Changing it on
+`add_revision` publishes the new file as the entrypoint. `multi_edit` takes `artifact_id`, `path`, and an ordered `edits`
 array of `{ old_string, new_string, replace_all? }`. Each `old_string` must
 match exactly once unless `replace_all` is set; a miss or ambiguous match
 returns `invalid_request` (HTTP 400) naming the edit index, so re-read with
@@ -89,8 +90,10 @@ members hold both. `admin` exists but no MCP tool needs it.
 
 ## Limits
 
-- Text only. Folders, binary uploads, Bundle download, and ephemeral publishing
-  stay in the CLI; settings, billing, and lockdown stay in the dashboard.
+- Text only. Folders, binary uploads, and ephemeral publishing stay in the CLI;
+  settings, billing, and lockdown stay in the dashboard. `read_artifact` returns
+  the Revision's Bundle download URL once its `bundle.status` is `ready`; the
+  CLI `download` command saves the same zip.
 - Artifact lifetime follows Workspace Auto Deletion. MCP callers do not choose
   TTL.
 

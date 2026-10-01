@@ -6,7 +6,6 @@ import { createMemoryArtifactLiveNamespace, resetMemoryArtifactLiveHubs } from "
 const pointer = {
   revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
   iframe_src: "https://content.test/v/art.rev/index.html",
-  render_mode: "html" as const,
   title: "Demo",
 };
 

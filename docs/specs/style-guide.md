@@ -588,7 +588,6 @@ Domain mapping (lock these so future agents don't drift):
 | **Usage Policy**     | `gauge`                 |
 | **Pinned Artifact**  | `pin`                   |
 | **Bundle**           | `package`               |
-| **Render Mode**      | `eye`                   |
 
 Do not mix icon sets. If a concept doesn't exist in Lucide, draw it in the same weight (1.5px stroke, rounded caps, 16/20px frame).
 
