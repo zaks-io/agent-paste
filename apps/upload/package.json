@@ -34,6 +34,6 @@
     "@agent-paste/tokens": "workspace:*",
     "@agent-paste/worker-runtime": "workspace:*",
     "@sentry/cloudflare": "^10.57.0",
-    "hono": "^4.12.34"
+    "hono": "^4.13.9"
   }
 }
