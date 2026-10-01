@@ -2,7 +2,7 @@
 
 Project start: 2026-05-18.
 
-Last updated: 2026-10-01 for CLI 0.2.4 and the current production deploy.
+Last updated: 2026-10-01 for the CLI 0.2.5 release and the current production deploy.
 The deployed one-URL architecture status below was recorded on 2026-09-03. See [changelog.md](./status/changelog.md) for older shipped
 work.
 
@@ -32,22 +32,22 @@ passed for that same commit. Production readiness is commit-scoped: only call
 a release ready when CI, Security, and Deploy Production all succeed for the
 same head SHA. Independent latest runs are not proof.
 
-Production now runs commit [`780a8ce2`](https://github.com/zaks-io/agent-paste/commit/780a8ce2d222615a690b5d508d9d49a1335d16ba):
-[CI run 36908766360](https://github.com/zaks-io/agent-paste/actions/runs/36908766360),
-[Security run 36908766124](https://github.com/zaks-io/agent-paste/actions/runs/36908766124),
-and [Deploy Production run 36909034284](https://github.com/zaks-io/agent-paste/actions/runs/36909034284)
+Production now runs commit [`9b76e3e1`](https://github.com/zaks-io/agent-paste/commit/9b76e3e1a0de1418f33f932f3064467dfb1ce1ba):
+[CI run 36937939352](https://github.com/zaks-io/agent-paste/actions/runs/36937939352),
+[Security run 36937939392](https://github.com/zaks-io/agent-paste/actions/runs/36937939392),
+and [Deploy Production run 36938087486](https://github.com/zaks-io/agent-paste/actions/runs/36938087486)
 all succeeded for it on 2026-10-01.
 
 ## CLI releases
 
-The current npm release is CLI 0.2.4.
+The current npm release is CLI 0.2.5.
 
 - **0.2.2:** `login --device-code` for sandboxes and remote shells. 0.2.1 was
   versioned in the repository but never published.
 - **0.2.3:** accepts an Artifact URL or bare subdomain wherever it takes an
   artifact ID (AP-443). MCP tools accept the same references.
 - **0.2.4:** smaller npm install.
-- **Unreleased:** adds `download` to save a revision's zip bundle. Removes
+- **0.2.5:** adds `download` to save a revision's zip bundle. Removes
   `--render-mode`, which now fails as an unknown flag, and the
   unknown-extension publish check it existed for. The unused `render_mode`
   database columns are dropped by a follow-up migration.
