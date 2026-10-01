@@ -12,7 +12,6 @@ import {
   UploadSessionId,
   UrlString,
 } from "./primitives.js";
-import { RenderMode } from "./revisions.js";
 
 // Re-exported from primitives so existing importers (@agent-paste/contracts
 // Sha256Hex) keep working; agentView.ts and artifacts.ts also need it.
@@ -41,8 +40,7 @@ export type UploadSessionFileInput = z.infer<typeof UploadSessionFileInput>;
 
 // TTL is a server-side policy decision derived from the workspace tier, never a
 // client input. Clients (CLI, MCP) cannot request or influence artifact lifetime.
-// render_mode is an explicit client override; when absent the server infers it
-// from the entrypoint extension at publish time.
+// CLI 0.2.4 and older may still send render_mode; the non-strict object strips it.
 // base_revision_id turns this into a partial-manifest publish (ADR 0089): files
 // lists only changed/added paths, deleted_paths drops paths, and every other path
 // inherits from the base Revision by reference. deleted_paths and per-file patches
@@ -56,7 +54,6 @@ export const CreateUploadSessionRequest = z
     base_revision_id: RevisionId.optional(),
     title: PlainTextTitle,
     entrypoint: FilePath,
-    render_mode: RenderMode.optional(),
     deleted_paths: z.array(FilePath).max(100).optional(),
     // A whole publish needs at least one file; a partial-manifest delta against a base
     // may send zero files (a delete-only revise inherits the rest), so the min(1) check

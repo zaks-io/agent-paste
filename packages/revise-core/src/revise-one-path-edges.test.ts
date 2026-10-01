@@ -77,10 +77,8 @@ describe("reviseOnePath edge contracts", () => {
       path: "index.html",
       edits: [{ oldString: "world", newString: "there" }],
       idempotencyKey: "k1" as PublishInput["idempotencyKey"],
-      renderMode: "markdown",
     });
 
-    expect(captured?.renderMode).toBe("markdown");
     expect(captured?.idempotencyKey).toBe("k1");
   });
 

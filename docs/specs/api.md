@@ -241,7 +241,6 @@ The authenticated member `AgentView` additionally carries `url`, the same stable
 {
   "title": "demo",
   "entrypoint": "index.html",
-  "render_mode": "html",
   "base_revision_id": "rev_...",
   "deleted_paths": ["old/page.html"],
   "files": [
@@ -270,18 +269,8 @@ Rules:
   client input.
 - Single-file publishes use the file name as `entrypoint`.
 - Folder publishes require an explicit or inferred `entrypoint`.
-- `render_mode` is optional: one of `html`, `markdown`, `text`, `image`,
-  `audio`, `video`. Finalize resolves the draft Revision's Render Mode as
-  `session.render_mode ?? base Revision's render_mode ?? infer(entrypoint)`
-  ([ADR 0091](../adr/0091-client-side-revise-engine-and-literal-edit-tools.md)): an explicit client value
-  on the Upload Session wins; otherwise a partial-manifest revise against a
-  `base_revision_id` **inherits the base Revision's mode** rather than re-inferring
-  from the entrypoint (so a body-only patch of a `markdown` Artifact stays
-  `markdown`); a fresh publish with no base infers from the entrypoint extension
-  via the shared map in `packages/contracts/src/renderMode.ts`, falling back to
-  `html` for unknown extensions. The CLI uses the same map locally but does not
-  fall back: an unknown extension fails the publish with an error asking for an
-  explicit `--render-mode`.
+- There is no Render Mode. CLI 0.2.4 and older may still send `render_mode`;
+  the server drops the field and serves every file by its extension.
 - Paths are normalized POSIX paths.
 - Uploaded and deleted path lists must each contain unique paths.
 - File and total Revision size enforcement uses the caller's effective **Usage

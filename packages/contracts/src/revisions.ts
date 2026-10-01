@@ -5,15 +5,11 @@ import { ArtifactId, FilePath, IsoDateTime, RevisionId } from "./primitives.js";
 export const RevisionStatus = z.enum(["draft", "published", "retained"]);
 export type RevisionStatus = z.infer<typeof RevisionStatus>;
 
-export const RenderMode = z.enum(["html", "markdown", "text", "image", "audio", "video"]);
-export type RenderMode = z.infer<typeof RenderMode>;
-
 export const RevisionSummary = z.object({
   revision_id: RevisionId,
   revision_number: z.number().int().positive().nullable(),
   status: RevisionStatus,
   entrypoint: FilePath,
-  render_mode: RenderMode,
   file_count: z.number().int().min(1),
   size_bytes: z.number().int().nonnegative(),
   created_at: IsoDateTime,

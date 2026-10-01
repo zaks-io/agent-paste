@@ -34,6 +34,7 @@ import {
   writeStdout,
 } from "./cli-args.js";
 import { type Credential, deleteCredential, isCredentialExpired, loadCredential } from "./credentials.js";
+import { download } from "./download.js";
 import { edit } from "./edit.js";
 import { HELP_TEXT, PUBLISH_HELP_TEXT, PULL_HELP_TEXT } from "./help.js";
 import { contentTypeForLocalPath } from "./local.js";
@@ -115,6 +116,8 @@ async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
       return pull(parsed, client);
     case "edit":
       return edit(parsed, client);
+    case "download":
+      return download(parsed, client);
     default:
       throw new Error(`Unknown command: ${command}`);
   }
@@ -126,9 +129,10 @@ const COMMAND_FLAG_NAMES: Record<string, readonly string[]> = {
   login: ["device-code"],
   logout: [],
   whoami: [],
-  publish: ["claim-code", "artifact-id", "title", "entrypoint", "render-mode", "ephemeral"],
+  publish: ["claim-code", "artifact-id", "title", "entrypoint", "ephemeral"],
   pull: ["revision-id"],
   edit: ["edits"],
+  download: ["revision-id", "output"],
   version: [],
   upgrade: [],
 };
@@ -330,7 +334,7 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
 }
 
 async function runPreparedPublish(client: ApiClient, mode: OutputMode, prepared: PreparedPublish) {
-  const { artifactId, explicitRenderMode, files: filesWithDigest, inferred } = prepared;
+  const { artifactId, files: filesWithDigest, inferred } = prepared;
   const parsedArtifactId = artifactId === undefined ? undefined : ArtifactId.safeParse(artifactId);
   const canonicalArtifactId = parsedArtifactId?.success ? parsedArtifactId.data : undefined;
 
@@ -365,7 +369,6 @@ async function runPreparedPublish(client: ApiClient, mode: OutputMode, prepared:
       files: revise ? revise.publishFiles : wholeManifest(),
       title: inferred.title,
       entrypoint: inferred.entrypoint,
-      ...(explicitRenderMode ? { renderMode: explicitRenderMode } : {}),
       ...(artifactId ? { artifactId } : {}),
       ...(revise
         ? {

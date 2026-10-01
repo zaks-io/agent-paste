@@ -32,8 +32,8 @@ npx @zaks-io/agent-paste publish ./report --ephemeral
 # https://01234-56789-abcde-fghjd.agent-paste.link/
 ```
 
-Open the returned link to view your work. Accountless publishes expire
-automatically and render static content. JavaScript, scripted connections, and forms
+Open the returned link to view your work. Accountless publishes expire after
+24 hours and render static content. JavaScript, scripted connections, and forms
 are blocked until you claim the result. The command also returns a claim link
 if you want to keep it.
 
@@ -70,6 +70,11 @@ Expected output:
 Use the artifact ID with `--artifact-id` to update the same website.
 Full URLs also work. Updates require Workspace access.
 
+The same ID works with `pull` to read one stored file, `edit` to apply literal
+find-and-replace edits as a new revision, and `download` to save a revision as a
+zip. See the
+[command reference](apps/cli/README.md#commands).
+
 ## Use it with your agent
 
 Agents that can run commands should use the CLI. Install the agent-paste skill
@@ -85,8 +90,9 @@ the link. The [agent skill](./skills/agent-paste/SKILL.md) covers login,
 accountless publishing, and updating an existing Artifact.
 
 Agents without a shell can connect to `https://mcp.agent-paste.sh` and
-authenticate with OAuth. MCP publishing supports text; use the CLI for folders
-and binary files. See the [MCP setup guide](./docs/mcp.md).
+authenticate with OAuth. Its ten tools publish, revise, edit, list, read, and
+delete Artifacts, and MCP publishing accepts text only. Use the CLI for folders,
+binary files, and accountless publishing. See the [MCP setup guide](./docs/mcp.md).
 
 ## What to know before publishing
 
@@ -97,6 +103,16 @@ Signed-in publishes support HTML, CSS, JavaScript, and external HTTPS
 dependencies. Each Artifact runs on its own origin, separate from the dashboard.
 Service workers are unsupported.
 
+Each file is served with the content type its extension implies. HTML runs as
+a website, and images, audio, video, and text open in the browser's built-in
+viewer. Markdown is served as its raw source, not converted to HTML. PDFs and
+unrecognized file types download instead of opening.
+
+Each published revision is also packaged as a zip bundle. Save it with
+`agent-paste download <artifact-id>`. Hosted agents get its download link from
+the MCP `read_artifact` tool.
+
+For the full list of shipped features, see [features](./docs/specs/features.md).
 For automation details, see the [CLI contract](./docs/specs/cli.md). For content
 policies and storage internals, see
 [content rendering](./docs/specs/content-rendering.md) and
@@ -104,18 +120,30 @@ policies and storage internals, see
 
 ## Repository
 
-| Path                 | Purpose                                               |
-| -------------------- | ----------------------------------------------------- |
-| `apps/api`           | Authenticated control plane and publish coordination. |
-| `apps/upload`        | Signed upload sessions and byte ingestion.            |
-| `apps/content`       | Capability-host and legacy signed content serving.    |
-| `apps/web`           | Dashboard, authentication, claim, and billing.        |
-| `apps/cli`           | Published `agent-paste` command.                      |
-| `apps/mcp`           | OAuth MCP server for hosted agents.                   |
-| `packages/contracts` | Shared route and payload contracts.                   |
-| `packages/db`        | Postgres and local repository implementations.        |
+The hosted service is a set of Cloudflare Workers backed by Postgres and private
+R2 storage.
 
-Start with [`docs/ops/project-status.md`](./docs/ops/project-status.md), then
+| Path           | Purpose                                                                   |
+| -------------- | ------------------------------------------------------------------------- |
+| `apps/api`     | Authenticated control plane, publish coordination, capability manifests.  |
+| `apps/upload`  | Upload sessions and byte ingestion into private R2.                       |
+| `apps/content` | Serves Artifact bytes on `agent-paste.link` hosts and legacy signed URLs. |
+| `apps/web`     | Dashboard, authentication, claim, and billing at `app.agent-paste.sh`.    |
+| `apps/apex`    | Marketing site, docs, and agent discovery files at `agent-paste.sh`.      |
+| `apps/mcp`     | OAuth MCP server for hosted agents.                                       |
+| `apps/jobs`    | Cron sweeps and queue consumers for expiry, purge, scans, and bundles.    |
+| `apps/cli`     | Published `@zaks-io/agent-paste` command.                                 |
+| `apps/evals`   | Development-time evals for agent onboarding flows. Not product runtime.   |
+| `apps/stream`  | Dormant Live Updates Worker kept for migration history. Not in use.       |
+| `packages/*`   | Shared contracts, database, auth, tokens, storage, billing, and UI code.  |
+| `skills`       | The agent-paste skill for Claude Code and Codex.                          |
+| `examples`     | Fixtures for local smoke tests and the CSP proof page.                    |
+
+To develop locally, follow [`CONTRIBUTING.md`](./CONTRIBUTING.md) and
+[`docs/development.md`](./docs/development.md). `pnpm verify` is the repository
+gate.
+
+To understand the system, start with [`docs/ops/project-status.md`](./docs/ops/project-status.md), then
 [`CONTEXT.md`](./CONTEXT.md), [`docs/specs/README.md`](./docs/specs/README.md),
 and [`docs/adr/README.md`](./docs/adr/README.md).
 

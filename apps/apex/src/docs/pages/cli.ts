@@ -21,6 +21,7 @@ export const CLI_DOC: DocsPage = {
             ["`agent-paste publish <path>`", "Publish a file or folder and return `url`."],
             ["`agent-paste pull <artifact-id> <path>`", "Read one stored file."],
             ["`agent-paste edit <artifact-id> <path>`", "Apply literal edits and publish a Revision."],
+            ["`agent-paste download <artifact-id>`", "Save a Revision as a zip."],
             ["`agent-paste version`", "Print the CLI version."],
             ["`agent-paste upgrade`", "Update a standalone binary install."],
           ],
@@ -57,7 +58,7 @@ export const CLI_DOC: DocsPage = {
         },
         {
           kind: "paragraph",
-          text: "The returned `url` opens without login and stays the same across updates. Its artifact ID is the first label of the hostname; `--artifact-id`, `pull`, and `edit` accept that ID, the `art_...` `artifact_id` from JSON output, or the full URL. Updates require Workspace access.",
+          text: "The returned `url` opens without login and stays the same across updates. Its artifact ID is the first label of the hostname; `--artifact-id`, `pull`, `edit`, and `download` accept that ID, the `art_...` `artifact_id` from JSON output, or the full URL. Updates require Workspace access.",
         },
         {
           kind: "code",
@@ -76,7 +77,7 @@ export const CLI_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Directory publish keeps relative paths and skips `.git`, `node_modules`, `.DS_Store`, and `.env*`. The entrypoint is `index.html`, `index.md`, `README.md`, or the only file; otherwise pass `--entrypoint <path>`. Pass `--render-mode html|markdown|text|image|audio|video` only when inference is wrong.",
+          text: "Directory publish keeps relative paths and skips `.git`, `node_modules`, `.DS_Store`, and `.env*`. The entrypoint is `index.html`, `index.md`, `README.md`, or the only file; otherwise pass `--entrypoint <path>`.",
         },
       ],
     },

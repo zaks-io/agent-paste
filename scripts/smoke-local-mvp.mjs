@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { waitForHarnessHealth } from "./lib/smoke-port.mjs";
@@ -114,6 +117,8 @@ try {
   const html = await view.text();
   assert(html.includes("Agent Paste Local"), "Artifact URL served the published HTML");
 
+  await assertBundleDownloads(published, apiEnv);
+
   await assertBytesPurgedAfterDelete(published);
   await assertBytesPurgedAfterExpiry(apiEnv);
 
@@ -151,6 +156,23 @@ try {
     await Promise.race([once(server, "exit"), delay(1000)]).catch(() => undefined);
   }
   await closeHttpServer(workosServer).catch(() => undefined);
+}
+
+// The jobs bridge builds the zip after publish, so this also covers the CLI's
+// pending-bundle wait. Zip entry names are stored uncompressed in the headers.
+async function assertBundleDownloads(published, env) {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "agent-paste-smoke-download-"));
+  try {
+    const target = path.join(directory, "bundle.zip");
+    const downloaded = await runCliJson(["download", published.artifact_id, "--output", target, "--json"], env);
+    assert(downloaded.revision_id === published.revision_id, "download read the published revision");
+    const bytes = await readFile(target);
+    assert(downloaded.size_bytes === bytes.byteLength, "download reported the written size");
+    assert(bytes.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])), "download wrote a zip");
+    assert(bytes.includes(Buffer.from("index.html")), "bundle contains index.html");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 }
 
 async function runCliJson(args, env) {

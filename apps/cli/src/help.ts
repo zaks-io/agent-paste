@@ -6,9 +6,10 @@ Usage:
   agent-paste login [--device-code]
   agent-paste logout
   agent-paste whoami [--json]
-  agent-paste publish <path> [--artifact-id <artifact-id>] [--title <text>] [--entrypoint <path>] [--render-mode <mode>] [--ephemeral] [--claim-code <clm_...>] [--json]
+  agent-paste publish <path> [--artifact-id <artifact-id>] [--title <text>] [--entrypoint <path>] [--ephemeral] [--claim-code <clm_...>] [--json]
   agent-paste pull <artifact-id> <remote-path> [--revision-id <id>] [--json]
   agent-paste edit <artifact-id> <path> [--edits <file>] [--json]
+  agent-paste download <artifact-id> [--revision-id <id>] [--output <path>] [--json]
   agent-paste version [--json]
   agent-paste upgrade [<tag>]
 
@@ -23,7 +24,7 @@ Agent quick path:
 
 Every publish returns one URL that opens without login and stays the same
 across updates. Its artifact ID is the first label of the hostname; --artifact-id,
-pull, and edit accept that ID, the art_... artifact_id from --json, or the full URL.
+pull, edit, and download accept that ID, the art_... artifact_id from --json, or the full URL.
 
 Output:
   --json        One machine-readable object on stdout, with schema_version.
@@ -81,7 +82,6 @@ Flags:
   --artifact-id Revise an existing Artifact. Accepts the ID or the full URL.
   --title       Set the Artifact title.
   --entrypoint  Entrypoint file within <path>.
-  --render-mode html | markdown | text | image | audio | video
   --ephemeral   Accountless 24-hour publish. Static until claimed via claim_url.
   --claim-code  Attribution for --ephemeral. Keep it when the user's
                 instructions include one.

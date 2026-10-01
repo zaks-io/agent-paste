@@ -8,7 +8,11 @@ the current next step named in `project-status.md`; if it names none, refresh
 the issue tracker rather than treating `docs/ops/status/phase-backlog.md` as a
 current queue.
 
-Then: `CONTEXT.md` (domain language), `docs/specs/README.md` (spec reading order), `docs/adr/README.md` (ADR index).
+Then: `CONTEXT.md` (domain language), `docs/specs/features.md` (what is shipped), `docs/specs/README.md` (spec reading order), `docs/adr/README.md` (ADR index).
+
+`project-status.md` records releases and the next step. It is not a capability
+list. When you ship or retire a user-visible feature, update
+`docs/specs/features.md` and the README in the same PR.
 
 **Specs are the current truth; ADRs are the decision trail.** When you need to know how the system behaves now — whether something is enforced, what a table holds, what a route does — read `docs/specs/`. The spec is the consolidated answer so you never have to read N ADRs to reconstruct the latest decision. ADRs record _why_ a decision was made; their conclusions should already be folded into the relevant spec. If a spec and an ADR conflict, the spec wins — but flag the conflict to a human, because it usually means the spec went stale and needs updating. Do not assert "the system doesn't do X" or "X isn't enforced" from an ADR (or from a Drizzle `schema.ts` read) without checking the spec first.
 

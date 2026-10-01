@@ -21,7 +21,6 @@ export {
   verifyAccessLinkSignedBlob,
   verifyAccessLinkSignedBlobWithRing,
 } from "./access-links.js";
-export { inferRenderMode, resolveRenderMode } from "./agent-view.js";
 export {
   type ArtifactBytePurgeHooks,
   type ArtifactBytePurgeInput,

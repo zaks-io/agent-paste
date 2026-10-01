@@ -229,7 +229,6 @@ describe("ApiClient", () => {
                 revision_number: 1,
                 status: "published",
                 entrypoint: "index.html",
-                render_mode: "html",
                 file_count: 1,
                 size_bytes: 12,
                 created_at: "2026-01-01T00:00:00.000Z",
@@ -393,6 +392,27 @@ describe("ApiClient", () => {
     });
     expect(calls[0]?.method).toBe("PUT");
     expect(calls[0]?.headers.get("content-type")).toBe("text/plain");
+    expect(calls[0]?.headers.get("authorization")).toBeNull();
+  });
+
+  it("downloads signed URLs without API-client auth and wraps failures", async () => {
+    const calls: Request[] = [];
+    const client = authedClient({
+      fetch: async (input, init) => {
+        calls.push(new Request(input, init));
+        return calls.length === 1
+          ? new Response(new Uint8Array([1, 2, 3]), { status: 200 })
+          : Response.json({ error: { code: "not_found", message: "gone", request_id: "req_dl" } }, { status: 404 });
+      },
+    });
+
+    expect(await client.downloadSignedUrl("https://content.example.test/b/token")).toEqual(new Uint8Array([1, 2, 3]));
+    await expect(client.downloadSignedUrl("https://content.example.test/b/token")).rejects.toMatchObject({
+      code: "not_found",
+      status: 404,
+      requestId: "req_dl",
+    });
+    expect(calls[0]?.method).toBe("GET");
     expect(calls[0]?.headers.get("authorization")).toBeNull();
   });
 

@@ -89,7 +89,6 @@ describe("resolveAccessLink", () => {
     });
     expect(resolved).toMatchObject({
       access_link_type: "share",
-      render_mode: "html",
       title: "shared",
       iframe_src: `${CONTENT_BASE}/v/${artifact.id}.${artifact.revision_id}/index.html`,
     });

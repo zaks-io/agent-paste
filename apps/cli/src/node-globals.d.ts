@@ -58,7 +58,7 @@ declare module "node:fs" {
     realpath(path: string): Promise<string>;
     readFile(path: string): Promise<Uint8Array<ArrayBuffer>>;
     readFile(path: string, encoding: "utf8"): Promise<string>;
-    writeFile(path: string, data: string | Uint8Array, options?: { mode?: number }): Promise<void>;
+    writeFile(path: string, data: string | Uint8Array, options?: { mode?: number; flag?: string }): Promise<void>;
     symlink(target: string, path: string): Promise<void>;
     chmod(path: string, mode: number): Promise<void>;
     rename(oldPath: string, newPath: string): Promise<void>;

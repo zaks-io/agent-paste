@@ -201,6 +201,15 @@ export class ApiClient {
     }
   }
 
+  // Signed content URLs carry their own token, so no Authorization header is sent.
+  async downloadSignedUrl(url: string): Promise<Uint8Array> {
+    const response = await this.fetchImpl(url);
+    if (!response.ok) {
+      await throwResponseError(response);
+    }
+    return new Uint8Array(await response.arrayBuffer());
+  }
+
   private async provisionEphemeralWorkspace(options: EphemeralProvisionOptions): Promise<EphemeralProvisionResponse> {
     return await this.request(EphemeralProvisionResponse, this.apiBaseUrl, "/v1/ephemeral/provision", {
       method: "POST",

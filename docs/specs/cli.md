@@ -164,6 +164,26 @@ empty to delete the matched text. The server's stored sha256 is the source of
 truth; the client is untrusted, so a generator or apply mismatch fails the
 finalize rather than silently shipping wrong bytes.
 
+## Download
+
+`download <artifact-id> [--revision-id <id>] [--output <path>] [--json]` saves
+one Revision's Bundle as a zip. It reads the latest Revision unless
+`--revision-id` is set. The default path is `./<art_id>.zip`; the canonical
+`art_` ID is used because the short artifact ID is the URL's bearer secret.
+
+- The command refuses to overwrite an existing file and checks before any
+  download.
+- A `pending` Bundle is polled on the same Revision at its `retry_after_seconds`
+  for up to 60 seconds. If it is still pending, the command exits `6` with code
+  `bundle_pending` and `retry_after_seconds`.
+- A `failed` or `disabled` Bundle exits `1` without downloading.
+- A missing output directory fails before the wait and download.
+- The zip is created exclusively, so a file that appears at the path during the
+  wait is never replaced. A failed write removes the partial file.
+
+`--json` returns `{ schema_version, artifact_id, revision_id, title, path,
+size_bytes }`.
+
 ## Incremental revise (manifest cache + diffs)
 
 On a revise (`publish <path> --artifact-id <id>`), the CLI sends only what
@@ -203,7 +223,7 @@ exactly one; a multi-file folder with none of those fails and asks for
 `--entrypoint <path>`.
 
 Before `publish --ephemeral` provisions a Workspace, the CLI validates flags,
-title, entrypoint, render-mode inference, file paths, file counts, byte caps, and
+title, entrypoint, file paths, file counts, byte caps, and
 local file readability. `--artifact-id` is invalid with `--ephemeral`; ephemeral
 publishes always create a new Artifact. Artifact titles reject terminal control
 characters before any publish request.

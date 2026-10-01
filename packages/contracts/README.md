@@ -19,4 +19,4 @@ This package intentionally contains schemas and registries only. It does not con
 - `mcp.ts`: MCP OAuth scopes, JSON-RPC transport shapes, ten-tool registry, error mapping, and forwarded API call plans (ADR 0061).
 - Authentication and product surfaces: `agentAuth.ts`, `billing.ts`, `cliVersion.ts`, `ephemeral.ts`, `operator.ts`, and `web.ts`.
 - Artifact lifecycle and delivery: `accessLinks.ts`, `bundle.ts`, `jobs.ts`, `liveUpdates.ts`, `revisions.ts`, and `viewerFrame.ts`.
-- Cross-cutting policies and helpers: `lockdown.ts`, `renderMode.ts`, and `zod.ts`.
+- Cross-cutting policies and helpers: `lockdown.ts` and `zod.ts`.

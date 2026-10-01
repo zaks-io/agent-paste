@@ -44,8 +44,6 @@ export async function callAddRevision(
         path,
         nextText: input.body,
         idempotencyKey,
-        // No renderMode: the entrypoint is unchanged, so the mode inherits from the base
-        // revision at finalize (ADR 0091 render_mode inheritance invariant).
       },
     );
   } catch (error) {
@@ -137,8 +135,6 @@ export async function callMultiEdit(
         path: input.path,
         edits,
         idempotencyKey,
-        // No renderMode: the entrypoint is unchanged, so the mode inherits from the
-        // base revision at finalize (ADR 0091 render_mode inheritance invariant).
       },
     );
   } catch (error) {

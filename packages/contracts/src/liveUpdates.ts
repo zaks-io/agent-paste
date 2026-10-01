@@ -1,7 +1,6 @@
 import * as z from "zod";
 import { AccessLinkPublicId } from "./accessLinks.js";
 import { ArtifactId, PlainTextTitle, RevisionId, UrlString } from "./primitives.js";
-import { RenderMode } from "./revisions.js";
 
 // Dormant migration contract for the removed iframe viewer. No current API or
 // web route authorizes or consumes this stream.
@@ -15,7 +14,6 @@ export type LiveUpdateAudience = z.infer<typeof LiveUpdateAudience>;
 export const LiveUpdatePointer = z.object({
   revision_id: RevisionId,
   iframe_src: UrlString,
-  render_mode: RenderMode,
   title: PlainTextTitle,
 });
 export type LiveUpdatePointer = z.infer<typeof LiveUpdatePointer>;
@@ -67,7 +65,6 @@ export type LiveUpdateAuthorizeResponse = z.infer<typeof LiveUpdateAuthorizeResp
 export const LiveUpdateRevisionNotice = z.object({
   revision_id: RevisionId,
   entrypoint: z.string().min(1),
-  render_mode: RenderMode,
   title: PlainTextTitle,
 });
 export type LiveUpdateRevisionNotice = z.infer<typeof LiveUpdateRevisionNotice>;

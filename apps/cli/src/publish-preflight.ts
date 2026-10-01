@@ -1,6 +1,5 @@
 import { AgentPasteError } from "@agent-paste/api-client";
 import { type ArtifactId, ArtifactReference, FilePath, PlainTextTitle } from "@agent-paste/contracts/primitives";
-import { RenderMode } from "@agent-paste/contracts/revisions";
 import type { UsagePolicy } from "@agent-paste/contracts/workspace";
 import { type Parsed, requiredArg, stringFlag } from "./cli-args.js";
 import {
@@ -17,7 +16,6 @@ export type PublishPreflight = {
   files: LocalFile[];
   inferred: ReturnType<typeof inferPublishOptions>;
   artifactId: ArtifactReference | undefined;
-  explicitRenderMode: RenderMode | undefined;
   usagePolicy: UsagePolicy;
 };
 
@@ -43,8 +41,6 @@ export async function preparePublish(parsed: Parsed, options: PreparePublishOpti
     throw invalidRequest("--claim-code requires --ephemeral");
   }
   const artifactReference = artifactIdFlag === undefined ? undefined : parseArtifactReference(artifactIdFlag);
-  const renderModeFlag = stringFlag(parsed, "render-mode");
-  const explicitRenderMode = renderModeFlag === undefined ? undefined : parseRenderMode(renderModeFlag);
   const titleFlag = stringFlag(parsed, "title");
   const parsedTitle = titleFlag === undefined ? undefined : parseTitle(titleFlag);
   const rawEntrypoint = stringFlag(parsed, "entrypoint");
@@ -62,7 +58,6 @@ export async function preparePublish(parsed: Parsed, options: PreparePublishOpti
     inferred = inferPublishOptions(inputPath, files, {
       ...(parsedTitle !== undefined ? { title: parsedTitle } : {}),
       ...(entrypoint !== undefined ? { entrypoint } : {}),
-      ...(explicitRenderMode !== undefined ? { renderMode: explicitRenderMode } : {}),
     });
   } catch (error) {
     throw invalidRequest(error instanceof Error ? error.message : String(error));
@@ -89,7 +84,7 @@ export async function preparePublish(parsed: Parsed, options: PreparePublishOpti
     }
   }
 
-  return { inputPath, files, inferred, artifactId, explicitRenderMode, usagePolicy };
+  return { inputPath, files, inferred, artifactId, usagePolicy };
 }
 
 export async function digestPublish(preflight: PublishPreflight): Promise<PreparedPublish> {
@@ -114,14 +109,6 @@ function parseArtifactReference(value: string): ArtifactReference {
   const parsed = ArtifactReference.safeParse(value);
   if (!parsed.success) {
     throw invalidRequest("--artifact-id must be an artifact ID or full URL");
-  }
-  return parsed.data;
-}
-
-function parseRenderMode(value: string): RenderMode {
-  const parsed = RenderMode.safeParse(value);
-  if (!parsed.success) {
-    throw invalidRequest("Unsupported render mode");
   }
   return parsed.data;
 }
