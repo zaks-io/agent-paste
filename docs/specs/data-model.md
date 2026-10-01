@@ -6,6 +6,7 @@ This is the schema target for the CLI-first MVP. Drizzle definitions should live
 
 - Tenant-owned tables include `workspace_id UUID NOT NULL`.
 - Tenant-owned tables should be compatible with Postgres RLS from the first migration.
+- Every public table has RLS enabled and forced. Hosted Workers (`api`, `upload`, `jobs`) connect through Hyperdrive as `app_role` (`NOBYPASSRLS`). Each transaction sets either `app.workspace_id` (workspace scope) or `app.platform = 'on'` (platform scope, admitted by each table's `*_platform` policy) via `rlsExecutor` in `packages/db/src/postgres/rls.ts`. A query with neither set sees no rows. `neondb_owner` (`BYPASSRLS`) is the migration runner only and must never back a Hyperdrive config.
 - Timestamps are `TIMESTAMPTZ`.
 - Public IDs use the formats in [`contracts.md`](./contracts.md).
 - Secrets are never stored plaintext.
