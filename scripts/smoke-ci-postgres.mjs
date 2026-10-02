@@ -25,8 +25,9 @@ await run(
     "vitest",
     "run",
     "src/repository/upload-session-delete-only.postgres.test.ts",
+    "src/postgres/upload-session-file-count-migration.test.ts",
   ],
-  { AGENT_PASTE_POSTGRES_TEST_URL: runtimeUrl },
+  { AGENT_PASTE_POSTGRES_TEST_URL: runtimeUrl, AGENT_PASTE_POSTGRES_MIGRATION_TEST_URL: migrationUrl },
 );
 
 await run(process.execPath, ["scripts/smoke-local-mvp.mjs"], {
