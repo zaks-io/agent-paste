@@ -118,6 +118,30 @@ denylist keys, requested-path allowlist, and workspace-bound object key before
 reading and decrypting a file. Authorization failures return the generic
 `404 { "code": "not_found" }` response.
 
+## Read rate limits
+
+Content reads allow 600 requests per 60 seconds per Artifact and visitor IP.
+HTML, images, other assets, bundles, HEAD requests, and conditional requests that
+return 304 share this allowance. Capability-host requests also consume a separate
+3,000-request-per-60-second lookup allowance per visitor IP across Artifacts,
+checked before reading the manifest from R2. Visitors sharing an IP share these
+budgets. Both use Cloudflare's approximate, per-edge-location rate-limit bindings,
+not a strict global quota.
+
+These budgets apply in development, standing preview, PR previews, and production.
+The API's Artifact binding uses the same namespace and matching 600-request budget;
+authenticated actor and workspace write limits are separate.
+
+Capability-host lookups select `CAPABILITY_LOOKUP_RATE_LIMIT`, falling back to
+`ARTIFACT_RATE_LIMIT` only if the dedicated binding is absent. An allowed check
+proceeds to the manifest read. A missing selected limiter, denied check, or
+limiter error fails closed with HTTP 429, `rate_limited_artifact`, and
+`Retry-After: 60`. The subsequent Artifact read limiter also fails closed.
+
+Each file counts as a request, so budgets accommodate image-heavy page navigation
+rather than treating a page view as one read. Limits remain in force for cached
+revalidation.
+
 ## Caching
 
 Every successful file response has a strong Revision-and-path `ETag` and

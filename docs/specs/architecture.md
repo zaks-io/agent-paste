@@ -47,8 +47,10 @@ The content Worker owns wildcard routes `*.agent-paste.link/*` in production and
 `agent-paste.sh` redirect old capability hosts to `.link` and preserve the
 explicit product-host forwarding required while that wildcard remains. Unknown
 wildcard hosts fail closed. Capability-manifest lookups have a separate per-IP
-rate limit before the first R2 read, so generated valid-form hostnames cannot
-bypass the artifact limiter.
+3,000-request-per-minute rate limit before the first R2 read, so generated
+valid-form hostnames cannot bypass the 600-request-per-minute Artifact-and-IP
+limiter. See [read rate limits](./content-rendering.md#read-rate-limits) for
+request counting and environment scope.
 
 ## Rendering and CSP
 

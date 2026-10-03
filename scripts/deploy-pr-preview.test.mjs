@@ -3,6 +3,7 @@ import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseConfigFileTextToJson } from "typescript";
 import { describe, expect, it } from "vitest";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -60,7 +61,7 @@ describe("deploy-pr-preview generated configs", () => {
           expect.objectContaining({
             name: "ARTIFACT_RATE_LIMIT",
             namespace_id: `4${prNumber}003`,
-            simple: { limit: 60, period: 60 },
+            simple: { limit: 600, period: 60 },
           }),
           expect.objectContaining({
             name: "EPHEMERAL_PROVISION_IP_RATE_LIMIT",
@@ -90,9 +91,14 @@ describe("deploy-pr-preview generated configs", () => {
       expect(content.ratelimits).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
+            name: "ARTIFACT_RATE_LIMIT",
+            namespace_id: `4${prNumber}003`,
+            simple: { limit: 600, period: 60 },
+          }),
+          expect.objectContaining({
             name: "CAPABILITY_LOOKUP_RATE_LIMIT",
             namespace_id: `4${prNumber}006`,
-            simple: { limit: 300, period: 60 },
+            simple: { limit: 3000, period: 60 },
           }),
         ]),
       );
@@ -106,5 +112,32 @@ describe("deploy-pr-preview generated configs", () => {
       rmSync(outDir, { recursive: true, force: true });
       rmSync(fakeBin, { recursive: true, force: true });
     }
+  });
+});
+
+describe("content read deployment budgets", () => {
+  it.each([undefined, "preview", "production"])("supports image-heavy browsing in %s", (environment) => {
+    const configs = ["api", "content"].map((app) => {
+      const path = new URL(`../apps/${app}/wrangler.jsonc`, import.meta.url);
+      const parsed = parseConfigFileTextToJson(path.pathname, readFileSync(path, "utf8"));
+      expect(parsed.error).toBeUndefined();
+      return environment ? parsed.config.env[environment] : parsed.config;
+    });
+    const [api, content] = configs;
+    const artifact = content.ratelimits.find((binding) => binding.name === "ARTIFACT_RATE_LIMIT");
+    expect(artifact.simple).toEqual({ limit: 600, period: 60 });
+    expect(api.ratelimits.find((binding) => binding.name === "ARTIFACT_RATE_LIMIT")).toEqual(artifact);
+    expect(content.ratelimits.find((binding) => binding.name === "CAPABILITY_LOOKUP_RATE_LIMIT").simple).toEqual({
+      limit: 3000,
+      period: 60,
+    });
+    expect(api.ratelimits.find((binding) => binding.name === "ACTOR_RATE_LIMIT").simple).toEqual({
+      limit: 60,
+      period: 60,
+    });
+    expect(api.ratelimits.find((binding) => binding.name === "WORKSPACE_BURST_CAP").simple).toEqual({
+      limit: 300,
+      period: 10,
+    });
   });
 });

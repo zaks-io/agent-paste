@@ -196,7 +196,7 @@ function apiConfig() {
     ratelimits: [
       rateLimit("ACTOR_RATE_LIMIT", `4${prNumber}001`, 60, 60),
       rateLimit("WORKSPACE_BURST_CAP", `4${prNumber}002`, 300, 10),
-      rateLimit("ARTIFACT_RATE_LIMIT", `4${prNumber}003`, 60, 60),
+      rateLimit("ARTIFACT_RATE_LIMIT", `4${prNumber}003`, 600, 60),
       rateLimit("EPHEMERAL_PROVISION_IP_RATE_LIMIT", `4${prNumber}004`, 10, 60),
       rateLimit("EPHEMERAL_PROVISION_GLOBAL_RATE_LIMIT", `4${prNumber}005`, 300, 60),
     ],
@@ -275,8 +275,8 @@ function contentConfig() {
     r2_buckets: [{ binding: "ARTIFACTS", bucket_name: "agent-paste-artifacts-preview" }],
     kv_namespaces: [{ binding: "DENYLIST", id: "5780695433d4494897dcbb78bcb4f180" }],
     ratelimits: [
-      rateLimit("ARTIFACT_RATE_LIMIT", `4${prNumber}003`, 60, 60),
-      rateLimit("CAPABILITY_LOOKUP_RATE_LIMIT", `4${prNumber}006`, 300, 60),
+      rateLimit("ARTIFACT_RATE_LIMIT", `4${prNumber}003`, 600, 60),
+      rateLimit("CAPABILITY_LOOKUP_RATE_LIMIT", `4${prNumber}006`, 3000, 60),
     ],
   });
 }
