@@ -132,10 +132,15 @@ These budgets apply in development, standing preview, PR previews, and productio
 The API's Artifact binding uses the same namespace and matching 600-request budget;
 authenticated actor and workspace write limits are separate.
 
-Either exhausted or unavailable content limiter fails closed with HTTP 429,
-`rate_limited_artifact`, and `Retry-After: 60`. Each file counts as a request,
-so budgets accommodate image-heavy page navigation rather than treating a page
-view as one read. Limits remain in force for cached revalidation.
+Capability-host lookups select `CAPABILITY_LOOKUP_RATE_LIMIT`, falling back to
+`ARTIFACT_RATE_LIMIT` only if the dedicated binding is absent. An allowed check
+proceeds to the manifest read. A missing selected limiter, denied check, or
+limiter error fails closed with HTTP 429, `rate_limited_artifact`, and
+`Retry-After: 60`. The subsequent Artifact read limiter also fails closed.
+
+Each file counts as a request, so budgets accommodate image-heavy page navigation
+rather than treating a page view as one read. Limits remain in force for cached
+revalidation.
 
 ## Caching
 
