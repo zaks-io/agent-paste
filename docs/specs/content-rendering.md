@@ -177,19 +177,27 @@ cache. See [ADR 0100](../adr/0100-bounded-browser-cache-for-static-assets.md).
 ## Compression
 
 HTML, CSS, JavaScript, JSON, SVG, Markdown, and plain-text files are gzipped by
-the content Worker when the request's `Accept-Encoding` allows gzip (an explicit
-`gzip;q=0` opts out). Images, audio, video, fonts, PDFs, unknown types, and
-bundles are always sent as stored. The decision depends only on the path's
-served type and `Accept-Encoding`, never on body size, so a conditional request
-picks the same representation as the 200 it revalidates.
+the content Worker when the `Accept-Encoding` it receives allows gzip. Images,
+audio, video, fonts, PDFs, unknown types, and bundles are always sent as stored.
+The decision depends only on the path's served type and `Accept-Encoding`,
+never on body size, so a conditional request picks the same representation as
+the 200 it revalidates.
+
+In hosted environments Cloudflare normalizes `Accept-Encoding` before the Worker
+sees it, so the Worker gzips every compressible response. The edge passes gzip
+through to clients that list gzip and decompresses for clients that do not (for
+example, curl without `--compressed`). Decompressed responses omit
+`Content-Length` and carry a weak `W/` ETag, which still revalidates because
+`If-None-Match` uses weak comparison. A client that lists gzip with `q=0` still
+receives gzip, because the edge does not forward the q-value.
 
 Compressible responses carry `Vary: Accept-Encoding`. The gzip representation
 has its own strong `ETag`; identity `ETag` values are unchanged. Compression
 runs after noindex injection, so the gzipped body is the exact HTML a non-gzip
-request receives. `no-transform` stays on every response, so the Cloudflare zone
-does not add or change compression. A gzip HEAD advertises
-`Content-Encoding: gzip` and omits `Content-Length`; a 304 omits both. Read
-events and rate limits still count plaintext bytes and requests.
+request receives. `no-transform` stays on every response, so the zone never
+injects markup. A gzip HEAD advertises `Content-Encoding: gzip` and omits
+`Content-Length`; a 304 omits both. Read events and rate limits still count
+plaintext bytes and requests.
 
 ## Legacy URLs
 
