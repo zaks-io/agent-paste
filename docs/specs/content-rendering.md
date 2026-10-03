@@ -187,9 +187,10 @@ In hosted environments Cloudflare rewrites the `Accept-Encoding` header before
 the Worker sees it, so the Worker negotiates on `request.cf.clientAcceptEncoding`,
 the value the client actually sent; a missing value means the client sent none.
 Local and test requests have no `cf` object and use the header. Clients that do
-not accept gzip (for example, curl without `--compressed`, or an explicit
-`gzip;q=0`) receive identity bytes with `Content-Length` and the identity
-`ETag`.
+not list gzip (for example, curl without `--compressed`) receive identity bytes
+with `Content-Length` and the identity `ETag`. The edge does not preserve
+q-values in `clientAcceptEncoding`, so a client that lists gzip with `q=0` still
+receives gzip, and a bare `*` receives identity.
 
 Compressible responses carry `Vary: Accept-Encoding`. The gzip representation
 has its own strong `ETag`; identity `ETag` values are unchanged. Compression
