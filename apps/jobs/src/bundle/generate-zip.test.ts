@@ -1,3 +1,4 @@
+import { unzipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import { buildRevisionZip } from "./generate-zip.js";
 
@@ -10,6 +11,28 @@ describe("buildRevisionZip", () => {
     expect(zip.byteLength).toBeGreaterThan(0);
     expect(zip[0]).toBe(0x50);
     expect(zip[1]).toBe(0x4b);
+  });
+
+  it("deflates text entries, stores already-compressed ones, and round-trips every file", () => {
+    const html = new TextEncoder().encode("<p>repeated</p>".repeat(1000));
+    const png = crypto.getRandomValues(new Uint8Array(4096));
+    const zip = buildRevisionZip([
+      { path: "index.html", bytes: html },
+      { path: "images/photo.png", bytes: png },
+    ]);
+
+    const compression: Record<string, number> = {};
+    const files = unzipSync(zip, {
+      filter: (file) => {
+        compression[file.name] = file.compression;
+        return true;
+      },
+    });
+
+    expect(compression).toEqual({ "index.html": 8, "images/photo.png": 0 });
+    expect(files["index.html"]).toEqual(html);
+    expect(files["images/photo.png"]).toEqual(png);
+    expect(zip.byteLength).toBeLessThan(png.byteLength + html.byteLength / 10);
   });
 
   it("packages __proto__ paths without polluting Object.prototype", () => {

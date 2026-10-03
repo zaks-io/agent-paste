@@ -14,6 +14,7 @@ import {
 import type { ContentTokenPayload } from "@agent-paste/tokens/content";
 import { BASELINE_SECURITY_HEADERS, getBoundResponders, writeArtifactEvent } from "@agent-paste/worker-runtime";
 import { CONTENT_CACHE_CONTROL, contentCacheControl } from "./cache-policy.js";
+import { gzipBytes, isGzipNegotiable, negotiatesGzip } from "./content-encoding.js";
 import type { AppContext, Env, R2ObjectBody } from "./env.js";
 import { contentEtag, etagMatches } from "./etag.js";
 
@@ -95,7 +96,8 @@ export async function serveSignedObject(
     return getBoundResponders(context).respondError("not_found");
   }
 
-  const representationKey = contentRepresentationKey(path, payload);
+  const gzip = negotiatesGzip(path, request);
+  const representationKey = contentRepresentationKey(path, payload, gzip);
   const etag = await contentEtag(payload.revision_id, path, representationKey);
   // Only short-circuit when the 200 path would actually serve: a workspace-less
   // token 404s below (prepareEncryptedObjectResponse), so a conditional request
@@ -126,20 +128,24 @@ export async function serveSignedObject(
   }
 
   const injectsNoindex = payload.noindex === true && isHtmlPath(path);
-  const bytes =
+  const transformed =
     served.bytes && injectsNoindex ? transformHtmlBytes(served.bytes, { noindex: injectsNoindex }) : served.bytes;
+  const bytes = transformed && gzip ? await gzipBytes(transformed) : transformed;
   const size = bytes ? bytes.byteLength : served.plaintextSize;
 
   const headers = responseHeadersForPath(path, size, payload, etag, request);
   // A HEAD has no body to measure, so it reports the arithmetic plaintext size.
-  // When HTML injection would grow the GET body, that size is wrong, so drop
-  // content-length rather than advertise a length the GET would not match.
-  if (!bytes && injectsNoindex) {
+  // When HTML injection or gzip would change the GET body length, that size is
+  // wrong, so drop content-length rather than advertise a length the GET would
+  // not match.
+  if (!bytes && (injectsNoindex || gzip)) {
     headers.delete("content-length");
   }
   headers.set(REQUEST_ID_HEADER, getRequestId(context));
 
-  return new Response(bodyFromBytes(bytes), { status: 200, headers });
+  // The body is already in its final coding; "automatic" would make the Workers
+  // runtime gzip it a second time because content-encoding is set.
+  return new Response(bodyFromBytes(bytes), { status: 200, headers, encodeBody: "manual" });
 }
 
 /**
@@ -389,6 +395,12 @@ export function responseHeadersForPath(
   if (payload.noindex === true) {
     headers.set("x-robots-tag", NOINDEX_HEADER);
   }
+  if (isGzipNegotiable(path)) {
+    appendVary(headers, "Accept-Encoding");
+    if (negotiatesGzip(path, request)) {
+      headers.set("content-encoding", "gzip");
+    }
+  }
   applyOpaqueOriginCors(headers, request);
   return headers;
 }
@@ -418,9 +430,10 @@ function appendVary(headers: Headers, value: string): void {
 
 // 304 serves no bytes, but the request already counted against the artifact read
 // limit, so it still registers a read (bytes: 0). It reuses the exact headers the
-// 200 would carry (built by the caller) minus the now-meaningless content-length,
-// so the validated cache entry keeps the same CSP, content-type, and cache
-// directives instead of inheriting a weaker set from a hand-maintained 304 list.
+// 200 would carry (built by the caller) minus the body-only content-length and
+// content-encoding, so the validated cache entry keeps the same CSP,
+// content-type, and cache directives instead of inheriting a weaker set from a
+// hand-maintained 304 list.
 function notModifiedResponse(context: AppContext, payload: ContentTokenPayload, headers: Headers): Response {
   if (payload.workspace_id) {
     writeArtifactEvent(context.env.ARTIFACT_EVENTS, {
@@ -433,6 +446,7 @@ function notModifiedResponse(context: AppContext, payload: ContentTokenPayload, 
     });
   }
   headers.delete("content-length");
+  headers.delete("content-encoding");
   headers.set(REQUEST_ID_HEADER, getRequestId(context));
   return new Response(null, { status: 304, headers });
 }
@@ -443,16 +457,16 @@ function transformHtmlBytes(bytes: Uint8Array, options: { noindex: boolean }): U
   return new TextEncoder().encode(html);
 }
 
-export function contentRepresentationKey(path: string, payload: ContentTokenPayload): string | undefined {
-  if (!isHtmlPath(path)) {
-    return undefined;
-  }
-  const scriptDisabled = isScriptDisabled(payload);
+export function contentRepresentationKey(path: string, payload: ContentTokenPayload, gzip = false): string | undefined {
   const parts: string[] = [];
-  if (payload.noindex === true) parts.push("noindex");
-  parts.push("direct");
-  parts.push(scriptDisabled ? "script-none" : "script-on");
-  return parts.join(":");
+  if (isHtmlPath(path)) {
+    if (payload.noindex === true) parts.push("noindex");
+    parts.push("direct");
+    parts.push(isScriptDisabled(payload) ? "script-none" : "script-on");
+  }
+  // A strong validator must differ per content-coding (RFC 9110 §8.8.3).
+  if (gzip) parts.push("gzip");
+  return parts.length > 0 ? parts.join(":") : undefined;
 }
 
 function isScriptDisabled(payload: ContentTokenPayload): boolean {

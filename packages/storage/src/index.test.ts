@@ -4,6 +4,7 @@ import {
   CONTENT_SECURITY_HEADERS,
   contentTypeForPath,
   deriveScriptDisabledContentSecurityPolicy,
+  isCompressibleContentType,
   SCRIPT_DISABLED_CONTENT_SECURITY_POLICY,
   servedContentForPath,
   withFrameAncestors,
@@ -29,6 +30,15 @@ function parseContentSecurityPolicyDirectives(csp: string): Map<string, string> 
 }
 
 describe("storage helpers", () => {
+  it("treats only text-like served types as compressible", () => {
+    for (const path of ["a.html", "a.css", "a.js", "a.mjs", "a.json", "a.svg", "a.md", "a.txt", "a.log"]) {
+      expect(isCompressibleContentType(contentTypeForPath(path)), path).toBe(true);
+    }
+    for (const path of ["a.png", "a.jpg", "a.webp", "a.gif", "a.ico", "a.woff2", "a.mp4", "a.mp3", "a.pdf", "a.bin"]) {
+      expect(isCompressibleContentType(contentTypeForPath(path)), path).toBe(false);
+    }
+  });
+
   it("maps known extensions to MIME types", () => {
     expect(contentTypeForPath("docs/readme.md")).toBe("text/markdown; charset=utf-8");
     expect(contentTypeForPath("index.htm")).toBe("text/html; charset=utf-8");

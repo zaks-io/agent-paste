@@ -186,7 +186,7 @@ describe("serve-object response headers", () => {
       }),
     );
     expect(opaqueHeaders.get("access-control-allow-origin")).toBe("null");
-    expect(opaqueHeaders.get("vary")).toBe("Origin");
+    expect(opaqueHeaders.get("vary")).toBe("Accept-Encoding, Origin");
 
     const appOriginHeaders = responseHeadersForPath(
       "data/latest.json",
@@ -459,6 +459,14 @@ describe("contentRepresentationKey", () => {
   it("keeps pre-migration ephemeral HTML in the script-disabled representation", () => {
     expect(contentRepresentationKey("index.html", basePayload({ noindex: true, script_disabled: false }))).toBe(
       "noindex:direct:script-none",
+    );
+  });
+
+  it("keeps identity validators unchanged and marks the gzip representation", () => {
+    expect(contentRepresentationKey("style.css", basePayload())).toBeUndefined();
+    expect(contentRepresentationKey("style.css", basePayload(), true)).toBe("gzip");
+    expect(contentRepresentationKey("index.html", basePayload({ script_disabled: false }), true)).toBe(
+      "direct:script-on:gzip",
     );
   });
 });

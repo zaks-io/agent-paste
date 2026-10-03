@@ -174,6 +174,32 @@ displayed bytes cannot be recalled.
 Errors use `Cache-Control: no-store`. There is no shared CDN or Workers edge
 cache. See [ADR 0100](../adr/0100-bounded-browser-cache-for-static-assets.md).
 
+## Compression
+
+HTML, CSS, JavaScript, JSON, SVG, Markdown, and plain-text files are gzipped by
+the content Worker when the client's `Accept-Encoding` allows gzip. Images,
+audio, video, fonts, PDFs, unknown types, and bundles are always sent as stored.
+The decision depends only on the path's served type and `Accept-Encoding`,
+never on body size, so a conditional request picks the same representation as
+the 200 it revalidates.
+
+In hosted environments Cloudflare rewrites the `Accept-Encoding` header before
+the Worker sees it, so the Worker negotiates on `request.cf.clientAcceptEncoding`,
+the value the client actually sent; a missing value means the client sent none.
+Local and test requests have no `cf` object and use the header. Clients that do
+not list gzip (for example, curl without `--compressed`) receive identity bytes
+with `Content-Length` and the identity `ETag`. The edge does not preserve
+q-values in `clientAcceptEncoding`, so a client that lists gzip with `q=0` still
+receives gzip, and a bare `*` receives identity.
+
+Compressible responses carry `Vary: Accept-Encoding`. The gzip representation
+has its own strong `ETag`; identity `ETag` values are unchanged. Compression
+runs after noindex injection, so the gzipped body is the exact HTML a non-gzip
+request receives. `no-transform` stays on every response, so the zone never
+injects markup. A gzip HEAD advertises `Content-Encoding: gzip` and omits
+`Content-Length`; a 304 omits both. Read events and rate limits still count
+plaintext bytes and requests.
+
 ## Legacy URLs
 
 Previously issued `https://usercontent.agent-paste.sh/v/{token}/{path}` and
