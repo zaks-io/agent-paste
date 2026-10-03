@@ -14,7 +14,8 @@ An authenticated or ephemeral publish is accepted when all of these are true:
 - Preview uses
   `https://{four-groups-of-five-lowercase-base32-symbols}-preview.agent-paste.link/`.
 - A later publish to the same Artifact keeps the hostname and advances the
-  content shown after refresh.
+  HTML shown after refresh. Static assets at reused paths can remain cached for
+  up to one hour, capped by signed expiry; a hard refresh revalidates them.
 - Claiming an ephemeral Artifact keeps the same URL and immediately refreshes
   its manifest with the destination Workspace, copied object keys, and claimed
   retention deadline.

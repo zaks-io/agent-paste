@@ -138,6 +138,30 @@ describe("content capability routing", () => {
     expect(entrypointBody).not.toContain("agent-paste:viewer-height");
   });
 
+  it("gives pinned capability assets one hour of freshness while HTML revalidates", async () => {
+    const { env } = await capabilityFixture({ expiresAt: null });
+    const document = await handleRequest(new Request(`${capabilityOrigin}/`), env);
+    const asset = await handleRequest(new Request(`${capabilityOrigin}/assets/app.js`), env);
+    const head = await handleRequest(new Request(`${capabilityOrigin}/assets/app.js`, { method: "HEAD" }), env);
+    const conditional = await handleRequest(
+      new Request(`${capabilityOrigin}/assets/app.js`, {
+        headers: { "if-none-match": asset.headers.get("etag") as string },
+      }),
+      env,
+    );
+
+    expect(document.status).toBe(200);
+    expect(document.headers.get("cache-control")).toBe("private, no-cache, no-transform");
+    expect(asset.status).toBe(200);
+    expect(asset.headers.get("cache-control")).toBe("private, max-age=3600, must-revalidate, no-transform");
+    expect(head.status).toBe(200);
+    expect(conditional.status).toBe(304);
+    for (const response of [head, conditional]) {
+      expect(response.headers.get("cache-control")).toBe(asset.headers.get("cache-control"));
+      expect(response.headers.get("content-security-policy")).toBe(asset.headers.get("content-security-policy"));
+    }
+  });
+
   it("keeps ephemeral capability content static", async () => {
     const { env } = await capabilityFixture({ scriptDisabled: true });
 

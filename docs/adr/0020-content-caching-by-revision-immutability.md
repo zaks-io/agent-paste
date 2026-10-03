@@ -1,5 +1,7 @@
 # Content Caching by Revision Immutability
 
+Status: Browser freshness policy superseded by [ADR 0100](./0100-bounded-browser-cache-for-static-assets.md). The prohibition on shared caching of current bearer URLs remains in force.
+
 The content gateway will cache aggressively only after access control resolves to immutable Revision assets or derived Revision bundles. Stable Artifact URLs, Access Links, and Private Links resolve through current access state, revocation state, and published Revision metadata, so they must not be hard-cached in a way that bypasses revocation, deletion, expiration, or latest-revision changes.
 
 > **Note ([ADR 0081](./0081-etag-validators-and-conditional-304s-for-content.md)):** The realized caching mechanism today is client-side validators — a strong `ETag` over `(revision_id, path)` plus `If-None-Match` → `304` — not an edge cache. The long-lived edge caching described below is anticipated future work and is not wired.

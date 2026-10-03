@@ -1012,7 +1012,7 @@ describe("content conditional requests", () => {
   });
 
   it("returns 304 without reading R2 when If-None-Match matches", async () => {
-    const token = await tokenFor("style.css");
+    const token = await tokenFor("style.css", { exp: Math.floor(Date.now() / 1000) + 7200 });
     const { env, get } = await cssEnv();
     const first = await handleRequest(new Request(`https://content.test/v/${token}/style.css`), env);
     const etag = first.headers.get("etag");
@@ -1027,9 +1027,35 @@ describe("content conditional requests", () => {
     expect(conditional.status).toBe(304);
     expect(await conditional.text()).toBe("");
     expect(conditional.headers.get("etag")).toBe(etag);
-    expect(conditional.headers.get("cache-control")).toBe("private, no-cache, no-transform");
+    expect(first.headers.get("cache-control")).toBe("private, max-age=3600, must-revalidate, no-transform");
+    expect(conditional.headers.get("cache-control")).toBe(first.headers.get("cache-control"));
     // The matching conditional request never touched R2.
     expect(get).toHaveBeenCalledTimes(1);
+    const head = await handleRequest(new Request(`https://content.test/v/${token}/style.css`, { method: "HEAD" }), env);
+    expect(head.status).toBe(200);
+    expect(head.headers.get("cache-control")).toBe(first.headers.get("cache-control"));
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it("recomputes the remaining freshness on a 304 near token expiry", async () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_800_000_000_000);
+    try {
+      const token = await tokenFor("style.css");
+      const { env, get } = await cssEnv();
+      const url = `https://content.test/v/${token}/style.css`;
+      const first = await handleRequest(new Request(url), env);
+      expect(first.headers.get("cache-control")).toBe("private, max-age=60, must-revalidate, no-transform");
+      now.mockReturnValue(1_800_000_030_000);
+      const conditional = await handleRequest(
+        new Request(url, { headers: { "if-none-match": first.headers.get("etag") as string } }),
+        env,
+      );
+      expect(conditional.status).toBe(304);
+      expect(conditional.headers.get("cache-control")).toBe("private, max-age=30, must-revalidate, no-transform");
+      expect(get).toHaveBeenCalledTimes(1);
+    } finally {
+      now.mockRestore();
+    }
   });
 
   it("keeps opaque-origin CORS headers on matching 304 responses", async () => {

@@ -22,7 +22,9 @@ Preview:    https://{capability-id}-preview.agent-paste.link/
 
 The Content Worker serves the Artifact directly on that host. The app does not
 proxy, wrap, redirect, or iframe uploaded content. Revisions keep the same URL
-and show their newest published bytes on refresh.
+and show their newest HTML on refresh. Static assets reuse a private browser
+cache for up to one hour, capped by signed expiry; a hard refresh revalidates
+assets immediately.
 
 The one-URL architecture is live: [Deploy Production run 33800556155](https://github.com/zaks-io/agent-paste/actions/runs/33800556155)
 deployed commit [`c9f0b7c0`](https://github.com/zaks-io/agent-paste/commit/c9f0b7c0f6d14a737ad0eb34e16e47f6be0f7fb3)
