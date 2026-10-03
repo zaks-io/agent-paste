@@ -1,4 +1,5 @@
-import { Zip, ZipPassThrough } from "fflate";
+import { contentTypeForPath, isCompressibleContentType } from "@agent-paste/storage";
+import { Zip, ZipDeflate, ZipPassThrough } from "fflate";
 
 function concatChunks(chunks: readonly Uint8Array[]): Uint8Array {
   const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
@@ -40,7 +41,7 @@ export function buildRevisionZip(files: ReadonlyArray<{ path: string; bytes: Uin
     if (bytes === undefined) {
       throw new Error(`missing_revision_path:${path}`);
     }
-    const entry = new ZipPassThrough(path);
+    const entry = isCompressibleContentType(contentTypeForPath(path)) ? new ZipDeflate(path) : new ZipPassThrough(path);
     zip.add(entry);
     entry.push(bytes, true);
   }

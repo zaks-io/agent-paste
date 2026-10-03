@@ -60,7 +60,9 @@ Handler behavior:
 - Return idempotently if Revision is retained, Artifact is deleted, or bundle status is `ready` or `disabled`.
 - Build deterministic R2 key per the
   [R2 object key layout](./data-model.md#r2-object-key-layout).
-- Enforce Bundle Size Cap during generation.
+- Deflate entries with text-like served types (HTML, CSS, JavaScript, JSON,
+  SVG, Markdown, plain text); store every other entry as-is.
+- Enforce Bundle Size Cap against the finished zip size during generation.
 - On success, set `bundle_status='ready'`, `bundle_size_bytes`, and `bundle_status_updated_at`.
 - On permanent generation error after queue retries, DLQ consumer sets `bundle_status='failed'`.
 - Bundle state changes do not create Audit Events.

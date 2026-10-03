@@ -212,7 +212,7 @@ describe("content worker", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("application/json; charset=utf-8");
     expect(response.headers.get("access-control-allow-origin")).toBe("null");
-    expect(response.headers.get("vary")).toBe("Origin");
+    expect(response.headers.get("vary")).toBe("Accept-Encoding, Origin");
     await expect(response.text()).resolves.toBe('{"ok":true}');
   });
 
@@ -1083,7 +1083,7 @@ describe("content conditional requests", () => {
 
     expect(conditional.status).toBe(304);
     expect(conditional.headers.get("access-control-allow-origin")).toBe("null");
-    expect(conditional.headers.get("vary")).toBe("Origin");
+    expect(conditional.headers.get("vary")).toBe("Accept-Encoding, Origin");
     expect(get).toHaveBeenCalledTimes(1);
   });
 

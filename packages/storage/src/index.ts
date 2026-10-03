@@ -212,6 +212,15 @@ export function contentTypeForPath(path: string): string {
   return DEFAULT_MIME_TYPE;
 }
 
+// Images, media, fonts, and PDFs are already compressed; deflating them again
+// spends CPU for no size win.
+const COMPRESSIBLE_NON_TEXT_MIME_TYPES = new Set(["application/javascript", "application/json", "image/svg+xml"]);
+
+export function isCompressibleContentType(contentType: string): boolean {
+  const mime = contentType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  return mime.startsWith("text/") || COMPRESSIBLE_NON_TEXT_MIME_TYPES.has(mime);
+}
+
 export function servedContentForPath(path: string, options?: { scriptDisabled?: boolean }): ServedContent {
   const extension = path.match(/\.[^./\\]+$/u)?.[0]?.toLowerCase();
   const contentType = contentTypeForPath(path);
