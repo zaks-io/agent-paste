@@ -16,6 +16,20 @@ await run("pnpm", ["--filter", "@agent-paste/db", "migrate"], {
   DATABASE_RUNTIME_ROLE_PASSWORD: runtimePassword,
 });
 
+await run(
+  "pnpm",
+  [
+    "--filter",
+    "@agent-paste/db",
+    "exec",
+    "vitest",
+    "run",
+    "src/repository/upload-session-delete-only.postgres.test.ts",
+    "src/postgres/upload-session-file-count-migration.test.ts",
+  ],
+  { AGENT_PASTE_POSTGRES_TEST_URL: runtimeUrl, AGENT_PASTE_POSTGRES_MIGRATION_TEST_URL: migrationUrl },
+);
+
 await run(process.execPath, ["scripts/smoke-local-mvp.mjs"], {
   AGENT_PASTE_LOCAL_DATABASE_BACKEND: "postgres",
   AGENT_PASTE_LOCAL_DATABASE_URL: runtimeUrl,
