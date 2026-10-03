@@ -10,7 +10,18 @@ export function isGzipNegotiable(path: string): boolean {
 }
 
 export function negotiatesGzip(path: string, request: Request | undefined): boolean {
-  return isGzipNegotiable(path) && acceptsGzip(request?.headers.get("accept-encoding") ?? null);
+  return isGzipNegotiable(path) && acceptsGzip(clientAcceptEncoding(request));
+}
+
+// Cloudflare rewrites Accept-Encoding before the Worker runs, so on the edge only
+// cf.clientAcceptEncoding reflects what the client sent; its absence means the
+// client sent none. Local harness and test requests carry no cf object.
+function clientAcceptEncoding(request: Request | undefined): string | null {
+  const cf = (request as { cf?: { clientAcceptEncoding?: string } } | undefined)?.cf;
+  if (cf) {
+    return cf.clientAcceptEncoding ?? null;
+  }
+  return request?.headers.get("accept-encoding") ?? null;
 }
 
 export function acceptsGzip(acceptEncoding: string | null): boolean {

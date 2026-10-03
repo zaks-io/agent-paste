@@ -38,6 +38,16 @@ describe("negotiatesGzip", () => {
     expect(negotiatesGzip("blob.bin", gzipRequest)).toBe(false);
   });
 
+  it("negotiates on the client's original Accept-Encoding when Cloudflare rewrote the header", () => {
+    const edgeRequest = (clientAcceptEncoding?: string) =>
+      Object.assign(new Request("https://content.test/", { headers: { "accept-encoding": "gzip" } }), {
+        cf: clientAcceptEncoding === undefined ? {} : { clientAcceptEncoding },
+      });
+    expect(negotiatesGzip("index.html", edgeRequest("br, gzip, zstd"))).toBe(true);
+    expect(negotiatesGzip("index.html", edgeRequest("gzip;q=0, br"))).toBe(false);
+    expect(negotiatesGzip("index.html", edgeRequest())).toBe(false);
+  });
+
   it("requires the request to accept gzip", () => {
     expect(negotiatesGzip("index.html", new Request("https://content.test/"))).toBe(false);
     expect(negotiatesGzip("index.html", undefined)).toBe(false);
