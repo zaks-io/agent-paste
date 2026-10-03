@@ -6,7 +6,7 @@ import {
   contentRoutingProbeUrls,
   createSecretPlanner,
   deploymentPhases,
-  formatForbiddenProductionSecretsMessage,
+  formatForbiddenSecretsMessage,
   formatMissingProviderSecretsMessage,
   GENERATABLE,
   generatedByteLength,
@@ -49,7 +49,7 @@ function listNoSecrets() {
 
 function deployStepPlanner() {
   return {
-    reportForbiddenProductionSecrets() {},
+    reportForbiddenSecrets() {},
     reportMissingProviderSecrets() {},
     async bulkSetSecrets() {},
   };
@@ -599,7 +599,7 @@ describe("deploy secret planning", () => {
 
       const plan = await planner.buildProvisionPlan();
 
-      expect(plan.forbiddenProductionSecrets).toEqual([
+      expect(plan.forbiddenSecrets).toEqual([
         { worker: workerName("api", "production"), name: "SMOKE_HARNESS_SECRET" },
         { worker: workerName("upload", "production"), name: "WORKOS_API_KEY" },
         { worker: workerName("jobs", "production"), name: "SMOKE_HARNESS_SECRET" },
@@ -617,7 +617,7 @@ describe("deploy secret planning", () => {
         }),
       ).rejects.toThrow(/SMOKE_HARNESS_SECRET/);
       expect(failFn).toHaveBeenCalledOnce();
-      expect(failFn.mock.calls[0][0]).toBe(formatForbiddenProductionSecretsMessage(plan.forbiddenProductionSecrets));
+      expect(failFn.mock.calls[0][0]).toBe(formatForbiddenSecretsMessage("production", plan.forbiddenSecrets));
       expect(failFn.mock.calls[0][0]).toContain(
         `wrangler secret delete SMOKE_HARNESS_SECRET --name ${workerName("api", "production")}`,
       );
@@ -628,6 +628,40 @@ describe("deploy secret planning", () => {
         `wrangler secret delete SMOKE_HARNESS_SECRET --name ${workerName("jobs", "production")}`,
       );
       expect(bulkRun).not.toHaveBeenCalled();
+      expect(deployFn).not.toHaveBeenCalled();
+    });
+
+    it("fails preview deploy planning when the upload Worker still holds WORKOS_API_KEY", async () => {
+      const deployFn = vi.fn(async () => {});
+      const failFn = vi.fn((message) => {
+        throw new Error(message);
+      });
+      const planner = createSecretPlanner({
+        target: "preview",
+        env: previewEnv(),
+        listSecretsForWorker: async () => ["WORKOS_API_KEY"],
+        randomBytesFn: deterministicRandomBytes,
+      });
+
+      const plan = await planner.buildProvisionPlan();
+
+      expect(plan.forbiddenSecrets).toEqual([{ worker: workerName("upload", "preview"), name: "WORKOS_API_KEY" }]);
+      await expect(
+        runDeployPlan({
+          target: "preview",
+          planner,
+          provisionPlan: plan,
+          runFn: vi.fn(async () => {}),
+          deployFn,
+          failFn,
+          write: () => {},
+        }),
+      ).rejects.toThrow(/WORKOS_API_KEY/);
+      expect(failFn.mock.calls[0][0]).toBe(formatForbiddenSecretsMessage("preview", plan.forbiddenSecrets));
+      expect(failFn.mock.calls[0][0]).toContain(
+        `wrangler secret delete WORKOS_API_KEY --name ${workerName("upload", "preview")}`,
+      );
+      expect(failFn.mock.calls[0][0]).not.toContain(workerName("upload", "production"));
       expect(deployFn).not.toHaveBeenCalled();
     });
   });

@@ -226,12 +226,14 @@ export function formatMissingProviderSecretsMessage(missingProvider) {
   );
 }
 
-export function formatForbiddenProductionSecretsMessage(forbiddenSecrets) {
-  return (
-    `These production Worker secrets are forbidden and must be removed before deploy:\n` +
-    formatForbiddenSecretDeleteInstructions(forbiddenSecrets) +
-    `\n\nProduction smoke must use AGENT_PASTE_PRODUCTION_SMOKE_API_KEY, not SMOKE_HARNESS_SECRET.`
-  );
+export function formatForbiddenSecretsMessage(target, forbiddenSecrets) {
+  const message =
+    `These ${target} Worker secrets are forbidden and must be removed before deploy:\n` +
+    formatForbiddenSecretDeleteInstructions(forbiddenSecrets);
+  if (!forbiddenSecrets.some((entry) => entry.name === "SMOKE_HARNESS_SECRET")) {
+    return message;
+  }
+  return `${message}\n\nProduction smoke must use AGENT_PASTE_PRODUCTION_SMOKE_API_KEY, not SMOKE_HARNESS_SECRET.`;
 }
 
 /**
@@ -301,10 +303,10 @@ export function createSecretPlanner({
     const existing = new Set(await listSecretsForWorker(worker));
     const toSet = [];
     const missingProvider = [];
-    const forbiddenProductionSecrets = [];
+    const forbiddenSecrets = [];
     for (const name of forbiddenSecretsForApp(app, target)) {
       if (existing.has(name)) {
-        forbiddenProductionSecrets.push({ worker, name });
+        forbiddenSecrets.push({ worker, name });
       }
     }
     for (const name of secretsForApp(app, target)) {
@@ -315,7 +317,7 @@ export function createSecretPlanner({
         missingProvider.push(decision.name);
       }
     }
-    return { toSet, missingProvider, forbiddenProductionSecrets };
+    return { toSet, missingProvider, forbiddenSecrets };
   }
 
   /**
@@ -323,10 +325,10 @@ export function createSecretPlanner({
    *   --app deploy). Defaults to every secret-consuming app (full deploy).
    */
   async function buildProvisionPlan(scopeApps) {
-    /** @type {Map<string, string[]> & { missingProvider?: string[], forbiddenProductionSecrets?: Array<{ worker: string, name: string }> }} */
+    /** @type {Map<string, string[]> & { missingProvider?: string[], forbiddenSecrets?: Array<{ worker: string, name: string }> }} */
     const plan = new Map();
     const missingProvider = [];
-    const forbiddenProductionSecrets = [];
+    const forbiddenSecrets = [];
     const scope = scopeApps ? new Set(scopeApps) : null;
     for (const app of secretConsumingApps()) {
       if (scope && !scope.has(app)) {
@@ -335,24 +337,24 @@ export function createSecretPlanner({
       const {
         toSet,
         missingProvider: appMissing,
-        forbiddenProductionSecrets: appForbiddenProductionSecrets,
+        forbiddenSecrets: appForbiddenSecrets,
       } = await planSecretsForApp(app);
       missingProvider.push(...appMissing);
-      forbiddenProductionSecrets.push(...appForbiddenProductionSecrets);
+      forbiddenSecrets.push(...appForbiddenSecrets);
       if (toSet.length > 0) {
         plan.set(app, toSet);
       }
     }
     plan.missingProvider = missingProvider;
-    plan.forbiddenProductionSecrets = forbiddenProductionSecrets;
+    plan.forbiddenSecrets = forbiddenSecrets;
     return plan;
   }
 
-  function reportForbiddenProductionSecrets(plan, failFn = fail) {
-    if (!plan.forbiddenProductionSecrets || plan.forbiddenProductionSecrets.length === 0) {
+  function reportForbiddenSecrets(plan, failFn = fail) {
+    if (!plan.forbiddenSecrets || plan.forbiddenSecrets.length === 0) {
       return;
     }
-    failFn(formatForbiddenProductionSecretsMessage(plan.forbiddenProductionSecrets));
+    failFn(formatForbiddenSecretsMessage(target, plan.forbiddenSecrets));
   }
 
   function reportMissingProviderSecrets(plan, failFn = fail) {
@@ -372,7 +374,7 @@ export function createSecretPlanner({
 
   return {
     buildProvisionPlan,
-    reportForbiddenProductionSecrets,
+    reportForbiddenSecrets,
     reportMissingProviderSecrets,
     bulkSetSecrets,
     valueFor,
@@ -391,7 +393,7 @@ export async function runDeployPlan({
   failFn = fail,
   write = (message) => process.stdout.write(message),
 }) {
-  planner.reportForbiddenProductionSecrets(provisionPlan, failFn);
+  planner.reportForbiddenSecrets(provisionPlan, failFn);
   planner.reportMissingProviderSecrets(provisionPlan, failFn);
 
   // Bind every planned secret before the first deployment phase. The plan owns
