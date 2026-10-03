@@ -13,6 +13,7 @@ import {
 } from "@agent-paste/storage";
 import type { ContentTokenPayload } from "@agent-paste/tokens/content";
 import { BASELINE_SECURITY_HEADERS, getBoundResponders, writeArtifactEvent } from "@agent-paste/worker-runtime";
+import { CONTENT_CACHE_CONTROL, contentCacheControl } from "./cache-policy.js";
 import type { AppContext, Env, R2ObjectBody } from "./env.js";
 import { contentEtag, etagMatches } from "./etag.js";
 
@@ -374,7 +375,10 @@ export function responseHeadersForPath(
   const scriptDisabled = isScriptDisabled(payload);
   const served = servedContentForPath(path, { scriptDisabled });
   const headers = new Headers(securityHeaders);
-  headers.set("cache-control", CONTENT_CACHE_CONTROL);
+  headers.set(
+    "cache-control",
+    contentCacheControl({ ...served, exp: payload.exp, nowSeconds: Math.floor(Date.now() / 1000) }),
+  );
   headers.set("etag", etag);
   headers.set("content-length", String(size));
   headers.set("content-type", served.contentType);
@@ -411,17 +415,6 @@ function appendVary(headers: Headers, value: string): void {
     headers.set("vary", `${current}, ${value}`);
   }
 }
-
-// Every served file and bundle revalidates on every load (`no-cache`): paired
-// with the strong ETag, an unchanged reload is a zero-body 304 instead of a full
-// re-download, while denylist and expiry are still re-checked each time so a
-// revoked or expired artifact stops serving immediately rather than lingering in
-// a warm browser cache. `private` always: the URL is a bearer cap and must never
-// enter a shared cache. The validator does the caching work; we deliberately do
-// not grant a no-revalidation `max-age` window.
-// User content must survive the outer Cloudflare zone byte-for-byte. In
-// particular, no-transform prevents automatic Cloudflare Web Analytics injection.
-export const CONTENT_CACHE_CONTROL = "private, no-cache, no-transform";
 
 // 304 serves no bytes, but the request already counted against the artifact read
 // limit, so it still registers a read (bytes: 0). It reuses the exact headers the

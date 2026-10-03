@@ -139,21 +139,40 @@ limiter error fails closed with HTTP 429, `rate_limited_artifact`, and
 `Retry-After: 60`. The subsequent Artifact read limiter also fails closed.
 
 Each file counts as a request, so budgets accommodate image-heavy page navigation
-rather than treating a page view as one read. Limits remain in force for cached
-revalidation.
+rather than treating a page view as one read. Fresh browser-cached static assets
+make no network request and consume no read budget. Conditional revalidation
+requests still count.
 
 ## Caching
 
-Every successful file response has a strong Revision-and-path `ETag` and
-`Cache-Control: private, no-cache, no-transform`. `no-transform` prevents the
-outer Cloudflare zone from injecting analytics or other markup into uploaded
-HTML. A matching `If-None-Match`, including `*`, returns `304 Not Modified`
-before the R2 read, after authorization, denylist, and rate-limit checks. The
-304 carries the same content type, CSP, ETag, and cache policy as the
-corresponding 200.
+Every successful file response has a strong Revision-and-path `ETag`. Inline
+images (including SVG), CSS, JavaScript, fonts, audio, and video use
+`Cache-Control: private, max-age=3600, must-revalidate, no-transform`. The
+freshness window is capped by the signed token's remaining lifetime; an explicit
+null expiry allows the full 3600 seconds. No freshness is granted at or after
+expiry. HTML, data, text, attachments, and bundles use
+`private, no-cache, no-transform` and revalidate on each load.
 
-Errors use `Cache-Control: no-store`. Revising an Artifact changes validators
-without changing its hostname.
+`private` prevents shared caching of bearer URLs. `no-transform` prevents the
+outer Cloudflare zone from injecting analytics or other markup into uploaded
+HTML. After freshness expires, `must-revalidate` requires a network check before
+reuse, including when offline. A matching `If-None-Match`, including `*`, returns
+`304 Not Modified` before the R2 read, after authorization, denylist, and
+rate-limit checks. The 304 carries the same content type, CSP, ETag, and cache
+policy as the corresponding 200, with freshness recomputed against token expiry.
+HEAD uses the same cache policy as GET.
+
+Revising an Artifact changes validators without changing its hostname. HTML
+reflects the new Revision on navigation, but assets at reused paths can remain
+from the previous Revision for up to one hour. A hard refresh forces asset
+revalidation. Revocation, deletion, lockdown, denylisting, claiming, and retention
+changes take effect on the next network request; already cached static assets
+can retain their previous bytes and security headers until freshness expires,
+up to one hour or the originally signed expiry if sooner. Cached or already
+displayed bytes cannot be recalled.
+
+Errors use `Cache-Control: no-store`. There is no shared CDN or Workers edge
+cache. See [ADR 0100](../adr/0100-bounded-browser-cache-for-static-assets.md).
 
 ## Legacy URLs
 

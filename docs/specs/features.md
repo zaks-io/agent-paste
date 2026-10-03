@@ -16,6 +16,7 @@
 | Pin                        | Pinned Artifacts skip Auto Deletion until unpinned. Pinning is a dashboard action.                                      |
 | Dashboard                  | Manages Artifacts, credentials, audit, settings, billing, and claims.                                                   |
 | Bundles                    | Every Published Revision is packaged as a zip. CLI `download` saves it; MCP `read_artifact` returns its download URL.   |
+| Browser caching            | Inline static assets reuse a private browser cache for up to one hour, capped by signed expiry. HTML revalidates.       |
 | Safety controls            | Artifact deletion, platform lockdown, denylist checks, and rate limits.                                                 |
 
 ## File types

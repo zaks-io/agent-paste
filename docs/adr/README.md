@@ -14,6 +14,8 @@ This directory is the decision log for agent-paste: it records _why_ choices wer
 
 ## Current Conflict Resolutions
 
+- [ADR 0100](./0100-bounded-browser-cache-for-static-assets.md) supersedes the uniform browser revalidation policy in ADR 0020/0081. Inline static assets have up to one hour of private freshness; documents and downloads still revalidate.
+
 - [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md) is the canonical content-origin authorization model. `content` verifies short-lived content-gateway tokens, reads R2, checks KV denylist state, and has no Hyperdrive binding.
 - [ADR 0031](./0031-signed-content-urls-with-kid-rotation.md) is superseded. Its private-read URL design was folded into ADR 0028.
 - [ADR 0047](./0047-access-link-signed-url-with-fragment-encoded-payload.md) and [ADR 0052](./0052-agent-view-discovery-from-access-link-signed-urls.md) are historical. [ADR 0094](./0094-capability-url-is-the-artifact-link.md) removed the Access Link viewer and made the capability hostname the recipient URL.

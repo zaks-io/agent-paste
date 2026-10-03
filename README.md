@@ -18,7 +18,8 @@ actually look at it. You don't need to set up a hosting project for each result.
 - Send a generated report to a teammate who doesn't have your working directory.
 - Open an interactive HTML demo in the browser to try what the agent built.
 - Ask for changes and publish them to the same link. Recipients see the update
-  when they refresh.
+  when they refresh. Images and other static assets reuse the browser cache for
+  up to one hour; a hard refresh picks up asset changes immediately.
 
 It hosts the files you publish. For an app with a server or database, host those
 services separately.
