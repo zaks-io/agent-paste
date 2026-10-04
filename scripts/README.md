@@ -53,6 +53,19 @@ pnpm setup:worktree -- --skip-install
 pnpm setup:worktree -- --skip-env
 ```
 
+## Local Cloudflare
+
+`pnpm dev:cloudflare` runs the actual Workers on local workerd, with local
+Postgres/Hyperdrive, persistent R2 and KV, queue consumers, Durable Objects,
+native rate limits, and a WorkOS fixture. `pnpm smoke:local:cloudflare` checks the
+running fleet end to end. Both commands use isolated configuration under
+`.wrangler/local-cloudflare/`; they do not need hosted credentials.
+
+See [the local development spec](../docs/specs/local-dev.md#local-cloudflare-runtime)
+for ports, sandbox previews, persistence, and the pinned Wrangler/Miniflare
+limitations handled by the launcher. The local smoke is separate from the fast
+Node harness used by `pnpm smoke:local`.
+
 ## Hosted Scripts
 
 ### `bootstrap-secrets.mjs`
