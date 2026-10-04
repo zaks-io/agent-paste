@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,13 +10,37 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const scriptPath = fileURLToPath(new URL("deploy-pr-preview.mjs", import.meta.url));
 
 describe("deploy-pr-preview generated configs", () => {
-  it("includes AP-173 Durable Object gates and ephemeral rate limits", () => {
+  it.each([
+    { sentryDsn: "", webEnabled: false },
+    { sentryDsn: "https://public@example.ingest.us.sentry.io/1", webEnabled: false },
+    { sentryDsn: "https://public@example.ingest.us.sentry.io/1", webEnabled: true },
+  ])("preserves routing, security, and observability with $sentryDsn and Web $webEnabled", ({
+    sentryDsn,
+    webEnabled,
+  }) => {
     const prNumber = "999173";
     const fakeBin = mkdtempSync(join(tmpdir(), "agent-paste-pr-preview-"));
     const fakePnpm = join(fakeBin, "pnpm");
     const outDir = new URL(`../.wrangler/pr-preview/pr-${prNumber}/`, import.meta.url);
+    const webConfigPath = fileURLToPath(new URL("../apps/web/dist/server/wrangler.json", import.meta.url));
+    const originalWebConfig = existsSync(webConfigPath) ? readFileSync(webConfigPath) : undefined;
+    const webSourcePath = new URL("../apps/web/wrangler.jsonc", import.meta.url);
+    const webSource = parseConfigFileTextToJson(webSourcePath.pathname, readFileSync(webSourcePath, "utf8")).config;
+    const webFixture = { observability: webSource.observability, vars: {} };
 
-    writeFileSync(fakePnpm, "#!/usr/bin/env node\nprocess.exit(0);\n");
+    writeFileSync(
+      fakePnpm,
+      `#!/usr/bin/env node
+const fs = require("node:fs");
+const path = require("node:path");
+if (process.argv.includes("@agent-paste/web") && process.argv.includes("build")) {
+  const configPath = ${JSON.stringify(webConfigPath)};
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
+  fs.writeFileSync(configPath, ${JSON.stringify(JSON.stringify(webFixture))});
+}
+process.exit(0);
+`,
+    );
     chmodSync(fakePnpm, 0o755);
     rmSync(outDir, { recursive: true, force: true });
 
@@ -31,7 +55,8 @@ describe("deploy-pr-preview generated configs", () => {
           PR_HYPERDRIVE_ID: "hd_test_pr_preview",
           CLOUDFLARE_WORKERS_SUBDOMAIN: "example-subdomain",
           PR_PREVIEW_SECRET_SEED: "deterministic-pr-preview-seed",
-          WORKOS_PREVIEW_API_KEY: "",
+          WORKOS_PREVIEW_API_KEY: webEnabled ? "wk_test_pr_preview" : "",
+          SENTRY_DSN: sentryDsn,
         },
       });
       if (result.status !== 0) {
@@ -41,6 +66,24 @@ describe("deploy-pr-preview generated configs", () => {
       const api = JSON.parse(readFileSync(new URL("api.json", outDir), "utf8"));
       const upload = JSON.parse(readFileSync(new URL("upload.json", outDir), "utf8"));
       const content = JSON.parse(readFileSync(new URL("content.json", outDir), "utf8"));
+      for (const app of ["api", "upload", "content", "jobs", "apex"]) {
+        const config = JSON.parse(readFileSync(new URL(`${app}.json`, outDir), "utf8"));
+        const sourcePath = new URL(`../apps/${app}/wrangler.jsonc`, import.meta.url);
+        const source = parseConfigFileTextToJson(sourcePath.pathname, readFileSync(sourcePath, "utf8")).config;
+        expect(config.observability).toEqual(source.env?.preview?.observability ?? source.observability);
+        const secrets = JSON.parse(readFileSync(new URL(`${app}.secrets.json`, outDir), "utf8"));
+        if (sentryDsn) {
+          expect(secrets.SENTRY_DSN).toBe(sentryDsn);
+        } else {
+          expect(secrets).not.toHaveProperty("SENTRY_DSN");
+        }
+      }
+      if (webEnabled) {
+        const web = JSON.parse(readFileSync(webConfigPath, "utf8"));
+        expect(web.observability).toEqual(webSource.observability);
+        const webSecrets = JSON.parse(readFileSync(new URL("web.secrets.json", outDir), "utf8"));
+        expect(webSecrets).toMatchObject({ WORKOS_API_KEY: "wk_test_pr_preview", SENTRY_DSN: sentryDsn });
+      }
       expect(api.placement).toEqual({ mode: "targeted", region: "aws:us-east-1" });
       expect(upload.placement).toEqual({ mode: "targeted", region: "aws:us-east-1" });
       expect(content).not.toHaveProperty("placement");
@@ -109,8 +152,39 @@ describe("deploy-pr-preview generated configs", () => {
         },
       ]);
     } finally {
+      if (webEnabled) {
+        if (originalWebConfig) {
+          writeFileSync(webConfigPath, originalWebConfig);
+        } else {
+          rmSync(webConfigPath, { force: true });
+        }
+      }
       rmSync(outDir, { recursive: true, force: true });
       rmSync(fakeBin, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("Worker observability export contract", () => {
+  it.each([undefined, "preview", "production"])("routes telemetry safely in %s", (environment) => {
+    for (const app of ["api", "upload", "content", "jobs", "mcp", "apex", "web", "stream"]) {
+      const path = new URL(`../apps/${app}/wrangler.jsonc`, import.meta.url);
+      const config = parseConfigFileTextToJson(path.pathname, readFileSync(path, "utf8")).config;
+      const observability = config.env?.[environment]?.observability ?? config.observability;
+      expect(observability.enabled).toBe(true);
+      expect(observability.logs).toMatchObject({ enabled: true, destinations: ["axiom-logs"] });
+      if (app === "upload" || app === "content") {
+        expect(observability.logs.invocation_logs).toBe(false);
+        expect(observability.traces.enabled).toBe(false);
+        expect(observability.traces.destinations ?? []).toEqual([]);
+      } else {
+        expect(observability.traces).toMatchObject({
+          enabled: true,
+          destinations: ["axiom-traces", "sentry-agent-paste-traces"],
+        });
+      }
+      const vars = environment ? config.env[environment].vars : config.vars;
+      expect(Number(vars.SENTRY_TRACES_SAMPLE_RATE ?? "1")).toBe(1);
     }
   });
 });

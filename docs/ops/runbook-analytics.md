@@ -2,7 +2,7 @@
 
 Three product-analytics surfaces, all on Cloudflare:
 
-1. **Workers Analytics Engine artifact events** — custom `publish` and `read` events on artifacts, written from the `api` and `content` Workers. This is application/product telemetry, distinct from the infra logs/traces that flow to Axiom via [Logpush](./runbook-logpush.md).
+1. **Workers Analytics Engine artifact events** — custom `publish` and `read` events on artifacts, written from the `api` and `content` Workers. This is application/product telemetry, distinct from the infra logs/traces that flow to Axiom via [Workers Observability](./runbook-observability.md).
 2. **Workers Analytics Engine funnel events** — claim-code-attributed funnel events across marketing prompt copy, ephemeral provision, ephemeral publish, and claim.
 3. **Cloudflare Web Analytics** — a cookieless RUM beacon on the human web app (`apps/web`) and apex marketing site (`apps/apex`).
 

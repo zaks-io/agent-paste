@@ -78,3 +78,29 @@ so the publish path does not pay cross-region latency for each database query.
 See [ADR 0094](../adr/0094-capability-url-is-the-artifact-link.md) and
 [ADR 0095](../adr/0095-isolate-active-content-and-restore-ephemeral-execution-policy.md)
 for the direct-origin and isolation decisions.
+
+## Observability
+
+All eight deployable Workers export structured console logs through the
+Cloudflare destination `axiom-logs`. Workers with native tracing enabled
+(`api`, `jobs`, `mcp`, `apex`, `web`, and the dormant `stream`) export traces to
+both `axiom-traces` and `sentry-agent-paste-traces`. Standing preview and
+production inherit these destinations from the root Wrangler config. Generated
+PR previews preserve each Worker's observability settings.
+
+`content` and `upload` disable native traces and invocation logs because their
+request hosts or paths contain bearer credentials. Their application console
+logs remain enabled and sanitized. Their Sentry SDK traces and errors pass
+through the shared `worker-runtime` sanitizers before export. Native Cloudflare
+exports do not pass through these SDK hooks. There is currently no sanitized
+trace exporter to Axiom for these two Workers; enabling native tracing would
+expose capability IDs or signed upload/content tokens.
+
+Every Worker uses the Sentry SDK, enabled only when a non-empty `SENTRY_DSN` is
+bound. Deploy workflows pass this optional provider configuration to the secret
+planner; Web uses the same DSN for its browser SDK. SDK trace sampling defaults
+to `1`, and MCP explicitly uses the same rate. Any operator sampling override
+must agree across services and browsers to preserve distributed traces.
+
+See the [observability runbook](../ops/runbook-observability.md) for destination
+setup, deployed-state verification, and the dated audit of remaining live gaps.

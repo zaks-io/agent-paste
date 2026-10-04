@@ -13,13 +13,13 @@
     },
     "traces": {
       "enabled": true,
-      "destinations": ["axiom-traces"]
+      "destinations": ["axiom-traces", "sentry-agent-paste-traces"]
     }
   },
   "upload_source_maps": true,
   "vars": {
     "AGENT_PASTE_ENV": "dev",
-    "SENTRY_TRACES_SAMPLE_RATE": "0.1",
+    "SENTRY_TRACES_SAMPLE_RATE": "1",
     "MCP_RESOURCE": "https://mcp.agent-paste.sh/",
     "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh/"
   },
@@ -61,7 +61,7 @@
       ],
       "vars": {
         "AGENT_PASTE_ENV": "preview",
-        "SENTRY_TRACES_SAMPLE_RATE": "0.1",
+        "SENTRY_TRACES_SAMPLE_RATE": "1",
         "MCP_RESOURCE": "https://mcp.preview.agent-paste.sh/",
         "MCP_AUTHORIZATION_SERVER": "https://courageous-milestone-75-staging.authkit.app",
         "WORKOS_MCP_AUDIENCE": "https://mcp.preview.agent-paste.sh/",
@@ -105,7 +105,7 @@
       ],
       "vars": {
         "AGENT_PASTE_ENV": "production",
-        "SENTRY_TRACES_SAMPLE_RATE": "0.1",
+        "SENTRY_TRACES_SAMPLE_RATE": "1",
         "MCP_RESOURCE": "https://mcp.agent-paste.sh/",
         "MCP_AUTHORIZATION_SERVER": "https://soulful-path-50.authkit.app",
         "WORKOS_MCP_AUDIENCE": "https://mcp.agent-paste.sh/",

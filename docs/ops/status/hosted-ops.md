@@ -277,6 +277,10 @@ called with incorrect this reference`. Example failed revisions:
 
 ## Observability
 
+Current destination setup, security exceptions, and deployed-state gaps are in
+the [observability runbook](../runbook-observability.md). The behavioral contract
+lives in the [architecture spec](../../specs/architecture.md#observability).
+
 - Worker Sentry error capture is controlled by `SENTRY_DSN`.
 - DB query spans for Sentry Queries are emitted app-side from Hyperdrive-backed
   Postgres executors on `api`, `upload`, and `jobs`. Spans use Sentry

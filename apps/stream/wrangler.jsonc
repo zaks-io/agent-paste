@@ -13,7 +13,7 @@
     },
     "traces": {
       "enabled": true,
-      "destinations": ["axiom-traces"]
+      "destinations": ["axiom-traces", "sentry-agent-paste-traces"]
     }
   },
   "upload_source_maps": true,

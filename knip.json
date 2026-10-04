@@ -11,6 +11,12 @@
     "examples/local-harness/site/assets/**"
   ],
   "workspaces": {
+    "apps/cli": {
+      "entry": ["src/node-globals.d.ts"]
+    },
+    "packages/api-client": {
+      "entry": ["src/node-globals.d.ts"]
+    },
     "apps/web": {
       "entry": ["src/server.ts"]
     },
