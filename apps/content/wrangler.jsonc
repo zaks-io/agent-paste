@@ -5,6 +5,7 @@
   "compatibility_date": "2026-05-21",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
+  // Native traces/invocation logs contain bearer URLs; use sanitized Sentry SDK traces.
   "observability": {
     "enabled": true,
     "logs": {

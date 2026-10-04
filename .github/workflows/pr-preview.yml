@@ -175,6 +175,7 @@ jobs:
           WORKOS_PREVIEW_API_KEY: ${{ secrets.WORKOS_PREVIEW_API_KEY }}
           # Enables client source-map upload during the web build; no-ops if unset.
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
         run: |
           node scripts/create-hyperdrive.mjs \
             --name agent-paste-db-pr-${{ github.event.pull_request.number }} \

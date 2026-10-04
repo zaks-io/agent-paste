@@ -3,7 +3,10 @@
 import { createHmac, randomBytes } from "node:crypto";
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { readWranglerConfig } from "../packages/repo-lint/src/wrangler-config.mjs";
 import { ensureJobQueues } from "./ensure-job-queues.mjs";
+import { secretsForApp } from "./lib/secret-routing.mjs";
+import { resolveSecretValue } from "./lib/secret-values.mjs";
 import { spawnCommand } from "./lib/spawn-command.mjs";
 import { prPreviewJobQueues } from "./pr-preview-job-queues.mjs";
 
@@ -53,6 +56,7 @@ const files = {
   uploadSecrets: fileURLToPath(new URL("upload.secrets.json", outDir)),
   contentSecrets: fileURLToPath(new URL("content.secrets.json", outDir)),
   jobsSecrets: fileURLToPath(new URL("jobs.secrets.json", outDir)),
+  apexSecrets: fileURLToPath(new URL("apex.secrets.json", outDir)),
 };
 
 writeJson(files.apiConfig, apiConfig());
@@ -62,7 +66,7 @@ writeJson(files.jobsConfig, jobsConfig());
 writeJson(files.apexConfig, apexConfig());
 writeJson(
   files.apiSecrets,
-  pickSecrets([
+  pickSecrets("api", [
     "CONTENT_SIGNING_SECRET",
     "API_KEY_PEPPER_V1",
     "ARTIFACT_BYTES_ENCRYPTION_KEY",
@@ -72,15 +76,16 @@ writeJson(
 );
 writeJson(
   files.uploadSecrets,
-  pickSecrets([
+  pickSecrets("upload", [
     "CONTENT_SIGNING_SECRET",
     "UPLOAD_SIGNING_SECRET",
     "API_KEY_PEPPER_V1",
     "ARTIFACT_BYTES_ENCRYPTION_KEY",
   ]),
 );
-writeJson(files.contentSecrets, pickSecrets(["CONTENT_SIGNING_SECRET", "ARTIFACT_BYTES_ENCRYPTION_KEY"]));
-writeJson(files.jobsSecrets, pickSecrets(["SMOKE_HARNESS_SECRET", "ARTIFACT_BYTES_ENCRYPTION_KEY"]));
+writeJson(files.contentSecrets, pickSecrets("content", ["CONTENT_SIGNING_SECRET", "ARTIFACT_BYTES_ENCRYPTION_KEY"]));
+writeJson(files.jobsSecrets, pickSecrets("jobs", ["SMOKE_HARNESS_SECRET", "ARTIFACT_BYTES_ENCRYPTION_KEY"]));
+writeJson(files.apexSecrets, optionalSentrySecrets("apex"));
 
 await ensurePreviewJobQueues();
 await deploy("api", files.apiConfig, files.apiSecrets);
@@ -96,7 +101,7 @@ await deploy("jobs", files.jobsConfig, files.jobsSecrets);
 await run("pnpm", ["--filter", "@agent-paste/apex", "build"], {
   env: { AGENT_PASTE_ENV: "preview", BILLING_ENABLED: "true" },
 });
-await deploy("apex", files.apexConfig);
+await deploy("apex", files.apexConfig, files.apexSecrets);
 const webDeployed = await deployWeb();
 
 emitOutput("api_url", urls.api);
@@ -170,6 +175,7 @@ async function deployWeb() {
   writeJson(webSecretsPath, {
     WORKOS_API_KEY: workosApiKey,
     WORKOS_COOKIE_PASSWORD: prSecrets.WORKOS_COOKIE_PASSWORD,
+    ...optionalSentrySecrets("web"),
   });
   await run("pnpm", ["exec", "wrangler", "deploy", "--config", generatedConfig, "--secrets-file", webSecretsPath]);
   return true;
@@ -350,14 +356,26 @@ function apexConfig() {
 }
 
 function baseConfig(app, config) {
+  const checkedIn = readWranglerConfig(workspacePath(`apps/${app}/wrangler.jsonc`));
   return {
     $schema: workspacePath("node_modules/wrangler/config-schema.json"),
     name: names[app],
     compatibility_date: "2026-05-21",
     workers_dev: true,
-    observability: { enabled: true },
+    observability: checkedIn.env?.preview?.observability ?? checkedIn.observability,
     ...config,
   };
+}
+
+function optionalSentrySecrets(app) {
+  const values = {};
+  for (const name of secretsForApp(app, "preview", { source: "sentry" })) {
+    const value = resolveSecretValue(name, "preview");
+    if (value) {
+      values[name] = value;
+    }
+  }
+  return values;
 }
 
 function rateLimit(name, namespaceId, limit, period) {
@@ -368,8 +386,8 @@ function rateLimit(name, namespaceId, limit, period) {
   };
 }
 
-function pickSecrets(names) {
-  const values = {};
+function pickSecrets(app, names) {
+  const values = optionalSentrySecrets(app);
   for (const name of names) {
     values[name] = prSecrets[name];
   }

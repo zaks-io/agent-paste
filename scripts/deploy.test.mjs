@@ -342,7 +342,7 @@ describe("runDeployPlan deploy step", () => {
       randomBytesFn: deterministicRandomBytes,
     });
 
-    const sentryApps = ["api", "upload", "content", "jobs", "stream", "mcp", "apex"];
+    const sentryApps = ["api", "upload", "content", "jobs", "stream", "mcp", "apex", "web"];
     const withDsnPlan = await withDsn.buildProvisionPlan(sentryApps);
     const withoutDsnPlan = await withoutDsn.buildProvisionPlan(sentryApps);
 

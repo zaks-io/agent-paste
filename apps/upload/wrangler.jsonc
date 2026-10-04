@@ -9,6 +9,7 @@
     "region": "aws:us-east-1"
   },
   "workers_dev": false,
+  // Native traces/invocation logs contain bearer URLs; use sanitized Sentry SDK traces.
   "observability": {
     "enabled": true,
     "logs": {

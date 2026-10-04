@@ -79,6 +79,7 @@ export const SECRET_ROUTING = {
   web: {
     WORKOS_API_KEY: { required: true, source: "workos" },
     WORKOS_COOKIE_PASSWORD: { required: true, source: "workos" },
+    SENTRY_DSN: { required: false, source: "sentry" }, // Optional Worker + browser monitoring.
   },
 };
 

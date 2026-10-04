@@ -243,10 +243,6 @@ export function containsContentCapabilityHostname(value: string): boolean {
   return CONTENT_CAPABILITY_HOSTNAME_PATTERN.test(value);
 }
 
-export function containsContentCapabilityId(value: string): boolean {
-  return contentCapabilityIdFromValue(value) !== undefined;
-}
-
 export function contentCapabilityIdFromValue(value: string): string | undefined {
   const hostname = value.match(CONTENT_CAPABILITY_HOSTNAME_PATTERN)?.[0];
   return hostname?.match(CONTENT_CAPABILITY_ID_PREFIX_PATTERN)?.[0].toLowerCase();
