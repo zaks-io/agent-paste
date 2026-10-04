@@ -70,16 +70,17 @@ pnpm hooks:install
 
 ### Local Development
 
-| Command                  | Purpose                                                                                                               |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `pnpm dev:web`           | Build packages and start the local API/upload/content/jobs/stream harness plus the web dashboard on `localhost:5173`. |
-| `pnpm dev:apex`          | Start the apex preview server with Vite hot reload on `localhost:5174`.                                               |
-| `pnpm dev:all`           | Build packages and start only the local MVP API/upload/content/jobs/stream harness.                                   |
-| `pnpm cli:dev -- <args>` | Run the local CLI from source after building it.                                                                      |
-| `pnpm cli:test`          | Run only the CLI test suite.                                                                                          |
-| `pnpm evals -- <args>`   | Run the eval harness CLI from source.                                                                                 |
-| `pnpm evals:env`         | Copy the eval harness `.env.local` from the central checkout path.                                                    |
-| `pnpm evals:run`         | Run the default eval suite from `apps/evals/config.example.yaml`.                                                     |
+| Command                  | Purpose                                                                                                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm dev:web`           | Build packages and start the local API/upload/content/jobs/stream harness plus the web dashboard on `localhost:5173`.                                              |
+| `pnpm dev:apex`          | Start the apex preview server with Vite hot reload on `localhost:5174`.                                                                                            |
+| `pnpm dev:all`           | Build packages and start only the local MVP API/upload/content/jobs/stream harness.                                                                                |
+| `pnpm dev:cloudflare`    | Build and run the local Cloudflare Workers, dashboard, marketing, Postgres, and WorkOS fixture. See [local-dev.md](./specs/local-dev.md#local-cloudflare-runtime). |
+| `pnpm cli:dev -- <args>` | Run the local CLI from source after building it.                                                                                                                   |
+| `pnpm cli:test`          | Run only the CLI test suite.                                                                                                                                       |
+| `pnpm evals -- <args>`   | Run the eval harness CLI from source.                                                                                                                              |
+| `pnpm evals:env`         | Copy the eval harness `.env.local` from the central checkout path.                                                                                                 |
+| `pnpm evals:run`         | Run the default eval suite from `apps/evals/config.example.yaml`.                                                                                                  |
 
 ### Quality
 
@@ -169,25 +170,26 @@ deploy production from a laptop.
 
 ### Smoke Tests
 
-| Command                           | Purpose                                                                                                                 |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `pnpm smoke:local`                | Build and run the local publish/content/delete smoke path (also gated in CI `Validate`).                                |
-| `pnpm smoke:local:patch`          | Build and run the local ADR 0089 intra-file patch reconstruction smoke (real diff apply + serve byte-exact + conflict). |
-| `pnpm smoke:ci:postgres`          | Build, migrate a job-local Postgres database, and run the local CLI smoke through the Postgres/RLS-backed harness.      |
-| `pnpm smoke:web`                  | Build and run local web API auth/dashboard smoke assertions.                                                            |
-| `pnpm smoke:mcp`                  | Build and run local MCP transport + OAuth + publish/read/delete smoke.                                                  |
-| `pnpm smoke:mcp:preview`          | Build and run hosted preview MCP smoke (a user OAuth token enables authenticated checks).                               |
-| `pnpm smoke:mcp:production`       | Build and run hosted production MCP smoke (requires explicit approval and token).                                       |
-| `pnpm lighthouse:apex-a11y`       | Run the local Lighthouse accessibility gate across all prerendered apex routes (requires `apps/apex` built first).      |
-| `pnpm lighthouse:dashboard-a11y`  | Run the local Lighthouse accessibility gate on authenticated `/dashboard` empty chrome (requires `pnpm build` first).   |
-| `pnpm smoke:preview`              | Build and run hosted preview smoke assertions.                                                                          |
-| `pnpm smoke:preview:ephemeral`    | Build and run hosted preview ephemeral publish smoke.                                                                   |
-| `pnpm smoke:production`           | Build and run hosted production smoke assertions.                                                                       |
-| `pnpm smoke:production:ephemeral` | Build and run hosted production ephemeral publish smoke (operator-only; optional WorkOS token for claim).               |
-| `pnpm smoke:pr`                   | Build and run hosted PR-preview smoke assertions manually using PR workflow-provided URLs.                              |
-| `pnpm smoke:pr:ephemeral`         | Build and run hosted PR-preview ephemeral publish smoke.                                                                |
-| `pnpm smoke:preview:readonly`     | Build and run the credential-free read-only preview smoke.                                                              |
-| `pnpm smoke:prod:readonly`        | Build and run the credential-free read-only production smoke.                                                           |
+| Command                           | Purpose                                                                                                                            |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm smoke:local`                | Build and run the local publish/content/delete smoke path (also gated in CI `Validate`).                                           |
+| `pnpm smoke:local:cloudflare`     | Exercise publish/revise/delete, bundles, ephemeral claim, MCP RPC, dashboard, and assets against a running `dev:cloudflare` fleet. |
+| `pnpm smoke:local:patch`          | Build and run the local ADR 0089 intra-file patch reconstruction smoke (real diff apply + serve byte-exact + conflict).            |
+| `pnpm smoke:ci:postgres`          | Build, migrate a job-local Postgres database, and run the local CLI smoke through the Postgres/RLS-backed harness.                 |
+| `pnpm smoke:web`                  | Build and run local web API auth/dashboard smoke assertions.                                                                       |
+| `pnpm smoke:mcp`                  | Build and run local MCP transport + OAuth + publish/read/delete smoke.                                                             |
+| `pnpm smoke:mcp:preview`          | Build and run hosted preview MCP smoke (a user OAuth token enables authenticated checks).                                          |
+| `pnpm smoke:mcp:production`       | Build and run hosted production MCP smoke (requires explicit approval and token).                                                  |
+| `pnpm lighthouse:apex-a11y`       | Run the local Lighthouse accessibility gate across all prerendered apex routes (requires `apps/apex` built first).                 |
+| `pnpm lighthouse:dashboard-a11y`  | Run the local Lighthouse accessibility gate on authenticated `/dashboard` empty chrome (requires `pnpm build` first).              |
+| `pnpm smoke:preview`              | Build and run hosted preview smoke assertions.                                                                                     |
+| `pnpm smoke:preview:ephemeral`    | Build and run hosted preview ephemeral publish smoke.                                                                              |
+| `pnpm smoke:production`           | Build and run hosted production smoke assertions.                                                                                  |
+| `pnpm smoke:production:ephemeral` | Build and run hosted production ephemeral publish smoke (operator-only; optional WorkOS token for claim).                          |
+| `pnpm smoke:pr`                   | Build and run hosted PR-preview smoke assertions manually using PR workflow-provided URLs.                                         |
+| `pnpm smoke:pr:ephemeral`         | Build and run hosted PR-preview ephemeral publish smoke.                                                                           |
+| `pnpm smoke:preview:readonly`     | Build and run the credential-free read-only preview smoke.                                                                         |
+| `pnpm smoke:prod:readonly`        | Build and run the credential-free read-only production smoke.                                                                      |
 
 ### Hooks
 
