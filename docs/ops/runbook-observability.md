@@ -27,8 +27,16 @@ unset. PR previews provision the optional DSN through their secrets files,
 including Apex and Web. No DSN is generated from random bytes.
 
 SDK sampling defaults to `1`. Keep any `SENTRY_TRACES_SAMPLE_RATE` override
-consistent across the fleet and browser SDKs. Cloudflare native sampling is a
-separate setting and does not inherit the SDK rate.
+consistent across the fleet; Web and Apex receive their Worker's rate. Invalid
+non-empty values fail configuration validation. Downstream SDK spans inherit
+the originating sampling decision. Cloudflare native sampling is a separate
+setting and does not inherit the SDK rate.
+
+Normal deployment scripts resolve one `SENTRY_RELEASE` from the exact checkout
+commit, or preserve an explicit override. Wrangler receives it as a runtime
+binding, and Web's source-map build receives the same release through Turbo's
+strict environment configuration. Do not configure a separate release per
+Worker for these deploys.
 
 Production deployments and credential changes require explicit approval under
 [`AGENTS.md`](../../AGENTS.md#project-stage). Use the normal deployment workflows
@@ -60,6 +68,38 @@ trace ingestion. Check the trace destination's export status separately. A quiet
 Worker may have no recent application logs; do not enable credential-bearing
 invocation logs just to produce a log row. Exercise a safe preview request when
 needed and verify its telemetry without publishing production artifacts.
+
+## Verify application trace continuity
+
+Use Sentry SDK application spans for this check. Native export delivery proves
+only that platform telemetry arrived; it does not prove SDK propagation.
+
+1. Deploy the branch through the normal preview workflow. Confirm the changed
+   Workers and browser configuration report the same release.
+2. Exercise a dashboard request and an MCP publish. Inspect the SDK waterfall:
+   Web/MCP client spans and API/Upload receiver spans should share a trace ID,
+   with receiver parent IDs matching the forwarding client spans.
+3. Follow publish into bundle/safety processing. Each message should resume its
+   producing trace independently. A retry or bundle DLQ delivery retains that
+   trace; a mixed batch must not merge unrelated messages.
+4. Confirm sampled and unsampled parent decisions survive the boundaries, and
+   sanitized warning/error logs remain linked to their processing spans.
+5. Confirm `service.name`, environment, and release identify the SDK spans. Check
+   that credentials, capability hosts, upload tokens, and arbitrary baggage are
+   absent from exported payloads. POST bodies, cookies, query strings, and
+   sensitive request headers must also be absent from transaction envelopes.
+
+The local SDK regression tests cover parentage, sampling inheritance, batch
+isolation, retries, legacy messages, and sanitization using the pinned SDK and
+an in-memory transport. Hosted checks establish delivery after deployment.
+
+Cloudflare's native tracing currently [does not propagate context to external
+services](https://developers.cloudflare.com/workers/observability/traces/known-limitations/),
+and its [custom-span API does not expose trace/span
+IDs](https://developers.cloudflare.com/workers/observability/traces/custom-spans/#limitations).
+Native and SDK traces can coexist in Sentry, but should not be represented as
+one automatically joined trace. Supported SDK propagation is described in
+[Sentry's distributed-tracing documentation](https://docs.sentry.io/platforms/javascript/guides/cloudflare/tracing/distributed-tracing/).
 
 ## Audit: 2026-10-04
 

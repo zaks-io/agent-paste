@@ -41,6 +41,7 @@ export function loadRootEnv() {
     sentry: {
       dsn: env.SENTRY_DSN,
       environment: env.AGENT_PASTE_ENV,
+      release: env.SENTRY_RELEASE,
       tracesSampleRate: tracesSampleRate(env.SENTRY_TRACES_SAMPLE_RATE),
     },
     traceMeta: { sentryTrace: traceData["sentry-trace"], baggage: traceData.baggage },

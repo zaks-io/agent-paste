@@ -1,5 +1,6 @@
 import { BytePurgeMessage } from "@agent-paste/contracts";
 import { type SqlExecutor, withSqlQuerySource } from "@agent-paste/db";
+import { withQueueTraceContext } from "@agent-paste/worker-runtime";
 import { UPLOAD_CLEANUP_SWEEP_CAP } from "../constants.js";
 import { withPlatformScope } from "../db.js";
 import type { QueueBinding } from "../env.js";
@@ -75,7 +76,7 @@ export async function runUploadCleanupDiscovery(
           prefixes,
           reason: "upload_cleanup",
         });
-        await queue.send(message);
+        await withQueueTraceContext(queue).send(message);
         enqueued += 1;
       }
     } catch (error) {

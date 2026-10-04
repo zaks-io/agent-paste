@@ -5,6 +5,7 @@ import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { fileURLToPath } from "node:url";
 import { readWranglerConfig } from "../packages/repo-lint/src/wrangler-config.mjs";
 import { ensureJobQueues } from "./ensure-job-queues.mjs";
+import { resolveSentryRelease } from "./lib/deploy-release.mjs";
 import { secretsForApp } from "./lib/secret-routing.mjs";
 import { resolveSecretValue } from "./lib/secret-values.mjs";
 import { spawnCommand } from "./lib/spawn-command.mjs";
@@ -13,6 +14,7 @@ import { prPreviewJobQueues } from "./pr-preview-job-queues.mjs";
 const prNumber = requiredEnv("PR_NUMBER");
 const hyperdriveId = requiredEnv("PR_HYPERDRIVE_ID");
 const workersSubdomain = requiredEnv("CLOUDFLARE_WORKERS_SUBDOMAIN");
+const release = resolveSentryRelease();
 const outDir = new URL(`../.wrangler/pr-preview/pr-${prNumber}/`, import.meta.url);
 const jobQueues = prPreviewJobQueues(prNumber);
 
@@ -131,7 +133,16 @@ async function ensurePreviewJobQueues() {
 async function deploy(app, configPath, secretsPath) {
   process.stdout.write(`Deploying ${names[app]}...\n`);
   const secretArgs = secretsPath ? ["--secrets-file", secretsPath] : [];
-  await run("pnpm", ["exec", "wrangler", "deploy", "--config", configPath, ...secretArgs]);
+  await run("pnpm", [
+    "exec",
+    "wrangler",
+    "deploy",
+    "--config",
+    configPath,
+    "--var",
+    `SENTRY_RELEASE:${release}`,
+    ...secretArgs,
+  ]);
 }
 
 // web is a TanStack Start build, not a bundle-from-src worker: building with
@@ -177,7 +188,17 @@ async function deployWeb() {
     WORKOS_COOKIE_PASSWORD: prSecrets.WORKOS_COOKIE_PASSWORD,
     ...optionalSentrySecrets("web"),
   });
-  await run("pnpm", ["exec", "wrangler", "deploy", "--config", generatedConfig, "--secrets-file", webSecretsPath]);
+  await run("pnpm", [
+    "exec",
+    "wrangler",
+    "deploy",
+    "--config",
+    generatedConfig,
+    "--var",
+    `SENTRY_RELEASE:${release}`,
+    "--secrets-file",
+    webSecretsPath,
+  ]);
   return true;
 }
 
@@ -406,7 +427,7 @@ function emitOutput(name, value) {
 }
 
 function run(command, args, options = {}) {
-  return spawnCommand(command, args, { ...options, inherit: true });
+  return spawnCommand(command, args, { ...options, env: { ...options.env, SENTRY_RELEASE: release }, inherit: true });
 }
 
 function requiredEnv(name, fallback) {

@@ -14,6 +14,15 @@ The `jobs` Worker owns cron discovery and Cloudflare Queue consumers. It imports
 
 Only `bundle-generate-dlq` has a consumer because terminal bundle failure must update public product state to `failed`.
 
+Producers may add optional `trace_context` transport metadata after validating
+the business message. It carries a valid `sentry-trace` header and bounded
+Sentry sampling/release `baggage`, excluding transaction names and arbitrary
+application baggage. Consumers isolate each message's trace, preserve its
+context across retry and DLQ delivery, and mark failed processing spans as errors
+without changing ack/retry semantics. Old messages and malformed optional
+telemetry start independent traces. This metadata is not business authority and
+does not change the versioned job payload schemas.
+
 ## Cron Triggers
 
 | Cron              |           Cadence |             Sweep Cap | Work                                                                                                                                                     |

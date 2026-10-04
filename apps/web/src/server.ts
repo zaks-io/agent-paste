@@ -40,4 +40,4 @@ function wellKnownGpcResponse(request: Request): Response | null {
   });
 }
 
-export default Sentry.withSentry((env: WebEnv) => sentryOptions(env), worker);
+export default Sentry.withSentry((env: WebEnv) => sentryOptions(env, "web"), worker);

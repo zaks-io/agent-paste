@@ -1,6 +1,7 @@
 import type { BytePurgeMessage } from "@agent-paste/contracts";
 import type { SqlExecutor } from "@agent-paste/db";
 import { applyRevisionPurgeSideEffects as applyRevisionPurgeSideEffectsCore } from "@agent-paste/db";
+import { withQueueTraceContext } from "@agent-paste/worker-runtime";
 import type { Env } from "../env.js";
 import { logOpError } from "../op-log.js";
 import { processSmokeSyncBytePurge } from "../smoke-sync-byte-purge.js";
@@ -15,11 +16,18 @@ export async function applyRevisionPurgeSideEffects(
     reason: BytePurgeMessage["reason"];
   },
 ): Promise<{ denylistWritten: boolean; enqueued: boolean }> {
-  const sideEffects = await applyRevisionPurgeSideEffectsCore(env, executor, input, {
-    afterEnqueue: async (message) => {
-      await processSmokeSyncBytePurge(env, message);
+  const sideEffects = await applyRevisionPurgeSideEffectsCore(
+    env.BYTE_PURGE_QUEUE
+      ? Object.assign(Object.create(env), { BYTE_PURGE_QUEUE: withQueueTraceContext(env.BYTE_PURGE_QUEUE) })
+      : env,
+    executor,
+    input,
+    {
+      afterEnqueue: async (message) => {
+        await processSmokeSyncBytePurge(env, message);
+      },
     },
-  });
+  );
   if (!sideEffects.denylistWritten && input.revisionId && env.DENYLIST) {
     logOpError("lifecycle.revision_denylist.failed", { revision_id: input.revisionId });
   }

@@ -324,7 +324,7 @@ const worker = {
   },
 };
 
-export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
+export default Sentry.withSentry((env: Env) => sentryOptions(env, "api"), worker);
 
 export async function handleRequest(request: Request, env: Env, executionCtx?: ExecutionContext): Promise<Response> {
   return await app.fetch(request, env, executionCtx);

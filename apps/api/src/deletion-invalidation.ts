@@ -9,6 +9,7 @@ import {
   type SqlExecutor,
   writeArtifactDenylist,
 } from "@agent-paste/db";
+import { withQueueTraceContext } from "@agent-paste/worker-runtime";
 import { sentryPostgresExecutorOptions } from "@agent-paste/worker-runtime/sentry-sql";
 
 export type DeletionInvalidationEnv = ArtifactInvalidationEnv & {
@@ -77,7 +78,9 @@ export async function runPostCommitArtifactDeletionInvalidation(
 
   const beforeDeleted = env.SYNC_BYTE_PURGE_DELETED_OBJECTS ?? 0;
   const sideEffects = await applyArtifactPurgeSideEffects(
-    env,
+    env.BYTE_PURGE_QUEUE
+      ? Object.assign(Object.create(env), { BYTE_PURGE_QUEUE: withQueueTraceContext(env.BYTE_PURGE_QUEUE) })
+      : env,
     rlsExecutor(executor, { kind: "workspace", workspaceId: input.workspaceId }),
     {
       workspaceId: input.workspaceId,

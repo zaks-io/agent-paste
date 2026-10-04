@@ -1,4 +1,6 @@
+import * as Sentry from "@sentry/cloudflare";
 import { describe, expect, it, vi } from "vitest";
+import { runPostCommitArtifactDeletionInvalidation } from "./deletion-invalidation.js";
 import { enqueuePostPublishJobs } from "./post-publish.js";
 
 const input = {
@@ -9,6 +11,59 @@ const input = {
 };
 
 describe("enqueuePostPublishJobs", () => {
+  it("carries the active trace through parsed publish and deletion queue payloads", async () => {
+    const pending: Promise<unknown>[] = [];
+    const sent: Array<{ trace_context?: { "sentry-trace": string } }> = [];
+    const queue = {
+      send: async (message: unknown) => {
+        sent.push(message as (typeof sent)[number]);
+      },
+    };
+    const worker = Sentry.withSentry(
+      () => ({
+        dsn: "https://public@example.ingest.sentry.io/1",
+        tracesSampleRate: 1,
+        defaultIntegrations: [],
+        skipOpenTelemetrySetup: true,
+        transport: () => ({ send: async () => ({ statusCode: 200 }), flush: async () => true }),
+      }),
+      {
+        async fetch() {
+          const trace = Sentry.getTraceData()["sentry-trace"];
+          await enqueuePostPublishJobs(
+            { BUNDLE_GENERATE_QUEUE: queue, SAFETY_SCAN_QUEUE: queue },
+            {
+              ...input,
+              bundleStatus: "pending",
+            },
+          );
+          const deletion = await runPostCommitArtifactDeletionInvalidation(
+            {
+              DENYLIST: { put: async () => {} },
+              BYTE_PURGE_QUEUE: queue,
+              LOCAL_MVP_REPOSITORY: { revisions: new Map([[input.revisionId, {}]]) },
+            },
+            { ...input },
+          );
+          expect(deletion.enqueued).toBe(true);
+          expect(sent).toHaveLength(3);
+          for (const message of sent) expect(message.trace_context?.["sentry-trace"]).toBe(trace);
+          return new Response("ok");
+        },
+      },
+    );
+    await worker.fetch(
+      new Request("https://api.test/publish"),
+      {},
+      {
+        waitUntil: (promise: Promise<unknown>) => {
+          pending.push(promise);
+        },
+        passThroughOnException: () => {},
+      },
+    );
+    await Promise.all(pending);
+  });
   it("no-ops when bundle generation is disabled", async () => {
     const send = vi.fn();
     await enqueuePostPublishJobs({ BUNDLE_GENERATE_QUEUE: { send } }, { ...input, bundleStatus: "disabled" });

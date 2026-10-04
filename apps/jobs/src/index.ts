@@ -87,7 +87,7 @@ const worker = {
   },
 };
 
-export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
+export default Sentry.withSentry((env: Env) => sentryOptions(env, "jobs"), worker);
 
 function openApiDocument(): Record<string, unknown> {
   return {

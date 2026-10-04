@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { parseConfigFileTextToJson } from "typescript";
 import { describe, expect, it, vi } from "vitest";
 import {
   appsForSecretProvisioning,
@@ -15,6 +16,7 @@ import {
   selectApps,
   shouldMigrate,
   TRANSIENT_32_BYTE_SECRETS,
+  turboDeploy,
   turboDeployArgs,
 } from "./deploy.mjs";
 import { wranglerEnvVars } from "./lib/wrangler-env-vars.mjs";
@@ -56,6 +58,8 @@ function deployStepPlanner() {
 }
 
 const FULL_FLEET = ["stream", "api", "upload", "content", "jobs", "mcp", "apex", "web"];
+const RELEASE = "agent-paste@commit:build";
+const RELEASE_ARGS = ["--", "--var", `SENTRY_RELEASE:${RELEASE}`];
 
 describe("selectApps", () => {
   it("returns the full fleet with no --app flag", () => {
@@ -124,31 +128,63 @@ describe("assertDeployScopeAllowed", () => {
 
 describe("turboDeployArgs", () => {
   it("uses no --filter for a full-fleet deploy", () => {
-    expect(turboDeployArgs(FULL_FLEET, "preview")).toEqual(["exec", "turbo", "run", "deploy:preview"]);
+    expect(turboDeployArgs(FULL_FLEET, "preview", RELEASE)).toEqual([
+      "exec",
+      "turbo",
+      "run",
+      "deploy:preview",
+      ...RELEASE_ARGS,
+    ]);
   });
 
   it("adds one --filter per scoped app", () => {
-    expect(turboDeployArgs(["apex"], "preview")).toEqual([
+    expect(turboDeployArgs(["apex"], "preview", RELEASE)).toEqual([
       "exec",
       "turbo",
       "run",
       "deploy:preview",
       "--filter=@agent-paste/apex",
+      ...RELEASE_ARGS,
     ]);
   });
 
   it("targets the production deploy task for the full fleet", () => {
-    expect(turboDeployArgs(FULL_FLEET, "production")).toEqual(["exec", "turbo", "run", "deploy:production"]);
+    expect(turboDeployArgs(FULL_FLEET, "production", RELEASE)).toEqual([
+      "exec",
+      "turbo",
+      "run",
+      "deploy:production",
+      ...RELEASE_ARGS,
+    ]);
   });
 
   it("adds filters for internal production deployment phases", () => {
-    expect(turboDeployArgs(["content"], "production")).toEqual([
+    expect(turboDeployArgs(["content"], "production", RELEASE)).toEqual([
       "exec",
       "turbo",
       "run",
       "deploy:production",
       "--filter=@agent-paste/content",
+      ...RELEASE_ARGS,
     ]);
+  });
+});
+
+describe("Turbo deploy release propagation", () => {
+  it.each(["preview", "production"])("passes one release to Wrangler and the %s build child", async (target) => {
+    const runFn = vi.fn(async () => {});
+    await turboDeploy(["apex", "web"], target, { release: RELEASE, runFn });
+    expect(runFn).toHaveBeenCalledWith(
+      "pnpm",
+      expect.arrayContaining(RELEASE_ARGS),
+      null,
+      expect.objectContaining({ SENTRY_RELEASE: RELEASE, AGENT_PASTE_ENV: target, CLOUDFLARE_ENV: target }),
+    );
+    const buildConfig = parseConfigFileTextToJson(
+      "apps/web/turbo.json",
+      readFileSync("apps/web/turbo.json", "utf8"),
+    ).config;
+    expect(buildConfig.tasks.build.env).toContain("SENTRY_RELEASE");
   });
 });
 
