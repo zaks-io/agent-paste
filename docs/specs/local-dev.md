@@ -190,7 +190,8 @@ pnpm smoke:local:cloudflare
 
 The smoke requires the running local fleet. It creates isolated test Workspaces
 and CLI configuration, then checks CLI auth, publish/read/revise/delete,
-queue-generated zip downloads, denylist invalidation, queue-driven byte purge,
+queue-generated zip downloads, denylist invalidation, Jobs purge recovery and
+queue-driven removal of existing bundle bytes,
 ephemeral provisioning and claim, native Durable Objects, security headers, MCP
 OAuth and named Worker RPC, dashboard authentication and static assets, and the
 marketing Worker. It never prints credentials or bearer URLs.
@@ -237,8 +238,11 @@ navigate directly to the sandbox's HTTPS URL.
   and ephemeral script detection still run locally.
 - Billing is off. Stripe Checkout, Portal, webhooks, Cloudflare Access operator
   identity, and hosted analytics delivery are not validated by the local smoke.
-- Queue delivery is local. Cron discovery can be invoked through Wrangler's
-  scheduled-event testing endpoint; actual hosted scheduling is not simulated.
+- Queue delivery is local. Invoke lifecycle cleanup and purge recovery through
+  the Jobs Worker's authenticated `/__test__/run-cleanup` and
+  `/__test__/purge-recovery` endpoints on port `8790`. The gateway's Wrangler
+  scheduled-event endpoint does not dispatch to Jobs; hosted scheduling is not
+  simulated.
 - The retired Stream Worker is not part of this local fleet.
 
 ## Local Services

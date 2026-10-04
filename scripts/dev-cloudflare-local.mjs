@@ -54,7 +54,9 @@ try {
   ensureLocalEnvSecrets(secretsPath);
   const local = {};
   loadEnvFiles([secretsPath], { env: local });
+  assertRunning();
   auth = await startLocalCloudflareAuth(local.AGENT_PASTE_ACCESS_LINK_SIGNING_KEY);
+  assertRunning();
   const secrets = {
     API_KEY_PEPPER_V1: local.AGENT_PASTE_API_KEY_PEPPER,
     UPLOAD_SIGNING_SECRET: local.AGENT_PASTE_UPLOAD_SIGNING_SECRET,
@@ -84,6 +86,7 @@ try {
     ),
   );
   for (const [app, port] of Object.entries(ports)) {
+    assertRunning();
     const built = app === "web";
     const source = sources[Object.keys(ports).indexOf(app)];
     const config = {
@@ -163,7 +166,9 @@ try {
   // assets in a separate runtime so they cannot shadow the dashboard's assets.
   const fleetPorts = Object.fromEntries(Object.entries(ports).filter(([app]) => app !== "apex"));
   const gatewayConfig = await writeLocalGateway(directory, Object.keys(fleetPorts), rateLimits);
+  assertRunning();
   proxies = await startLocalCloudflareProxies(fleetPorts, 8799);
+  assertRunning();
   const apex = start("pnpm", ["exec", "wrangler", "dev", "-c", apexConfig, "--local", "--log-level", "warn"]);
   const wrangler = start("pnpm", [
     "exec",
@@ -216,9 +221,10 @@ try {
 }
 
 function shutdown() {
+  // An in-flight startup step may finish after the signal's first cleanup.
+  for (const server of proxies) server.close();
+  auth?.server.close();
   shutdownPromise ??= (async () => {
-    for (const server of proxies) server.close();
-    auth?.server.close();
     const groups = [...children].map((child) => child.pid);
     const signalGroups = (signal) => {
       for (const pid of groups) {
@@ -246,6 +252,7 @@ function localProcessEnv() {
 }
 
 function start(command, args, extraEnv = {}) {
+  assertRunning();
   const child = spawn(command, args, {
     cwd: root,
     env: { ...localProcessEnv(), ...extraEnv },
@@ -255,6 +262,10 @@ function start(command, args, extraEnv = {}) {
   children.add(child);
   child.once("exit", () => children.delete(child));
   return child;
+}
+
+function assertRunning() {
+  if (stopping) throw new Error("Local Cloudflare startup interrupted.");
 }
 
 async function run(command, args, env) {

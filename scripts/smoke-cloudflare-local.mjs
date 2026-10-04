@@ -5,7 +5,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { loadEnvFiles } from "./lib/load-env-files.mjs";
-import { deleteSmokeArtifact, listR2Keys, provisionSmokeWorkspace } from "./smoke-harness.mjs";
+import { deleteSmokeArtifact, listR2Keys, provisionSmokeWorkspace, runSmokePurgeRecovery } from "./smoke-harness.mjs";
 import { mcpCallTool, mcpInitializeSession, mcpToolsList } from "./smoke-mcp-harness.mjs";
 
 const directory = resolve(".wrangler/local-cloudflare");
@@ -60,15 +60,22 @@ const second = cli(["publish", resolve(testDirectory, "index.html"), "--artifact
 assert.equal(second.artifact_id, first.artifact_id);
 assert.notEqual(second.revision_id, first.revision_id);
 assert.match(await (await fetch(second.url)).text(), /revision two/);
+const purgePrefix = `env/dev/workspaces/${provisioned.workspace.id}/artifacts/${first.artifact_id}/`;
+const beforePurge = await listR2Keys(api, purgePrefix, local.SMOKE_HARNESS_SECRET);
+assert(beforePurge.length > 0, "No generated bundle objects were present before the purge check.");
 await deleteSmokeArtifact(api, first.artifact_id, local.SMOKE_HARNESS_SECRET);
 assert.equal((await fetch(second.url)).status, 404);
-for (let attempt = 0; attempt < 50; attempt++) {
-  const keys = await listR2Keys(api, `artifacts/${first.artifact_id}/`, local.SMOKE_HARNESS_SECRET);
+const recovery = await runSmokePurgeRecovery("http://127.0.0.1:8790", first.artifact_id, local.SMOKE_HARNESS_SECRET);
+assert.equal(recovery.eligibility, "eligible");
+assert.equal(recovery.artifact_found, true);
+assert.equal(recovery.enqueued, true);
+for (let attempt = 0; attempt < 100; attempt++) {
+  const keys = await listR2Keys(api, purgePrefix, local.SMOKE_HARNESS_SECRET);
   if (keys.length === 0) break;
-  assert(attempt < 49, "Local byte-purge queue did not remove the deleted Artifact's objects.");
+  assert(attempt < 99, "Local byte-purge queue did not remove the deleted Artifact's objects.");
   await delay(100);
 }
-console.log("PASS revise, shared denylist invalidation, queue-driven byte purge");
+console.log("PASS revise, shared denylist invalidation, Jobs purge recovery and queue-driven bundle purge");
 
 const ephemeral = cli(["publish", "examples/local-harness/ephemeral-site", "--ephemeral"], { AGENT_PASTE_API_KEY: "" });
 const restricted = await fetch(ephemeral.url);
