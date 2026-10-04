@@ -1,17 +1,17 @@
 #!/usr/bin/env node
-import { spawn, execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, writeFile, cp } from "node:fs/promises";
-import { resolve, basename } from "node:path";
-import { fileURLToPath } from "node:url";
-import { ensureLocalEnvSecrets } from "./lib/local-env-secrets.mjs";
-import { loadEnvFiles } from "./lib/load-env-files.mjs";
-import { startLocalCloudflareProxies } from "./lib/local-cloudflare-proxy.mjs";
-import { startLocalCloudflareAuth } from "./lib/local-cloudflare-auth.mjs";
-import { waitForHealthz } from "./smoke-harness.mjs";
-import { writeLocalWorker, writeLocalGateway } from "./lib/local-cloudflare-worker.mjs";
+import { cp, mkdir, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
+import { basename, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
+import { loadEnvFiles } from "./lib/load-env-files.mjs";
+import { startLocalCloudflareAuth } from "./lib/local-cloudflare-auth.mjs";
+import { startLocalCloudflareProxies } from "./lib/local-cloudflare-proxy.mjs";
+import { writeLocalGateway, writeLocalWorker } from "./lib/local-cloudflare-worker.mjs";
+import { ensureLocalEnvSecrets } from "./lib/local-env-secrets.mjs";
+import { waitForHealthz } from "./smoke-harness.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const directory = resolve(root, ".wrangler/local-cloudflare");

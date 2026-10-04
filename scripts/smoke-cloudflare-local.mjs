@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFile, writeFile, mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { loadEnvFiles } from "./lib/load-env-files.mjs";
-import { provisionSmokeWorkspace, deleteSmokeArtifact, listR2Keys } from "./smoke-harness.mjs";
-import { mcpInitializeSession, mcpToolsList, mcpCallTool } from "./smoke-mcp-harness.mjs";
+import { deleteSmokeArtifact, listR2Keys, provisionSmokeWorkspace } from "./smoke-harness.mjs";
+import { mcpCallTool, mcpInitializeSession, mcpToolsList } from "./smoke-mcp-harness.mjs";
 
 const directory = resolve(".wrangler/local-cloudflare");
 const api = "http://127.0.0.1:8787";

@@ -1,5 +1,5 @@
 import { writeFile } from "node:fs/promises";
-import { resolve, relative } from "node:path";
+import { relative, resolve } from "node:path";
 
 // Wrangler 4.94 strips auxiliary Workers' ratelimits. Keep native limits on the
 // primary Worker and reach them through RPC, rather than weakening local checks.
