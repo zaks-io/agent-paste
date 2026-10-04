@@ -22,6 +22,10 @@ export async function startLocalCloudflareProxies(ports, gatewayPort) {
           },
         );
         upstream.on("error", () => {
+          if (outgoing.headersSent) {
+            outgoing.destroy();
+            return;
+          }
           outgoing.writeHead(502, { "content-type": "text/plain" });
           outgoing.end("Local Cloudflare is starting or unavailable.");
         });
