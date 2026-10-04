@@ -410,6 +410,8 @@ describe("client config", () => {
     const response = await get("/__client/config.json", {
       AGENT_PASTE_ENV: "production",
       SENTRY_DSN: " https://public@example.ingest.us.sentry.io/1 ",
+      SENTRY_RELEASE: "agent-paste@commit",
+      SENTRY_TRACES_SAMPLE_RATE: "0.25",
     });
 
     expect(response.status).toBe(200);
@@ -420,6 +422,8 @@ describe("client config", () => {
       sentry: {
         dsn: "https://public@example.ingest.us.sentry.io/1",
         environment: "production",
+        release: "agent-paste@commit",
+        tracesSampleRate: 0.25,
       },
     });
   });
@@ -432,6 +436,7 @@ describe("client config", () => {
       sentry: {
         dsn: null,
         environment: "dev",
+        tracesSampleRate: 1,
       },
     });
   });

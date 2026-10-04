@@ -1,4 +1,4 @@
-import type { Breadcrumb, CloudflareOptions, ErrorEvent } from "@sentry/cloudflare";
+import type { Breadcrumb, CloudflareOptions, ErrorEvent, Event } from "@sentry/cloudflare";
 import { contentCapabilityIdFromValue, isSensitiveKey, normalizeKey, pathFromUrl, sanitizeString } from "./logging.js";
 
 type SentrySpan = Parameters<NonNullable<CloudflareOptions["beforeSendSpan"]>>[0];
@@ -6,8 +6,8 @@ type SentryTraceContext = NonNullable<NonNullable<ErrorEvent["contexts"]>["trace
 const TRACE_ID_PATTERN = /^[0-9a-f]{32}$/iu;
 const SPAN_ID_PATTERN = /^[0-9a-f]{16}$/iu;
 
-export function sanitizeSentryEvent(event: ErrorEvent): ErrorEvent {
-  const safe: ErrorEvent = { ...event };
+export function sanitizeSentryEvent<T extends Event>(event: T): T {
+  const safe: T = { ...event };
   const capabilityId =
     typeof event.request?.url === "string" ? contentCapabilityIdFromValue(event.request.url) : undefined;
   const capabilityRequest = capabilityId !== undefined;

@@ -133,7 +133,7 @@ const worker = {
   },
 };
 
-export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
+export default Sentry.withSentry((env: Env) => sentryOptions(env, "content"), worker);
 
 export async function handleRequest(request: Request, env: Env, fetchOrigin: typeof fetch = fetch): Promise<Response> {
   try {

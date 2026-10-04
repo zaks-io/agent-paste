@@ -15,6 +15,8 @@ const state = vi.hoisted(() => ({
   apiFetchOrEmpty: vi.fn(),
   turnstileSiteKey: vi.fn(() => "turnstile-site-key"),
   requestHeaders: {} as Record<string, string | undefined>,
+  sentryRelease: undefined as string | undefined,
+  sentryTracesSampleRate: undefined as string | undefined,
 }));
 
 vi.mock("@tanstack/react-start", () => ({
@@ -41,6 +43,8 @@ vi.mock("../src/server/runtime", () => ({
   getWebEnv: () => ({
     WEB_BASE_URL: "https://app.test",
     SENTRY_DSN: "https://sentry.test/dsn",
+    SENTRY_RELEASE: state.sentryRelease,
+    SENTRY_TRACES_SAMPLE_RATE: state.sentryTracesSampleRate,
     AGENT_PASTE_ENV: "dev",
     CF_WEB_ANALYTICS_TOKEN: "analytics-token",
   }),
@@ -78,12 +82,14 @@ describe("web server loaders", () => {
     state.apiFetchOrEmpty.mockResolvedValue({ data: { ok: true }, empty: false, error: null });
     state.turnstileSiteKey.mockReturnValue("turnstile-site-key");
     state.requestHeaders = {};
+    state.sentryRelease = undefined;
+    state.sentryTracesSampleRate = undefined;
   });
 
   it("exposes root env and auth without calling the API", async () => {
     expect(loadRootEnv()).toEqual({
       webBaseUrl: "https://app.test",
-      sentry: { dsn: "https://sentry.test/dsn", environment: "dev", tracesSampleRate: 1 },
+      sentry: { dsn: "https://sentry.test/dsn", environment: "dev", release: undefined, tracesSampleRate: 1 },
       // No active Worker span under test, so there is no trace to hand the browser.
       traceMeta: { sentryTrace: undefined, baggage: undefined },
       analyticsToken: "analytics-token",
@@ -93,6 +99,12 @@ describe("web server loaders", () => {
       signedIn: true,
       signInHref: "https://app.test/api/auth/sign-in",
     });
+  });
+
+  it("hands runtime sampling and release to the browser", () => {
+    state.sentryRelease = "agent-paste@commit";
+    state.sentryTracesSampleRate = "0.25";
+    expect(loadRootEnv().sentry).toMatchObject({ release: "agent-paste@commit", tracesSampleRate: 0.25 });
   });
 
   it("suppresses root analytics when GPC, DNT, or the site preference opts out", () => {

@@ -32,6 +32,7 @@ import { randomBytes } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { ensureJobQueues } from "./ensure-job-queues.mjs";
 import { hostedJobQueues } from "./hosted-job-queues.mjs";
+import { resolveSentryRelease } from "./lib/deploy-release.mjs";
 import { ensureLocalEnvSecrets } from "./lib/local-env-secrets.mjs";
 import {
   forbiddenSecretsForApp,
@@ -153,15 +154,17 @@ export function assertDeployScopeAllowed(apps, target) {
  * filters; a scoped deploy passes one --filter per selected app.
  * @param {string[]} apps
  * @param {"preview"|"production"} target
+ * @param {string} release
  * @returns {string[]}
  */
-export function turboDeployArgs(apps, target) {
+export function turboDeployArgs(apps, target, release) {
   const args = ["exec", "turbo", "run", `deploy:${target}`];
   if (apps.length < APPS.length) {
     for (const app of apps) {
       args.push(`--filter=${PACKAGE_NAMES[app]}`);
     }
   }
+  args.push("--", "--var", `SENTRY_RELEASE:${release}`);
   return args;
 }
 
@@ -424,8 +427,11 @@ export async function runDeployPlan({
 // Default deploy step: hand build + deploy to Turbo with the per-env build switches
 // set so prerendered/bundled output bakes the correct environment. Overridable in
 // tests via runDeployPlan({ deployFn }).
-async function turboDeploy(apps, target) {
-  await run("pnpm", turboDeployArgs(apps, target), null, buildSwitchesFor(target));
+export async function turboDeploy(apps, target, { release, runFn = run }) {
+  await runFn("pnpm", turboDeployArgs(apps, target, release), null, {
+    ...buildSwitchesFor(target),
+    SENTRY_RELEASE: release,
+  });
 }
 
 export function contentRoutingProbeUrls(target) {
@@ -658,6 +664,7 @@ async function main() {
   // (e.g. CONTENT_SIGNING_SECRET is minted on api/upload and verified on content).
   // Generate one value per name, reuse it everywhere.
   const generatedValues = new Map();
+  const release = resolveSentryRelease();
 
   const planner = createSecretPlanner({
     target,
@@ -682,7 +689,14 @@ async function main() {
   await ensureJobQueues(hostedJobQueues(target).creationOrder);
 
   const provisionPlan = await planner.buildProvisionPlan(appsForSecretProvisioning(apps, target, runSmoke));
-  await runDeployPlan({ target, planner, provisionPlan, apps, runFn: run, deployFn: turboDeploy });
+  await runDeployPlan({
+    target,
+    planner,
+    provisionPlan,
+    apps,
+    runFn: run,
+    deployFn: (phase, environment) => turboDeploy(phase, environment, { release }),
+  });
 
   process.stdout.write(`${target} deploy complete. No secret values were displayed.\n`);
 

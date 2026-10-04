@@ -17,7 +17,8 @@ vi.mock("../src/server/runtime", () => ({
   getWebEnv: () => runtime.env,
 }));
 
-vi.mock("@sentry/cloudflare", () => ({
+vi.mock("@sentry/cloudflare", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@sentry/cloudflare")>()),
   getTraceData: () => sentry.traceData,
 }));
 

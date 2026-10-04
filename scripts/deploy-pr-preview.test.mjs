@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,16 +11,24 @@ const scriptPath = fileURLToPath(new URL("deploy-pr-preview.mjs", import.meta.ur
 
 describe("deploy-pr-preview generated configs", () => {
   it.each([
-    { sentryDsn: "", webEnabled: false },
+    { sentryDsn: "", webEnabled: false, sentryRelease: "" },
     { sentryDsn: "https://public@example.ingest.us.sentry.io/1", webEnabled: false },
-    { sentryDsn: "https://public@example.ingest.us.sentry.io/1", webEnabled: true },
+    {
+      sentryDsn: "https://public@example.ingest.us.sentry.io/1",
+      webEnabled: true,
+      sentryRelease: "agent-paste@pr:build",
+    },
   ])("preserves routing, security, and observability with $sentryDsn and Web $webEnabled", ({
     sentryDsn,
     webEnabled,
+    sentryRelease = "",
   }) => {
     const prNumber = "999173";
     const fakeBin = mkdtempSync(join(tmpdir(), "agent-paste-pr-preview-"));
     const fakePnpm = join(fakeBin, "pnpm");
+    const callsPath = join(fakeBin, "calls.jsonl");
+    const expectedRelease =
+      sentryRelease || execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
     const outDir = new URL(`../.wrangler/pr-preview/pr-${prNumber}/`, import.meta.url);
     const webConfigPath = fileURLToPath(new URL("../apps/web/dist/server/wrangler.json", import.meta.url));
     const originalWebConfig = existsSync(webConfigPath) ? readFileSync(webConfigPath) : undefined;
@@ -33,6 +41,7 @@ describe("deploy-pr-preview generated configs", () => {
       `#!/usr/bin/env node
 const fs = require("node:fs");
 const path = require("node:path");
+fs.appendFileSync(${JSON.stringify(callsPath)}, JSON.stringify({ args: process.argv.slice(2), release: process.env.SENTRY_RELEASE }) + "\\n");
 if (process.argv.includes("@agent-paste/web") && process.argv.includes("build")) {
   const configPath = ${JSON.stringify(webConfigPath)};
   fs.mkdirSync(path.dirname(configPath), { recursive: true });
@@ -57,11 +66,25 @@ process.exit(0);
           PR_PREVIEW_SECRET_SEED: "deterministic-pr-preview-seed",
           WORKOS_PREVIEW_API_KEY: webEnabled ? "wk_test_pr_preview" : "",
           SENTRY_DSN: sentryDsn,
+          SENTRY_RELEASE: sentryRelease,
         },
       });
       if (result.status !== 0) {
         throw new Error(result.stderr || result.stdout || `deploy-pr-preview exited ${result.status}`);
       }
+      const calls = readFileSync(callsPath, "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      const deployCalls = calls.filter(({ args }) => args.includes("deploy"));
+      expect(deployCalls).toHaveLength(webEnabled ? 6 : 5);
+      for (const { args, release } of deployCalls) {
+        expect(args[args.indexOf("--var") + 1]).toBe(`SENTRY_RELEASE:${expectedRelease}`);
+        expect(release).toBe(expectedRelease);
+      }
+      const buildCalls = calls.filter(({ args }) => args.includes("build"));
+      expect(buildCalls).toHaveLength(webEnabled ? 2 : 1);
+      for (const call of buildCalls) expect(call.release).toBe(expectedRelease);
 
       const api = JSON.parse(readFileSync(new URL("api.json", outDir), "utf8"));
       const upload = JSON.parse(readFileSync(new URL("upload.json", outDir), "utf8"));

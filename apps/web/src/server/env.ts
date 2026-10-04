@@ -14,6 +14,7 @@ export type WebEnv = {
   ASSETS: Fetcher;
   API?: Fetcher;
   SENTRY_DSN?: string;
+  SENTRY_RELEASE?: string;
   SENTRY_TRACES_SAMPLE_RATE?: string;
   CF_WEB_ANALYTICS_TOKEN?: string;
 };

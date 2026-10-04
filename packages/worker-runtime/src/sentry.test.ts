@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { sentryOptions } from "./sentry.js";
+import { type SentryEnv, sentryOptions as workerSentryOptions } from "./sentry.js";
+
+const sentryOptions = (env: SentryEnv) => workerSentryOptions(env, "api");
 
 // This legacy capability id shares the trace-id shape but is unrelated, so
 // redacting it must not depend on losing the trace.
@@ -80,15 +82,17 @@ describe("sentryOptions", () => {
     });
   });
 
-  it("drops Sentry logs attached to caller-controlled trace context", () => {
+  it("keeps sanitized logs connected to their active span", () => {
     const options = sentryOptions({ SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1" });
     expect(
       options.beforeSendLog?.({
         level: "error",
         message: "request failed",
-        attributes: { "sentry.trace.parent_span_id": "0011223344556677" },
+        attributes: { "sentry.trace.parent_span_id": "0011223344556677", token: "secret" },
       }),
-    ).toBeNull();
+    ).toMatchObject({
+      attributes: { "sentry.trace.parent_span_id": "0011223344556677", "service.name": "agent-paste-api" },
+    });
   });
 
   it("sanitizes Sentry error events before send", () => {
@@ -257,7 +261,7 @@ describe("sentryOptions", () => {
     });
 
     expect(span).toMatchObject({
-      data: {},
+      data: { "service.name": "agent-paste-api" },
       description: "[redacted_capability_request]",
       op: "http.server",
     });
@@ -377,19 +381,27 @@ describe("sentryOptions", () => {
     expect(sentryOptions({ SENTRY_TRACES_SAMPLE_RATE: "0.2" })).not.toHaveProperty("tracesSampleRate");
   });
 
-  it("falls back to the default sample rate when the configured one is invalid", () => {
-    expect(
-      sentryOptions({
-        SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1",
-        SENTRY_TRACES_SAMPLE_RATE: "2",
-      }),
-    ).toMatchObject({ tracesSampleRate: 1 });
-    expect(
-      sentryOptions({
-        SENTRY_DSN: "https://examplePublicKey@example.ingest.sentry.io/1",
-        SENTRY_TRACES_SAMPLE_RATE: "not-a-number",
-      }),
-    ).toMatchObject({ tracesSampleRate: 1 });
+  it.each(["2", "-1", "not-a-number", "Infinity"])("rejects invalid sampling configuration: %s", (rate) => {
+    expect(() => sentryOptions({ SENTRY_TRACES_SAMPLE_RATE: rate })).toThrow("SENTRY_TRACES_SAMPLE_RATE");
+  });
+
+  it("identifies the Worker and shared release on errors and sanitized spans", () => {
+    const options = workerSentryOptions({ SENTRY_RELEASE: "release-sha" }, "content");
+    expect(options).toMatchObject({
+      release: "release-sha",
+      initialScope: { tags: { "service.name": "agent-paste-content" } },
+    });
+    const span = options.beforeSendSpan?.({
+      data: { url: `https://${CAPABILITY_ID}.agent-paste.link/private.html` },
+      description: "GET /private.html",
+      op: "http.server",
+      span_id: SPAN_ID,
+      trace_id: TRACE_ID,
+      start_timestamp: 1,
+    });
+    expect(span?.data).toEqual({ "service.name": "agent-paste-content" });
+    expect(span?.trace_id).toBe(TRACE_ID);
+    expect(JSON.stringify(span)).not.toContain(CAPABILITY_ID);
   });
 
   it("traces by default so an enabled Worker joins distributed traces without extra config", () => {
@@ -400,5 +412,28 @@ describe("sentryOptions", () => {
       enableRpcTracePropagation: true,
     });
     expect(sentryOptions({})).not.toHaveProperty("tracesSampleRate");
+  });
+
+  it("preserves service identity on child spans after capability transaction sanitization", () => {
+    const options = workerSentryOptions({}, "content");
+    const event = options.beforeSendTransaction?.(
+      {
+        type: "transaction",
+        request: { url: `https://${NEW_CAPABILITY_ID}.agent-paste.link/private.html` },
+        spans: [
+          {
+            data: { "service.name": "agent-paste-content", "url.path": "/private.html" },
+            span_id: SPAN_ID,
+            trace_id: TRACE_ID,
+            start_timestamp: 1,
+          },
+        ],
+      },
+      {},
+    );
+    expect(event?.spans?.[0]?.data).toEqual({ "service.name": "agent-paste-content" });
+    expect(event?.spans?.[0]?.trace_id).toBe(TRACE_ID);
+    expect(JSON.stringify(event)).not.toContain("private.html");
+    expect(JSON.stringify(event)).not.toContain(NEW_CAPABILITY_ID);
   });
 });
