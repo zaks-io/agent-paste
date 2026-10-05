@@ -13,13 +13,23 @@ Usage:
   agent-paste version [--json]
   agent-paste upgrade [<tag>]
 
+Authentication:
+  AGENT_PASTE_API_KEY authenticates without login and overrides saved login.
+  Create a key at https://app.agent-paste.sh/keys and inject it through secret
+  configuration. Keep inherited sandbox credentials; never print the key.
+  A rejected key fails with exit 2; it does not fall back to saved login.
+  logout revokes/removes saved login only; the environment key stays active.
+
 Agent quick path:
-  1. agent-paste whoami --json. Exits 0 even when signed out; check "authenticated".
-  2. If false: agent-paste login (browser available) or agent-paste login --device-code
-     (sandbox). Device login prints a URL and code on stderr; keep it running
-     until the user approves, then run whoami again.
+  1. agent-paste whoami --json. If authenticated, publish directly.
+     Exits 0 with "authenticated": false only when no usable local credential
+     exists. API errors fail the command.
+  2. If false: supply AGENT_PASTE_API_KEY, or agent-paste login (local browser)
+     or agent-paste login --device-code (sandbox). Keep device login running
+     until the user approves its URL/code on stderr, then run whoami again.
   3. agent-paste publish <path> --json. Return url.
-  4. No login available: agent-paste publish <path> --ephemeral --json.
+  4. Authentication unavailable or accountless output requested:
+     agent-paste publish <path> --ephemeral --json. Ignores existing credentials.
      Return claim_url too when the user wants to keep it.
 
 Every publish returns one URL that opens without login and stays the same
@@ -49,10 +59,15 @@ Recipes:
 
 export const PUBLISH_HELP_TEXT = `agent-paste publish help
 
-Start with agent-paste whoami --json. It exits 0 even when signed out; if
-"authenticated" is false, run agent-paste login (browser available) or
-agent-paste login --device-code (sandbox), approve the URL and code it prints
-on stderr, then run whoami again.
+Start with agent-paste whoami --json in the inherited environment.
+AGENT_PASTE_API_KEY authenticates without login and overrides saved login.
+If authenticated, publish directly. A rejected key fails with exit 2; fix the
+key configuration rather than silently falling back to login or --ephemeral.
+If it exits 0 with "authenticated": false, supply an API key or run
+agent-paste login (local browser) or agent-paste login --device-code (sandbox).
+Keep device login running for approval of its URL/code on stderr, then check
+whoami again. Create API keys at https://app.agent-paste.sh/keys and inject
+through secret configuration; never print them.
 
 Recipes:
   agent-paste publish <path> --json
@@ -82,7 +97,8 @@ Flags:
   --artifact-id Revise an existing Artifact. Accepts the ID or the full URL.
   --title       Set the Artifact title.
   --entrypoint  Entrypoint file within <path>.
-  --ephemeral   Accountless 24-hour publish. Static until claimed via claim_url.
+  --ephemeral   Accountless 24-hour publish. Ignores environment/saved credentials.
+                Static until claimed via claim_url.
   --claim-code  Attribution for --ephemeral. Keep it when the user's
                 instructions include one.
 `;

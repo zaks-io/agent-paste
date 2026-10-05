@@ -274,8 +274,9 @@ Read first: `docs/agents/workflow.md`, `docs/agents/issue-tracker.md`,
 - Development backing services: Cloudflare R2/KV, Neon Postgres; see
   `agent-paste-neon-postgres`
 - Agent publish surfaces: [CLI first](../../../AGENTS.md#agent-publish-surfaces),
-  `login --device-code` for sandboxes; MCP for OAuth hosts without shell access;
-  `--ephemeral` for accountless static output
+  injected `AGENT_PASTE_API_KEY` before saved login, `login --device-code` for
+  signed-out sandboxes; MCP for OAuth hosts without shell access;
+  explicit `--ephemeral` for accountless static output
 - Preview: standing Preview environment by manual GitHub workflow or local
   command; PR-scoped preview only with `full-pr-preview`
 - Preview cleanup: PR close/unlabel, workflow dispatch, and six-hour

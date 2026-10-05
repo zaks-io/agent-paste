@@ -19,10 +19,13 @@ keychain, but does support remote MCP with OAuth. Use the CLI when commands are
 available, and always for folders, binary files, images, audio, video, and
 ephemeral publishing.
 
-If a shell exists but browser OAuth cannot complete there, use
-`agent-paste login --device-code` instead of MCP. See
-[CLI remote login](../apps/cli/README.md#agent-quick-path). MCP is OAuth-only and
-cannot use the CLI's stored credential or `AGENT_PASTE_API_KEY`.
+With a shell, run `agent-paste whoami --json` first. An injected
+`AGENT_PASTE_API_KEY` or saved login credential needs no further login. For
+headless use, create a key at [API Keys](https://app.agent-paste.sh/keys) and
+inject it through your secret configuration. Without a usable credential, use
+`agent-paste login --device-code` if browser OAuth cannot complete locally.
+See [CLI authentication](../apps/cli/README.md#authentication). MCP is OAuth-only
+and cannot use the CLI's stored credential or `AGENT_PASTE_API_KEY`.
 
 ## Connect
 

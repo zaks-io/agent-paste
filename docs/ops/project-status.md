@@ -2,7 +2,8 @@
 
 Project start: 2026-05-18.
 
-Last updated: 2026-10-01 for the CLI 0.2.5 release and the current production deploy.
+Last updated: 2026-10-05 for CLI 0.2.6 release preparation and authentication
+documentation alignment. Release and deployment evidence is recorded below.
 The deployed one-URL architecture status below was recorded on 2026-09-03. See [changelog.md](./status/changelog.md) for older shipped
 work.
 
@@ -42,7 +43,10 @@ all succeeded for it on 2026-10-01.
 
 ## CLI releases
 
-The current npm release is CLI 0.2.5.
+The CLI package version is 0.2.6. Publication and production deployment evidence
+for this release is tracked in [AP-455](https://linear.app/zaks-io/issue/AP-455/fixcli-align-api-key-authentication-and-public-docs).
+See the [GitHub release](https://github.com/zaks-io/agent-paste/releases/tag/cli-v0.2.6)
+and [npm package](https://www.npmjs.com/package/@zaks-io/agent-paste) for distribution status.
 
 - **0.2.2:** `login --device-code` for sandboxes and remote shells. 0.2.1 was
   versioned in the repository but never published.
@@ -54,7 +58,21 @@ The current npm release is CLI 0.2.5.
   unknown-extension publish check it existed for. The unused `render_mode`
   database columns are dropped by a follow-up migration.
 
-## CLI remote authentication
+- **0.2.6:** adds `authenticated: true` to successful `whoami` JSON
+  and aligns API key authentication guidance across CLI help and public docs.
+
+## CLI authentication
+
+`AGENT_PASTE_API_KEY` authenticates CLI commands without an interactive login
+and takes precedence over saved login credentials. Check `whoami --json` in
+the inherited environment before starting a login. A rejected key fails rather
+than falling back to saved login. See the
+[CLI authentication contract](../specs/cli.md#authentication).
+
+CLI 0.2.6 adds `authenticated: true` to successful `whoami` output and aligns
+authentication guidance across public docs and agent instructions. CLI 0.2.5
+omits the boolean on success; its Workspace, actor, and scopes still indicate
+valid authentication.
 
 CLI 0.2.2 adds `agent-paste login --device-code` for sandboxes and remote
 shells. On 2026-09-13 it passed repository verification and a Linux install and

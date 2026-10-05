@@ -252,6 +252,7 @@ describe("cli command dispatch", () => {
     await main(["whoami", "--json"], client);
 
     expect(client.whoami).toHaveBeenCalledOnce();
+    expect(JSON.parse(stdoutValues(stdout).join(""))).toMatchObject({ authenticated: true });
     expect(stdoutValues(stdout)).toEqual(expect.arrayContaining([expect.stringContaining('"workspace"')]));
   });
 

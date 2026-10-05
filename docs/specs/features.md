@@ -11,7 +11,7 @@
 | Read and edit              | CLI `pull` and MCP `read_file` read one stored file. CLI `edit` and MCP `multi_edit` apply literal edits as a Revision. |
 | File types                 | Any file can be the entrypoint. Each file is served by its extension. See below.                                        |
 | Ephemeral publish          | Publishes without login, expires after 24 hours, and can be claimed.                                                    |
-| CLI login                  | Browser login, or `login --device-code` for sandboxes and remote shells.                                                |
+| CLI authentication         | `AGENT_PASTE_API_KEY`, saved browser login, or `login --device-code` for sandboxes and remote shells.                   |
 | CLI, MCP, REST             | Expose the same one-URL publish contract.                                                                               |
 | Pin                        | Pinned Artifacts skip Auto Deletion until unpinned. Pinning is a dashboard action.                                      |
 | Dashboard                  | Manages Artifacts, credentials, audit, settings, billing, and claims.                                                   |

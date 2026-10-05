@@ -3,6 +3,17 @@
 Newest first. This is an operator-facing changelog for implemented project work;
 use `git log` for commit-level detail.
 
+## 2026-10-05
+
+### CLI API key authentication guidance
+
+- API key setup, credential precedence, rejection, logout and explicit ephemeral
+  selection now agree across public docs, CLI help and agent instructions.
+- CLI 0.2.6 adds `authenticated: true` to successful `whoami` JSON. Existing
+  `schema_version: "2"` and authentication selection are preserved.
+- Regression tests and the local CLI publish smoke cover API key authentication
+  without interactive login.
+
 ## 2026-09-03
 
 ### Public repository review readiness

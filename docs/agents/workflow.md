@@ -26,8 +26,12 @@ cannot run the CLI but can connect to remote MCP with OAuth. Do not recommend
 any other publish surface for agent workflows.
 
 Follow the [agent CLI flow](../../AGENTS.md#agent-publish-surfaces): check
-`whoami --json`, use `login --device-code` in sandboxes, wait for human
-approval, then publish. `--ephemeral` is for accountless static output.
+`whoami --json` in the inherited environment, then publish if authenticated.
+`AGENT_PASTE_API_KEY` takes precedence over saved login and needs no interactive
+login. Only when signed out, supply a key or use `login --device-code` in
+sandboxes and wait for human approval. Diagnose authentication errors rather
+than silently falling back. `--ephemeral` ignores existing credentials and is
+for accountless static output.
 
 ## Workflow
 

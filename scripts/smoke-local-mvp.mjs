@@ -102,6 +102,7 @@ try {
   };
 
   const whoami = await runCliJson(["whoami", "--json"], apiEnv);
+  assert(whoami.authenticated === true, "whoami confirms API key authentication without login");
   assert(whoami.workspace?.id === provisioned.workspace.id, "whoami resolves the provisioned workspace");
 
   const published = await runCliJson(

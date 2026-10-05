@@ -460,7 +460,7 @@ Things that have shown up in drafts. Do not do them.
    and limits, or omit them. Marketing that lies to engineers loses engineers.
 10. **Do not imply anonymous publishing can host interactive pages.** The
     `--ephemeral` (no-account) path is static HTML only, no JS, 24h, tightly
-    rate-limited. Interactive (JS) pages require the free browser login (it
+    rate-limited. Interactive (JS) pages require authenticated publishing with an API key or free browser login (it
     exists to rate-limit and ban, not to upsell). The "send your friend an
     interactive viz" lead is the logged-in path; keep copy honest about which
     door does what.

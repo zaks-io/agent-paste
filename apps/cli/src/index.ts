@@ -106,7 +106,7 @@ export async function main(argv = process.argv.slice(2), client?: ApiClient) {
 async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
   switch (command) {
     case "whoami":
-      return output(await client.whoami(), parsed.global);
+      return output({ authenticated: true, ...(await client.whoami()) }, parsed.global);
     case "publish":
       if (booleanFlag(parsed, "ephemeral", false)) {
         return publishEphemeral(parsed);
@@ -204,7 +204,7 @@ export async function logout(global: GlobalFlags, deps: LogoutDeps = {}) {
   const warn = deps.warn ?? ((message: string) => process.stderr.write(message));
   const stored = await load();
   if (!stored) {
-    return output({ status: "no_credential" }, global, "Not signed in. Nothing to remove.");
+    return output({ status: "no_credential" }, global, "No stored login credential. Nothing to remove.");
   }
   if (isCredentialExpired(stored, deps.now)) {
     await remove();

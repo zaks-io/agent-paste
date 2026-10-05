@@ -38,20 +38,29 @@ Open the returned link to view your work. Accountless publishes expire after
 are blocked until you claim the result. The command also returns a claim link
 if you want to keep it.
 
-For interactive demos, sign in before publishing.
+For interactive demos, authenticate with a login credential or API key before publishing.
 
 ## Quick start
 
 ```sh
-npx @zaks-io/agent-paste login
+npx @zaks-io/agent-paste whoami --json
 npx @zaks-io/agent-paste publish ./report
 ```
 
-In a sandbox or SSH session, replace `login` with `login --device-code`. Keep
-that process running and approve its displayed URL and code in your own
-browser, then run `npx @zaks-io/agent-paste whoami --json` before publishing.
-Device login needs network access to WorkOS and the API, but no browser in the
-sandbox. See the [remote login guide](apps/cli/README.md#agent-quick-path).
+A successful result identifies the Workspace, actor, and scopes. Only
+`authenticated: false` means no usable local credential exists. An existing login credential or an
+injected `AGENT_PASTE_API_KEY` authenticates automatically; no login is needed.
+For CI or a headless agent, create a key at
+[API Keys](https://app.agent-paste.sh/keys) and inject its secret through your
+sandbox or CI secret configuration. Keep it out of commands and logs.
+
+If `authenticated` is false, run `npx @zaks-io/agent-paste login` locally, or
+`npx @zaks-io/agent-paste login --device-code` in a sandbox or SSH session.
+Keep device login running while you approve its displayed URL and code in your
+own browser, then check `whoami` again. Device login needs network access to
+WorkOS and the API, but no browser in the sandbox. Authentication errors require
+fixing the credential; an invalid environment key overrides a saved login.
+See the [authentication guide](apps/cli/README.md#authentication).
 
 Expected output:
 
@@ -87,7 +96,7 @@ npx skills add https://github.com/zaks-io/agent-paste/tree/main/skills/agent-pas
 ```
 
 Then ask your agent to publish the files it created with Agent Paste and return
-the link. The [agent skill](./skills/agent-paste/SKILL.md) covers login,
+the link. The [agent skill](./skills/agent-paste/SKILL.md) covers API keys, login,
 accountless publishing, and updating an existing Artifact.
 
 Agents without a shell can connect to `https://mcp.agent-paste.sh` and
@@ -100,7 +109,7 @@ binary files, and accountless publishing. See the [MCP setup guide](./docs/mcp.m
 Anyone with an Artifact's link can view it without signing in. Treat the link
 as access to its contents.
 
-Signed-in publishes support HTML, CSS, JavaScript, and external HTTPS
+Authenticated publishes support HTML, CSS, JavaScript, and external HTTPS
 dependencies. Each Artifact runs on its own origin, separate from the dashboard.
 Service workers are unsupported.
 
