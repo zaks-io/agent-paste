@@ -62,8 +62,8 @@ Use `publish <path> --ephemeral` when login is unavailable and static
 accountless output meets the task, or explicitly requested. Return `url` for
 viewing; `claim_url` is the optional ownership step.
 
-`logout` revokes and removes saved login credentials; it leaves environment keys
-alone. `--ephemeral` ignores both environment keys and saved login.
+`logout` attempts to revoke and removes saved login credentials; it leaves
+environment keys alone. `--ephemeral` ignores both environment keys and saved login.
 
 Details: [CLI authentication](docs/specs/cli.md#authentication).
 
