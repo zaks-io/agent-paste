@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { loadEnvFiles } from "./lib/load-env-files.mjs";
 import { startLocalCloudflareAuth } from "./lib/local-cloudflare-auth.mjs";
 import { startLocalCloudflareProxies } from "./lib/local-cloudflare-proxy.mjs";
+import { localCloudflareRequest } from "./lib/local-cloudflare-request.mjs";
 import { writeLocalGateway, writeLocalWorker } from "./lib/local-cloudflare-worker.mjs";
 import { ensureLocalEnvSecrets } from "./lib/local-env-secrets.mjs";
 import { waitForHealthz } from "./smoke-harness.mjs";
@@ -195,9 +196,9 @@ try {
       ),
     ),
   ]);
-  const apexResponse = await fetch("http://127.0.0.1:5174/");
+  const apexResponse = await localCloudflareRequest("http://127.0.0.1:5174/");
   if (!apexResponse.ok) throw new Error(`Local marketing Worker failed (${apexResponse.status}).`);
-  const callback = await fetch("http://127.0.0.1:8787/v1/auth/web/callback", {
+  const callback = await localCloudflareRequest("http://127.0.0.1:8787/v1/auth/web/callback", {
     method: "POST",
     headers: { authorization: `Bearer ${auth.accessToken}` },
   });

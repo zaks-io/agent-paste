@@ -5,6 +5,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { loadEnvFiles } from "./lib/load-env-files.mjs";
+import { localCloudflareRequest } from "./lib/local-cloudflare-request.mjs";
 import { deleteSmokeArtifact, listR2Keys, provisionSmokeWorkspace, runSmokePurgeRecovery } from "./smoke-harness.mjs";
 import { mcpCallTool, mcpInitializeSession, mcpToolsList } from "./smoke-mcp-harness.mjs";
 
@@ -83,7 +84,7 @@ assert.equal(restricted.status, 200);
 assert.match(restricted.headers.get("content-security-policy"), /script-src 'none'/);
 assert.match(restricted.headers.get("content-security-policy"), /connect-src 'none'/);
 assert(!(await restricted.text()).includes(ephemeral.claim_token));
-const claimed = await fetch(`${api}/v1/ephemeral/claim`, {
+const claimed = await localCloudflareRequest(`${api}/v1/ephemeral/claim`, {
   method: "POST",
   headers: {
     authorization: `Bearer ${auth.accessToken}`,
@@ -93,7 +94,9 @@ const claimed = await fetch(`${api}/v1/ephemeral/claim`, {
   body: JSON.stringify({ claim_token: ephemeral.claim_token }),
 });
 assert.equal(claimed.status, 200);
-const owned = await fetch(`${api}/v1/web/artifacts`, { headers: { authorization: `Bearer ${auth.accessToken}` } });
+const owned = await localCloudflareRequest(`${api}/v1/web/artifacts`, {
+  headers: { authorization: `Bearer ${auth.accessToken}` },
+});
 assert.equal(owned.status, 200);
 assert((await owned.json()).items.some((artifact) => artifact.id === ephemeral.artifact_id));
 await deleteSmokeArtifact(api, ephemeral.artifact_id, local.SMOKE_HARNESS_SECRET);
@@ -101,7 +104,7 @@ console.log("PASS ephemeral provisioning, native Durable Objects, restricted CSP
 
 const mcp = "http://127.0.0.1:8792";
 const rpcId = Date.now();
-assert.equal((await fetch(mcp, { method: "POST" })).status, 401);
+assert.equal((await localCloudflareRequest(mcp, { method: "POST" })).status, 401);
 await mcpInitializeSession(mcp, auth.mcpToken);
 assert.equal((await mcpToolsList(mcp, auth.mcpToken)).length, 10);
 const published = await mcpCallTool(
@@ -120,22 +123,22 @@ await mcpCallTool(mcp, auth.mcpToken, "delete_artifact", { artifact_id: publishe
 assert.equal((await fetch(published.url)).status, 404);
 console.log("PASS MCP OAuth verification and named Worker RPC publish/delete");
 
-const signIn = await fetch("http://127.0.0.1:5173/api/auth/sign-in", { redirect: "manual" });
+const signIn = await localCloudflareRequest("http://127.0.0.1:5173/api/auth/sign-in", { redirect: "manual" });
 assert.equal(signIn.status, 302);
 const cookie = signIn.headers.get("set-cookie").split(";")[0];
-const dashboard = await fetch("http://127.0.0.1:5173/dashboard", { headers: { cookie } });
+const dashboard = await localCloudflareRequest("http://127.0.0.1:5173/dashboard", { headers: { cookie } });
 assert.equal(dashboard.status, 200);
 const html = await dashboard.text();
 const css = html.match(/href="([^"\s]+\.css)"/)[1];
-assert.equal((await fetch(new URL(css, "http://127.0.0.1:5173"))).status, 200);
-assert.equal((await fetch("http://127.0.0.1:5174/")).status, 200);
+assert.equal((await localCloudflareRequest(new URL(css, "http://127.0.0.1:5173"))).status, 200);
+assert.equal((await localCloudflareRequest("http://127.0.0.1:5174/")).status, 200);
 console.log("PASS authenticated dashboard, Cloudflare static assets, marketing Worker");
 let limited = false;
 let allowed = 0;
 const limitCheckStarted = Date.now();
 // Two windows cover a burst that begins just before the native window resets.
 for (let request = 0; request < 125; request++) {
-  const response = await fetch(`${api}/v1/artifacts`, {
+  const response = await localCloudflareRequest(`${api}/v1/artifacts`, {
     headers: { authorization: `Bearer ${provisioned.api_key.secret}` },
   });
   if (response.status === 429) {

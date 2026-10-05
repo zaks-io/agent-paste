@@ -21,6 +21,7 @@ nodeLinker: isolated
 
 patchedDependencies:
   '@workos/authkit-tanstack-react-start@0.8.3': patches/@workos__authkit-tanstack-react-start@0.8.3.patch
+  braces@3.0.3: patches/braces@3.0.3.patch
 
 supportedArchitectures:
   cpu: [x64, arm64]

@@ -35,11 +35,25 @@ passed for that same commit. Production readiness is commit-scoped: only call
 a release ready when CI, Security, and Deploy Production all succeed for the
 same head SHA. Independent latest runs are not proof.
 
-Production now runs commit [`9b76e3e1`](https://github.com/zaks-io/agent-paste/commit/9b76e3e1a0de1418f33f932f3064467dfb1ce1ba):
+On 2026-10-01, production deployed commit [`9b76e3e1`](https://github.com/zaks-io/agent-paste/commit/9b76e3e1a0de1418f33f932f3064467dfb1ce1ba):
 [CI run 36937939352](https://github.com/zaks-io/agent-paste/actions/runs/36937939352),
 [Security run 36937939392](https://github.com/zaks-io/agent-paste/actions/runs/36937939392),
 and [Deploy Production run 36938087486](https://github.com/zaks-io/agent-paste/actions/runs/36938087486)
 all succeeded for it on 2026-10-01.
+
+The 2026-10-05 authentication documentation deployment ran
+[Deploy Production 37268811823](https://github.com/zaks-io/agent-paste/actions/runs/37268811823)
+for [`d361ac72`](https://github.com/zaks-io/agent-paste/commit/d361ac72f0f38d5da038eac1139f2cd3b7df8d74).
+Current release evidence is tracked in [AP-455](https://linear.app/zaks-io/issue/AP-455/fixcli-align-api-key-authentication-and-public-docs).
+
+The current production workflow requires successful CI for automatic deploys
+and runs `pnpm verify` on manual dispatch. The full repository security
+attestation runs separately on `main` and daily; it does not block production
+deploys. CLI release still requires that attestation. A production deploy can
+therefore succeed while `Security` fails; report those results separately.
+See [security follow-ups](./security-todo.md#braces-depth-patch-ap-456) for the
+AP-456 verified parser patch and local HTTP request boundary prepared to fix
+the CLI release attestation blockers.
 
 ## CLI releases
 
