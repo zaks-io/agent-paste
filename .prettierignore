@@ -12,3 +12,7 @@ dist/
 .wrangler/
 coverage/
 apps/evals/eval-results/
+
+# Keep vendored workflow skills identical to their verified upstream source.
+.agents/skills/ziw-*/
+.claude/skills/ziw-*/
