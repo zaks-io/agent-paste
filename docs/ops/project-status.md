@@ -43,8 +43,10 @@ all succeeded for it on 2026-10-01.
 
 ## CLI releases
 
-The current npm release is CLI 0.2.5. CLI 0.2.6 is prepared in AP-455 and awaits
-the release workflow.
+The CLI package version is 0.2.6. Publication and production deployment evidence
+for this release is tracked in [AP-455](https://linear.app/zaks-io/issue/AP-455/fixcli-align-api-key-authentication-and-public-docs).
+See the [GitHub release](https://github.com/zaks-io/agent-paste/releases/tag/cli-v0.2.6)
+and [npm package](https://www.npmjs.com/package/@zaks-io/agent-paste) for distribution status.
 
 - **0.2.2:** `login --device-code` for sandboxes and remote shells. 0.2.1 was
   versioned in the repository but never published.
@@ -56,7 +58,7 @@ the release workflow.
   unknown-extension publish check it existed for. The unused `render_mode`
   database columns are dropped by a follow-up migration.
 
-- **0.2.6, prepared:** adds `authenticated: true` to successful `whoami` JSON
+- **0.2.6:** adds `authenticated: true` to successful `whoami` JSON
   and aligns API key authentication guidance across CLI help and public docs.
 
 ## CLI authentication
@@ -67,10 +69,10 @@ the inherited environment before starting a login. A rejected key fails rather
 than falling back to saved login. See the
 [CLI authentication contract](../specs/cli.md#authentication).
 
-The current source adds `authenticated: true` to successful CLI `whoami` output
-and aligns authentication guidance across public docs and agent instructions.
-This change has not been released or deployed. CLI 0.2.5 omits the boolean on
-success; its Workspace, actor, and scopes still indicate valid authentication.
+CLI 0.2.6 adds `authenticated: true` to successful `whoami` output and aligns
+authentication guidance across public docs and agent instructions. CLI 0.2.5
+omits the boolean on success; its Workspace, actor, and scopes still indicate
+valid authentication.
 
 CLI 0.2.2 adds `agent-paste login --device-code` for sandboxes and remote
 shells. On 2026-09-13 it passed repository verification and a Linux install and
