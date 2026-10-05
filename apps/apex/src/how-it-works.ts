@@ -41,7 +41,8 @@ export const HOW_IT_WORKS_SECTIONS: HowItWorksSection[] = [
   {
     title: "Unclaimed work expires quickly",
     body: [
-      "An agent should use the CLI when it can run commands. In a sandbox, use `login --device-code` and keep it running while the human approves in their own browser. A hosted tool that cannot run commands should use MCP when it supports OAuth. Reserve `--ephemeral` for cases where no login is available, with short-lived credentials, low write caps, 24 hour cleanup, and noindex.",
+      "An agent should use the CLI when it can run commands. Check `whoami --json` first. An injected `AGENT_PASTE_API_KEY` or saved login credential needs no further login. For headless setup, create a key at https://app.agent-paste.sh/keys and inject it through secret configuration. Without a usable credential, use `login --device-code` in a sandbox and keep it running while the human approves in their own browser. A hosted tool without a shell uses OAuth-only MCP.",
+      "Choose `--ephemeral` when no authenticated path is available and static output meets the task, or accountless publishing is requested. It ignores existing credentials and is not an automatic fallback for authentication failures. Ephemeral Workspaces have short-lived credentials, low write caps, 24-hour cleanup, and noindex.",
       "Ephemeral HTML stays static until claimed: scripts, connections, forms, frames, objects, and workers are blocked.",
     ],
   },

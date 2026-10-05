@@ -45,16 +45,27 @@ Tell agents to use the CLI when they can run commands, and MCP when they are in
 a hosted tool that can connect to remote MCP but cannot run the CLI. Do not
 recommend any other publish surface for agent workflows.
 
-Run `agent-paste whoami --json` first. Signed-out results exit 0; inspect
-`authenticated: false`. Use `login` locally or `login --device-code` in a
-sandbox. Keep device login running while the human approves the URL and code
-from stderr, then check `whoami` again and publish.
+Run `agent-paste whoami --json` first in the inherited environment. A non-empty
+`AGENT_PASTE_API_KEY` authenticates without login and takes precedence over saved
+credentials. If authenticated, publish directly. A rejected key fails with exit
+2; fix its configuration rather than starting another login or silently
+switching to accountless publishing.
+
+Signed-out results exit 0 with `authenticated: false`. Supply an API key through
+secret configuration, use `login` locally, or use `login --device-code` in a
+sandbox when no credential is available. Keep device login running while the
+human approves the URL and code from stderr, then check `whoami` again and
+publish. Sandbox provisioning may already inject an API key; do not request
+login when it works.
 
 Use `publish <path> --ephemeral` when login is unavailable and static
 accountless output meets the task, or explicitly requested. Return `url` for
 viewing; `claim_url` is the optional ownership step.
 
-Details: [CLI authentication](docs/specs/cli.md#login).
+`logout` revokes and removes saved login credentials; it leaves environment keys
+alone. `--ephemeral` ignores both environment keys and saved login.
+
+Details: [CLI authentication](docs/specs/cli.md#authentication).
 
 To update existing work, use its artifact ID, such as `01234-56789-abcde-fghjd`,
 with `publish <path> --artifact-id <artifact-id>`, `pull`, or `edit`.

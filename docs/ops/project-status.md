@@ -2,7 +2,8 @@
 
 Project start: 2026-05-18.
 
-Last updated: 2026-10-01 for the CLI 0.2.5 release and the current production deploy.
+Last updated: 2026-10-05 for CLI 0.2.6 release preparation and authentication
+documentation alignment. Release and deployment evidence is recorded below.
 The deployed one-URL architecture status below was recorded on 2026-09-03. See [changelog.md](./status/changelog.md) for older shipped
 work.
 
@@ -42,7 +43,8 @@ all succeeded for it on 2026-10-01.
 
 ## CLI releases
 
-The current npm release is CLI 0.2.5.
+The current npm release is CLI 0.2.5. CLI 0.2.6 is prepared in AP-455 and awaits
+the release workflow.
 
 - **0.2.2:** `login --device-code` for sandboxes and remote shells. 0.2.1 was
   versioned in the repository but never published.
@@ -54,7 +56,21 @@ The current npm release is CLI 0.2.5.
   unknown-extension publish check it existed for. The unused `render_mode`
   database columns are dropped by a follow-up migration.
 
-## CLI remote authentication
+- **0.2.6, prepared:** adds `authenticated: true` to successful `whoami` JSON
+  and aligns API key authentication guidance across CLI help and public docs.
+
+## CLI authentication
+
+`AGENT_PASTE_API_KEY` authenticates CLI commands without an interactive login
+and takes precedence over saved login credentials. Check `whoami --json` in
+the inherited environment before starting a login. A rejected key fails rather
+than falling back to saved login. See the
+[CLI authentication contract](../specs/cli.md#authentication).
+
+The current source adds `authenticated: true` to successful CLI `whoami` output
+and aligns authentication guidance across public docs and agent instructions.
+This change has not been released or deployed. CLI 0.2.5 omits the boolean on
+success; its Workspace, actor, and scopes still indicate valid authentication.
 
 CLI 0.2.2 adds `agent-paste login --device-code` for sandboxes and remote
 shells. On 2026-09-13 it passed repository verification and a Linux install and

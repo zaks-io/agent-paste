@@ -231,15 +231,21 @@ function CommandBlock() {
         <CommandBox cmd={PUBLISH_EPHEMERAL_CMD} />
       </div>
       <p className="mt-6 text-base leading-relaxed text-muted max-w-[46ch]">
-        To keep the work, run JavaScript, and own it, log in for free once over browser OAuth, then publish.
+        To keep the work, run JavaScript, and own it, publish with an existing login credential or injected API key. If
+        you need to sign in, use browser OAuth for free:
       </p>
       <div className="mt-4 flex flex-col gap-3">
         <CommandBox cmd={LOGIN_CMD} />
         <CommandBox cmd={PUBLISH_CMD} />
       </div>
       <p className="mt-4 text-mono leading-normal text-subtle max-w-[52ch]">
-        In a sandbox, run <code>{LOGIN_CMD} --device-code</code> and keep it running while you approve the displayed
-        code in your own browser. The CLI saves its credential in the sandbox. No key to copy or paste.
+        Check <code>agent-paste whoami --json</code> first. If it reports <code>authenticated: false</code>, use{" "}
+        <code>{LOGIN_CMD} --device-code</code> in a sandbox and keep it running while you approve the code in your own
+        browser. For CI and headless agents, inject <code>AGENT_PASTE_API_KEY</code> through your secret configuration.{" "}
+        <a className="text-muted underline decoration-rule-strong hover:text-foreground" href="/docs/cli#api-keys">
+          See authentication options
+        </a>
+        .
       </p>
     </div>
   );

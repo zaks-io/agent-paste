@@ -26,12 +26,25 @@ agent-paste whoami --json
 agent-paste publish <path> --json
 ```
 
-`whoami` exits 0 even when signed out, so check `authenticated`. If false, run `login` where a
-browser is available or `login --device-code` in a sandbox. Device login prints a URL and code on
-stderr; keep it running until the user approves, then run `whoami` again. An `AGENT_PASTE_API_KEY`
-env var takes precedence over stored credentials.
+`whoami` exits 0 with `authenticated: false` when no usable local credential exists. A successful
+response identifies the Workspace, actor, and scopes; older CLI versions omit `authenticated`
+on success. Publish directly after a successful response. An injected `AGENT_PASTE_API_KEY`
+needs no login. Keep the inherited environment; never print the key or pass it as a command argument.
 
-When login is unavailable, or the user asks for accountless publishing:
+For headless setup, the user creates a key at <https://app.agent-paste.sh/keys> and injects its
+one-time secret as `AGENT_PASTE_API_KEY` through sandbox or CI secret configuration. A non-empty
+key takes precedence over saved login. Invalid, revoked, expired, or wrong-environment keys fail
+with exit 2, without trying saved login. Correct or remove the environment key before retrying.
+HTTP server failures exit 6; transport failures exit 1. Neither means the agent is signed out.
+
+If `authenticated` is false, run `login` where a browser is available or `login --device-code`
+in a sandbox. Device login prints a URL and code on stderr; keep it running until the user
+approves, then check `whoami` again. `logout` attempts to revoke and removes the saved login;
+it leaves the environment key untouched.
+
+Use accountless publishing when no authenticated path is available and static output meets the
+task, or when the user asks for it. `--ephemeral` explicitly ignores both environment and saved
+credentials. Do not switch to it automatically after an authentication failure:
 
 ```sh
 agent-paste publish <path> --ephemeral --json
@@ -68,6 +81,7 @@ but still check folders and report data for credentials, private source, custome
 unrelated files. Never put API keys, login state, or claim tokens in published content. If a publish
 fails indeterminately, check whether it committed before retrying.
 
-Without a shell, connect to `https://mcp.agent-paste.sh` over OAuth and call `whoami` first. Use
+Without a shell, connect to `https://mcp.agent-paste.sh` over OAuth and call `whoami` first. MCP
+cannot use `AGENT_PASTE_API_KEY` or saved CLI credentials. Use
 `publish_artifact`, `add_revision`, or `multi_edit`. MCP is text-only; folders, binary files, and
 ephemeral publishing need the CLI. Full guide: <https://agent-paste.sh/agents.md>.
