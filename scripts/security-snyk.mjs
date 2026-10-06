@@ -6,6 +6,7 @@ import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bracesConsumers, bracesFinding, verifyBracesPatch } from "./lib/braces-patch.mjs";
 import { evaluateSnykPolicy } from "./lib/snyk-vulnerability-policy.mjs";
+import { verifyZodBuildConsumers, zodBuildConsumers } from "./lib/zod-build-policy.mjs";
 import { verifyZodPatch, zodConsumers } from "./lib/zod-patch.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -38,6 +39,7 @@ function consumerPath({ workspace, chain }) {
 try {
   const verification = verifyBracesPatch(root);
   const zodVerification = verifyZodPatch(root);
+  const zodBuildVerification = verifyZodBuildConsumers(root);
   const build = spawnSync(
     "pnpm",
     ["exec", "turbo", "run", "build", "--filter=@agent-paste/contracts^...", "--concurrency=2"],
@@ -60,7 +62,7 @@ try {
   );
   writeFileSync(join(out, "request-array-bounds.txt"), `${bounds.stdout ?? ""}\n${bounds.stderr ?? ""}`);
   if (bounds.error || bounds.status !== 0) throw new Error("Request array bounds verification failed");
-  writeReport("mitigation.json", { braces: verification, zod: zodVerification });
+  writeReport("mitigation.json", { braces: verification, zod: zodVerification, zodBuild: zodBuildVerification });
   const allowedFindings = bracesConsumers.map((consumer) => ({
     id: "SNYK-JS-BRACES-19963945",
     module: bracesFinding.packageName,
@@ -78,6 +80,17 @@ try {
       paths: [consumerPath(consumer)],
       reason:
         "Verified parser patch rejects oversized arrays before element validation; structural request tests require array bounds.",
+    })),
+  );
+  allowedFindings.push(
+    ...zodBuildConsumers.map((consumer) => ({
+      id: "SNYK-JS-ZOD-20510278",
+      module: "zod",
+      version: consumer.version,
+      target: "apps/web/package.json",
+      paths: [consumer.expectedPath],
+      reason:
+        "Verified TanStack config parsers consume trusted repository build options, outside the production request path.",
     })),
   );
   const expectedTargets = [

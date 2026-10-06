@@ -50,9 +50,12 @@ build contract dependencies and execute these tests before considering the
 mitigation valid. The verifier checks
 the patch digest, registration, both locks, installed parser digests, consumer
 versions, and actual early rejection. Snyk dispositions match only this advisory,
-version 4.4.3, manifest, and enumerated full dependency path. Zod 3.25.76 remains
-in TanStack build tooling and receives no scanner disposition. Other versions and
-paths remain blocking. Raw findings and mitigation evidence are retained.
+version 4.4.3, manifest, and enumerated full dependency path. Six exact paths to
+Zod 3.25.76 in TanStack build tooling receive separate build-only dispositions.
+These config parsers consume inline Vite options and repository `tsr.config.json`,
+not request data. `zod-build-policy.mjs` pins every versioned dependency hop and
+verifies the reviewed config parser bytes before enabling them. Other Zod 3
+paths, dependency upgrades, changed parsers, versions, and advisories block. Raw findings and mitigation evidence are retained.
 
 Remove the patch, verifier, and dispositions when an upstream fix covers these
 inputs. Keep the request bounds and behavioral regressions.

@@ -39,7 +39,9 @@ and build contract dependencies before running the structural request-array boun
 tests, so an install-only checkout can execute the checks.
 The Snyk runner preserves raw reports and the policy decision under
 `artifacts/security/snyk/`; scanner errors and incomplete workspace coverage fail
-closed. Pure policy decisions live in `lib/snyk-vulnerability-policy.mjs`.
+closed. Pure report decisions live in `lib/snyk-vulnerability-policy.mjs`; pnpm manifests
+come from the native `displayTargetFile` report field. `lib/zod-build-policy.mjs`
+verifies the six build-only Zod paths and their reviewed config parsers.
 
 ## Worktree Setup
 

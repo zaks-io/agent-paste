@@ -42,6 +42,7 @@
     "scripts/lib/secret-values.mjs",
     "scripts/lib/snyk-vulnerability-policy.mjs",
     "scripts/lib/zod-patch.mjs",
+    "scripts/lib/zod-build-policy.mjs",
     "scripts/lib/versioned-secret-rotation.mjs",
     "scripts/lib/wrangler-env-vars.mjs"
   ]
