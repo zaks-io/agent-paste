@@ -194,6 +194,18 @@ export const mcpToolContracts = [
     ],
     errors: ["database_unavailable"] as const,
   },
+  {
+    name: "feedback",
+    description:
+      "Report product friction or a problem with Agent Paste. Supply a body; client version and tool context are attached automatically. Any authenticated member can submit, including read-only members. Returns feedback_id.",
+    auth: "mcp_oauth",
+    requiredScopes: [],
+    idempotency: "derived",
+    inputSchema: "feedback",
+    outputSchema: "feedback",
+    forwardedCalls: [{ routeId: "feedback.create", auth: "mcp_principal", idempotencyKey: "same_as_tool" }],
+    errors: ["invalid_request", "rate_limited_actor", "rate_limited_workspace", "database_unavailable"] as const,
+  },
 ] as const satisfies readonly McpToolContract[];
 
 export function mcpToolContractByName(name: McpToolContract["name"]): McpToolContract {

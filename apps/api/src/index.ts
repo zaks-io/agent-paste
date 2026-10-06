@@ -32,6 +32,7 @@ import {
 } from "./routes/billing.js";
 import { getCliVersion } from "./routes/cli-version.js";
 import { ephemeralClaimRoute, ephemeralProvisionRoute } from "./routes/ephemeral.js";
+import { replayFeedbackRequest, submitFeedbackRoute } from "./routes/feedback.js";
 import {
   deleteMemberArtifactRoute,
   listMemberArtifactsRoute,
@@ -109,6 +110,7 @@ const apiDbRegistrar = createRegistrar<Repository>({
   app,
   auth: createApiAuthResolvers(),
   db: (context) => apiDatabase(context.env as Env),
+  replay: replayFeedbackRequest,
   rateLimitBindings: (context) => apiRateLimitBindings(context.env as Env),
   docsBaseUrl: boundResponderConfig.docsBaseUrl,
   onMount: (contract) => {
@@ -145,6 +147,9 @@ const apiBillingRegistrar = createRegistrar<SqlExecutor>({
   },
 });
 
+apiDbRegistrar.mount(contractById("feedback.create"), async (context, principal, db, guard) =>
+  submitFeedbackRoute(context as AppContext, principal, db, guard),
+);
 apiDbRegistrar.mount(contractById("whoami.get"), async (context, principal, db) =>
   whoami(context as AppContext, principal, db),
 );
@@ -333,6 +338,7 @@ export async function handleRequest(request: Request, env: Env, executionCtx?: E
 export { WorkspaceWriteAllowance } from "@agent-paste/write-allowance";
 
 const MCP_API_ROUTE_IDS = new Set<RouteId>([
+  "feedback.create",
   "mcp.whoami",
   "artifacts.list",
   "agentView.getLatest",

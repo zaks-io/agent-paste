@@ -7,6 +7,7 @@ const AUTH_FAILURE_CODES: Record<AuthRequirement, readonly ErrorCode[]> = {
   none: [],
   api_key: ["not_authenticated", "invalid_auth"],
   api_key_or_mcp_oauth: ["not_authenticated", "invalid_auth", "forbidden", "database_unavailable"],
+  api_key_or_member: ["not_authenticated", "invalid_auth", "forbidden", "database_unavailable"],
   mcp_oauth: ["not_authenticated", "forbidden", "database_unavailable"],
   workos_access_token: ["not_authenticated", "forbidden", "database_unavailable"],
   operator: ["not_found"],

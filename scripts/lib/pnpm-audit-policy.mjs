@@ -35,6 +35,13 @@ export function evaluatePnpmAuditPolicy(reportJsonText, options = {}) {
   const blocking = [];
   const allowed = [];
   for (const [id, advisory] of advisories) {
+    if (
+      typeof advisory !== "object" ||
+      advisory === null ||
+      !["info", "low", "moderate", "high", "critical"].includes(advisory.severity)
+    ) {
+      throw new Error(`pnpm audit advisory ${id} has an invalid severity; failing closed`);
+    }
     if (!blockedSeverities.includes(advisory.severity ?? "")) {
       continue;
     }

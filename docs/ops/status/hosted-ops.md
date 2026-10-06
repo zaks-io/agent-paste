@@ -96,7 +96,9 @@ Launch-readiness secret notes:
   checks out `refs/heads/main`, and refuses to deploy if the checked-out SHA
   differs from the CI head SHA.
 - Successful production deploys use the full deployed commit SHA as the shared
-  Sentry release name and Linear release version. The Linear release is recorded
+  Sentry release name and Linear release version. The web build passes
+  `SENTRY_RELEASE` explicitly as the Sentry plugin release name and refuses source
+  map uploads without it. The Linear release is recorded
   only after the read-only production smoke passes and links back to the GitHub
   Actions deployment run. `LINEAR_ACCESS_KEY` is a repository secret scoped to
   the Agent Paste Linear release pipeline.

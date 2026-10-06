@@ -11,6 +11,7 @@ import type {
   Artifact,
   ClaimToken,
   ContentBlob,
+  Feedback,
   OperationEvent,
   PlatformLockdown,
   RepositoryOptions,
@@ -26,6 +27,7 @@ import type {
 // RepositoryCore; this subclass only supplies the Map-backed unit of work and keeps
 // the underlying tables as public Maps so tests and the MVP server can seed/inspect them.
 export class LocalRepository extends RepositoryCore {
+  readonly feedback: Map<string, Feedback>;
   readonly workspaces: Map<string, Workspace>;
   readonly workspaceMembers: Map<string, WorkspaceMember>;
   readonly agentAuthDelegations: Map<string, AgentAuthDelegation>;
@@ -48,6 +50,7 @@ export class LocalRepository extends RepositoryCore {
   constructor(options: RepositoryOptions) {
     const state: LocalState = createLocalState();
     super(new LocalUnitOfWork(state), options);
+    this.feedback = state.feedback;
     this.workspaces = state.workspaces;
     this.workspaceMembers = state.workspaceMembers;
     this.agentAuthDelegations = state.agentAuthDelegations;

@@ -8,6 +8,7 @@ import type {
   Artifact,
   ClaimToken,
   ContentBlob,
+  Feedback,
   OperationEvent,
   PlatformLockdown,
   Revision,
@@ -21,6 +22,7 @@ import type {
 // The in-memory tables backing the local repository. They stay plain public Maps so
 // tests and the local MVP server can seed and inspect rows directly.
 export type LocalState = {
+  feedback: Map<string, Feedback>;
   workspaces: Map<string, Workspace>;
   workspaceMembers: Map<string, WorkspaceMember>;
   agentAuthDelegations: Map<string, AgentAuthDelegation>;
@@ -43,6 +45,7 @@ export type LocalState = {
 
 export function createLocalState(): LocalState {
   return {
+    feedback: new Map(),
     workspaces: new Map(),
     workspaceMembers: new Map(),
     agentAuthDelegations: new Map(),

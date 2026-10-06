@@ -20,7 +20,7 @@ This is the schema target for the CLI-first MVP. Drizzle definitions should live
 | --------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `id`            | `UUID PRIMARY KEY`     | Tenant id.                                                                                                                                                                                                                                                          |
 | `name`          | `TEXT NOT NULL`        | Operator supplied or inferred from email.                                                                                                                                                                                                                           |
-| `contact_email` | `TEXT NULL`            | Operator-supplied MVP contact. Public OAuth membership is future work.                                                                                                                                                                                              |
+| `contact_email` | `TEXT NULL`            | Owning member email populated during WorkOS provisioning, or operator-supplied contact. Null for an unclaimed ephemeral Workspace.                                                                                                                                  |
 | `claimed_at`    | `TIMESTAMPTZ NULL`     | Ephemeral-publish ([0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md)): `NULL` while the tenant is unclaimed/ephemeral (ephemeral cap set); non-null marks it consumed by a claim. The timestamp is the state — no separate boolean. |
 | `created_at`    | `TIMESTAMPTZ NOT NULL` |                                                                                                                                                                                                                                                                     |
 | `updated_at`    | `TIMESTAMPTZ NOT NULL` |                                                                                                                                                                                                                                                                     |
@@ -234,6 +234,39 @@ Primary key `(upload_session_id, path)`.
 Hash-aware files use `storage_kind = 'blob'` and share a `r2_key` for identical
 `(workspace_id, sha256, size_bytes)` files. Same-session duplicate hashes mark
 all matching paths uploaded when the one required PUT succeeds.
+
+### `feedback`
+
+Feedback belongs to its submitting Workspace and uses forced tenant RLS.
+Platform reads follow the existing privileged Run Scope; this release adds no
+public read or operator feedback route.
+
+| Column                    | Type                                      | Notes                                                                                         |
+| ------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `id`                      | `TEXT PRIMARY KEY`                        | `fb_` plus 26 Crockford symbols.                                                              |
+| `workspace_id`            | `UUID NOT NULL REFERENCES workspaces(id)` | Derived from the authenticated Run Scope.                                                     |
+| `submitter_kind`          | `TEXT NOT NULL`                           | `member` or `agent`.                                                                          |
+| `submitter_member_id`     | `TEXT NULL`                               | Set only for a member; composite FK binds the member to this Workspace.                       |
+| `submitter_api_key_id`    | `TEXT NULL`                               | Set only for an agent; composite FK binds the credential to this Workspace.                   |
+| `contact_email`           | `TEXT NULL`                               | Snapshot of member email, or the owning Workspace contact for an agent. Null when unresolved. |
+| `body`                    | `TEXT NOT NULL`                           | Trimmed, nonempty, at most 10,000 characters.                                                 |
+| `context`                 | `JSONB NULL`                              | Optional bounded scalar metadata object, validated by the submit contract.                    |
+| `status`                  | `feedback_status NOT NULL DEFAULT 'new'`  | Enum values `new` and `addressed`; capture writes `new`.                                      |
+| `notification_suppressed` | `BOOLEAN NOT NULL DEFAULT false`          | Reserved for notification throttling; capture leaves false.                                   |
+| `created_at`              | `TIMESTAMPTZ NOT NULL`                    | Creation time.                                                                                |
+| `updated_at`              | `TIMESTAMPTZ NOT NULL`                    | Initially creation time.                                                                      |
+
+The submitter check requires exactly one submitter identifier matching
+`submitter_kind`. Workspace and submitter foreign keys restrict deletion. The
+Workspace/creation/id index supports future tenant pagination. API key
+Workspace/id uniqueness supports the credential composite foreign key.
+
+The API caps context at 8,192 serialized UTF-8 bytes and rejects nested values.
+A database check requires an object and caps its PostgreSQL JSONB text at
+16,384 bytes, allowing PostgreSQL's added whitespace and normalized numbers.
+Feedback insertion, a metadata-only `feedback.created` audit event, and durable
+idempotency state share one command transaction. Feedback text, context, and
+contact email are excluded from audit details.
 
 ### `operation_events`
 

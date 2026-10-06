@@ -4,6 +4,7 @@ import { type CreateApiKeyRequest, CreateApiKeyResponse } from "@agent-paste/con
 import { ArtifactFileContent } from "@agent-paste/contracts/artifacts";
 import { ErrorEnvelope } from "@agent-paste/contracts/common";
 import { EphemeralProvisionResponse } from "@agent-paste/contracts/ephemeral";
+import { type CreateFeedbackRequest, CreateFeedbackResponse } from "@agent-paste/contracts/feedback";
 import { trimTrailingSlashes } from "@agent-paste/contracts/mcp/scopes";
 import type {
   ArtifactId,
@@ -98,6 +99,15 @@ export class ApiClient {
   usagePolicy() {
     return this.request(UsagePolicy, this.apiBaseUrl, "/v1/usage-policy");
   }
+
+  feedback = {
+    create: (body: CreateFeedbackRequest, idempotencyKey: string) =>
+      this.request(CreateFeedbackResponse, this.apiBaseUrl, "/v1/feedback", {
+        method: "POST",
+        body,
+        idempotencyKey,
+      }),
+  };
 
   apiKeys = {
     revokeCurrent: () =>

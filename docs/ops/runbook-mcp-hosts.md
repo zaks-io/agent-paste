@@ -194,7 +194,7 @@ Text-only artifact operations per ADR 0061 plus ADR 0090/0091 read/edit parity:
 
 `publish_artifact`, `add_revision`, `multi_edit`, `list_artifacts`,
 `read_artifact`, `read_file`, `list_revisions`, `delete_artifact`,
-`update_display_metadata`, `whoami`.
+`update_display_metadata`, `whoami`, `feedback`.
 
 Binary uploads, multi-file artifacts, bundle download, and lockdown controls
 remain CLI/REST/dashboard territory.
@@ -205,6 +205,11 @@ viewer, iframe, visibility input, or second sharing step. The MCP result returns
 `artifact_id` and `revision_id` with the URL. Use the artifact ID, such as
 `01234-56789-abcde-fghjd`, in MCP `artifact_id` inputs. Full URLs also work.
 Updates require Workspace access.
+
+`feedback` takes only a required text `body`.
+It needs authentication but no `publish` scope, returns `feedback_id`, and
+attaches the MCP version and tool name. Invalid input returns `invalid_params`
+with HTTP 400; retries with the same request ID and arguments are idempotent.
 
 ### Publish retries
 

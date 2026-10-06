@@ -254,7 +254,7 @@ export async function provisionLocalMcpWorkspace(apiBaseUrl, { memberSubject, wo
 export async function runLocalMcpAuthenticatedChecks(mcpBaseUrl, mcpToken, expectedWorkspaceId) {
   await mcpInitializeSession(mcpBaseUrl, mcpToken);
   const tools = await mcpToolsList(mcpBaseUrl, mcpToken);
-  assert(tools.length === MCP_TOOL_NAMES.length, "local tools/list returns twelve tools");
+  assert(tools.length === MCP_TOOL_NAMES.length, "local tools/list returns the registered tools");
 
   const whoami = await mcpCallTool(mcpBaseUrl, mcpToken, "whoami", {}, 3);
   assert(whoami.workspace.id === expectedWorkspaceId, "whoami resolves provisioned workspace");
@@ -349,6 +349,24 @@ export async function runLocalMcpSmoke() {
     });
 
     const { published } = await runLocalMcpAuthenticatedChecks(ports.mcpBaseUrl, mcpToken, callback.workspace.id);
+
+    const readOnlyToken = signWorkOsToken({
+      subject: LOCAL_MCP_SMOKE_MEMBER,
+      session: `${LOCAL_MCP_SMOKE_MEMBER}-feedback`,
+      issuer: ports.workosBaseUrl,
+      privateKey,
+      keyId,
+      audience: MCP_RESOURCE_INDICATOR,
+      scope: "read",
+    });
+    const feedback = await mcpCallTool(
+      ports.mcpBaseUrl,
+      readOnlyToken,
+      "feedback",
+      { body: "Local MCP feedback smoke" },
+      6,
+    );
+    assert(feedback.feedback_id?.startsWith("fb_"), "read-only OAuth actor can submit feedback through MCP RPC");
 
     process.stdout.write(`Local MCP smoke passed.
 

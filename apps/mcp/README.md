@@ -37,7 +37,7 @@ these directly.
 
 | Scope             | Tools                                                            |
 | ----------------- | ---------------------------------------------------------------- |
-| none              | `whoami`                                                         |
+| none              | `whoami`, `feedback`                                             |
 | `read`            | `list_artifacts`, `read_artifact`, `read_file`, `list_revisions` |
 | `publish`, `read` | `publish_artifact`, `add_revision`, `multi_edit`                 |
 | `publish`         | `delete_artifact`, `update_display_metadata`                     |

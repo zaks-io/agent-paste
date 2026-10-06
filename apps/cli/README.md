@@ -81,6 +81,7 @@ Return `url`. Ephemeral output also has `claim_url` for the optional keep step.
 | `agent-paste login`                                      | Authenticate through the browser.                        |
 | `agent-paste login --device-code`                        | Authenticate from a sandbox or remote shell.             |
 | `agent-paste logout`                                     | Attempt to revoke and remove the saved login credential. |
+| `agent-paste feedback "<body>" [--json]`                 | Report product friction; also accepts piped stdin.       |
 | `agent-paste whoami --json`                              | Report authentication, Workspace, actor, and scopes.     |
 | `agent-paste publish <path>`                             | Publish a new Artifact.                                  |
 | `agent-paste publish <path> --artifact-id <artifact-id>` | Revise an Artifact at the same URL.                      |

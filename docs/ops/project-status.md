@@ -2,8 +2,9 @@
 
 Project start: 2026-05-18.
 
-Last updated: 2026-10-06 for AP-457 dependency security remediation.
-Release and deployment evidence is recorded below.
+Last updated: 2026-10-06 for feedback capture, CLI 0.2.7 release preparation,
+and AP-457 dependency security remediation. Release and deployment evidence is
+recorded below.
 The deployed one-URL architecture status below was recorded on 2026-09-03. See [changelog.md](./status/changelog.md) for older shipped
 work.
 
@@ -66,8 +67,9 @@ scanner policy.
 
 ## CLI releases
 
-The CLI package version is 0.2.6. Publication and production deployment evidence
-for this release is tracked in [AP-455](https://linear.app/zaks-io/issue/AP-455/fixcli-align-api-key-authentication-and-public-docs).
+The CLI package version is 0.2.7. Feedback capture delivery and publication
+evidence is tracked in [AP-352](https://linear.app/zaks-io/issue/AP-352).
+The prior 0.2.6 release evidence is tracked in [AP-455](https://linear.app/zaks-io/issue/AP-455/fixcli-align-api-key-authentication-and-public-docs).
 See the [GitHub release](https://github.com/zaks-io/agent-paste/releases/tag/cli-v0.2.6)
 and [npm package](https://www.npmjs.com/package/@zaks-io/agent-paste) for distribution status.
 
@@ -80,6 +82,8 @@ and [npm package](https://www.npmjs.com/package/@zaks-io/agent-paste) for distri
   `--render-mode`, which now fails as an unknown flag, and the
   unknown-extension publish check it existed for. The unused `render_mode`
   database columns are dropped by a follow-up migration.
+
+- **0.2.7:** adds authenticated `feedback` submission from a body argument or stdin.
 
 - **0.2.6:** adds `authenticated: true` to successful `whoami` JSON
   and aligns API key authentication guidance across CLI help and public docs.
@@ -112,8 +116,8 @@ summarizes runtime boundaries only.
 
 - **CLI:** `agent-paste publish <path>` is the primary agent workflow. It
   returns `artifact_id`, `revision_id`, `title`, `url`, and `expires_at`.
-- **MCP:** ten OAuth tools cover publish, revise, edit, list, read, delete, and
-  display metadata. Publish and revise return the same Artifact `url` contract.
+- **MCP:** eleven OAuth tools cover publish, revise, edit, list, read, delete, and
+  display metadata, and feedback. Publish and revise return the same Artifact `url` contract.
 - **Content:** untrusted files run top-level on a unique `agent-paste.link`
   capability subdomain, separate from product and authentication origins.
   Claimed content permits normal uploaded-site behavior. Ephemeral content uses

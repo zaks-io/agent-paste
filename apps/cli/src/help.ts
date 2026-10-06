@@ -6,6 +6,7 @@ Usage:
   agent-paste login [--device-code]
   agent-paste logout
   agent-paste whoami [--json]
+  agent-paste feedback [<body>] [--json]
   agent-paste publish <path> [--artifact-id <artifact-id>] [--title <text>] [--entrypoint <path>] [--ephemeral] [--claim-code <clm_...>] [--json]
   agent-paste pull <artifact-id> <remote-path> [--revision-id <id>] [--json]
   agent-paste edit <artifact-id> <path> [--edits <file>] [--json]

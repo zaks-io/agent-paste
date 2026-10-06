@@ -13,6 +13,7 @@
 | Ephemeral publish          | Publishes without login, expires after 24 hours, and can be claimed.                                                    |
 | CLI authentication         | `AGENT_PASTE_API_KEY`, saved browser login, or `login --device-code` for sandboxes and remote shells.                   |
 | CLI, MCP, REST             | Expose the same one-URL publish contract.                                                                               |
+| Product feedback           | CLI `feedback`, MCP `feedback`, and authenticated REST persist bounded, Workspace-owned feedback.                       |
 | Pin                        | Pinned Artifacts skip Auto Deletion until unpinned. Pinning is a dashboard action.                                      |
 | Dashboard                  | Manages Artifacts, credentials, audit, settings, billing, and claims.                                                   |
 | Bundles                    | Every Published Revision is packaged as a zip. CLI `download` saves it; MCP `read_artifact` returns its download URL.   |

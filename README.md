@@ -100,9 +100,13 @@ the link. The [agent skill](./skills/agent-paste/SKILL.md) covers API keys, logi
 accountless publishing, and updating an existing Artifact.
 
 Agents without a shell can connect to `https://mcp.agent-paste.sh` and
-authenticate with OAuth. Its ten tools publish, revise, edit, list, read, and
-delete Artifacts, and MCP publishing accepts text only. Use the CLI for folders,
+authenticate with OAuth. Its eleven tools publish, revise, edit, list, read, and
+delete Artifacts and submit feedback, and MCP publishing accepts text only. Use the CLI for folders,
 binary files, and accountless publishing. See the [MCP setup guide](./docs/mcp.md).
+
+Send product feedback with `agent-paste feedback "Your feedback"`, or pipe text
+to `agent-paste feedback`. Hosted agents can call the MCP `feedback` tool.
+Feedback requires authentication and accepts read-only credentials.
 
 ## What to know before publishing
 

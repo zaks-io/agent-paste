@@ -2,12 +2,14 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   check,
   customType,
   foreignKey,
   index,
   integer,
   jsonb,
+  pgEnum,
   pgTable,
   primaryKey,
   smallint,
@@ -175,7 +177,10 @@ export const apiKeys = pgTable(
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },
-  (table) => [index("api_keys_active_workspace_idx").on(table.workspaceId)],
+  (table) => [
+    index("api_keys_active_workspace_idx").on(table.workspaceId),
+    uniqueIndex("api_keys_workspace_id_id_unique").on(table.workspaceId, table.id),
+  ],
 );
 
 export const agentAuthDelegations = pgTable(
@@ -656,5 +661,48 @@ export const platformLockdowns = pgTable(
     uniqueIndex("platform_lockdowns_effective_unique")
       .on(table.scope, table.targetId)
       .where(sql`${table.liftedAt} is null`),
+  ],
+);
+
+export const feedbackStatus = pgEnum("feedback_status", ["new", "addressed"]);
+export const feedback = pgTable(
+  "feedback",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "restrict" }),
+    submitterKind: text("submitter_kind").$type<"member" | "agent">().notNull(),
+    submitterMemberId: text("submitter_member_id"),
+    submitterApiKeyId: text("submitter_api_key_id"),
+    contactEmail: text("contact_email"),
+    body: text("body").notNull(),
+    context: jsonb("context").$type<Record<string, string | number | boolean | null>>(),
+    status: feedbackStatus("status").notNull().default("new"),
+    notificationSuppressed: boolean("notification_suppressed").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("feedback_workspace_created_idx").on(table.workspaceId, table.createdAt, table.id),
+    foreignKey({
+      name: "feedback_member_fk",
+      columns: [table.workspaceId, table.submitterMemberId],
+      foreignColumns: [workspaceMembers.workspaceId, workspaceMembers.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "feedback_api_key_fk",
+      columns: [table.workspaceId, table.submitterApiKeyId],
+      foreignColumns: [apiKeys.workspaceId, apiKeys.id],
+    }).onDelete("restrict"),
+    check(
+      "feedback_submitter_check",
+      sql`(${table.submitterKind} = 'member' and ${table.submitterMemberId} is not null and ${table.submitterApiKeyId} is null) or (${table.submitterKind} = 'agent' and ${table.submitterApiKeyId} is not null and ${table.submitterMemberId} is null)`,
+    ),
+    check("feedback_body_check", sql`char_length(btrim(${table.body})) between 1 and 10000`),
+    check(
+      "feedback_context_check",
+      sql`${table.context} is null or (jsonb_typeof(${table.context}) = 'object' and octet_length(${table.context}::text) <= 16384)`,
+    ),
   ],
 );

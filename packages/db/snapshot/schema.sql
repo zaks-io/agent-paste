@@ -1,3 +1,4 @@
+CREATE TYPE "public"."feedback_status" AS ENUM('new', 'addressed');
 CREATE TABLE "access_links" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" uuid NOT NULL,
@@ -156,6 +157,24 @@ CREATE TABLE "content_blobs" (
 	CONSTRAINT "content_blobs_workspace_id_sha256_size_bytes_pk" PRIMARY KEY("workspace_id","sha256","size_bytes"),
 	CONSTRAINT "content_blobs_sha256_check" CHECK ("content_blobs"."sha256" ~ '^[a-f0-9]{64}$'),
 	CONSTRAINT "content_blobs_size_bytes_check" CHECK ("content_blobs"."size_bytes" >= 0)
+);
+
+CREATE TABLE "feedback" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" uuid NOT NULL,
+	"submitter_kind" text NOT NULL,
+	"submitter_member_id" text,
+	"submitter_api_key_id" text,
+	"contact_email" text,
+	"body" text NOT NULL,
+	"context" jsonb,
+	"status" "feedback_status" DEFAULT 'new' NOT NULL,
+	"notification_suppressed" boolean DEFAULT false NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "feedback_submitter_check" CHECK (("feedback"."submitter_kind" = 'member' and "feedback"."submitter_member_id" is not null and "feedback"."submitter_api_key_id" is null) or ("feedback"."submitter_kind" = 'agent' and "feedback"."submitter_api_key_id" is not null and "feedback"."submitter_member_id" is null)),
+	CONSTRAINT "feedback_body_check" CHECK (char_length(btrim("feedback"."body")) between 1 and 10000),
+	CONSTRAINT "feedback_context_check" CHECK ("feedback"."context" is null or (jsonb_typeof("feedback"."context") = 'object' and octet_length("feedback"."context"::text) <= 16384))
 );
 
 CREATE TABLE "idempotency_records" (
@@ -354,6 +373,9 @@ ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_revision_id_revision
 ALTER TABLE "artifacts" ADD CONSTRAINT "artifacts_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "claim_tokens" ADD CONSTRAINT "claim_tokens_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "content_blobs" ADD CONSTRAINT "content_blobs_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "feedback" ADD CONSTRAINT "feedback_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "feedback" ADD CONSTRAINT "feedback_member_fk" FOREIGN KEY ("workspace_id","submitter_member_id") REFERENCES "public"."workspace_members"("workspace_id","id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "feedback" ADD CONSTRAINT "feedback_api_key_fk" FOREIGN KEY ("workspace_id","submitter_api_key_id") REFERENCES "public"."api_keys"("workspace_id","id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "operation_events" ADD CONSTRAINT "operation_events_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "revisions" ADD CONSTRAINT "revisions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "revisions" ADD CONSTRAINT "revisions_artifact_id_artifacts_id_fk" FOREIGN KEY ("artifact_id") REFERENCES "public"."artifacts"("id") ON DELETE cascade ON UPDATE no action;
@@ -378,6 +400,7 @@ CREATE INDEX "agent_auth_registrations_claim_idx" ON "agent_auth_registrations" 
 CREATE INDEX "agent_auth_registrations_claim_attempt_idx" ON "agent_auth_registrations" USING btree ("claim_attempt_token_hash");
 CREATE INDEX "agent_auth_registrations_claim_token_id_idx" ON "agent_auth_registrations" USING btree ("claim_token_id");
 CREATE INDEX "api_keys_active_workspace_idx" ON "api_keys" USING btree ("workspace_id");
+CREATE UNIQUE INDEX "api_keys_workspace_id_id_unique" ON "api_keys" USING btree ("workspace_id","id");
 CREATE INDEX "artifact_files_blob_idx" ON "artifact_files" USING btree ("workspace_id","sha256","size_bytes");
 CREATE INDEX "artifacts_workspace_created_idx" ON "artifacts" USING btree ("workspace_id","created_at");
 CREATE INDEX "artifacts_active_expiry_idx" ON "artifacts" USING btree ("workspace_id","expires_at");
@@ -386,6 +409,7 @@ CREATE UNIQUE INDEX "artifacts_capability_id_unique" ON "artifacts" USING btree 
 CREATE INDEX "claim_tokens_workspace_idx" ON "claim_tokens" USING btree ("workspace_id");
 CREATE UNIQUE INDEX "claim_tokens_public_id_unique" ON "claim_tokens" USING btree ("public_id");
 CREATE UNIQUE INDEX "content_blobs_r2_key_unique" ON "content_blobs" USING btree ("r2_key");
+CREATE INDEX "feedback_workspace_created_idx" ON "feedback" USING btree ("workspace_id","created_at","id");
 CREATE INDEX "idempotency_records_created_idx" ON "idempotency_records" USING btree ("created_at");
 CREATE INDEX "operation_events_workspace_occurred_id_idx" ON "operation_events" USING btree ("workspace_id","occurred_at" DESC NULLS LAST,"id" DESC NULLS LAST);
 CREATE UNIQUE INDEX "platform_lockdowns_effective_unique" ON "platform_lockdowns" USING btree ("scope","target_id") WHERE "platform_lockdowns"."lifted_at" is null;

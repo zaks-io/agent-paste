@@ -4,6 +4,8 @@ import {
   DisplayMetadata,
   type McpAddRevisionInput,
   type McpDeleteArtifactInput,
+  type McpFeedbackInput,
+  McpFeedbackOutput,
   type McpListArtifactsInput,
   McpListArtifactsOutput,
   type McpListRevisionsInput,
@@ -27,6 +29,7 @@ import type { McpAuthContext } from "./auth.js";
 import { type ForwardToApiResult, forwardToApiRoute } from "./forward.js";
 import { publishViaSharedModule, resolveIdempotencyKey, textPublishInput } from "./publish-helpers.js";
 import { callAddRevision, callMultiEdit } from "./revise-tools.js";
+import { MCP_SERVER_INFO } from "./server-card.js";
 import type { McpToolDeps, McpToolResult } from "./tool-deps.js";
 import { zodIssueMetadata } from "./zod-issue-metadata.js";
 
@@ -62,6 +65,8 @@ export async function callMcpTool(
   }
 
   switch (parsed.data.name) {
+    case "feedback":
+      return callFeedback(inputParsed.data as McpFeedbackInput, auth, deps);
     case "whoami":
       return callWhoami(deps);
     case "publish_artifact":
@@ -88,6 +93,21 @@ export async function callMcpTool(
         error: mapMcpProtocolError("method_not_found", "tools/call is not implemented yet"),
       };
   }
+}
+
+async function callFeedback(input: McpFeedbackInput, auth: McpAuthContext, deps: McpToolDeps): Promise<McpToolResult> {
+  const request = {
+    body: input.body,
+    context: { surface: "mcp", version: MCP_SERVER_INFO.version, tool: "feedback" },
+  };
+  const forwarded = await forwardToApiRoute({
+    api: deps.api,
+    routeId: "feedback.create",
+    tokenSub: deps.tokenSub,
+    body: JSON.stringify(request),
+    idempotencyKey: resolveIdempotencyKey("feedback", input, auth, deps),
+  });
+  return parseForwardResult(forwarded, McpFeedbackOutput, "feedback.create");
 }
 
 function requiresEdgeScopePreflight(forwardedCalls: readonly { auth: string }[]): boolean {

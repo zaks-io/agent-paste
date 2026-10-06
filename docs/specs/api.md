@@ -79,6 +79,7 @@ fails with one length error instead of per-entry errors.
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `cli_credential`          | Workspace API key supplied through `AGENT_PASTE_API_KEY`, saved by `agent-paste login`, or created by ephemeral provision.                                  |
 | `mcp_oauth`               | WorkOS AuthKit/Connect access token minted for the MCP resource indicator. The `mcp` Worker verifies it and passes only its subject over private named RPC. |
+| `api_key_or_member`       | API key, dashboard WorkOS member, or verified private MCP subject. Rejected API-key material never falls back to WorkOS verification.                       |
 | `cli_or_mcp`              | A CLI credential on public HTTP, or a verified MCP subject received over the private named RPC entrypoint. Route scope checks apply to the resolved actor.  |
 | `workos_bearer`           | WorkOS AuthKit access token on `/v1/web/*` and operator lockdown routes.                                                                                    |
 | `signed_upload_url`       | Opaque upload-worker URL minted by `upload`; accepts file bytes only.                                                                                       |
@@ -228,6 +229,40 @@ The `mcp` Worker validates the bearer, Origin, protocol version, and per-IP requ
 The authenticated member `AgentView` additionally carries `url`, the same stable top-level capability URL returned by publish. `PublicAgentView` remains an exact-Revision metadata contract and does not carry that moving Artifact URL.
 
 `file-content` reads one stored file's decrypted plaintext for the owning Workspace Member so an agent can diff against it and revise with a unified-diff patch ([ADR 0090](../adr/0090-agent-file-read-back-api-decrypts-member-plaintext.md)). Inputs: `?path=` (required; query, not a path segment, since a file path may contain `/`) and `?revision_id=` (optional; defaults to latest). The response `ArtifactFileContent` is `{ path, sha256, size_bytes, content_type, is_binary, body? }`: `body` is the decoded UTF-8 text and is present only when the file is text and `≤ 10 MiB`. `is_binary` is byte-derived (true binary only); a text file over the inline cap returns `is_binary: false` with `body` absent (the agent fetches it via the content URL or uploads a whole blob), and an oversize file is returned as metadata **without reading R2**. This is the only `api` route that decrypts artifact bytes; the blob key is derived from the RLS-scoped row's plaintext `sha256` plus the actor's workspace, never from client input, and a missing/undecryptable blob is `storage_unavailable` (503), never `not_found`. `AgentView` file entries also carry an optional plaintext `sha256` so an agent can detect what changed before reading a file back.
+
+## Feedback capture
+
+`POST /v1/feedback` captures product feedback for the authenticated Workspace.
+The route accepts API key credentials, dashboard WorkOS member tokens, and
+verified MCP subjects through the private API service binding. It requires no
+specific scope, so a read-only credential may submit. The standard actor and
+Workspace rate limits apply. Signed-out callers and revoked or
+Workspace-lockdown-suspended API keys cannot submit. Authenticated dashboard and
+MCP members may still report feedback or appeal a Workspace lockdown.
+
+The request is `{ body, context? }`. `body` is trimmed, nonempty free text with
+at most 10,000 characters. `context` is an optional object of at most 20 fields.
+Keys contain 1 to 100 characters; values are strings of at most 500 characters,
+finite numbers, booleans, or null. Body text, context keys, and context strings
+reject NUL characters and lone UTF-16 surrogates before persistence. Valid astral
+Unicode characters remain supported. Nested objects and arrays are rejected. The
+serialized context may contain at most 8,192 UTF-8 bytes. Request ownership and
+submitter fields are rejected; the authenticated actor determines them.
+
+`Idempotency-Key` is required. Success returns HTTP 201 with
+`{ "feedback_id": "fb_<26 Crockford symbols>" }`. A completed retry returns the
+same identifier before consuming another rate-limit budget. Row, audit event,
+and replay state commit together. Body, context, and contact email do not enter
+the audit details or operational logs.
+
+The CLI `feedback` command and MCP `feedback` tool call this route. They attach
+only safe surface/version metadata plus the command or tool name; they do not
+attach raw arguments or credentials. MCP input accepts only `{ body }` and adds bounded `surface`, `version`, and
+`tool` context. CLI context uses the same `surface` and `version` keys plus
+`command`.
+Capture is complete without email notifications. Notification delivery,
+notification throttling, operator read/status tools, and dashboard submission UI
+remain separate work.
 
 ## Upload Routes
 

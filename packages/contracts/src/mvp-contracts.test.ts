@@ -57,6 +57,7 @@ describe("MVP route registry", () => {
 
   it("exposes the CLI-first MVP routes plus web dashboard reads", () => {
     expect(routeContracts.map((route) => route.id)).toEqual([
+      "feedback.create",
       "whoami.get",
       "mcp.whoami",
       "usagePolicy.get",
@@ -143,6 +144,7 @@ describe("MVP route registry", () => {
         "web.settings.update",
         "web.workspace.get",
         "whoami.get",
+        "feedback.create",
         "mcp.whoami",
         "artifacts.list",
         "artifacts.delete",
