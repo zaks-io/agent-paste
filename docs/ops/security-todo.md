@@ -11,6 +11,25 @@ not run or wait for this whole-repository bundle; see
 `.github/workflows/deploy-production.yml`. PR CI intentionally
 stays fast and does not run the full bundle.
 
+## Dependency remediation (AP-457)
+
+The 2026-10-06 daily attestation found six advisories across five dependencies.
+The root overrides and lockfile now select these upstream fixes:
+
+| Dependency    | Fixed version | Advisory                                                                                                                                           |
+| ------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| seroval       | 1.6.3         | [GHSA-p6vx-979v-rg4c](https://github.com/advisories/GHSA-p6vx-979v-rg4c), [GHSA-jp82-f5mq-hwhp](https://github.com/advisories/GHSA-jp82-f5mq-hwhp) |
+| shell-quote   | 1.11.0        | [GHSA-pqg4-j6r4-53mv](https://github.com/advisories/GHSA-pqg4-j6r4-53mv)                                                                           |
+| smol-toml     | 1.9.0         | [GHSA-r4xh-jqrq-34v2](https://github.com/advisories/GHSA-r4xh-jqrq-34v2)                                                                           |
+| source-map-js | 1.2.2         | [GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q)                                                                           |
+| sharp         | 0.35.5        | [GHSA-wq5f-xc86-pv6w](https://github.com/advisories/GHSA-wq5f-xc86-pv6w)                                                                           |
+
+Seroval runs in the web dashboard's TanStack serialization path. Shell-quote
+belongs to the eval runner's Daytona SDK. The remaining dependencies support
+repository checks and builds. These fixes do not change scanner thresholds or
+the verified braces mitigation below. Only `source-map-js@1.2.2`, the sole
+fixed release, has a version-scoped exception to pnpm's seven-day release delay.
+
 ## Braces depth patch (AP-456)
 
 `braces@3.0.3` has no upstream fix for
