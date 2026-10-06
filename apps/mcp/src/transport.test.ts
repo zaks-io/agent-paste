@@ -646,6 +646,7 @@ describe("MCP streamable HTTP transport", () => {
       "delete_artifact",
       "update_display_metadata",
       "whoami",
+      "feedback",
     ]);
     expect(tools.every((tool) => tool.name && "inputSchema" in tool && typeof tool.inputSchema === "object")).toBe(
       true,

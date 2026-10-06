@@ -139,6 +139,26 @@ The removed iframe viewer, Access Link, Share Link, Revision Link, Private Link,
 visibility command, and live viewer push architecture. Historical schema and
 migration code may remain, but no current route or client exposes it.
 
+<a id="feedback"></a>
+**Feedback**:
+A Workspace-owned product report submitted by an authenticated Workspace Member
+or Agent Credential. Capture is durable before any future notification delivery.
+
+<a id="feedback-context"></a>
+**Feedback Context**:
+Optional bounded scalar metadata, such as the client version and command or tool
+name. It excludes automatically collected raw arguments and credentials.
+
+<a id="feedback-status"></a>
+**Feedback Status**:
+The report's triage state, `new` or `addressed`. Capture initializes `new`;
+operator status tools remain future work.
+
+<a id="contact-email"></a>
+**Contact Email**:
+The report's snapshotted reply address. Member submissions use their member email;
+agent submissions use the owning Workspace contact email, or null when absent.
+
 ## Apps and Workers
 
 <a id="apex"></a>

@@ -17,6 +17,7 @@ export const MCP_TOOL_NAMES = [
   "delete_artifact",
   "update_display_metadata",
   "whoami",
+  "feedback",
 ];
 
 export function normalizeMcpSmokeTarget(value) {

@@ -8,6 +8,7 @@ import type {
   Artifact,
   ClaimToken,
   ContentBlob,
+  Feedback,
   OperationEvent,
   PlatformLockdown,
   PublishBundleStatus,
@@ -42,6 +43,10 @@ export type CommandSpec = {
 // Scope-bound accessor over every table the core touches. The Postgres adapter
 // binds these to scope-bound Drizzle queries; the local adapter binds them to Maps.
 export type Entities = {
+  feedback: {
+    insert(feedback: Feedback): Promise<void>;
+    findById(id: string): Promise<Feedback | null>;
+  };
   workspaces: {
     insert(workspace: Workspace): Promise<void>;
     findById(id: string): Promise<Workspace | null>;

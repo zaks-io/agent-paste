@@ -32,6 +32,7 @@ import type {
   RegisterAgentVerifiedIdentityResult,
 } from "./workflows/agent-auth-workflow.js";
 import type { ClaimEphemeralWorkspaceResult, CreateEphemeralWorkspaceResult } from "./workflows/ephemeral-workflow.js";
+import type { SubmitFeedbackInput } from "./workflows/feedback-workflow.js";
 
 type AgentView = ReturnType<typeof buildAgentView>;
 type PublishResult = ReturnType<typeof buildPublishResult>;
@@ -151,6 +152,7 @@ type LockdownDetail = {
 // implement this exactly; the api and upload workers consume it directly.
 /** Domain failures throw {@link RepositoryError}; map with {@link repositoryErrorToAppError}. */
 export type Repository = {
+  submitFeedback(input: SubmitFeedbackInput): Promise<{ feedback_id: string }>;
   resolveArtifactReference(input: {
     actor: ApiActor;
     reference: string;

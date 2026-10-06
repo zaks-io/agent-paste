@@ -58,7 +58,7 @@ export type Principal =
 
 export type PrincipalFor<Auth extends AuthRequirement> = Auth extends "api_key"
   ? ApiKeyPrincipal
-  : Auth extends "api_key_or_mcp_oauth"
+  : Auth extends "api_key_or_mcp_oauth" | "api_key_or_member"
     ? ApiKeyPrincipal | WorkOsAccessTokenPrincipal
     : Auth extends "mcp_oauth"
       ? WorkOsAccessTokenPrincipal

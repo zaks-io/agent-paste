@@ -79,6 +79,11 @@
       "source": "./src/workspace.ts",
       "types": "./src/workspace.ts",
       "import": "./dist/workspace.js"
+    },
+    "./feedback": {
+      "source": "./src/feedback.ts",
+      "types": "./src/feedback.ts",
+      "import": "./dist/feedback.js"
     }
   },
   "scripts": {

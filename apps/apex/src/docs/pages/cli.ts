@@ -17,6 +17,7 @@ export const CLI_DOC: DocsPage = {
             ["`agent-paste login`", "Authenticate through the browser."],
             ["`agent-paste login --device-code`", "Authenticate from a sandbox; approve in your own browser."],
             ["`agent-paste logout`", "Attempt to revoke and remove the saved login credential."],
+            ['`agent-paste feedback "<body>"`', "Report product friction; also accepts piped stdin."],
             ["`agent-paste whoami --json`", "Report authentication, Workspace, actor, and scopes."],
             ["`agent-paste publish <path>`", "Publish a file or folder and return `url`."],
             ["`agent-paste pull <artifact-id> <path>`", "Read one stored file."],
@@ -91,6 +92,21 @@ export const CLI_DOC: DocsPage = {
         {
           kind: "paragraph",
           text: "Use `publish <path> --ephemeral --json` when no authenticated path is available and static output meets the task, or the user requests accountless publishing. It explicitly ignores both environment and saved credentials. Do not use it automatically after an authentication failure. See [Ephemeral](/docs/ephemeral).",
+        },
+      ],
+    },
+    {
+      id: "feedback",
+      title: "Feedback",
+      blocks: [
+        {
+          kind: "code",
+          language: "sh",
+          code: 'agent-paste feedback "Upload retry failed" --json\ncat report.txt | agent-paste feedback --json',
+        },
+        {
+          kind: "paragraph",
+          text: "Feedback accepts 1 to 10,000 characters and uses your current credential, including read-only credentials. The CLI attaches its version and the feedback command name. Confirmation does not echo your report. JSON output returns feedback_id and schema_version; validation errors exit 4 and transport failures exit 1.",
         },
       ],
     },

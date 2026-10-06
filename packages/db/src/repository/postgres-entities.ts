@@ -7,6 +7,7 @@ import { postgresArtifacts } from "./postgres-entities/artifacts.js";
 import { postgresClaimTokens } from "./postgres-entities/claim-tokens.js";
 import { postgresContentBlobs } from "./postgres-entities/content-blobs.js";
 import type { PostgresContext } from "./postgres-entities/context.js";
+import { postgresFeedback } from "./postgres-entities/feedback.js";
 import { postgresMembers } from "./postgres-entities/members.js";
 import { postgresOperationEvents } from "./postgres-entities/operation-events.js";
 import { postgresPlatformLockdowns } from "./postgres-entities/platform-lockdowns.js";
@@ -23,6 +24,7 @@ export type { PostgresContext } from "./postgres-entities/context.js";
 // keep the original raw SQL so RLS-scoped batch updates stay byte-for-byte identical.
 export function postgresEntities(ctx: PostgresContext): Entities {
   return {
+    feedback: postgresFeedback(ctx),
     workspaces: postgresWorkspaces(ctx),
     apiKeys: postgresApiKeys(ctx),
     agentAuth: postgresAgentAuth(ctx),

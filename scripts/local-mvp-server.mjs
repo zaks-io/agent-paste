@@ -211,6 +211,7 @@ function createApiDatabase(repo) {
   return {
     getWhoami: repo.getWhoami.bind(repo),
     getUsagePolicy: repo.getUsagePolicy.bind(repo),
+    submitFeedback: repo.submitFeedback.bind(repo),
     getAgentView: repo.getAgentView?.bind(repo),
     getPublicAgentView: repo.getPublicAgentView.bind(repo),
     resolveAccessLink: repo.resolveAccessLink.bind(repo),

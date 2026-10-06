@@ -1,3 +1,5 @@
+import type { FeedbackContext } from "@agent-paste/contracts";
+
 type Scope = "publish" | "read" | "admin";
 
 export type {
@@ -27,6 +29,21 @@ export type WorkspaceMemberActor = {
 };
 
 export type ApiActor = ApiKeyActor | WorkspaceMemberActor;
+
+export type Feedback = {
+  id: string;
+  workspace_id: string;
+  submitter_kind: "member" | "agent";
+  submitter_member_id: string | null;
+  submitter_api_key_id: string | null;
+  contact_email: string | null;
+  body: string;
+  context: FeedbackContext | null;
+  status: "new" | "addressed";
+  notification_suppressed: boolean;
+  created_at: string;
+  updated_at: string;
+};
 
 export type AdminActor = { type: "admin" | "system"; id: string };
 

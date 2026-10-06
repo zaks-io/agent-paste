@@ -54,6 +54,7 @@ Host-specific OAuth and redirect notes:
 
 | Tool                      | Scope             | Purpose                                                                         |
 | ------------------------- | ----------------- | ------------------------------------------------------------------------------- |
+| `feedback`                | none              | Report product friction and return `feedback_id`.                               |
 | `whoami`                  | none              | Authenticated member, Workspace, and scopes.                                    |
 | `publish_artifact`        | `publish`, `read` | Publish a new text Artifact and return its `url`.                               |
 | `add_revision`            | `publish`, `read` | Publish a new body for an existing Artifact at the same `url`. Keeps the title. |
@@ -83,10 +84,24 @@ match exactly once unless `replace_all` is set; a miss or ambiguous match
 returns `invalid_request` (HTTP 400) naming the edit index, so re-read with
 `read_file` and retry.
 
+## Feedback
+
+Call `feedback` with `{ "body": "Describe the problem" }`. Any authenticated
+member can submit, including a member with only `read`. The tool returns
+`{ "feedback_id": "fb_..." }` and attaches `surface: "mcp"`, the MCP version,
+and `tool: "feedback"` automatically. The tool forwards to the same
+`POST /v1/feedback` route as the CLI through the verified-subject RPC binding.
+
+The input accepts only `body`. Keep secrets out of feedback. A trimmed body
+outside 1 to 10,000 characters or unsupported arguments returns `invalid_params`
+with HTTP 400. The tool uses the same bounded context contract as the API for its
+automatic fields. Repeated calls with the same request ID and arguments reuse the
+derived idempotency key.
+
 ## Scopes
 
 OAuth authenticates the user; scopes come from the Workspace Member record in
-`api`, not from the OAuth token. `whoami` needs no scope. `read` covers
+`api`, not from the OAuth token. `whoami` and `feedback` need no scope. `read` covers
 `list_artifacts`, `read_artifact`, `read_file`, and `list_revisions`. Publishing tools need `publish`
 and `read`; `delete_artifact` and `update_display_metadata` need `publish`. Normal
 members hold both. `admin` exists but no MCP tool needs it.

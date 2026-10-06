@@ -16,9 +16,10 @@ export function parseArgs(argv: string[]): Parsed {
   const flags = new Map<string, string | boolean>();
   const positionals: string[] = [];
   for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (!arg) {
-      continue;
+    const arg = argv[index] ?? "";
+    if (arg === "--") {
+      positionals.push(...argv.slice(index + 1));
+      break;
     }
     if (arg.startsWith("--")) {
       const raw = arg.slice(2);

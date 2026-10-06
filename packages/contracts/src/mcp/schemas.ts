@@ -2,6 +2,7 @@ import * as z from "zod";
 import { AgentView, DisplayMetadata } from "../agentView.js";
 import { ArtifactFileContent, ArtifactListResponse, DeleteArtifactResponse } from "../artifacts.js";
 import { PaginationRequest } from "../common.js";
+import { CreateFeedbackRequest, CreateFeedbackResponse } from "../feedback.js";
 import {
   ArtifactId,
   ArtifactReference,
@@ -115,6 +116,11 @@ export const McpUpdateDisplayMetadataInput = z
   .strict();
 export type McpUpdateDisplayMetadataInput = z.infer<typeof McpUpdateDisplayMetadataInput>;
 
+export const McpFeedbackInput = CreateFeedbackRequest.pick({ body: true }).strict();
+export type McpFeedbackInput = z.infer<typeof McpFeedbackInput>;
+export const McpFeedbackOutput = CreateFeedbackResponse;
+export type McpFeedbackOutput = z.infer<typeof McpFeedbackOutput>;
+
 export const McpWhoamiInput = z.object({}).strict();
 export type McpWhoamiInput = z.infer<typeof McpWhoamiInput>;
 
@@ -185,5 +191,6 @@ export const McpToolName = z.enum([
   "delete_artifact",
   "update_display_metadata",
   "whoami",
+  "feedback",
 ]);
 export type McpToolName = z.infer<typeof McpToolName>;

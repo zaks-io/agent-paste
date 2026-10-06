@@ -11,6 +11,19 @@ not run or wait for this whole-repository bundle; see
 `.github/workflows/deploy-production.yml`. PR CI intentionally
 stays fast and does not run the full bundle.
 
+## pnpm audit report contract (AP-413)
+
+Use the repository-pinned pnpm 10.34.5. It returns an `advisories` object from
+the supported npm audit service. The policy evaluates the post-ignore advisory
+list, blocks unallowed moderate, high, and critical findings, and rejects
+malformed reports or missing/unknown severities. A retired-endpoint error object
+remains a failure, never an empty successful audit.
+
+`scripts/fixtures/pnpm-audit-moderate.json` records the actual supported report
+shape captured on 2026-10-06 for GHSA-r4xh-jqrq-34v2. Its regression test proves
+that the policy rejects a real moderate advisory. The complete scanner bundle
+still needs the executables configured by the hosted Security workflow.
+
 ## Braces depth patch (AP-456)
 
 `braces@3.0.3` has no upstream fix for

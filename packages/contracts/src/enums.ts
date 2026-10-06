@@ -20,6 +20,7 @@ export const UploadSessionStatus = z.enum(["pending", "finalized", "expired", "f
 export type UploadSessionStatus = z.infer<typeof UploadSessionStatus>;
 
 export const OperationEventAction = z.enum([
+  "feedback.created",
   "workspace.created",
   "workspace.settings.updated",
   "workspace.plan.updated",
@@ -52,6 +53,7 @@ export const OperationEventAction = z.enum([
 export type OperationEventAction = z.infer<typeof OperationEventAction>;
 
 export const OperationEventTargetType = z.enum([
+  "feedback",
   "workspace",
   "api_key",
   "upload_session",

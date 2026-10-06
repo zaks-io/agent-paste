@@ -59,6 +59,7 @@ describe("MCP tool registry", () => {
       "delete_artifact",
       "update_display_metadata",
       "whoami",
+      "feedback",
     ]);
   });
 

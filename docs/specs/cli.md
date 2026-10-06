@@ -88,6 +88,30 @@ Logout never unsets or revokes `AGENT_PASTE_API_KEY`. Subsequent commands still
 use that key. Unset it to stop using it in the current shell; revoke it in the
 dashboard's Keys page when it should no longer work anywhere.
 
+## Feedback
+
+`agent-paste feedback "<body>"` reports product friction through `POST /v1/feedback`.
+Without a body argument, it reads UTF-8 text from piped stdin. At an interactive
+terminal, omitting the body fails immediately. The trimmed body must contain
+1 to 10,000 characters. Quote a body with spaces as one argument. Put `--`
+before a body that begins with `--`, after any output flags.
+
+```sh
+agent-paste feedback "Upload retry failed" --json
+cat report.txt | agent-paste feedback --json
+```
+
+Feedback reuses the current environment or saved login credential. Any
+authenticated credential can submit, including a `read`-only credential.
+The CLI attaches `version`, `surface: "cli"`, and `command: "feedback"`;
+it never stores raw command arguments or credentials in context.
+
+Rich and plain output confirm submission without echoing the body or context.
+`--quiet` suppresses confirmation. `--json` returns
+`{ "feedback_id": "fb_...", "schema_version": "2" }` on stdout. Errors go to
+stderr. Validation errors exit `4`, authentication errors `2`, rate limits `3`,
+transport failures `1`, and HTTP server failures `6`, as in the exit-code table.
+
 ## Output modes
 
 Every command resolves to exactly one of three render modes. Selection is

@@ -10,6 +10,7 @@ export const routeRepositorySurfaces = {
   "whoami.get": [],
   "mcp.whoami": [],
   "usagePolicy.get": [],
+  "feedback.create": [],
   "apiKeys.revokeCurrent": ["current_api_key_not_found"],
   "agentView.public": [],
   "cli.version": [],

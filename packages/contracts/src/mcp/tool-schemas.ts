@@ -3,6 +3,8 @@ import {
   McpAddRevisionInput,
   McpDeleteArtifactInput,
   McpDeleteArtifactOutput,
+  McpFeedbackInput,
+  McpFeedbackOutput,
   McpListArtifactsInput,
   McpListArtifactsOutput,
   McpListRevisionsInput,
@@ -32,6 +34,7 @@ export const mcpToolInputSchemas = {
   delete_artifact: McpDeleteArtifactInput,
   update_display_metadata: McpUpdateDisplayMetadataInput,
   whoami: McpWhoamiInput,
+  feedback: McpFeedbackInput,
 } as const satisfies Record<McpToolName, z.ZodTypeAny>;
 
 export const mcpToolOutputSchemas = {
@@ -45,6 +48,7 @@ export const mcpToolOutputSchemas = {
   delete_artifact: McpDeleteArtifactOutput,
   update_display_metadata: McpUpdateDisplayMetadataOutput,
   whoami: McpWhoamiResponse,
+  feedback: McpFeedbackOutput,
 } as const satisfies Record<McpToolName, z.ZodTypeAny>;
 
 export type McpToolInputSchemaName = keyof typeof mcpToolInputSchemas;

@@ -12,6 +12,7 @@ export * from "./cliVersion.js";
 export * from "./common.js";
 export * from "./enums.js";
 export * from "./ephemeral.js";
+export * from "./feedback.js";
 export * from "./jobs.js";
 export * from "./liveUpdates.js";
 export * from "./lockdown.js";

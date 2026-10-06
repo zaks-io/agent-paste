@@ -36,6 +36,7 @@ import {
 import { type Credential, deleteCredential, isCredentialExpired, loadCredential } from "./credentials.js";
 import { download } from "./download.js";
 import { edit } from "./edit.js";
+import { feedback } from "./feedback.js";
 import { HELP_TEXT, PUBLISH_HELP_TEXT, PULL_HELP_TEXT } from "./help.js";
 import { contentTypeForLocalPath } from "./local.js";
 import { login } from "./login.js";
@@ -118,6 +119,8 @@ async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
       return edit(parsed, client);
     case "download":
       return download(parsed, client);
+    case "feedback":
+      return feedback(parsed, client);
     default:
       throw new Error(`Unknown command: ${command}`);
   }
@@ -129,6 +132,7 @@ const COMMAND_FLAG_NAMES: Record<string, readonly string[]> = {
   login: ["device-code"],
   logout: [],
   whoami: [],
+  feedback: [],
   publish: ["claim-code", "artifact-id", "title", "entrypoint", "ephemeral"],
   pull: ["revision-id"],
   edit: ["edits"],
