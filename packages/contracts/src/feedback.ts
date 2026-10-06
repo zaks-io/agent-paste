@@ -3,7 +3,10 @@ import * as z from "zod";
 export const MAX_FEEDBACK_BODY_CHARACTERS = 10_000;
 export const MAX_FEEDBACK_CONTEXT_BYTES = 8_192;
 export const FeedbackId = z.string().regex(/^fb_[0-9A-HJKMNP-TV-Z]{26}$/);
-const feedbackText = z.string().refine((value) => !value.includes("\u0000"), "Must not contain NUL characters");
+const feedbackText = z
+  .string()
+  .refine((value) => !value.includes("\u0000"), "Must not contain NUL characters")
+  .refine((value) => !/[\uD800-\uDFFF]/u.test(value), "Must contain valid Unicode characters");
 export const FeedbackBody = feedbackText.trim().min(1).max(MAX_FEEDBACK_BODY_CHARACTERS);
 export const FeedbackContext = z
   .record(feedbackText.min(1).max(100), z.union([feedbackText.max(500), z.number().finite(), z.boolean(), z.null()]))

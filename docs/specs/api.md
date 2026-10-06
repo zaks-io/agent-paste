@@ -244,7 +244,8 @@ The request is `{ body, context? }`. `body` is trimmed, nonempty free text with
 at most 10,000 characters. `context` is an optional object of at most 20 fields.
 Keys contain 1 to 100 characters; values are strings of at most 500 characters,
 finite numbers, booleans, or null. Body text, context keys, and context strings
-reject NUL characters before persistence. Nested objects and arrays are rejected. The
+reject NUL characters and lone UTF-16 surrogates before persistence. Valid astral
+Unicode characters remain supported. Nested objects and arrays are rejected. The
 serialized context may contain at most 8,192 UTF-8 bytes. Request ownership and
 submitter fields are rejected; the authenticated actor determines them.
 

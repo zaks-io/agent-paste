@@ -10,9 +10,19 @@ describe("feedback input bounds", () => {
       }),
     ).toMatchObject({ body: "useful feedback" });
   });
+  it("accepts astral Unicode characters in the body, context keys, and context values", () => {
+    const input = { body: "report\u{1D11E}", context: { "key\u{1D11E}": "value\u{1D11E}" } };
+    expect(CreateFeedbackRequest.parse(input)).toEqual(input);
+  });
   it.each([
     { body: " " },
     { body: "before\u0000after" },
+    { body: "before\uD800after" },
+    { body: "valid", context: { "key\uD800suffix": "value" } },
+    { body: "valid", context: { key: "value\uD800suffix" } },
+    { body: "before\uDC00after" },
+    { body: "valid", context: { "key\uDC00suffix": "value" } },
+    { body: "valid", context: { key: "value\uDC00suffix" } },
     { body: "valid", context: { "key\u0000suffix": "value" } },
     { body: "valid", context: { key: "value\u0000suffix" } },
     { body: "x".repeat(10001) },

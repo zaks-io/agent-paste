@@ -89,6 +89,12 @@ describe("feedback HTTP flow", () => {
   it.each([
     { body: "x".repeat(10001) },
     { body: "before\u0000after" },
+    { body: "before\uD800after" },
+    { body: "okay", context: { "key\uD800suffix": "value" } },
+    { body: "okay", context: { key: "value\uD800suffix" } },
+    { body: "before\uDC00after" },
+    { body: "okay", context: { "key\uDC00suffix": "value" } },
+    { body: "okay", context: { key: "value\uDC00suffix" } },
     { body: "okay", context: { "key\u0000suffix": "value" } },
     { body: "okay", context: { key: "value\u0000suffix" } },
     { body: "okay", context: { nested: { value: true } } },
@@ -100,6 +106,14 @@ describe("feedback HTTP flow", () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ error: { code: "invalid_request" } });
     expect(f.services.repo.feedback.size).toBe(0);
+  });
+  it("persists astral Unicode text without changing context keys or values", async () => {
+    const f = await fixture();
+    const input = { body: "report\u{1D11E}", context: { "key\u{1D11E}": "value\u{1D11E}" } };
+    const response = await handleRequest(f.request(input), f.env);
+    expect(response.status).toBe(201);
+    const result = await response.json();
+    expect(f.services.repo.feedback.get(result.feedback_id)).toMatchObject(input);
   });
   it("accepts authenticated dashboard members", async () => {
     const f = await fixture();
