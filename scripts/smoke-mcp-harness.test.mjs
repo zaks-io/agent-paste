@@ -18,8 +18,10 @@ describe("smoke-mcp-harness", () => {
   });
 
   it("lists the current MCP tool names", () => {
-    expect(MCP_TOOL_NAMES).toHaveLength(10);
+    expect(MCP_TOOL_NAMES).toHaveLength(11);
     expect(MCP_TOOL_NAMES).toContain("whoami");
     expect(MCP_TOOL_NAMES).toContain("publish_artifact");
+    expect(MCP_TOOL_NAMES).toContain("feedback");
+    expect(new Set(MCP_TOOL_NAMES).size).toBe(MCP_TOOL_NAMES.length);
   });
 });

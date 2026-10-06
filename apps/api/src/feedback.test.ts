@@ -88,6 +88,9 @@ describe("feedback HTTP flow", () => {
   });
   it.each([
     { body: "x".repeat(10001) },
+    { body: "before\u0000after" },
+    { body: "okay", context: { "key\u0000suffix": "value" } },
+    { body: "okay", context: { key: "value\u0000suffix" } },
     { body: "okay", context: { nested: { value: true } } },
     { body: "okay", context: { long: "x".repeat(501) } },
     { body: "okay", context: Object.fromEntries(Array.from({ length: 21 }, (_, index) => [`field${index}`, index])) },
@@ -107,6 +110,36 @@ describe("feedback HTTP flow", () => {
       submitter_kind: "member",
       submitter_member_id: f.member.id,
       contact_email: "member@example.test",
+    });
+  });
+  it.each(["dashboard", "mcp"])("accepts %s member feedback from a locked Workspace", async (surface) => {
+    const f = await fixture();
+    const member = f.services.repo.workspaceMembers.get(f.member.id);
+    if (!member) throw new Error("member missing");
+    member.scopes = ["read"];
+    await f.services.repo.setLockdown({
+      actor: { type: "platform", id: "operator" },
+      idempotencyKey: "lock-workspace",
+      scope: "workspace",
+      targetId: member.workspace_id,
+      reasonCode: "abuse",
+    });
+    const response =
+      surface === "dashboard"
+        ? await handleRequest(f.request({ body: "lockdown appeal" }, "member-token"), f.env)
+        : await handleMcpApiRequest(
+            f.request({ body: "lockdown appeal" }, ""),
+            f.env,
+            member.workos_user_id,
+            "feedback.create",
+          );
+    expect(response.status).toBe(201);
+    const result = await response.json();
+    expect(f.services.repo.feedback.get(result.feedback_id)).toMatchObject({
+      workspace_id: member.workspace_id,
+      submitter_kind: "member",
+      submitter_member_id: member.id,
+      submitter_api_key_id: null,
     });
   });
   it("keeps member sessions outside existing CLI-or-MCP routes", async () => {

@@ -62,8 +62,10 @@ that proves uploaded scripts and forms cannot execute or submit.
 
 - An authenticated API key, dashboard member, or MCP member submits through
   `POST /v1/feedback`; no publish scope is required.
-- The API rejects signed-out, revoked, Workspace-lockdown, malformed, and
-  oversized requests before persistence.
+- The API rejects signed-out callers, revoked or Workspace-lockdown-suspended
+  API keys, malformed input, NUL characters, and oversized requests before
+  persistence. Authenticated dashboard and MCP members may report feedback or
+  appeal a Workspace lockdown.
 - The row records the authenticated Workspace and actor, snapshotted contact,
   bounded body/context, `new` status, and an unsuppressed notification flag.
 - A completed idempotent retry returns the original identifier without another

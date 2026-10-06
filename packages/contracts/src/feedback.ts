@@ -3,9 +3,10 @@ import * as z from "zod";
 export const MAX_FEEDBACK_BODY_CHARACTERS = 10_000;
 export const MAX_FEEDBACK_CONTEXT_BYTES = 8_192;
 export const FeedbackId = z.string().regex(/^fb_[0-9A-HJKMNP-TV-Z]{26}$/);
-export const FeedbackBody = z.string().trim().min(1).max(MAX_FEEDBACK_BODY_CHARACTERS);
+const feedbackText = z.string().refine((value) => !value.includes("\u0000"), "Must not contain NUL characters");
+export const FeedbackBody = feedbackText.trim().min(1).max(MAX_FEEDBACK_BODY_CHARACTERS);
 export const FeedbackContext = z
-  .record(z.string().min(1).max(100), z.union([z.string().max(500), z.number().finite(), z.boolean(), z.null()]))
+  .record(feedbackText.min(1).max(100), z.union([feedbackText.max(500), z.number().finite(), z.boolean(), z.null()]))
   .refine((context) => Object.keys(context).length <= 20, "Context may contain at most 20 fields")
   .refine(
     (context) =>

@@ -12,6 +12,9 @@ describe("feedback input bounds", () => {
   });
   it.each([
     { body: " " },
+    { body: "before\u0000after" },
+    { body: "valid", context: { "key\u0000suffix": "value" } },
+    { body: "valid", context: { key: "value\u0000suffix" } },
     { body: "x".repeat(10001) },
     { body: "valid", workspace_id: "foreign" },
     { body: "valid", context: { nested: { secret: "value" } } },

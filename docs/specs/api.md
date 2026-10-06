@@ -236,13 +236,15 @@ The authenticated member `AgentView` additionally carries `url`, the same stable
 The route accepts API key credentials, dashboard WorkOS member tokens, and
 verified MCP subjects through the private API service binding. It requires no
 specific scope, so a read-only credential may submit. The standard actor and
-Workspace rate limits apply. Signed-out, revoked, and Workspace-lockdown
-credentials cannot submit.
+Workspace rate limits apply. Signed-out callers and revoked or
+Workspace-lockdown-suspended API keys cannot submit. Authenticated dashboard and
+MCP members may still report feedback or appeal a Workspace lockdown.
 
 The request is `{ body, context? }`. `body` is trimmed, nonempty free text with
 at most 10,000 characters. `context` is an optional object of at most 20 fields.
 Keys contain 1 to 100 characters; values are strings of at most 500 characters,
-finite numbers, booleans, or null. Nested objects and arrays are rejected. The
+finite numbers, booleans, or null. Body text, context keys, and context strings
+reject NUL characters before persistence. Nested objects and arrays are rejected. The
 serialized context may contain at most 8,192 UTF-8 bytes. Request ownership and
 submitter fields are rejected; the authenticated actor determines them.
 
