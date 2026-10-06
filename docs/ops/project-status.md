@@ -60,7 +60,8 @@ all succeeded for that commit. Its verified braces parser patch remains in use.
 The 2026-10-06 [daily Security run 37488914427](https://github.com/zaks-io/agent-paste/actions/runs/37488914427)
 failed on newer dependency advisories. [AP-457](https://linear.app/zaks-io/issue/AP-457)
 updates seroval, shell-quote, smol-toml, source-map-js, and sharp to fixed
-versions. See [security follow-ups](./security-todo.md) for the mitigation and
+versions and patches Zod to enforce request array bounds before element
+validation. See [security follow-ups](./security-todo.md) for the mitigation and
 scanner policy.
 
 ## CLI releases

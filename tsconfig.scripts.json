@@ -40,6 +40,8 @@
     "scripts/lib/rotation-profiles.mjs",
     "scripts/lib/secret-routing.mjs",
     "scripts/lib/secret-values.mjs",
+    "scripts/lib/snyk-vulnerability-policy.mjs",
+    "scripts/lib/zod-patch.mjs",
     "scripts/lib/versioned-secret-rotation.mjs",
     "scripts/lib/wrangler-env-vars.mjs"
   ]

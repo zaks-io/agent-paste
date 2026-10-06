@@ -191,11 +191,10 @@ jobs:
         run: pnpm smoke:local:patch
 
       # The OpenAPI specs are validated by the release security attestation
-      # (`pnpm security:attest`), which otherwise only runs at deploy/release
-      # time. Gate the deterministic spec check here too so a contract change
-      # that trips checkov can never merge green and then break production
-      # deploy. The advisory CVE scanners stay out of PR CI so a fresh upstream
-      # advisory can't block unrelated PRs.
+      # (`pnpm security:attest`), which runs daily, on main, and for CLI releases.
+      # Gate the deterministic spec check here too so a contract change that
+      # trips checkov cannot merge green. The advisory CVE scanners stay out of
+      # PR CI so a fresh upstream advisory cannot block unrelated PRs.
       - name: Attest OpenAPI specs (checkov)
         if: ${{ env.RUN_CODE == 'true' }}
         run: >

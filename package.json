@@ -135,13 +135,18 @@
       "protobufjs": "8.6.6",
       "puppeteer-core>ws": "^8.21.0",
       "semver@6": "7.8.5",
-      "seroval": "1.6.3",
+      "seroval": "1.6.8",
       "sharp": "0.35.5",
       "shell-quote": "1.11.0",
       "source-map-js": "1.2.2",
       "typed-rest-client>qs": "6.16.0",
       "undici": "7.29.1",
       "valibot": "1.4.2"
+    },
+    "patchedDependencies": {
+      "@workos/authkit-tanstack-react-start@0.8.3": "patches/@workos__authkit-tanstack-react-start@0.8.3.patch",
+      "braces@3.0.3": "patches/braces@3.0.3.patch",
+      "zod@4.4.3": "patches/zod@4.4.3.patch"
     }
   },
   "optionalDependencies": {

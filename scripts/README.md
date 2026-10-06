@@ -30,6 +30,16 @@ tier already excluded from unit coverage. To bring a new file under the gate, ad
 `// @ts-check` to it, list it in `tsconfig.scripts.json`, and make `pnpm typecheck:scripts`
 pass.
 
+## Security checks
+
+`pnpm security:attest` runs the repository scanner bundle.
+`node scripts/security-snyk.mjs` runs the separate Snyk workspace scan. Both
+verify installed dependency patches before applying an exact advisory disposition
+and run the structural request-array bounds tests.
+The Snyk runner preserves raw reports and the policy decision under
+`artifacts/security/snyk/`; scanner errors and incomplete workspace coverage fail
+closed. Pure policy decisions live in `lib/snyk-vulnerability-policy.mjs`.
+
 ## Worktree Setup
 
 ### `setup-worktree.mjs`

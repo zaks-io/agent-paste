@@ -46,4 +46,64 @@ describe("dependency security regressions", () => {
     expect(result.date).toEqual(value.date);
     expect(result.map).toEqual(value.map);
   });
+
+  it("rejects a plugin-produced callable before a fulfilled Promise can invoke its then method", async () => {
+    let calls = 0;
+    const callable = () => {};
+    // biome-ignore lint/suspicious/noThenProperty: The advisory payload deliberately triggers native thenable assimilation.
+    Object.defineProperty(callable, "then", {
+      value: (resolve) => {
+        calls++;
+        resolve("unexpected");
+      },
+    });
+    const plugin = seroval.createPlugin({
+      tag: "callable-regression",
+      test: () => false,
+      parse: { sync: () => null },
+      serialize: () => "",
+      deserialize: () => callable,
+    });
+    const payload = {
+      t: { t: 12, i: 0, s: 1, f: { t: 25, i: 1, c: plugin.tag, s: null } },
+      f: 127,
+      m: [],
+    };
+    let error;
+    try {
+      seroval.fromJSON(payload, { plugins: [plugin] });
+    } catch (caught) {
+      error = caught;
+    }
+    await Promise.resolve();
+    expect(calls).toBe(0);
+    expect(error).toBeInstanceOf(Error);
+  });
+
+  it("rejects an array-like object instead of allocating a TypedArray from its length", () => {
+    const payload = {
+      t: {
+        t: 15,
+        i: 0,
+        c: "Uint8Array",
+        f: { t: 10, i: 1, p: { k: ["length"], v: [{ t: 0, s: 8 }] }, o: 0 },
+        b: 0,
+        l: 8,
+      },
+      f: 127,
+      m: [],
+    };
+    // A small allocation reproduces the unchecked cast without risking an OOM.
+    expect(() => seroval.fromJSON(payload)).toThrow();
+  });
+
+  it.each([
+    -1,
+    4,
+    Number.MAX_SAFE_INTEGER,
+  ])("rejects invalid TypedArray length %s for a three-byte buffer", (length) => {
+    const payload = seroval.toJSON(new Uint8Array([1, 2, 3]));
+    payload.t.l = length;
+    expect(() => seroval.fromJSON(payload)).toThrow();
+  });
 });

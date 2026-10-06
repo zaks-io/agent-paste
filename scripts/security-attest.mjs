@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { bracesFinding, verifyBracesPatch } from "./lib/braces-patch.mjs";
 import { evaluatePnpmAuditPolicy } from "./lib/pnpm-audit-policy.mjs";
 import { evaluateGrypePolicy, evaluateTrivyPolicy } from "./lib/scanner-vulnerability-policy.mjs";
+import { verifyZodPatch } from "./lib/zod-patch.mjs";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const args = process.argv.slice(2);
@@ -163,6 +164,17 @@ try {
 }
 
 let verifiedScannerSources = [];
+try {
+  runPolicyStep("zod-patch", 0, verifyZodPatch(repoRoot));
+} catch (error) {
+  runPolicyStep("zod-patch", 1, { error: error instanceof Error ? error.message : String(error) });
+}
+runStep(
+  "request-array-bounds",
+  "pnpm",
+  ["--filter", "@agent-paste/contracts", "exec", "vitest", "run", "src/request-array-bounds.test.ts", "--maxWorkers=2"],
+  { stdoutFile: "request-array-bounds.txt" },
+);
 
 function scannerAllowedFindings() {
   return allowedDependencyFindings.map((finding) => ({
