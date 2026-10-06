@@ -38,6 +38,13 @@ function consumerPath({ workspace, chain }) {
 try {
   const verification = verifyBracesPatch(root);
   const zodVerification = verifyZodPatch(root);
+  const build = spawnSync(
+    "pnpm",
+    ["exec", "turbo", "run", "build", "--filter=@agent-paste/contracts^...", "--concurrency=2"],
+    { cwd: root, encoding: "utf8" },
+  );
+  writeFileSync(join(out, "request-array-bounds-build.txt"), `${build.stdout ?? ""}\n${build.stderr ?? ""}`);
+  if (build.error || build.status !== 0) throw new Error("Request array bounds dependency build failed");
   const bounds = spawnSync(
     "pnpm",
     [

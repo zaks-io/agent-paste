@@ -3,6 +3,8 @@ import * as z from "zod";
 import { AgentIdentityRequest } from "./agentAuth.js";
 import { JobsQueueMessage } from "./jobs.js";
 import { LiveUpdateAuthorizeAccessLinkRequest, LiveUpdateNotifyMessage } from "./liveUpdates.js";
+import { LiftLockdownRequest } from "./lockdown.js";
+import { McpJsonRpcRequest, McpToolCallParams } from "./mcp/jsonrpc.js";
 import { McpMultiEditInput } from "./mcp/schemas.js";
 import { mcpToolInputSchemas } from "./mcp/tool-schemas.js";
 import { requestSchemas } from "./routes/request-schemas.js";
@@ -17,6 +19,9 @@ const externalRequestSchemas: Record<string, z.ZodType> = {
   ...Object.fromEntries(Object.entries(requestSchemas).map(([name, schema]) => [`api.${name}`, schema])),
   ...Object.fromEntries(Object.entries(mcpToolInputSchemas).map(([name, schema]) => [`mcp.${name}`, schema])),
   AgentIdentityRequest,
+  LiftLockdownRequest,
+  McpJsonRpcRequest,
+  McpToolCallParams,
   LiveUpdateAuthorizeAccessLinkRequest,
   LiveUpdateNotifyMessage,
   JobsQueueMessage,
@@ -35,6 +40,7 @@ const leafTypes = new Set([
   "undefined",
   "never",
   "transform",
+  "unknown",
 ]);
 const wrapperTypes = new Set(["optional", "nullable", "default", "prefault", "catch", "readonly", "nonoptional"]);
 

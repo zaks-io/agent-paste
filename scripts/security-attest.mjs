@@ -170,6 +170,12 @@ try {
   runPolicyStep("zod-patch", 1, { error: error instanceof Error ? error.message : String(error) });
 }
 runStep(
+  "request-array-bounds-build",
+  "pnpm",
+  ["exec", "turbo", "run", "build", "--filter=@agent-paste/contracts^...", "--concurrency=2"],
+  { stdoutFile: "request-array-bounds-build.txt" },
+);
+runStep(
   "request-array-bounds",
   "pnpm",
   ["--filter", "@agent-paste/contracts", "exec", "vitest", "run", "src/request-array-bounds.test.ts", "--maxWorkers=2"],

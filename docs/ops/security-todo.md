@@ -46,7 +46,8 @@ refinements. Arrays without a maximum remain outside the mitigation.
 
 The request-schema tests walk API, MCP, agent-auth, live-update, and queue inputs
 and require every array maximum to be at most 100. The attestation and Snyk runner
-execute these tests before considering the mitigation valid. The verifier checks
+build contract dependencies and execute these tests before considering the
+mitigation valid. The verifier checks
 the patch digest, registration, both locks, installed parser digests, consumer
 versions, and actual early rejection. Snyk dispositions match only this advisory,
 version 4.4.3, manifest, and enumerated full dependency path. Zod 3.25.76 remains
