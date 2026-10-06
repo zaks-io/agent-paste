@@ -108,6 +108,19 @@ try {
   const feedback = await runCliJson(["feedback", "Local CLI feedback smoke", "--json"], apiEnv);
   assert(feedback.feedback_id?.startsWith("fb_"), "CLI feedback persists through the authenticated API");
 
+  const oversized = await fetch(`${uploadBaseUrl}/v1/upload-sessions`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${provisioned.api_key.secret}`,
+      "content-type": "application/json",
+      "idempotency-key": "oversized-array-security-smoke",
+    },
+    body: JSON.stringify({ title: "Oversized request", entrypoint: "index.html", files: Array(1000).fill({}) }),
+  });
+  assert(oversized.status === 400, "upload rejects an oversized invalid manifest without a server error");
+  const oversizedError = await oversized.json();
+  assert(oversizedError.error?.code === "invalid_request", "oversized manifest uses the request validation error");
+
   const published = await runCliJson(
     ["publish", "examples/local-harness/site", "--title", "Local harness", "--json"],
     apiEnv,

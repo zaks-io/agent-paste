@@ -2,7 +2,9 @@
 
 Project start: 2026-05-18.
 
-Last updated: 2026-10-06 for feedback capture and CLI 0.2.7 release preparation. Release and deployment evidence is recorded below.
+Last updated: 2026-10-06 for feedback capture, CLI 0.2.7 release preparation,
+and AP-457 dependency security remediation. Release and deployment evidence is
+recorded below.
 The deployed one-URL architecture status below was recorded on 2026-09-03. See [changelog.md](./status/changelog.md) for older shipped
 work.
 
@@ -50,9 +52,18 @@ and runs `pnpm verify` on manual dispatch. The full repository security
 attestation runs separately on `main` and daily; it does not block production
 deploys. CLI release still requires that attestation. A production deploy can
 therefore succeed while `Security` fails; report those results separately.
-See [security follow-ups](./security-todo.md#braces-depth-patch-ap-456) for the
-AP-456 verified parser patch and local HTTP request boundary prepared to fix
-the CLI release attestation blockers.
+AP-456 shipped in [`34a38450`](https://github.com/zaks-io/agent-paste/commit/34a3845068cf02328e3704cb662b385369e07a6e).
+[CI 37338914666](https://github.com/zaks-io/agent-paste/actions/runs/37338914666),
+[Security 37338914222](https://github.com/zaks-io/agent-paste/actions/runs/37338914222),
+and [Deploy Production 37339167590](https://github.com/zaks-io/agent-paste/actions/runs/37339167590)
+all succeeded for that commit. Its verified braces parser patch remains in use.
+
+The 2026-10-06 [daily Security run 37488914427](https://github.com/zaks-io/agent-paste/actions/runs/37488914427)
+failed on newer dependency advisories. [AP-457](https://linear.app/zaks-io/issue/AP-457)
+updates seroval, shell-quote, smol-toml, source-map-js, and sharp to fixed
+versions and patches Zod to enforce request array bounds before element
+validation. See [security follow-ups](./security-todo.md) for the mitigation and
+scanner policy.
 
 ## CLI releases
 

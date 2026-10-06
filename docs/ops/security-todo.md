@@ -24,6 +24,55 @@ shape captured on 2026-10-06 for GHSA-r4xh-jqrq-34v2. Its regression test proves
 that the policy rejects a real moderate advisory. The complete scanner bundle
 still needs the executables configured by the hosted Security workflow.
 
+## Dependency remediation (AP-457)
+
+The 2026-10-06 daily attestation found six advisories across five dependencies.
+The root overrides and lockfile now select these upstream fixes:
+
+| Dependency    | Fixed version | Advisory                                                                                                                                           |
+| ------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| seroval       | 1.6.8         | [GHSA-p6vx-979v-rg4c](https://github.com/advisories/GHSA-p6vx-979v-rg4c), [GHSA-jp82-f5mq-hwhp](https://github.com/advisories/GHSA-jp82-f5mq-hwhp) |
+| shell-quote   | 1.11.0        | [GHSA-pqg4-j6r4-53mv](https://github.com/advisories/GHSA-pqg4-j6r4-53mv)                                                                           |
+| smol-toml     | 1.9.0         | [GHSA-r4xh-jqrq-34v2](https://github.com/advisories/GHSA-r4xh-jqrq-34v2)                                                                           |
+| source-map-js | 1.2.2         | [GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q)                                                                           |
+| sharp         | 0.35.5        | [GHSA-wq5f-xc86-pv6w](https://github.com/advisories/GHSA-wq5f-xc86-pv6w)                                                                           |
+
+Direct payload regressions showed that Seroval 1.6.3 still assimilated callable
+thenables and accepted array-like TypedArray sources. Version 1.6.8 rejects both
+payloads, so the override uses that release rather than the advisory minimum.
+
+Seroval runs in the web dashboard's TanStack serialization path. Shell-quote
+belongs to the eval runner's Daytona SDK. The remaining dependencies support
+repository checks and builds. These fixes do not change scanner thresholds or
+the verified braces mitigation below. Only `source-map-js@1.2.2`, the sole
+fixed release, has a version-scoped exception to pnpm's seven-day release delay.
+
+## Zod request array patch (AP-457)
+
+[SNYK-JS-ZOD-20510278](https://security.snyk.io/vuln/SNYK-JS-ZOD-20510278)
+has no upstream fixed release. Zod validates array items before enforcing `.max()`,
+so the one-MiB body limit still permits substantial error-allocation amplification.
+`patches/zod@4.4.3.patch` enforces each declared array maximum before validating
+items in both runtime module formats. Valid and within-limit invalid requests
+retain their behavior; oversized arrays return one `too_big` error and skip
+refinements. Arrays without a maximum remain outside the mitigation.
+
+The request-schema tests walk API, MCP, agent-auth, live-update, and queue inputs
+and require every array maximum to be at most 100. The attestation and Snyk runner
+build contract dependencies and execute these tests before considering the
+mitigation valid. The verifier checks
+the patch digest, registration, both locks, installed parser digests, consumer
+versions, and actual early rejection. Snyk dispositions match only this advisory,
+version 4.4.3, manifest, and enumerated full dependency path. Six exact paths to
+Zod 3.25.76 in TanStack build tooling receive separate build-only dispositions.
+These config parsers consume inline Vite options and repository `tsr.config.json`,
+not request data. `zod-build-policy.mjs` pins every versioned dependency hop and
+verifies the reviewed config parser bytes before enabling them. Other Zod 3
+paths, dependency upgrades, changed parsers, versions, and advisories block. Raw findings and mitigation evidence are retained.
+
+Remove the patch, verifier, and dispositions when an upstream fix covers these
+inputs. Keep the request bounds and behavioral regressions.
+
 ## Braces depth patch (AP-456)
 
 `braces@3.0.3` has no upstream fix for
@@ -51,6 +100,12 @@ and records the verified mitigation as an attestation step. New IDs, versions,
 paths, targets, or failed verification block normally. Remove the patch,
 verifier/disposition, and corresponding regression tests together after an
 upstream release fixes this advisory and the dependency graph is updated.
+
+The Snyk runner applies the same verified patch disposition to
+`SNYK-JS-BRACES-19963945`. It matches each workspace manifest and complete
+versioned dependency path, preserves raw JSON, and requires reports for every
+workspace. Scanner failures, missing workspaces, and unmatched findings fail
+closed. No `.snyk` ignore rules apply.
 
 The local Cloudflare harnesses use HTTP fixtures on `127.0.0.1`. Semgrep's
 `react-insecure-request` rule flags those literals even though it exempts

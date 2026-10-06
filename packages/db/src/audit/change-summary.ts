@@ -148,6 +148,7 @@ const CHANGE_SUMMARY_FORMATTERS: Record<string, ChangeSummaryFormatter> = {
   "agent_auth.delegation.revoked": constant("Agent auth delegation revoked"),
   "agent_auth.registration.created": constant("Agent auth registration created"),
   "workspace.created": constant("Workspace created"),
+  "feedback.created": constant("Feedback submitted"),
   "workspace.plan.updated": formatWorkspacePlanUpdated,
   "workspace.settings.updated": formatWorkspaceSettingsUpdated,
   "artifact.created": constant("Artifact created"),

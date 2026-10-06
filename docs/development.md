@@ -218,6 +218,10 @@ deploy production from a laptop.
 - `nodeLinker=isolated`, `engine-strict=true`, `minimumReleaseAge=10080`,
   `blockExoticSubdeps=true`, and `trustPolicy=no-downgrade` are
   enforced by CI.
+- The exact `source-map-js@1.2.2` release is exempt from the seven-day age
+  delay to remediate [GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q).
+  pnpm supports [version-scoped age exceptions](https://pnpm.io/settings#minimumreleaseageexclude);
+  other versions and packages keep the normal delay.
 - The `semver@6` override upgrades Babel's version checks to `7.8.5` because
   `6.3.1` fails pnpm's provenance policy. Semver 7 preserves the APIs Babel
   uses; its [major-version changes](https://github.com/npm/node-semver/blob/v7.1.0/CHANGELOG.md)

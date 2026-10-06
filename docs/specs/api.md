@@ -69,7 +69,9 @@ bodies have a 64 KiB limit. Stripe webhook bodies have a 1 MiB limit. Workers
 enforce each limit while streaming, including when `Content-Length` is missing or
 false. Each MCP publish/revision body and each `multi_edit` old/new string has a
 192 Ki-character limit. A complete `multi_edit` payload must also fit within the
-aggregate 1 MiB JSON-RPC body cap.
+aggregate 1 MiB JSON-RPC body cap. Every request array is capped at no more than 100
+entries, and the cap is checked before any entry is validated, so an oversized list
+fails with one length error instead of per-entry errors.
 
 ## Auth Labels
 

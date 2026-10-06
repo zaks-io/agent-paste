@@ -12,6 +12,7 @@ export const OPERATOR_SECURITY_EVENT_ACTIONS = [
 
 export const OPERATOR_LIFECYCLE_EVENT_ACTIONS = [
   "workspace.created",
+  "feedback.created",
   "workspace.settings.updated",
   "api_key.created",
   "agent_auth.access_token.issued",
