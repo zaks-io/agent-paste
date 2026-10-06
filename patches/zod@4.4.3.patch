@@ -1,0 +1,32 @@
+diff --git a/v4/core/schemas.cjs b/v4/core/schemas.cjs
+index 1d5ac0121d81105ab1659d08509a0f59d3604788..4d7f293e9fd7c5f4a170fbc0cd1f97ec7c01edc9 100644
+--- a/v4/core/schemas.cjs
++++ b/v4/core/schemas.cjs
+@@ -721,6 +721,11 @@ exports.$ZodArray = core.$constructor("$ZodArray", (inst, def) => {
+             });
+             return payload;
+         }
++        const maximum = inst._zod.bag.maximum;
++        if (typeof maximum === "number" && input.length > maximum) {
++            payload.issues.push({ origin: "array", code: "too_big", maximum, inclusive: true, input, inst, continue: false });
++            return payload;
++        }
+         payload.value = Array(input.length);
+         const proms = [];
+         for (let i = 0; i < input.length; i++) {
+diff --git a/v4/core/schemas.js b/v4/core/schemas.js
+index cfc4b1eb6d9edc37520d32e9e4f40d15502d0e38..360688f0065ed756d7827d144b6c7906929945a7 100644
+--- a/v4/core/schemas.js
++++ b/v4/core/schemas.js
+@@ -690,6 +690,11 @@ export const $ZodArray = /*@__PURE__*/ core.$constructor("$ZodArray", (inst, def
+             });
+             return payload;
+         }
++        const maximum = inst._zod.bag.maximum;
++        if (typeof maximum === "number" && input.length > maximum) {
++            payload.issues.push({ origin: "array", code: "too_big", maximum, inclusive: true, input, inst, continue: false });
++            return payload;
++        }
+         payload.value = Array(input.length);
+         const proms = [];
+         for (let i = 0; i < input.length; i++) {
