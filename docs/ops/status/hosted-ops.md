@@ -156,7 +156,10 @@ Launch-readiness secret notes:
 3. `pnpm smoke:local`
 4. Address the active backlog item, or document why it is deferred.
 5. For runtime changes: `pnpm migrate:preview && pnpm deploy:preview && pnpm smoke:preview &&
-pnpm smoke:preview:ephemeral`
+pnpm smoke:preview:ephemeral`. The Deploy Preview workflow runs the same migrate and
+   deploy from CI; it fails when the GitHub `Preview` environment has no
+   `DATABASE_URL_MIGRATIONS_PREVIEW` (or legacy `PREVIEW_DATABASE_URL`) rather than
+   deploying Workers against an unmigrated database.
 6. After MCP-affecting deploys, run `pnpm smoke:mcp:preview` with a user OAuth
    access token for authenticated tool checks.
 7. Same-repo PRs exercise job-local Postgres smoke in CI automatically. Add the
@@ -267,9 +270,10 @@ called with incorrect this reference`. Example failed revisions:
 ## Database credential boundaries
 
 - Migrations use `neondb_owner` in GitHub Actions. The canonical
-  `DATABASE_URL_MIGRATIONS_*` names take precedence, while the deployed
-  environments still use the legacy `PREVIEW_DATABASE_URL` and
-  `PRODUCTION_DATABASE_URL` secrets. See
+  `DATABASE_URL_MIGRATIONS_*` names take precedence over the legacy
+  `PREVIEW_DATABASE_URL` / `PRODUCTION_DATABASE_URL` names. The GitHub `Preview`
+  environment holds `DATABASE_URL_MIGRATIONS_PREVIEW` (set 2026-10-01; before
+  that it held neither name and Deploy Preview silently skipped migration). See
   [`runbook-neon-database-roles.md`](../runbook-neon-database-roles.md).
 - Hyperdrive configs for `api` and `upload` must use `app_role`
   (`DATABASE_URL_RUNTIME_*`). PR previews resolve separate Neon URLs for migrate vs
