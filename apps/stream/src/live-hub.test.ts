@@ -37,7 +37,6 @@ describe("ArtifactLiveHub", () => {
     const sharePointer = {
       revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" as RevisionId,
       iframe_src: "https://content.test/v/share-token/index.html",
-      render_mode: "html" as const,
       title: "Share",
     };
     const dashboardPointer = {
@@ -47,7 +46,6 @@ describe("ArtifactLiveHub", () => {
     const revision = {
       revision_id: sharePointer.revision_id,
       entrypoint: "index.html",
-      render_mode: "html" as const,
       title: "Demo",
     };
     await hub.publishRevision(revision, "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" as ArtifactId, async (connection) =>
@@ -69,14 +67,12 @@ describe("ArtifactLiveHub", () => {
     const newerPointer = {
       revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z0" as RevisionId,
       iframe_src: "https://content.test/v/newer-token/index.html",
-      render_mode: "html" as const,
       title: "Newer",
     };
     await hub.publishRevision(
       {
         revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" as RevisionId,
         entrypoint: "index.html",
-        render_mode: "html",
         title: "Stale notification",
       },
       "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" as ArtifactId,
@@ -100,7 +96,6 @@ describe("ArtifactLiveHub", () => {
       {
         revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
         entrypoint: "index.html",
-        render_mode: "html",
         title: "Demo",
       },
       "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" as ArtifactId,
@@ -120,7 +115,6 @@ describe("ArtifactLiveHub", () => {
       {
         revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" as RevisionId,
         entrypoint: "index.html",
-        render_mode: "html",
         title: "Demo",
       },
       "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" as ArtifactId,
@@ -149,14 +143,12 @@ describe("ArtifactLiveHub", () => {
     const pointer = {
       revision_id: "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9",
       iframe_src: "https://content.test/v/art.rev/index.html",
-      render_mode: "html" as const,
       title: "Demo",
     };
     await hub.publishRevision(
       {
         revision_id: pointer.revision_id,
         entrypoint: "index.html",
-        render_mode: "html",
         title: "Demo",
       },
       "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" as ArtifactId,

@@ -8,11 +8,11 @@ import type { ContentTokenPayload } from "@agent-paste/tokens/content";
 import { type BoundRespondersVariables, boundRespondersMiddleware } from "@agent-paste/worker-runtime";
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
+import { CONTENT_CACHE_CONTROL } from "./cache-policy.js";
 import type { AppContext, Env } from "./env.js";
 import { contentEtag, etagMatches } from "./etag.js";
 import {
   bundleResponseHeaders,
-  CONTENT_CACHE_CONTROL,
   contentRepresentationKey,
   denylistKeysForPayload,
   injectNoindexMeta,
@@ -186,7 +186,7 @@ describe("serve-object response headers", () => {
       }),
     );
     expect(opaqueHeaders.get("access-control-allow-origin")).toBe("null");
-    expect(opaqueHeaders.get("vary")).toBe("Origin");
+    expect(opaqueHeaders.get("vary")).toBe("Accept-Encoding, Origin");
 
     const appOriginHeaders = responseHeadersForPath(
       "data/latest.json",
@@ -205,16 +205,16 @@ describe("serve-object response headers", () => {
     expect(bundleResponseHeaders(100, false, ETAG).get("etag")).toBe(ETAG);
   });
 
-  it("revalidates every served file and the bundle on every load", () => {
-    expect(responseHeadersForPath("index.html", 3, basePayload(), ETAG).get("cache-control")).toBe(
-      CONTENT_CACHE_CONTROL,
-    );
-    expect(responseHeadersForPath("style.css", 3, basePayload(), ETAG).get("cache-control")).toBe(
-      CONTENT_CACHE_CONTROL,
-    );
-    expect(responseHeadersForPath("logo.png", 3, basePayload(), ETAG).get("cache-control")).toBe(CONTENT_CACHE_CONTROL);
+  it("reuses static assets while documents and bundles revalidate", () => {
+    for (const path of ["index.html", "data.json", "notes.txt", "report.pdf", "unknown.bin"]) {
+      expect(responseHeadersForPath(path, 3, basePayload(), ETAG).get("cache-control")).toBe(CONTENT_CACHE_CONTROL);
+    }
+    for (const path of ["style.css", "app.js", "module.mjs", "logo.png", "logo.svg", "font.woff2", "video.mp4"]) {
+      expect(responseHeadersForPath(path, 3, basePayload({ exp: null }), ETAG).get("cache-control")).toBe(
+        "private, max-age=3600, must-revalidate, no-transform",
+      );
+    }
     expect(bundleResponseHeaders(100, false, ETAG).get("cache-control")).toBe(CONTENT_CACHE_CONTROL);
-    expect(CONTENT_CACHE_CONTROL).toBe("private, no-cache, no-transform");
   });
 
   it("always denies framing, including iframe requests", () => {
@@ -459,6 +459,14 @@ describe("contentRepresentationKey", () => {
   it("keeps pre-migration ephemeral HTML in the script-disabled representation", () => {
     expect(contentRepresentationKey("index.html", basePayload({ noindex: true, script_disabled: false }))).toBe(
       "noindex:direct:script-none",
+    );
+  });
+
+  it("keeps identity validators unchanged and marks the gzip representation", () => {
+    expect(contentRepresentationKey("style.css", basePayload())).toBeUndefined();
+    expect(contentRepresentationKey("style.css", basePayload(), true)).toBe("gzip");
+    expect(contentRepresentationKey("index.html", basePayload({ script_disabled: false }), true)).toBe(
+      "direct:script-on:gzip",
     );
   });
 });

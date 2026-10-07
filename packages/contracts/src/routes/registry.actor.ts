@@ -9,6 +9,29 @@ const { apiKeyRead: apiKeyReadErrors, apiKeyActorRead: apiKeyActorReadErrors } =
  */
 export const actorRouteContracts = [
   {
+    id: "feedback.create",
+    app: "api",
+    method: "POST",
+    path: "/v1/feedback",
+    auth: "api_key_or_member",
+    scopes: [],
+    idempotency: "required",
+    rateLimit: "actor",
+    requestSchema: "CreateFeedbackRequest",
+    responseSchema: "CreateFeedbackResponse",
+    errors: [
+      "not_authenticated",
+      "invalid_auth",
+      "forbidden",
+      "database_unavailable",
+      "invalid_request",
+      "invalid_idempotency_key",
+      "idempotency_in_flight",
+      "rate_limited_actor",
+      "rate_limited_workspace",
+    ] as const,
+  },
+  {
     id: "whoami.get",
     app: "api",
     method: "GET",

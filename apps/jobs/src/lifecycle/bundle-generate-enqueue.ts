@@ -1,4 +1,5 @@
 import { BundleGenerateMessage } from "@agent-paste/contracts";
+import { withQueueTraceContext } from "@agent-paste/worker-runtime";
 import type { Env } from "../env.js";
 import { logOp, logOpError } from "../op-log.js";
 
@@ -26,7 +27,7 @@ export async function enqueueBundleGenerate(
   });
 
   try {
-    await env.BUNDLE_GENERATE_QUEUE.send(message);
+    await withQueueTraceContext(env.BUNDLE_GENERATE_QUEUE).send(message);
     logOp("lifecycle.bundle_generate.enqueued", {
       revision_id: input.revisionId,
       artifact_id: input.artifactId,

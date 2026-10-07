@@ -2,7 +2,9 @@
 
 Project start: 2026-05-18.
 
-Last updated: 2026-09-13 for CLI remote authentication.
+Last updated: 2026-10-07 for production feedback capture, CLI 0.2.7 publication,
+and AP-457 dependency security remediation. Release and deployment evidence is
+recorded below.
 The deployed one-URL architecture status below was recorded on 2026-09-03. See [changelog.md](./status/changelog.md) for older shipped
 work.
 
@@ -22,7 +24,9 @@ Preview:    https://{capability-id}-preview.agent-paste.link/
 
 The Content Worker serves the Artifact directly on that host. The app does not
 proxy, wrap, redirect, or iframe uploaded content. Revisions keep the same URL
-and show their newest published bytes on refresh.
+and show their newest HTML on refresh. Static assets reuse a private browser
+cache for up to one hour, capped by signed expiry; a hard refresh revalidates
+assets immediately.
 
 The one-URL architecture is live: [Deploy Production run 33800556155](https://github.com/zaks-io/agent-paste/actions/runs/33800556155)
 deployed commit [`c9f0b7c0`](https://github.com/zaks-io/agent-paste/commit/c9f0b7c0f6d14a737ad0eb34e16e47f6be0f7fb3)
@@ -32,9 +36,102 @@ passed for that same commit. Production readiness is commit-scoped: only call
 a release ready when CI, Security, and Deploy Production all succeed for the
 same head SHA. Independent latest runs are not proof.
 
-## CLI remote authentication
+On 2026-10-01, production deployed commit [`9b76e3e1`](https://github.com/zaks-io/agent-paste/commit/9b76e3e1a0de1418f33f932f3064467dfb1ce1ba):
+[CI run 36937939352](https://github.com/zaks-io/agent-paste/actions/runs/36937939352),
+[Security run 36937939392](https://github.com/zaks-io/agent-paste/actions/runs/36937939392),
+and [Deploy Production run 36938087486](https://github.com/zaks-io/agent-paste/actions/runs/36938087486)
+all succeeded for it on 2026-10-01.
 
-CLI 0.2.1 adds `agent-paste login --device-code` for sandboxes and remote
+The 2026-10-05 authentication documentation deployment ran
+[Deploy Production 37268811823](https://github.com/zaks-io/agent-paste/actions/runs/37268811823)
+for [`d361ac72`](https://github.com/zaks-io/agent-paste/commit/d361ac72f0f38d5da038eac1139f2cd3b7df8d74).
+That release's evidence is tracked in [AP-455](https://linear.app/zaks-io/issue/AP-455/fixcli-align-api-key-authentication-and-public-docs).
+
+The current production workflow requires successful CI for automatic deploys
+and runs `pnpm verify` on manual dispatch. The full repository security
+attestation runs separately on `main` and daily; it does not block production
+deploys. CLI release still requires that attestation. A production deploy can
+therefore succeed while `Security` fails; report those results separately.
+AP-456 shipped in [`34a38450`](https://github.com/zaks-io/agent-paste/commit/34a3845068cf02328e3704cb662b385369e07a6e).
+[CI 37338914666](https://github.com/zaks-io/agent-paste/actions/runs/37338914666),
+[Security 37338914222](https://github.com/zaks-io/agent-paste/actions/runs/37338914222),
+and [Deploy Production 37339167590](https://github.com/zaks-io/agent-paste/actions/runs/37339167590)
+all succeeded for that commit. Its verified braces parser patch remains in use.
+
+The 2026-10-06 [daily Security run 37488914427](https://github.com/zaks-io/agent-paste/actions/runs/37488914427)
+failed on newer dependency advisories. [AP-457](https://linear.app/zaks-io/issue/AP-457)
+updates seroval, shell-quote, smol-toml, source-map-js, and sharp to fixed
+versions and patches Zod to enforce request array bounds before element
+validation. See [security follow-ups](./security-todo.md) for the mitigation and
+scanner policy.
+
+On 2026-10-07, [PR #678](https://github.com/zaks-io/agent-paste/pull/678)
+deployed commit [`2503d40d`](https://github.com/zaks-io/agent-paste/commit/2503d40dd780072a13671c8224e42ee1136d069d):
+[CI 37549543422](https://github.com/zaks-io/agent-paste/actions/runs/37549543422),
+[Security 37549543398](https://github.com/zaks-io/agent-paste/actions/runs/37549543398),
+and [Deploy Production 37549708232](https://github.com/zaks-io/agent-paste/actions/runs/37549708232)
+all succeeded for that SHA. Sentry and the
+[Linear production release](https://linear.app/zaks-io/pipeline/agent-paste/release/2503d40-613796ad9718)
+independently report the same full deployed SHA.
+
+Workspace-owned feedback capture is deployed through the API, CLI, and MCP.
+Production API submission, durable idempotent replay, authentication and malformed-input
+rejection passed. CLI argument, stdin, and downloaded-binary submissions passed.
+Authenticated local MCP OAuth and service-binding smoke passed; production MCP
+health and authentication discovery passed. Authenticated production MCP feedback
+has not been exercised because its user OAuth smoke credential is unavailable.
+Email notification and operator feedback UI remain separate planned work in
+[AP-354](https://linear.app/zaks-io/issue/AP-354) and
+[AP-355](https://linear.app/zaks-io/issue/AP-355).
+
+## CLI releases
+
+The CLI package version is 0.2.7. Feedback capture delivery and publication
+evidence is tracked in [AP-352](https://linear.app/zaks-io/issue/AP-352).
+The prior 0.2.6 release evidence is tracked in [AP-455](https://linear.app/zaks-io/issue/AP-455/fixcli-align-api-key-authentication-and-public-docs).
+See the [GitHub release](https://github.com/zaks-io/agent-paste/releases/tag/cli-v0.2.7)
+and [npm package](https://www.npmjs.com/package/@zaks-io/agent-paste) for distribution status.
+
+The [CLI Release draft build 37549658518](https://github.com/zaks-io/agent-paste/actions/runs/37549658518)
+passed for `2503d40dd780072a13671c8224e42ee1136d069d`, including repository
+security attestation, compiled-bundle scanning, macOS signing and notarization,
+and compiled Linux production publish smoke. The release was published on
+2026-10-07 with four binaries, four provenance sidecars, checksums, and security
+artifacts. The downloaded Linux binary passed checksum and signed provenance
+verification and submitted feedback to production.
+
+The [CLI Advertise Release run 37550721424](https://github.com/zaks-io/agent-paste/actions/runs/37550721424)
+then succeeded for the same SHA. npm latest and both production and preview
+`/v1/public/cli-version` endpoints report `0.2.7`; both endpoints advertise
+`latest = min_supported = 0.2.7`.
+
+- **0.2.2:** `login --device-code` for sandboxes and remote shells. 0.2.1 was
+  versioned in the repository but never published.
+- **0.2.3:** accepts an Artifact URL or bare subdomain wherever it takes an
+  artifact ID (AP-443). MCP tools accept the same references.
+- **0.2.4:** smaller npm install.
+- **0.2.5:** adds `download` to save a revision's zip bundle. Removes
+  `--render-mode`, which now fails as an unknown flag, and the
+  unknown-extension publish check it existed for. The unused `render_mode`
+  database columns are dropped by a follow-up migration.
+- **0.2.6:** adds `authenticated: true` to successful `whoami` JSON
+  and aligns API key authentication guidance across CLI help and public docs.
+- **0.2.7:** adds authenticated `feedback` submission from a body argument or stdin.
+
+## CLI authentication
+
+`AGENT_PASTE_API_KEY` authenticates CLI commands without an interactive login
+and takes precedence over saved login credentials. Check `whoami --json` in
+the inherited environment before starting a login. A rejected key fails rather
+than falling back to saved login. See the
+[CLI authentication contract](../specs/cli.md#authentication).
+
+CLI 0.2.6 adds `authenticated: true` to successful `whoami` output and aligns
+authentication guidance across public docs and agent instructions. CLI 0.2.5
+omits the boolean on success; its Workspace, actor, and scopes still indicate
+valid authentication.
+
+CLI 0.2.2 adds `agent-paste login --device-code` for sandboxes and remote
 shells. On 2026-09-13 it passed repository verification and a Linux install and
 live browser-approval check through credential creation and authenticated
 `whoami`. The test credential was revoked afterward.
@@ -44,10 +141,13 @@ handling, and what to do when authentication is unavailable.
 
 ## Current Product Shape
 
+The shipped feature list is [`features.md`](../specs/features.md). This section
+summarizes runtime boundaries only.
+
 - **CLI:** `agent-paste publish <path>` is the primary agent workflow. It
   returns `artifact_id`, `revision_id`, `title`, `url`, and `expires_at`.
-- **MCP:** ten OAuth tools cover publish, revise, edit, list, read, delete, and
-  display metadata. Publish and revise return the same Artifact `url` contract.
+- **MCP:** eleven OAuth tools cover publish, revise, edit, list, read, delete,
+  display metadata, and feedback. Publish and revise return the same Artifact `url` contract.
 - **Content:** untrusted files run top-level on a unique `agent-paste.link`
   capability subdomain, separate from product and authentication origins.
   Claimed content permits normal uploaded-site behavior. Ephemeral content uses

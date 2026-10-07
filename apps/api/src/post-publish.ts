@@ -6,6 +6,7 @@ import {
   EPHEMERAL_SAFETY_SCANNER_VERSION,
   SafetyScanMessage,
 } from "@agent-paste/contracts";
+import { withQueueTraceContext } from "@agent-paste/worker-runtime";
 
 type QueueBinding = {
   send(message: unknown): Promise<unknown>;
@@ -38,7 +39,7 @@ export async function enqueuePostPublishJobs(
       requested_at: input.requestedAt,
       reason: "publish",
     });
-    sends.push(bundleQueue.send(message));
+    sends.push(withQueueTraceContext(bundleQueue).send(message));
   }
   const safetyScanQueue = env.SAFETY_SCAN_QUEUE as QueueBinding | undefined;
   if (safetyScanQueue) {
@@ -53,7 +54,7 @@ export async function enqueuePostPublishJobs(
       ...scanner,
       requested_at: input.requestedAt,
     });
-    sends.push(safetyScanQueue.send(message));
+    sends.push(withQueueTraceContext(safetyScanQueue).send(message));
   }
   await Promise.all(sends);
 }

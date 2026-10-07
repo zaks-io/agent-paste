@@ -29,7 +29,7 @@ const worker = {
   },
 };
 
-export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
+export default Sentry.withSentry((env: Env) => sentryOptions(env, "stream"), worker);
 
 const ACCESS_LINK_PATH = /^\/v1\/live\/access-links\/([0-9A-HJKMNP-TV-Z]{16})$/;
 const DASHBOARD_PATH = /^\/v1\/live\/artifacts\/([^/]+)$/;

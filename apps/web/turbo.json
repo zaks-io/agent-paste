@@ -4,7 +4,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "env": ["CLOUDFLARE_ENV", "SENTRY_AUTH_TOKEN"],
+      "env": ["CLOUDFLARE_ENV", "SENTRY_AUTH_TOKEN", "SENTRY_RELEASE"],
       // @cloudflare/vite-plugin writes this deploy-config redirect during `vite
       // build`; without it a cache-restored build makes `wrangler deploy` fall
       // back to wrangler.jsonc (main: src/server.ts) and fail on TanStack

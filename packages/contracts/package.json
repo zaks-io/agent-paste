@@ -65,11 +65,6 @@
       "types": "./src/primitives.ts",
       "import": "./dist/primitives.js"
     },
-    "./render-mode": {
-      "source": "./src/renderMode.ts",
-      "types": "./src/renderMode.ts",
-      "import": "./dist/renderMode.js"
-    },
     "./revisions": {
       "source": "./src/revisions.ts",
       "types": "./src/revisions.ts",
@@ -84,6 +79,11 @@
       "source": "./src/workspace.ts",
       "types": "./src/workspace.ts",
       "import": "./dist/workspace.js"
+    },
+    "./feedback": {
+      "source": "./src/feedback.ts",
+      "types": "./src/feedback.ts",
+      "import": "./dist/feedback.js"
     }
   },
   "scripts": {

@@ -21,7 +21,7 @@ This is the schema target for the CLI-first MVP. Drizzle definitions should live
 | --------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `id`            | `UUID PRIMARY KEY`     | Tenant id.                                                                                                                                                                                                                                                          |
 | `name`          | `TEXT NOT NULL`        | Operator supplied or inferred from email.                                                                                                                                                                                                                           |
-| `contact_email` | `TEXT NULL`            | Operator-supplied MVP contact. Public OAuth membership is future work.                                                                                                                                                                                              |
+| `contact_email` | `TEXT NULL`            | Owning member email populated during WorkOS provisioning, or operator-supplied contact. Null for an unclaimed ephemeral Workspace.                                                                                                                                  |
 | `claimed_at`    | `TIMESTAMPTZ NULL`     | Ephemeral-publish ([0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md)): `NULL` while the tenant is unclaimed/ephemeral (ephemeral cap set); non-null marks it consumed by a claim. The timestamp is the state — no separate boolean. |
 | `created_at`    | `TIMESTAMPTZ NOT NULL` |                                                                                                                                                                                                                                                                     |
 | `updated_at`    | `TIMESTAMPTZ NOT NULL` |                                                                                                                                                                                                                                                                     |
@@ -105,12 +105,12 @@ First-class revision rows for multi-revision Artifacts ([0009](../../packages/db
 | `revision_number`          | `INTEGER NULL`                                               | Assigned on publish; unique per Artifact when not null. Null while `status = 'draft'`.                                                                                                                                                                                                                 |
 | `status`                   | `TEXT NOT NULL`                                              | `draft`, `published`, or `retained`.                                                                                                                                                                                                                                                                   |
 | `entrypoint`               | `TEXT NOT NULL`                                              | Normalized file path.                                                                                                                                                                                                                                                                                  |
-| `render_mode`              | `TEXT NOT NULL DEFAULT 'html'`                               | `html`, `markdown`, `text`, `image`, `audio`, or `video`.                                                                                                                                                                                                                                              |
+| `render_mode`              | `TEXT NOT NULL DEFAULT 'html'`                               | Unused since Render Mode was removed. Dropped by a follow-up migration.                                                                                                                                                                                                                                |
 | `file_count`               | `INTEGER NOT NULL`                                           |                                                                                                                                                                                                                                                                                                        |
 | `size_bytes`               | `BIGINT NOT NULL`                                            | Total uploaded bytes for this revision.                                                                                                                                                                                                                                                                |
 | `bundle_status`            | `TEXT NOT NULL DEFAULT 'disabled'`                           | `pending`, `ready`, `failed`, or `disabled`.                                                                                                                                                                                                                                                           |
 | `bundle_status_updated_at` | `TIMESTAMPTZ NULL`                                           |                                                                                                                                                                                                                                                                                                        |
-| `bundle_size_bytes`        | `BIGINT NULL`                                                | Encrypted bundle size when `bundle_status = 'ready'`.                                                                                                                                                                                                                                                  |
+| `bundle_size_bytes`        | `BIGINT NULL`                                                | Zip size before encryption when `bundle_status = 'ready'`.                                                                                                                                                                                                                                             |
 | `bytes_purge_enqueued_at`  | `TIMESTAMPTZ NULL`                                           | Set when byte purge is queued for a `retained` revision.                                                                                                                                                                                                                                               |
 | `created_by_type`          | `TEXT NOT NULL`                                              | `api_key` or `member`.                                                                                                                                                                                                                                                                                 |
 | `created_by_id`            | `TEXT NOT NULL`                                              | Creator id for the stored type.                                                                                                                                                                                                                                                                        |
@@ -199,7 +199,7 @@ exposing scanner internals.
 | `status`              | `TEXT NOT NULL`                           | `pending`, `finalized`, `expired`, or `failed`.                                                                                                                                                                                                    |
 | `title`               | `TEXT NOT NULL`                           | Plain text.                                                                                                                                                                                                                                        |
 | `entrypoint`          | `TEXT NOT NULL`                           | Normalized file path.                                                                                                                                                                                                                              |
-| `render_mode`         | `TEXT NULL`                               | Explicit client override (`html`, `markdown`, `text`, `image`, `audio`, `video`). Null means infer from the entrypoint extension at finalize. Copied to `revisions.render_mode`.                                                                   |
+| `render_mode`         | `TEXT NULL`                               | Unused since Render Mode was removed. Dropped by a follow-up migration.                                                                                                                                                                            |
 | `artifact_expires_at` | `TIMESTAMPTZ NOT NULL`                    | Copied to `artifacts.expires_at` on finalize.                                                                                                                                                                                                      |
 | `file_count`          | `INTEGER NOT NULL`                        | Expected files.                                                                                                                                                                                                                                    |
 | `size_bytes`          | `BIGINT NOT NULL`                         | Expected total bytes.                                                                                                                                                                                                                              |
@@ -235,6 +235,39 @@ Primary key `(upload_session_id, path)`.
 Hash-aware files use `storage_kind = 'blob'` and share a `r2_key` for identical
 `(workspace_id, sha256, size_bytes)` files. Same-session duplicate hashes mark
 all matching paths uploaded when the one required PUT succeeds.
+
+### `feedback`
+
+Feedback belongs to its submitting Workspace and uses forced tenant RLS.
+Platform reads follow the existing privileged Run Scope; this release adds no
+public read or operator feedback route.
+
+| Column                    | Type                                      | Notes                                                                                         |
+| ------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `id`                      | `TEXT PRIMARY KEY`                        | `fb_` plus 26 Crockford symbols.                                                              |
+| `workspace_id`            | `UUID NOT NULL REFERENCES workspaces(id)` | Derived from the authenticated Run Scope.                                                     |
+| `submitter_kind`          | `TEXT NOT NULL`                           | `member` or `agent`.                                                                          |
+| `submitter_member_id`     | `TEXT NULL`                               | Set only for a member; composite FK binds the member to this Workspace.                       |
+| `submitter_api_key_id`    | `TEXT NULL`                               | Set only for an agent; composite FK binds the credential to this Workspace.                   |
+| `contact_email`           | `TEXT NULL`                               | Snapshot of member email, or the owning Workspace contact for an agent. Null when unresolved. |
+| `body`                    | `TEXT NOT NULL`                           | Trimmed, nonempty, at most 10,000 characters.                                                 |
+| `context`                 | `JSONB NULL`                              | Optional bounded scalar metadata object, validated by the submit contract.                    |
+| `status`                  | `feedback_status NOT NULL DEFAULT 'new'`  | Enum values `new` and `addressed`; capture writes `new`.                                      |
+| `notification_suppressed` | `BOOLEAN NOT NULL DEFAULT false`          | Reserved for notification throttling; capture leaves false.                                   |
+| `created_at`              | `TIMESTAMPTZ NOT NULL`                    | Creation time.                                                                                |
+| `updated_at`              | `TIMESTAMPTZ NOT NULL`                    | Initially creation time.                                                                      |
+
+The submitter check requires exactly one submitter identifier matching
+`submitter_kind`. Workspace and submitter foreign keys restrict deletion. The
+Workspace/creation/id index supports future tenant pagination. API key
+Workspace/id uniqueness supports the credential composite foreign key.
+
+The API caps context at 8,192 serialized UTF-8 bytes and rejects nested values.
+A database check requires an object and caps its PostgreSQL JSONB text at
+16,384 bytes, allowing PostgreSQL's added whitespace and normalized numbers.
+Feedback insertion, a metadata-only `feedback.created` audit event, and durable
+idempotency state share one command transaction. Feedback text, context, and
+contact email are excluded from audit details.
 
 ### `operation_events`
 

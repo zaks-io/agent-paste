@@ -1,5 +1,5 @@
 import { workspaceBlobObjectKeyFor } from "@agent-paste/storage";
-import { buildFinalizeResult, inferRenderMode } from "../agent-view.js";
+import { buildFinalizeResult } from "../agent-view.js";
 import { createdByFromActor, operationActorFromApiActor } from "../created-by.js";
 import { createId } from "../id.js";
 import {
@@ -14,7 +14,6 @@ import { toUploadSessionRecord } from "../transforms.js";
 import type {
   ApiActor,
   Artifact,
-  RenderMode,
   Revision,
   RevisionReconstructor,
   StoredFile,
@@ -39,7 +38,6 @@ export type CreateUploadSessionRequest = {
   base_revision_id?: string;
   title?: string;
   entrypoint?: string;
-  render_mode?: RenderMode;
   // Paths present in the base Revision that this publish drops (base-only).
   deleted_paths?: string[];
   files: Array<{ path: string; size_bytes: number; sha256?: string; patch?: UploadSessionFilePatchInput }>;
@@ -93,7 +91,6 @@ export async function createUploadSessionInEntities(
     status: "pending",
     title: input.request.title ?? baseArtifact?.title ?? "untitled",
     entrypoint,
-    render_mode: input.request.render_mode ?? null,
     artifact_expires_at: new Date(new Date(input.now).getTime() + artifactTtlSeconds * 1000).toISOString(),
     file_count: files.length,
     size_bytes: totalSize,
@@ -193,10 +190,6 @@ type MergedTree = {
   fileCount: number;
   sizeBytes: number;
   parentRevisionId: string;
-  // The base Revision's render_mode. A revise that does not set its own mode inherits
-  // this instead of re-inferring from the entrypoint, so an explicit mode chosen on the
-  // original publish survives every later revision (ADR 0091 inheritance invariant).
-  baseRenderMode: RenderMode;
   // Patched files reconstructed into NEW content-addressed blobs. Their content_blobs
   // rows must be registered at finalize so the refcount protects them from GC.
   reconstructedBlobs: StoredFile[];
@@ -362,7 +355,6 @@ async function mergeBaseRevisionTree(
     fileCount: files.length,
     sizeBytes: files.reduce((sum, file) => sum + file.size_bytes, 0),
     parentRevisionId: baseRevisionId,
-    baseRenderMode: base.render_mode,
     reconstructedBlobs: [...reconstructed.values()],
   };
 }
@@ -505,9 +497,6 @@ export async function finalizeUploadSessionInEntities(
     revision_number: null,
     status: "draft",
     entrypoint: session.entrypoint,
-    // Explicit client choice (stored on the session) wins; a revise with no explicit mode
-    // inherits the base Revision's mode; otherwise infer from the entrypoint (ADR 0091).
-    render_mode: session.render_mode ?? merged?.baseRenderMode ?? inferRenderMode(session.entrypoint),
     file_count: treeFileCount,
     size_bytes: treeSizeBytes,
     bundle_status: "disabled",

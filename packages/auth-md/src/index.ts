@@ -35,7 +35,7 @@ export function renderAuthMd(input: { issuer: string }): string {
     "",
     "Agent Paste lets agents register with WorkOS auth.md verified and user-claimed flows. Use the CLI when you can run commands; use this HTTP flow when you are implementing an auth.md client directly.",
     "",
-    "CLI: run agent-paste whoami --json; signed-out results exit 0. Use login locally or login --device-code in a sandbox. Keep device login running while the user approves the URL/code from stderr, then check whoami again.",
+    "CLI: run agent-paste whoami --json in the inherited environment. AGENT_PASTE_API_KEY authenticates without login and takes precedence over saved login credentials. If authenticated, publish directly. A rejected key fails; correct its configuration rather than silently switching credentials. Only a signed-out result exits 0 with authenticated: false. Then supply an API key or use login locally or login --device-code in a sandbox. Keep device login running while the user approves the URL/code from stderr, then check whoami again. CLI API keys do not authenticate MCP, which requires OAuth.",
     "",
     `Protected Resource Metadata: ${issuer}/.well-known/oauth-protected-resource`,
     `Authorization Server Metadata: ${issuer}/.well-known/oauth-authorization-server`,

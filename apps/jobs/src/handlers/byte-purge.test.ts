@@ -1,4 +1,5 @@
 import { seedEncryptedRevisionFile } from "@agent-paste/storage/test-helpers/encrypted-artifact-fixture";
+import * as Sentry from "@sentry/cloudflare";
 import { describe, expect, it, vi } from "vitest";
 import type { Env, QueueMessage } from "../env.js";
 import * as opLog from "../op-log.js";
@@ -10,6 +11,73 @@ const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const envScopedPrefix = `env/live/workspaces/${workspaceId}/artifacts/${artifactId}/revisions/${revisionId}/`;
 
 describe("handleBytePurgeBatch", () => {
+  it("isolates real SDK traces while preserving retry, error status, and acknowledgement", async () => {
+    const traceA = "00112233445566778899aabbccddeeff";
+    const traceB = "ffeeddccbbaa99887766554433221100";
+    const parent = "1122334455667788";
+    const failed = queueMessage({ prefixes: ["artifacts/other/"] });
+    const succeeded = queueMessage({ prefixes: [`artifacts/${artifactId}/`] });
+    const messages = [failed, succeeded].map((message, index) => ({
+      ...message,
+      body: {
+        ...(message.body as object),
+        trace_context: { "sentry-trace": `${index === 0 ? traceA : traceB}-${parent}-1` },
+      },
+    }));
+    const failedRetry = vi.fn(() => {
+      const span = Sentry.getActiveSpan();
+      if (!span) throw new Error("active_span_missing");
+      expect(Sentry.spanToJSON(span)).toMatchObject({
+        trace_id: traceA,
+        parent_span_id: parent,
+        status: "internal_error",
+      });
+    });
+    const failedMessage = messages[0];
+    if (!failedMessage) throw new Error("failed_message_missing");
+    failedMessage.retry = failedRetry;
+    const pending: Promise<unknown>[] = [];
+    const worker = Sentry.withSentry(
+      () => ({
+        dsn: "https://public@example.ingest.sentry.io/1",
+        tracesSampleRate: 1,
+        defaultIntegrations: [],
+        skipOpenTelemetrySetup: true,
+        transport: () => ({ send: async () => ({ statusCode: 200 }), flush: async () => true }),
+      }),
+      {
+        async fetch() {
+          await handleBytePurgeBatch(messages, {
+            ARTIFACTS: {
+              async list() {
+                const span = Sentry.getActiveSpan();
+                if (!span) throw new Error("active_span_missing");
+                expect(Sentry.spanToJSON(span)).toMatchObject({ trace_id: traceB, parent_span_id: parent });
+                return { objects: [], truncated: false };
+              },
+              delete: async () => {},
+            },
+          });
+          return new Response("ok");
+        },
+      },
+    );
+    await worker.fetch(
+      new Request("https://jobs.test/consume"),
+      {},
+      {
+        waitUntil: (promise: Promise<unknown>) => {
+          pending.push(promise);
+        },
+        passThroughOnException: () => {},
+      },
+    );
+    await Promise.all(pending);
+    expect(failedRetry).toHaveBeenCalledOnce();
+    expect(failed.ack).not.toHaveBeenCalled();
+    expect(succeeded.ack).toHaveBeenCalledOnce();
+    expect(succeeded.retry).not.toHaveBeenCalled();
+  });
   it("deletes the exact capability manifest with the artifact bytes", async () => {
     const capabilityId = "00112233445566778899aabbccddeeff";
     const capabilityKey = `content-capabilities/v1/${capabilityId}.json`;

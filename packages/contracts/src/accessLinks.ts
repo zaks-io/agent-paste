@@ -1,7 +1,6 @@
 import * as z from "zod";
 import { PublicAgentView } from "./agentView.js";
 import { AccessLinkId, ArtifactId, IsoDateTime, PlainTextTitle, RevisionId, UrlString } from "./primitives.js";
-import { RenderMode } from "./revisions.js";
 
 // Dormant migration contract. No current HTTP, MCP, CLI, or dashboard route
 // exposes Access Links; keep these shapes only while retained rows and codecs
@@ -83,7 +82,6 @@ export type AccessLinkResolveRequest = z.infer<typeof AccessLinkResolveRequest>;
 
 export const AccessLinkResolveResponse = z.object({
   agent_view: PublicAgentView,
-  render_mode: RenderMode,
   iframe_src: UrlString,
   title: PlainTextTitle,
 });

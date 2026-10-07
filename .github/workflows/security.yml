@@ -1,7 +1,7 @@
 # Daily and main-branch security attestation, with a weekly Snyk workspace scan.
 # This workflow deliberately does not run on pull_request; PR CI stays fast, and
-# release/deploy workflows run the same `pnpm security:attest` command on the
-# exact commit being published.
+# CLI releases run the same `pnpm security:attest` command on the published
+# commit. Production deploys require CI and report security separately.
 
 name: Security
 
@@ -92,6 +92,13 @@ jobs:
         run: pnpm install --frozen-lockfile --strict-peer-dependencies
 
       - name: Snyk Open Source test
-        run: >-
-          pnpm dlx snyk@latest test --all-projects --severity-threshold=high
-          --remote-repo-url="https://github.com/${{ github.repository }}"
+        run: node scripts/security-snyk.mjs
+
+      - name: Upload Snyk reports and verified mitigation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: snyk-security
+          path: artifacts/security/snyk/**
+          if-no-files-found: error
+          retention-days: 90

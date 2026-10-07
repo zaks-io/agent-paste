@@ -20,14 +20,14 @@ Migration `packages/db/migrations/0010_db_roles.sql` creates `app_role` and `pla
 
 `scripts/migrate.mjs` resolves the migration URL via `packages/db/scripts/credentials.mjs`: the canonical `DATABASE_URL_MIGRATIONS_*` name wins if set, otherwise it falls back to the legacy `*_DATABASE_URL` name (logging a cosmetic deprecation warning). Production still uses the legacy `neondb_owner` URL, so that warning fires on every production migration. Preview uses the canonical name.
 
-| Variable                             | Scope        | Role / purpose                                                             |
-| ------------------------------------ | ------------ | -------------------------------------------------------------------------- |
-| `PREVIEW_DATABASE_URL`               | Preview / PR | Legacy name for the preview `neondb_owner` direct URL; not set in GitHub   |
-| `PRODUCTION_DATABASE_URL`            | Production   | `neondb_owner` direct URL — the only DB secret in the `Production` env     |
-| `DATABASE_URL_MIGRATIONS_PREVIEW`    | Preview / PR | `neondb_owner` direct URL to the `preview` branch; in GitHub `Preview`     |
-| `DATABASE_URL_MIGRATIONS_PRODUCTION` | Production   | Canonical name; no such secret exists today                                |
-| `DATABASE_URL_RUNTIME_PREVIEW`       | Preview      | `app_role` pooled URL behind preview Hyperdrive; in GitHub `Preview`       |
-| `DATABASE_URL_RUNTIME_PRODUCTION`    | Production   | `app_role` direct URL behind production Hyperdrive; in GitHub `Production` |
+| Variable                             | Scope        | Role / purpose                                                                  |
+| ------------------------------------ | ------------ | ------------------------------------------------------------------------------- |
+| `PREVIEW_DATABASE_URL`               | Preview / PR | Legacy name for the preview `neondb_owner` direct URL; not set in GitHub        |
+| `PRODUCTION_DATABASE_URL`            | Production   | `neondb_owner` direct URL — the active migration secret in the `Production` env |
+| `DATABASE_URL_MIGRATIONS_PREVIEW`    | Preview / PR | `neondb_owner` direct URL to the `preview` branch; in GitHub `Preview`          |
+| `DATABASE_URL_MIGRATIONS_PRODUCTION` | Production   | Canonical name; no such secret exists today                                     |
+| `DATABASE_URL_RUNTIME_PREVIEW`       | Preview      | `app_role` pooled URL behind preview Hyperdrive; in GitHub `Preview`            |
+| `DATABASE_URL_RUNTIME_PRODUCTION`    | Production   | `app_role` direct URL behind production Hyperdrive; in GitHub `Production`      |
 
 Do not point Hyperdrive at any migration URL. If a `DATABASE_URL_MIGRATIONS_*` value is set, it must point at the same Neon branch as that environment's Hyperdrive origin; the `pnpm migrate:*` pre-flight guard (`scripts/lib/hyperdrive-branch-guard.mjs`) refuses to migrate on a branch mismatch.
 

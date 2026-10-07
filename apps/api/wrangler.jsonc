@@ -17,7 +17,7 @@
     },
     "traces": {
       "enabled": true,
-      "destinations": ["axiom-traces"]
+      "destinations": ["axiom-traces", "sentry-agent-paste-traces"]
     }
   },
   "upload_source_maps": true,
@@ -114,7 +114,7 @@
       "name": "ARTIFACT_RATE_LIMIT",
       "namespace_id": "1000003",
       "simple": {
-        "limit": 60,
+        "limit": 600,
         "period": 60
       }
     },
@@ -247,7 +247,7 @@
           "name": "ARTIFACT_RATE_LIMIT",
           "namespace_id": "2000003",
           "simple": {
-            "limit": 60,
+            "limit": 600,
             "period": 60
           }
         },
@@ -398,7 +398,7 @@
           "name": "ARTIFACT_RATE_LIMIT",
           "namespace_id": "3000003",
           "simple": {
-            "limit": 60,
+            "limit": 600,
             "period": 60
           }
         },

@@ -1,5 +1,5 @@
-import { type AgentViewLockdownState, inferRenderModeFromEntrypoint } from "@agent-paste/contracts";
-import type { Artifact, BundleStatus, RenderMode, RepositoryOptions, SafetyWarning, StoredFile } from "./types.js";
+import type { AgentViewLockdownState } from "@agent-paste/contracts";
+import type { Artifact, BundleStatus, RepositoryOptions, SafetyWarning, StoredFile } from "./types.js";
 
 const PENDING_BUNDLE_RETRY_SECONDS = 5;
 
@@ -40,7 +40,6 @@ export function buildAgentView(
   contentBaseUrl: string,
   revision: {
     revision_number: number | null;
-    render_mode: RenderMode;
     bundle_status: BundleStatus;
     bundle_status_updated_at: string | null;
     bundle_size_bytes: number | null;
@@ -62,7 +61,6 @@ export function buildAgentView(
     created_at: artifact.created_at,
     expires_at: artifact.expires_at,
     entrypoint: artifact.entrypoint,
-    render_mode: revision.render_mode,
     revision_content_url: `${prefix}/${encodePath(artifact.entrypoint)}`,
     files: files.map((file) => ({
       path: file.path,
@@ -118,7 +116,6 @@ export function buildPublishResult(
   revision: {
     id: string;
     revision_number: number | null;
-    render_mode: RenderMode;
     bundle_status: BundleStatus;
     bundle_status_updated_at: string | null;
     bundle_size_bytes: number | null;
@@ -138,7 +135,6 @@ export function buildPublishResult(
     artifact_updated_at: artifact.updated_at,
     revision_id: revision.id,
     revision_number: revision.revision_number,
-    render_mode: revision.render_mode,
     title: artifact.title,
     private_url: `${webBaseUrl}/v/${encodeURIComponent(artifact.id)}`,
     revision_content_url: revisionContentUrl,
@@ -151,16 +147,3 @@ export function buildPublishResult(
   };
   return uploadSessionId ? { ...result, upload_session_id: uploadSessionId } : result;
 }
-
-// Server-side inference: the shared extension map (single source of truth in
-// contracts, used by the CLI too) with an html fallback for unknown extensions,
-// because a stored Revision must always have a Render Mode.
-function inferRenderMode(entrypoint: string): RenderMode {
-  return inferRenderModeFromEntrypoint(entrypoint) ?? "html";
-}
-
-function resolveRenderMode(persisted: RenderMode | undefined | null, entrypoint: string): RenderMode {
-  return persisted ?? inferRenderMode(entrypoint);
-}
-
-export { inferRenderMode, resolveRenderMode };

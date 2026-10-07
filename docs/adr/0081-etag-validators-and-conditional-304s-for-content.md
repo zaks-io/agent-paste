@@ -1,5 +1,7 @@
 # ETag Validators and Conditional 304s for Content Responses
 
+Status: Cache policy partially superseded by [ADR 0100](./0100-bounded-browser-cache-for-static-assets.md). The uniform no-cache policy below is historical; static assets now have bounded private browser freshness. ETag and authorization-on-network-request decisions remain in force.
+
 The content origin will answer a reload of unchanged artifact bytes with a single zero-body round trip instead of re-downloading the file. A content-gateway token is a deterministic HMAC of its payload, and `exp` is fixed from the artifact's non-null `expires_at`, so the signed URL is stable across reloads for the same `(artifact_id, revision_id, path)`. The browser cache therefore already keys correctly on the URL; what was missing was a validator, so a hard reload or a lapsed `max-age` forced a full re-download.
 
 Every file and bundle 200 carries a strong `ETag` of the form `"{sha256(revision_id "\n" path)}"`. Because a Revision is append-only and immutable ([ADR 0020](./0020-content-caching-by-revision-immutability.md)), `(revision_id, path)` permanently identifies the exact served bytes, so a strong validator is correct. The ETag is computed from the token payload alone, never from R2, so a conditional request can be answered before any read or decrypt. The `noindex` body rewrite does not need to enter the validator: the `noindex` bit is fixed per (immutable) token, so served bytes remain a pure function of `(revision_id, path)` for a given URL.

@@ -8,6 +8,10 @@ declare const process: {
   stderr: { write(value: string): void; isTTY?: boolean };
   stdin: {
     isTTY?: boolean;
+    pause(): void;
+    removeListener(event: "data", listener: (chunk: Uint8Array) => void): void;
+    removeListener(event: "end", listener: () => void): void;
+    removeListener(event: "error", listener: (error: unknown) => void): void;
     on(event: "data", listener: (chunk: Uint8Array) => void): void;
     on(event: "end", listener: () => void): void;
     on(event: "error", listener: (error: unknown) => void): void;
@@ -62,6 +66,7 @@ declare module "node:fs" {
     symlink(target: string, path: string): Promise<void>;
     chmod(path: string, mode: number): Promise<void>;
     rename(oldPath: string, newPath: string): Promise<void>;
+    open(path: string, flags: string): Promise<{ writeFile(data: Uint8Array): Promise<void>; close(): Promise<void> }>;
     unlink(path: string): Promise<void>;
     rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>;
   };

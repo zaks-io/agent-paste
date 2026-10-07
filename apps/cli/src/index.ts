@@ -34,7 +34,9 @@ import {
   writeStdout,
 } from "./cli-args.js";
 import { type Credential, deleteCredential, isCredentialExpired, loadCredential } from "./credentials.js";
+import { download } from "./download.js";
 import { edit } from "./edit.js";
+import { feedback } from "./feedback.js";
 import { HELP_TEXT, PUBLISH_HELP_TEXT, PULL_HELP_TEXT } from "./help.js";
 import { contentTypeForLocalPath } from "./local.js";
 import { login } from "./login.js";
@@ -105,7 +107,7 @@ export async function main(argv = process.argv.slice(2), client?: ApiClient) {
 async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
   switch (command) {
     case "whoami":
-      return output(await client.whoami(), parsed.global);
+      return output({ authenticated: true, ...(await client.whoami()) }, parsed.global);
     case "publish":
       if (booleanFlag(parsed, "ephemeral", false)) {
         return publishEphemeral(parsed);
@@ -115,6 +117,10 @@ async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
       return pull(parsed, client);
     case "edit":
       return edit(parsed, client);
+    case "download":
+      return download(parsed, client);
+    case "feedback":
+      return feedback(parsed, client);
     default:
       throw new Error(`Unknown command: ${command}`);
   }
@@ -126,9 +132,11 @@ const COMMAND_FLAG_NAMES: Record<string, readonly string[]> = {
   login: ["device-code"],
   logout: [],
   whoami: [],
-  publish: ["claim-code", "artifact-id", "title", "entrypoint", "render-mode", "ephemeral"],
+  feedback: [],
+  publish: ["claim-code", "artifact-id", "title", "entrypoint", "ephemeral"],
   pull: ["revision-id"],
   edit: ["edits"],
+  download: ["revision-id", "output"],
   version: [],
   upgrade: [],
 };
@@ -200,7 +208,7 @@ export async function logout(global: GlobalFlags, deps: LogoutDeps = {}) {
   const warn = deps.warn ?? ((message: string) => process.stderr.write(message));
   const stored = await load();
   if (!stored) {
-    return output({ status: "no_credential" }, global, "Not signed in. Nothing to remove.");
+    return output({ status: "no_credential" }, global, "No stored login credential. Nothing to remove.");
   }
   if (isCredentialExpired(stored, deps.now)) {
     await remove();
@@ -330,7 +338,7 @@ async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
 }
 
 async function runPreparedPublish(client: ApiClient, mode: OutputMode, prepared: PreparedPublish) {
-  const { artifactId, explicitRenderMode, files: filesWithDigest, inferred } = prepared;
+  const { artifactId, files: filesWithDigest, inferred } = prepared;
   const parsedArtifactId = artifactId === undefined ? undefined : ArtifactId.safeParse(artifactId);
   const canonicalArtifactId = parsedArtifactId?.success ? parsedArtifactId.data : undefined;
 
@@ -365,7 +373,6 @@ async function runPreparedPublish(client: ApiClient, mode: OutputMode, prepared:
       files: revise ? revise.publishFiles : wholeManifest(),
       title: inferred.title,
       entrypoint: inferred.entrypoint,
-      ...(explicitRenderMode ? { renderMode: explicitRenderMode } : {}),
       ...(artifactId ? { artifactId } : {}),
       ...(revise
         ? {

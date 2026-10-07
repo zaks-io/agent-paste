@@ -33,15 +33,40 @@ agent-paste whoami --json
 agent-paste publish <path> --json
 ```
 
-`whoami` exits 0 even when signed out, so check `authenticated` in its JSON.
-If false, run `agent-paste login` where a browser is available. In a sandbox or
-SSH session, run `agent-paste login --device-code`: it prints a URL and code on
-stderr, and needs network access to WorkOS and the API but no local browser.
-Keep it running until the user approves, then run `whoami` again. An
-`AGENT_PASTE_API_KEY` env var also authenticates and takes precedence over
-stored credentials.
+`whoami` exits 0 with `authenticated: false` when no usable local credential
+exists. A successful response includes Workspace, actor, and scopes. CLI 0.2.6
+and later also return `authenticated: true`; 0.2.5 and earlier omit it on success.
+Publish without another login after a successful response.
+API authentication failures exit 2; HTTP server failures exit 6; transport failures exit 1.
 
-When login is unavailable, or the user asks for accountless publishing:
+## Authentication
+
+For CI, sandboxes, and headless agents, create a key at
+[API Keys](https://app.agent-paste.sh/keys). Its secret is shown once. Inject it
+securely as `AGENT_PASTE_API_KEY` through your CI or sandbox secret configuration.
+An already injected key needs no login. Keep the inherited environment and do
+not print the key or put it in command arguments.
+
+A non-empty `AGENT_PASTE_API_KEY` takes precedence over a saved login credential.
+An invalid, revoked, expired, or wrong-environment key fails with exit 2; the CLI
+does not fall back to saved login. Correct or remove that environment key before
+trying saved credentials or logging in.
+
+Without a usable credential, run `agent-paste login` where a browser is
+available. In a sandbox or SSH session, run `agent-paste login --device-code`.
+It prints a URL and code on stderr, and needs network access to WorkOS and the
+API but no local browser. Keep it running until the user approves, then check
+`whoami` again.
+
+`logout` attempts to revoke the saved login credential, then removes it locally.
+It reports a failed remote revocation. It leaves `AGENT_PASTE_API_KEY` untouched,
+so that key can still authenticate. Revoke environment keys in the dashboard and
+remove them from your secret configuration when they are no longer needed.
+
+Use accountless publishing when no authenticated path is available and static
+output meets the task, or when the user asks for it. `--ephemeral` explicitly
+ignores both the environment key and saved login. It is not an automatic fallback
+for an authentication failure:
 
 ```sh
 agent-paste publish <path> --ephemeral --json
@@ -51,19 +76,21 @@ Return `url`. Ephemeral output also has `claim_url` for the optional keep step.
 
 ## Commands
 
-| Command                                                  | Purpose                                              |
-| -------------------------------------------------------- | ---------------------------------------------------- |
-| `agent-paste login`                                      | Authenticate through the browser.                    |
-| `agent-paste login --device-code`                        | Authenticate from a sandbox or remote shell.         |
-| `agent-paste logout`                                     | Remove the stored credential.                        |
-| `agent-paste whoami --json`                              | Report authentication, Workspace, actor, and scopes. |
-| `agent-paste publish <path>`                             | Publish a new Artifact.                              |
-| `agent-paste publish <path> --artifact-id <artifact-id>` | Revise an Artifact at the same URL.                  |
-| `agent-paste publish <path> --ephemeral`                 | Accountless 24-hour publish.                         |
-| `agent-paste pull <artifact-id> <remote-path>`           | Read one stored file.                                |
-| `agent-paste edit <artifact-id> <path> --edits <file>`   | Apply literal edits and publish a Revision.          |
-| `agent-paste version`                                    | Print the installed version.                         |
-| `agent-paste upgrade`                                    | Install a release tag (standalone binary).           |
+| Command                                                  | Purpose                                                  |
+| -------------------------------------------------------- | -------------------------------------------------------- |
+| `agent-paste login`                                      | Authenticate through the browser.                        |
+| `agent-paste login --device-code`                        | Authenticate from a sandbox or remote shell.             |
+| `agent-paste logout`                                     | Attempt to revoke and remove the saved login credential. |
+| `agent-paste feedback "<body>" [--json]`                 | Report product friction; also accepts piped stdin.       |
+| `agent-paste whoami --json`                              | Report authentication, Workspace, actor, and scopes.     |
+| `agent-paste publish <path>`                             | Publish a new Artifact.                                  |
+| `agent-paste publish <path> --artifact-id <artifact-id>` | Revise an Artifact at the same URL.                      |
+| `agent-paste publish <path> --ephemeral`                 | Accountless 24-hour publish.                             |
+| `agent-paste pull <artifact-id> <remote-path>`           | Read one stored file.                                    |
+| `agent-paste edit <artifact-id> <path> --edits <file>`   | Apply literal edits and publish a Revision.              |
+| `agent-paste download <artifact-id> [--output <file>]`   | Save a Revision as a zip.                                |
+| `agent-paste version`                                    | Print the installed version.                             |
+| `agent-paste upgrade`                                    | Install a release tag (standalone binary).               |
 
 `agent-paste help publish` and `agent-paste help pull` cover flags, JSON
 fields, and recipes.
@@ -105,9 +132,7 @@ followed only when the target stays inside the directory and is not an excluded
 path.
 
 The entrypoint is `index.html`, `index.md`, `README.md`, or the only file. Any
-other multi-file directory needs `--entrypoint <path>`. Pass
-`--render-mode html|markdown|text|image|audio|video` only when inference is
-wrong.
+other multi-file directory needs `--entrypoint <path>`.
 
 ## Output and exit behavior
 
@@ -116,7 +141,7 @@ wrong.
 detection.
 
 Exit codes: `0` success, `1` generic, `2` authentication, `3` quota, `4`
-validation, `5` not found, `6` network or server failure.
+validation, `5` not found, `6` HTTP server failure. Transport failures use `1`.
 
 The package bundles its JavaScript into `dist/index.js`. npm installs the
 matching platform-native filesystem helper for root-bounded local reads.

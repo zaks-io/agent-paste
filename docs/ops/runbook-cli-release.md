@@ -89,6 +89,18 @@ published release.
 The tag is read from `package.json` inside the job; if `version` is not clean
 semver the job fails before creating the release.
 
+The draft job runs `pnpm security:attest` over the whole repository before it
+can create or update the release. This includes development and eval
+dependencies, even when they are absent from the compiled CLI. Production
+deploy does not run this bundle; a successful production deployment alone is
+not evidence that the CLI release gate passed. The CLI's own compiled-bundle
+Grype scan is a separate blocking check.
+
+The temporary `braces@3.0.3` disposition requires the installed, locked depth
+patch to pass runtime verification before it applies. It does not allow an
+unpatched copy or a different advisory, version, dependency path, or scanner
+target. See [AP-456 patch rationale and removal plan](./security-todo.md#braces-depth-patch-ap-456).
+
 ### 3. Review and publish the draft
 
 Open the draft release. Confirm the four binaries, four `*.intoto.jsonl`

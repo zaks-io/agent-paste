@@ -12,7 +12,7 @@ export const EPHEMERAL_DOC: DocsPage = {
       blocks: [
         {
           kind: "paragraph",
-          text: "Check `whoami --json` first; a sandbox can usually still sign in with `login --device-code`. Use `--ephemeral` when login is unavailable or the user asks for accountless publishing.",
+          text: "Check `whoami --json` first. An injected `AGENT_PASTE_API_KEY` or saved credential needs no login. Without a usable credential, a sandbox can use an API key or `login --device-code`. Use `--ephemeral` when no authenticated path is available and static output meets the task, or the user asks for accountless publishing. It explicitly ignores both environment and saved credentials. Do not switch to it automatically after an authentication failure. See [CLI authentication](/docs/cli#api-keys).",
         },
         {
           kind: "paragraph",

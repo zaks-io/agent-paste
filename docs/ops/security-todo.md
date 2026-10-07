@@ -4,10 +4,115 @@ Deferred work tied to the dedicated `.github/workflows/security.yml` security
 workflow ([ADR 0076](../adr/0076-public-open-source-security-posture-and-badges.md)).
 The private-phase gate is implemented; the repo is now public (2026-06-08) with
 CodeQL, secret scanning, Dependabot alerts, and OpenSSF Scorecard live. The
-remaining items below are advisory-only scanner refinements and Snyk triage.
+remaining items below include scanner refinements and Snyk triage.
 The slow scanner bundle lives in `pnpm security:attest` and runs on `main`, the
-daily `Security` workflow, and release/deploy workflows. PR CI intentionally
+daily `Security` workflow, and the CLI release workflow. Production deploy does
+not run or wait for this whole-repository bundle; see
+`.github/workflows/deploy-production.yml`. PR CI intentionally
 stays fast and does not run the full bundle.
+
+## pnpm audit report contract (AP-413)
+
+Use the repository-pinned pnpm 10.34.5. It returns an `advisories` object from
+the supported npm audit service. The policy evaluates the post-ignore advisory
+list, blocks unallowed moderate, high, and critical findings, and rejects
+malformed reports or missing/unknown severities. A retired-endpoint error object
+remains a failure, never an empty successful audit.
+
+`scripts/fixtures/pnpm-audit-moderate.json` records the actual supported report
+shape captured on 2026-10-06 for GHSA-r4xh-jqrq-34v2. Its regression test proves
+that the policy rejects a real moderate advisory. The complete scanner bundle
+still needs the executables configured by the hosted Security workflow.
+
+## Dependency remediation (AP-457)
+
+The 2026-10-06 daily attestation found six advisories across five dependencies.
+The root overrides and lockfile now select these upstream fixes:
+
+| Dependency    | Fixed version | Advisory                                                                                                                                           |
+| ------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| seroval       | 1.6.8         | [GHSA-p6vx-979v-rg4c](https://github.com/advisories/GHSA-p6vx-979v-rg4c), [GHSA-jp82-f5mq-hwhp](https://github.com/advisories/GHSA-jp82-f5mq-hwhp) |
+| shell-quote   | 1.11.0        | [GHSA-pqg4-j6r4-53mv](https://github.com/advisories/GHSA-pqg4-j6r4-53mv)                                                                           |
+| smol-toml     | 1.9.0         | [GHSA-r4xh-jqrq-34v2](https://github.com/advisories/GHSA-r4xh-jqrq-34v2)                                                                           |
+| source-map-js | 1.2.2         | [GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q)                                                                           |
+| sharp         | 0.35.5        | [GHSA-wq5f-xc86-pv6w](https://github.com/advisories/GHSA-wq5f-xc86-pv6w)                                                                           |
+
+Direct payload regressions showed that Seroval 1.6.3 still assimilated callable
+thenables and accepted array-like TypedArray sources. Version 1.6.8 rejects both
+payloads, so the override uses that release rather than the advisory minimum.
+
+Seroval runs in the web dashboard's TanStack serialization path. Shell-quote
+belongs to the eval runner's Daytona SDK. The remaining dependencies support
+repository checks and builds. These fixes do not change scanner thresholds or
+the verified braces mitigation below. Only `source-map-js@1.2.2`, the sole
+fixed release, has a version-scoped exception to pnpm's seven-day release delay.
+
+## Zod request array patch (AP-457)
+
+[SNYK-JS-ZOD-20510278](https://security.snyk.io/vuln/SNYK-JS-ZOD-20510278)
+has no upstream fixed release. Zod validates array items before enforcing `.max()`,
+so the one-MiB body limit still permits substantial error-allocation amplification.
+`patches/zod@4.4.3.patch` enforces each declared array maximum before validating
+items in both runtime module formats. Valid and within-limit invalid requests
+retain their behavior; oversized arrays return one `too_big` error and skip
+refinements. Arrays without a maximum remain outside the mitigation.
+
+The request-schema tests walk API, MCP, agent-auth, live-update, and queue inputs
+and require every array maximum to be at most 100. The attestation and Snyk runner
+build contract dependencies and execute these tests before considering the
+mitigation valid. The verifier checks
+the patch digest, registration, both locks, installed parser digests, consumer
+versions, and actual early rejection. Snyk dispositions match only this advisory,
+version 4.4.3, manifest, and enumerated full dependency path. Six exact paths to
+Zod 3.25.76 in TanStack build tooling receive separate build-only dispositions.
+These config parsers consume inline Vite options and repository `tsr.config.json`,
+not request data. `zod-build-policy.mjs` pins every versioned dependency hop and
+verifies the reviewed config parser bytes before enabling them. Other Zod 3
+paths, dependency upgrades, changed parsers, versions, and advisories block. Raw findings and mitigation evidence are retained.
+
+Remove the patch, verifier, and dispositions when an upstream fix covers these
+inputs. Keep the request bounds and behavioral regressions.
+
+## Braces depth patch (AP-456)
+
+`braces@3.0.3` has no upstream fix for
+[GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
+(`CVE-2026-93687`) as of 2026-10-05. The
+[upstream report](https://github.com/micromatch/braces/issues/70) describes the
+recursive AST walkers exhausting the stack on deeply nested strings.
+`patches/braces@3.0.3.patch` rejects a combined brace/parenthesis parse depth
+above 100 before an AST reaches those walkers. Normal glob patterns and depth
+100 remain supported. Directly supplied, hand-crafted ASTs are outside this
+mitigation; current micromatch and chokidar consumers pass strings.
+
+The patch covers root jscpd, the eval runner's Daytona SDK, and TanStack's
+chokidar paths. Before any scanner disposition, `scripts/lib/braces-patch.mjs`
+checks the registered patch and its digest, both repository and installed pnpm
+locks, every resolved consumer's parser digest/version, rejection through parse,
+compile, expand, and stringify, and an ordinary expansion. Missing or modified
+mitigation fails the attestation and enables no exception. Unreferenced pnpm
+store copies are recorded; an active unpatched reference still fails.
+
+Version-only scanners continue to report 3.0.3. The existing dependency policy
+allows only those two advisory IDs, package/version, enumerated verified
+dependency paths, and the root `pnpm-lock.yaml` target. It preserves raw reports
+and records the verified mitigation as an attestation step. New IDs, versions,
+paths, targets, or failed verification block normally. Remove the patch,
+verifier/disposition, and corresponding regression tests together after an
+upstream release fixes this advisory and the dependency graph is updated.
+
+The Snyk runner applies the same verified patch disposition to
+`SNYK-JS-BRACES-19963945`. It matches each workspace manifest and complete
+versioned dependency path, preserves raw JSON, and requires reports for every
+workspace. Scanner failures, missing workspaces, and unmatched findings fail
+closed. No `.snyk` ignore rules apply.
+
+The local Cloudflare harnesses use HTTP fixtures on `127.0.0.1`. Semgrep's
+`react-insecure-request` rule flags those literals even though it exempts
+`localhost`. Their requests now use `local-cloudflare-request.mjs`, which
+rejects remote hosts and URL credentials and prevents automatic redirects.
+Manual sign-in redirect inspection remains supported. Real HTTP regression
+tests exercise that boundary; no scanner exclusions or suppressions apply.
 
 ## Private phase (do now / when convenient)
 
@@ -36,8 +141,8 @@ stays fast and does not run the full bundle.
 - [x] Promote the local scanner bundle to a blocking attestation path:
       `gitleaks`, `pnpm audit`, Checkov OpenAPI, Trivy with dev deps, Syft SBOM,
       Grype, and Semgrep all write reports under `artifacts/security/` and fail
-      the job on the configured threshold. Daily/main `Security`, production
-      deploy, and CLI release all call the same command so release evidence and
+      the job on the configured threshold. Daily/main `Security` and
+      CLI release call the same command so release evidence and
       daily drift checks cannot diverge. Semgrep records all findings but blocks
       only on `ERROR` severity until the existing INFO/WARNING noise is triaged.
 - [ ] Enable the **Snyk Code (SAST) entitlement** on the Snyk org
@@ -143,8 +248,10 @@ filed off an external credibility review.
 - [ ] Swap the advisory SARIF **artifact** uploads (Trivy, Semgrep) for
       `github/codeql-action/upload-sarif`, and add `security-events: write` to the
       relevant job's `permissions`. Keep the top-level default at `contents: read`.
-- [ ] Promote Snyk Code / Semgrep / Trivy / Grype from advisory to **gating** once
-      their entitlement (Snyk Code) and false-positive surface are characterized.
+- [x] Gate Semgrep ERROR findings and Trivy/Grype medium-or-higher findings in
+      the shared repo attestation. Snyk remains separate while its entitlement
+      and quota issues are unresolved. The standalone CLI bundle's Grype scan
+      is also blocking in `cli-release.yml`.
 - [x] Configure npm **trusted publishing (OIDC)** + provenance for
       `@zaks-io/agent-paste` from a protected release workflow (operator-confirmed
       2026-06-07; replaces long-lived npm tokens).

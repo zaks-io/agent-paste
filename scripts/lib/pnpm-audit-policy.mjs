@@ -9,13 +9,13 @@
  * (pnpm 10.19). This evaluates the post-ignore `advisories` list instead.
  *
  * @param {string} reportJsonText raw stdout of `pnpm audit --json`
- * @param {{ blockedSeverities?: string[], allowedFindings?: Array<{ ghsa: string, module?: string, paths: string[], reason: string }> }} [options]
+ * @param {{ blockedSeverities?: string[], allowedFindings?: Array<{ ghsa: string, module?: string, version?: string, paths: string[], reason: string }> }} [options]
  * @returns {{ status: number, blockedSeverities: string[], advisoryCount: number, blocking: Array<{ id: string, ghsa: string | null, module: string, severity: string, title: string }>, allowed: Array<{ id: string, ghsa: string | null, module: string, severity: string, title: string, paths: string[], reason: string }> }}
  */
 export function evaluatePnpmAuditPolicy(reportJsonText, options = {}) {
   const blockedSeverities = options.blockedSeverities ?? ["moderate", "high", "critical"];
   const allowedFindings = options.allowedFindings ?? [];
-  /** @type {{ advisories?: Record<string, { github_advisory_id?: string, url?: string, module_name?: string, severity?: string, title?: string, findings?: Array<{ paths?: string[] }> }> }} */
+  /** @type {{ advisories?: Record<string, { github_advisory_id?: string, url?: string, module_name?: string, severity?: string, title?: string, findings?: Array<{ version?: string, paths?: string[] }> }> }} */
   let report;
   try {
     report = JSON.parse(reportJsonText);
@@ -35,6 +35,13 @@ export function evaluatePnpmAuditPolicy(reportJsonText, options = {}) {
   const blocking = [];
   const allowed = [];
   for (const [id, advisory] of advisories) {
+    if (
+      typeof advisory !== "object" ||
+      advisory === null ||
+      !["info", "low", "moderate", "high", "critical"].includes(advisory.severity)
+    ) {
+      throw new Error(`pnpm audit advisory ${id} has an invalid severity; failing closed`);
+    }
     if (!blockedSeverities.includes(advisory.severity ?? "")) {
       continue;
     }
@@ -79,6 +86,9 @@ function allowedFindingFor(advisory, allowedFindings) {
     (finding) => finding.ghsa === ghsa && (!finding.module || finding.module === advisory.module_name),
   );
   if (!allowed) {
+    return null;
+  }
+  if (allowed.version && !(advisory.findings ?? []).every((finding) => finding.version === allowed.version)) {
     return null;
   }
   const allowedPaths = new Set(allowed.paths);

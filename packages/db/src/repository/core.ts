@@ -16,6 +16,7 @@ import * as agentAuthWorkflow from "./workflows/agent-auth-workflow.js";
 import * as artifactReferenceWorkflow from "./workflows/artifact-reference-workflow.js";
 import * as cleanupWorkflow from "./workflows/cleanup-workflow.js";
 import * as ephemeralWorkflow from "./workflows/ephemeral-workflow.js";
+import { type SubmitFeedbackInput, submitFeedback } from "./workflows/feedback-workflow.js";
 import * as lockdownWorkflow from "./workflows/lockdown-workflow.js";
 import * as memberArtifactsWorkflow from "./workflows/member-artifacts-workflow.js";
 import * as uploadPublishWorkflow from "./workflows/upload-publish-workflow.js";
@@ -31,6 +32,10 @@ export class RepositoryCore implements Repository {
 
   constructor(uow: UnitOfWork, options: RepositoryOptions) {
     this.ctx = new RepositoryCoreContext(uow, options);
+  }
+
+  async submitFeedback(input: SubmitFeedbackInput) {
+    return submitFeedback(this.ctx, input);
   }
 
   async resolveArtifactReference(input: {

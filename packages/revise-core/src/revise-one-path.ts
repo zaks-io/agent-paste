@@ -2,7 +2,6 @@ import type { PublishFile, PublishInput, PublishOutcome, PublishTransport } from
 import type { AgentView } from "@agent-paste/contracts/agent-view";
 import type { ArtifactFileContent } from "@agent-paste/contracts/artifacts";
 import type { ArtifactId, IdempotencyKey, RevisionId, Sha256Hex } from "@agent-paste/contracts/primitives";
-import type { RenderMode } from "@agent-paste/contracts/revisions";
 import { contentTypeForPath } from "@agent-paste/storage";
 import { type ApplyEditsFailure, applyEdits, type Edit } from "./apply-edits.js";
 import { diffWithSelfCheck } from "./unified-diff-gen.js";
@@ -51,8 +50,6 @@ export type ReviseEditsInput = {
   path: string;
   edits: Edit[];
   idempotencyKey: IdempotencyKey;
-  /** Optional explicit mode; omitted => inherits the base revision's mode at finalize. */
-  renderMode?: RenderMode;
 };
 
 export type ReviseWholeBodyInput = {
@@ -60,7 +57,6 @@ export type ReviseWholeBodyInput = {
   path: string;
   nextText: string;
   idempotencyKey: IdempotencyKey;
-  renderMode?: RenderMode;
 };
 
 export type ReviseResult =
@@ -79,7 +75,7 @@ export type ReviseResult =
  * a non-matching edit, a binary/oversize base, or a missing path all throw `ReviseError`.
  */
 export async function reviseOnePath(deps: ReviseDeps, input: ReviseEditsInput): Promise<ReviseResult> {
-  return revise(deps, input.artifactId, input.path, input.idempotencyKey, input.renderMode, (baseBody) => {
+  return revise(deps, input.artifactId, input.path, input.idempotencyKey, (baseBody) => {
     const applied = applyEdits(baseBody, input.edits);
     if (!applied.ok) {
       throw new ReviseError(applied.reason, `edit ${applied.index} ${applied.reason}`, applied.index);
@@ -95,7 +91,7 @@ export async function reviseOnePath(deps: ReviseDeps, input: ReviseEditsInput): 
  * checks as `reviseOnePath`, minus the edit-application step.
  */
 export async function reviseWholeBody(deps: ReviseDeps, input: ReviseWholeBodyInput): Promise<ReviseResult> {
-  return revise(deps, input.artifactId, input.path, input.idempotencyKey, input.renderMode, () => input.nextText);
+  return revise(deps, input.artifactId, input.path, input.idempotencyKey, () => input.nextText);
 }
 
 // Shared orchestration: read base -> compute next text -> diff -> publish under the
@@ -108,10 +104,9 @@ async function revise(
   artifactId: string,
   path: string,
   idempotencyKey: IdempotencyKey,
-  renderMode: RenderMode | undefined,
   computeNextText: (baseBody: string) => string,
 ): Promise<ReviseResult> {
-  const attempt = (key: IdempotencyKey) => reviseAttempt(deps, artifactId, path, key, renderMode, computeNextText);
+  const attempt = (key: IdempotencyKey) => reviseAttempt(deps, artifactId, path, key, computeNextText);
   try {
     return await attempt(idempotencyKey);
   } catch (error) {
@@ -151,7 +146,6 @@ async function reviseAttempt(
   artifactId: string,
   path: string,
   idempotencyKey: IdempotencyKey,
-  renderMode: RenderMode | undefined,
   computeNextText: (baseBody: string) => string,
 ): Promise<ReviseResult> {
   const base = await deps.reader.readArtifact(artifactId);
@@ -182,7 +176,6 @@ async function reviseAttempt(
     nextBytes,
     resultSha256,
     idempotencyKey,
-    renderMode,
   });
   return { ok: true, noop: false, outcome: await deps.publish(deps.transport, publishInput) };
 }
@@ -197,7 +190,6 @@ async function buildPublishInput(input: {
   nextBytes: Uint8Array;
   resultSha256: string;
   idempotencyKey: IdempotencyKey;
-  renderMode: RenderMode | undefined;
 }): Promise<PublishInput> {
   const { base, path, file, baseText, nextText, nextBytes, resultSha256 } = input;
   const contentType = contentTypeForPath(path);
@@ -237,7 +229,6 @@ async function buildPublishInput(input: {
     artifactId: input.artifactId as ArtifactId,
     baseRevisionId: base.revision_id as RevisionId,
     idempotencyKey: input.idempotencyKey,
-    ...(input.renderMode ? { renderMode: input.renderMode } : {}),
   };
 }
 

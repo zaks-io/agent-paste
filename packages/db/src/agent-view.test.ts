@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildAgentView,
-  buildBundleAvailability,
-  buildFinalizeResult,
-  buildPublishResult,
-  inferRenderMode,
-  resolveRenderMode,
-} from "./agent-view.js";
+import { buildAgentView, buildBundleAvailability, buildFinalizeResult, buildPublishResult } from "./agent-view.js";
 import type { Artifact, SafetyWarning, StoredFile } from "./types.js";
 
 const artifact: Artifact = {
@@ -43,20 +36,17 @@ const file: StoredFile = {
 describe("agent-view helpers", () => {
   it("builds agent view and publish URLs with encoded paths", () => {
     const view = buildAgentView(artifact, "rev_2", [file], "https://content.test/", {
-      render_mode: "markdown",
       bundle_status: "pending",
       bundle_status_updated_at: "2026-01-01T00:00:00.000Z",
       bundle_size_bytes: null,
     });
     expect(view.revision_id).toBe("rev_2");
-    expect(view.render_mode).toBe("markdown");
     expect(view.bundle).toEqual({ status: "pending", retry_after_seconds: 5 });
     expect(view.revision_content_url).toBe("https://content.test/v/art_1.rev_2/docs/read%20me.md");
     expect(view.files[0]?.url).toContain("read%20me.md");
 
     const publishedRevision = {
       id: "rev_2",
-      render_mode: "markdown" as const,
       bundle_status: "pending" as const,
       bundle_status_updated_at: "2026-01-01T00:00:00.000Z",
       bundle_size_bytes: null,
@@ -69,7 +59,6 @@ describe("agent-view helpers", () => {
       }),
     ).toMatchObject({
       upload_session_id: "upl_1",
-      render_mode: "markdown",
       private_url: "https://app.test/v/art_1",
       revision_content_url: "https://content.test/v/art_1.rev_2/docs/read%20me.md",
       agent_view_url: "https://api.test/v1/public/agent-view/art_1.rev_2",
@@ -129,7 +118,6 @@ describe("agent-view helpers", () => {
       [file],
       "https://content.test",
       {
-        render_mode: "html",
         bundle_status: "pending",
         bundle_status_updated_at: null,
         bundle_size_bytes: null,
@@ -175,23 +163,5 @@ describe("agent-view helpers", () => {
         bundle_size_bytes: null,
       }),
     ).toEqual({ status: "disabled" });
-  });
-
-  it.each([
-    ["index.html", "html"],
-    ["README.md", "markdown"],
-    ["notes.markdown", "markdown"],
-    ["photo.png", "image"],
-    ["clip.mp4", "video"],
-    ["audio.mp3", "audio"],
-    ["plain.txt", "text"],
-  ] as const)("infers render mode %s -> %s", (entrypoint, renderMode) => {
-    expect(inferRenderMode(entrypoint)).toBe(renderMode);
-  });
-
-  it("prefers persisted render_mode over entrypoint inference", () => {
-    expect(resolveRenderMode("markdown", "index.html")).toBe("markdown");
-    expect(resolveRenderMode(undefined, "clip.mov")).toBe("video");
-    expect(resolveRenderMode(null, "index.html")).toBe("html");
   });
 });

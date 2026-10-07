@@ -60,7 +60,6 @@ export async function createUploadSession(
     ...(body.title === undefined ? {} : { title: body.title }),
     ...(artifactId === undefined ? {} : { artifact_id: artifactId }),
     ...(body.base_revision_id === undefined ? {} : { base_revision_id: body.base_revision_id }),
-    ...(body.render_mode === undefined ? {} : { render_mode: body.render_mode }),
     ...(body.deleted_paths === undefined ? {} : { deleted_paths: body.deleted_paths }),
   };
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 // End-to-end smoke for the Git-like revision model: Stage 4 intra-file patch
 // reconstruction (ADR 0089) plus Stage 5 agent read-back (ADR 0090). Unlike the
 // unit/integration tests (which use a fake reconstructor), this drives the REAL path:
@@ -16,6 +16,10 @@ import { spawn } from "node:child_process";
 // declared result digest is wrong fails loud with patch_conflict.
 import { createHash } from "node:crypto";
 import { once } from "node:events";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { waitForHarnessHealth } from "./lib/smoke-port.mjs";
@@ -37,6 +41,8 @@ const uploadBaseUrl = isLocal ? `http://127.0.0.1:${uploadPort}` : hosted.upload
 const jobsBaseUrl = isLocal ? `http://127.0.0.1:${jobsPort}` : "";
 const harnessSecret = smokeHarnessSecretFromEnv();
 const serverEntry = fileURLToPath(new URL("./local-mvp-server.mjs", import.meta.url));
+const cliEntry = fileURLToPath(new URL("../apps/cli/dist/index.js", import.meta.url));
+const execFileAsync = promisify(execFile);
 
 function hostedConfig(name) {
   if (name === "local") {
@@ -202,6 +208,9 @@ try {
     `conflict message should name the path: ${conflict.message}`,
   );
 
+  // --- Bundle download through the built CLI, pinned to the superseded base revision. ---
+  const downloaded = await downloadBundleWithCli(base, apiKeySecret, ["index.html", "big.txt"]);
+
   process.stdout.write(`Patch smoke passed (${target}).
 
   Base revision:        ${base.revision_id}
@@ -211,6 +220,7 @@ try {
   Read-back: big.txt body + sha256 matched the stored file.
   Diff-from-read-back: ${readBackDiff.length}-byte diff built from served bytes reconstructed byte-exact.
   Conflict path: ${conflict.code} (${conflict.status}) — "${conflict.message}"
+  CLI download: ${downloaded.size_bytes}-byte zip of ${downloaded.revision_id}.
 
 `);
 } catch (error) {
@@ -227,6 +237,38 @@ try {
       server.kill("SIGKILL");
       await Promise.race([once(server, "exit"), delay(1000)]).catch(() => undefined);
     }
+  }
+}
+
+// The jobs Worker builds the zip after publish, so this also exercises the
+// CLI's pending-bundle wait. Zip entry names are stored uncompressed in headers.
+async function downloadBundleWithCli(publishResult, apiKey, expectedPaths) {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "agent-paste-smoke-download-"));
+  try {
+    const target = path.join(directory, "bundle.zip");
+    const args = ["download", publishResult.artifact_id, "--revision-id", publishResult.revision_id];
+    const { stdout } = await execFileAsync(process.execPath, [cliEntry, ...args, "--output", target, "--json"], {
+      env: {
+        ...process.env,
+        AGENT_PASTE_API_KEY: apiKey,
+        AGENT_PASTE_API_URL: apiBaseUrl,
+        AGENT_PASTE_UPLOAD_URL: uploadBaseUrl,
+        AGENT_PASTE_NO_UPDATE_CHECK: "1",
+      },
+    }).catch((error) => {
+      throw new Error(`CLI download failed: ${error.stderr || error.message}`);
+    });
+    const result = JSON.parse(stdout);
+    const bytes = await readFile(target);
+    assert(result.revision_id === publishResult.revision_id, "download read the requested revision");
+    assert(result.size_bytes === bytes.byteLength, "download reported the written size");
+    assert(bytes.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])), "download wrote a zip");
+    for (const expected of expectedPaths) {
+      assert(bytes.includes(Buffer.from(expected)), `bundle contains ${expected}`);
+    }
+    return result;
+  } finally {
+    await rm(directory, { recursive: true, force: true });
   }
 }
 

@@ -64,7 +64,7 @@ const worker = {
 export default Sentry.withSentry((env: Env) => mcpSentryOptions(env), worker);
 
 export function mcpSentryOptions(env: Env): CloudflareOptions {
-  return sentryOptions(env);
+  return sentryOptions(env, "mcp");
 }
 
 function protectedResourceMetadata(env: Env): Record<string, unknown> {

@@ -118,18 +118,87 @@ denylist keys, requested-path allowlist, and workspace-bound object key before
 reading and decrypting a file. Authorization failures return the generic
 `404 { "code": "not_found" }` response.
 
+## Read rate limits
+
+Content reads allow 600 requests per 60 seconds per Artifact and visitor IP.
+HTML, images, other assets, bundles, HEAD requests, and conditional requests that
+return 304 share this allowance. Capability-host requests also consume a separate
+3,000-request-per-60-second lookup allowance per visitor IP across Artifacts,
+checked before reading the manifest from R2. Visitors sharing an IP share these
+budgets. Both use Cloudflare's approximate, per-edge-location rate-limit bindings,
+not a strict global quota.
+
+These budgets apply in development, standing preview, PR previews, and production.
+The API's Artifact binding uses the same namespace and matching 600-request budget;
+authenticated actor and workspace write limits are separate.
+
+Capability-host lookups select `CAPABILITY_LOOKUP_RATE_LIMIT`, falling back to
+`ARTIFACT_RATE_LIMIT` only if the dedicated binding is absent. An allowed check
+proceeds to the manifest read. A missing selected limiter, denied check, or
+limiter error fails closed with HTTP 429, `rate_limited_artifact`, and
+`Retry-After: 60`. The subsequent Artifact read limiter also fails closed.
+
+Each file counts as a request, so budgets accommodate image-heavy page navigation
+rather than treating a page view as one read. Fresh browser-cached static assets
+make no network request and consume no read budget. Conditional revalidation
+requests still count.
+
 ## Caching
 
-Every successful file response has a strong Revision-and-path `ETag` and
-`Cache-Control: private, no-cache, no-transform`. `no-transform` prevents the
-outer Cloudflare zone from injecting analytics or other markup into uploaded
-HTML. A matching `If-None-Match`, including `*`, returns `304 Not Modified`
-before the R2 read, after authorization, denylist, and rate-limit checks. The
-304 carries the same content type, CSP, ETag, and cache policy as the
-corresponding 200.
+Every successful file response has a strong Revision-and-path `ETag`. Inline
+images (including SVG), CSS, JavaScript, fonts, audio, and video use
+`Cache-Control: private, max-age=3600, must-revalidate, no-transform`. The
+freshness window is capped by the signed token's remaining lifetime; an explicit
+null expiry allows the full 3600 seconds. No freshness is granted at or after
+expiry. HTML, data, text, attachments, and bundles use
+`private, no-cache, no-transform` and revalidate on each load.
 
-Errors use `Cache-Control: no-store`. Revising an Artifact changes validators
-without changing its hostname.
+`private` prevents shared caching of bearer URLs. `no-transform` prevents the
+outer Cloudflare zone from injecting analytics or other markup into uploaded
+HTML. After freshness expires, `must-revalidate` requires a network check before
+reuse, including when offline. A matching `If-None-Match`, including `*`, returns
+`304 Not Modified` before the R2 read, after authorization, denylist, and
+rate-limit checks. The 304 carries the same content type, CSP, ETag, and cache
+policy as the corresponding 200, with freshness recomputed against token expiry.
+HEAD uses the same cache policy as GET.
+
+Revising an Artifact changes validators without changing its hostname. HTML
+reflects the new Revision on navigation, but assets at reused paths can remain
+from the previous Revision for up to one hour. A hard refresh forces asset
+revalidation. Revocation, deletion, lockdown, denylisting, claiming, and retention
+changes take effect on the next network request; already cached static assets
+can retain their previous bytes and security headers until freshness expires,
+up to one hour or the originally signed expiry if sooner. Cached or already
+displayed bytes cannot be recalled.
+
+Errors use `Cache-Control: no-store`. There is no shared CDN or Workers edge
+cache. See [ADR 0100](../adr/0100-bounded-browser-cache-for-static-assets.md).
+
+## Compression
+
+HTML, CSS, JavaScript, JSON, SVG, Markdown, and plain-text files are gzipped by
+the content Worker when the client's `Accept-Encoding` allows gzip. Images,
+audio, video, fonts, PDFs, unknown types, and bundles are always sent as stored.
+The decision depends only on the path's served type and `Accept-Encoding`,
+never on body size, so a conditional request picks the same representation as
+the 200 it revalidates.
+
+In hosted environments Cloudflare rewrites the `Accept-Encoding` header before
+the Worker sees it, so the Worker negotiates on `request.cf.clientAcceptEncoding`,
+the value the client actually sent; a missing value means the client sent none.
+Local and test requests have no `cf` object and use the header. Clients that do
+not list gzip (for example, curl without `--compressed`) receive identity bytes
+with `Content-Length` and the identity `ETag`. The edge does not preserve
+q-values in `clientAcceptEncoding`, so a client that lists gzip with `q=0` still
+receives gzip, and a bare `*` receives identity.
+
+Compressible responses carry `Vary: Accept-Encoding`. The gzip representation
+has its own strong `ETag`; identity `ETag` values are unchanged. Compression
+runs after noindex injection, so the gzipped body is the exact HTML a non-gzip
+request receives. `no-transform` stays on every response, so the zone never
+injects markup. A gzip HEAD advertises `Content-Encoding: gzip` and omits
+`Content-Length`; a 304 omits both. Read events and rate limits still count
+plaintext bytes and requests.
 
 ## Legacy URLs
 

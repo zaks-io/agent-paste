@@ -8,7 +8,11 @@ the current next step named in `project-status.md`; if it names none, refresh
 the issue tracker rather than treating `docs/ops/status/phase-backlog.md` as a
 current queue.
 
-Then: `CONTEXT.md` (domain language), `docs/specs/README.md` (spec reading order), `docs/adr/README.md` (ADR index).
+Then: `CONTEXT.md` (domain language), `docs/specs/features.md` (what is shipped), `docs/specs/README.md` (spec reading order), `docs/adr/README.md` (ADR index).
+
+`project-status.md` records releases and the next step. It is not a capability
+list. When you ship or retire a user-visible feature, update
+`docs/specs/features.md` and the README in the same PR.
 
 **Specs are the current truth; ADRs are the decision trail.** When you need to know how the system behaves now — whether something is enforced, what a table holds, what a route does — read `docs/specs/`. The spec is the consolidated answer so you never have to read N ADRs to reconstruct the latest decision. ADRs record _why_ a decision was made; their conclusions should already be folded into the relevant spec. If a spec and an ADR conflict, the spec wins — but flag the conflict to a human, because it usually means the spec went stale and needs updating. Do not assert "the system doesn't do X" or "X isn't enforced" from an ADR (or from a Drizzle `schema.ts` read) without checking the spec first.
 
@@ -41,16 +45,27 @@ Tell agents to use the CLI when they can run commands, and MCP when they are in
 a hosted tool that can connect to remote MCP but cannot run the CLI. Do not
 recommend any other publish surface for agent workflows.
 
-Run `agent-paste whoami --json` first. Signed-out results exit 0; inspect
-`authenticated: false`. Use `login` locally or `login --device-code` in a
-sandbox. Keep device login running while the human approves the URL and code
-from stderr, then check `whoami` again and publish.
+Run `agent-paste whoami --json` first in the inherited environment. A non-empty
+`AGENT_PASTE_API_KEY` authenticates without login and takes precedence over saved
+credentials. If authenticated, publish directly. A rejected key fails with exit
+2; fix its configuration rather than starting another login or silently
+switching to accountless publishing.
+
+Signed-out results exit 0 with `authenticated: false`. Supply an API key through
+secret configuration, use `login` locally, or use `login --device-code` in a
+sandbox when no credential is available. Keep device login running while the
+human approves the URL and code from stderr, then check `whoami` again and
+publish. Sandbox provisioning may already inject an API key; do not request
+login when it works.
 
 Use `publish <path> --ephemeral` when login is unavailable and static
 accountless output meets the task, or explicitly requested. Return `url` for
 viewing; `claim_url` is the optional ownership step.
 
-Details: [CLI authentication](docs/specs/cli.md#login).
+`logout` attempts to revoke and removes saved login credentials; it leaves
+environment keys alone. `--ephemeral` ignores both environment keys and saved login.
+
+Details: [CLI authentication](docs/specs/cli.md#authentication).
 
 To update existing work, use its artifact ID, such as `01234-56789-abcde-fghjd`,
 with `publish <path> --artifact-id <artifact-id>`, `pull`, or `edit`.

@@ -270,7 +270,6 @@ class MemoryDb {
         revision_number: row.revision_number,
         status: row.status,
         entrypoint: row.entrypoint,
-        render_mode: "html",
         file_count: row.file_count,
         size_bytes: row.size_bytes,
         created_at: "2026-01-01T00:00:00.000Z",

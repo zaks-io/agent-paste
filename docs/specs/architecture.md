@@ -47,8 +47,10 @@ The content Worker owns wildcard routes `*.agent-paste.link/*` in production and
 `agent-paste.sh` redirect old capability hosts to `.link` and preserve the
 explicit product-host forwarding required while that wildcard remains. Unknown
 wildcard hosts fail closed. Capability-manifest lookups have a separate per-IP
-rate limit before the first R2 read, so generated valid-form hostnames cannot
-bypass the artifact limiter.
+3,000-request-per-minute rate limit before the first R2 read, so generated
+valid-form hostnames cannot bypass the 600-request-per-minute Artifact-and-IP
+limiter. See [read rate limits](./content-rendering.md#read-rate-limits) for
+request counting and environment scope.
 
 ## Rendering and CSP
 
@@ -76,3 +78,62 @@ so the publish path does not pay cross-region latency for each database query.
 See [ADR 0094](../adr/0094-capability-url-is-the-artifact-link.md) and
 [ADR 0095](../adr/0095-isolate-active-content-and-restore-ephemeral-execution-policy.md)
 for the direct-origin and isolation decisions.
+
+## Observability
+
+All eight deployable Workers export structured console logs through the
+Cloudflare destination `axiom-logs`. Workers with native tracing enabled
+(`api`, `jobs`, `mcp`, `apex`, `web`, and the dormant `stream`) export traces to
+both `axiom-traces` and `sentry-agent-paste-traces`. Standing preview and
+production inherit these destinations from the root Wrangler config. Generated
+PR previews preserve each Worker's observability settings.
+
+`content` and `upload` disable native traces and invocation logs because their
+request hosts or paths contain bearer credentials. Their application console
+logs remain enabled and sanitized. Their Sentry SDK traces and errors pass
+through the shared `worker-runtime` sanitizers before export. Native Cloudflare
+exports do not pass through these SDK hooks. There is currently no sanitized
+trace exporter to Axiom for these two Workers; enabling native tracing would
+expose capability IDs or signed upload/content tokens.
+
+Every Worker uses the Sentry SDK, enabled only when a non-empty `SENTRY_DSN` is
+bound. Deploy workflows pass this optional provider configuration to the secret
+planner; Web uses the same DSN for its browser SDK. SDK trace sampling defaults
+to `1`. Workers reject invalid non-empty `SENTRY_TRACES_SAMPLE_RATE` values;
+Web and Apex receive the same configured rate. Downstream SDK spans inherit
+the originating sampling decision when trace context is present.
+
+SDK HTTP body capture is explicitly disabled in the HttpServer integration.
+Both error events and transactions use the shared request sanitizer to remove
+bodies, cookies, query strings, and sensitive headers before export.
+
+SDK application traces propagate `sentry-trace`, W3C `traceparent`, and Sentry
+`baggage` to trusted first-party control-plane HTTP destinations. Service-binding
+requests carry the active client span's context explicitly. Named MCP RPC
+receivers use the SDK request wrapper because the pinned SDK does not instrument
+custom Worker entrypoint methods. External providers and uploaded Artifact
+origins do not receive automatic tracing headers.
+
+Queue producers attach optional, bounded `trace_context` metadata after parsing
+the business payload. Jobs restore each message's producing context in its own
+scope, including retries and the bundle DLQ, rather than inheriting the batch
+trace. Legacy messages and malformed optional telemetry start independent
+traces. Only supported Sentry sampling/release baggage is retained; arbitrary
+baggage and transaction names are excluded. Ack/retry behavior is unchanged.
+
+Sanitized SDK spans and warning/error logs identify their Worker with a stable
+`service.name` such as `agent-paste-api`. Browser spans use
+`agent-paste-web-browser` or `agent-paste-apex-browser`. Normal production,
+standing preview, and PR deploys pass the same `SENTRY_RELEASE` to every Worker
+and browser configuration, defaulting to the exact checked-out commit. Web's
+source-map build uses that release too. Trace-linked logs retain their active
+span association after sanitization.
+
+Native Cloudflare exports and SDK application traces are separate tracing
+contexts. Exporting both to Sentry does not join them: Cloudflare currently does
+not propagate native context to external services or expose native trace/span
+IDs through its custom-span API. Native exports remain platform diagnostics;
+the SDK owns supported application trace continuity.
+
+See the [observability runbook](../ops/runbook-observability.md) for destination
+setup, deployed-state verification, and the dated audit of remaining live gaps.

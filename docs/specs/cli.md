@@ -5,6 +5,36 @@ scripts). This spec is the source of truth for how it renders output and signals
 failure. Command behavior itself is in [`features.md`](./features.md); this
 document owns the cross-command output contract.
 
+## Authentication
+
+The CLI accepts a Workspace API key through `AGENT_PASTE_API_KEY` or a saved
+credential created by `agent-paste login`. Both authenticate CLI requests with
+an API key bearer. Browser login is an alternative way to obtain that key.
+
+Create a key in the dashboard's [Keys page](https://app.agent-paste.sh/keys),
+then inject it through your shell, CI, or sandbox secret configuration as
+`AGENT_PASTE_API_KEY`. Keep it out of command arguments, source files, logs,
+and published content. Provisioned sandboxes can already have this variable;
+use the inherited environment without another login.
+
+A non-empty `AGENT_PASTE_API_KEY` takes precedence over saved login credentials.
+An empty variable is treated as absent. A rejected, revoked, expired, or
+wrong-environment key fails with an authentication error and exit code `2`;
+the CLI does not retry with the saved credential. Correct the key configuration
+or deliberately unset it to use saved login. `AGENT_PASTE_API_URL` and
+`AGENT_PASTE_UPLOAD_URL` select alternate service endpoints; the key must belong
+to that environment.
+
+`agent-paste whoami --json` verifies the selected credential with the API and
+returns `authenticated: true` plus Workspace, actor, and scopes from CLI 0.2.6
+onward. CLI 0.2.5
+and older omit `authenticated` on success; successful metadata still means the
+credential is valid. The added boolean keeps JSON schema version `2`.
+When no usable local credential exists,
+it returns `authenticated: false` with exit code `0` without an API request.
+A configured credential that the API rejects produces an error, not this
+signed-out result. Network failures also fail the command.
+
 ## Login
 
 `agent-paste login` uses browser OAuth with a loopback PKCE callback on the
@@ -33,17 +63,54 @@ alternate environments. Token exchange uses the existing token URL override.
 
 ### Agent authentication decisions
 
-- Start with `whoami --json`. Signed-out results exit 0 with
-  `authenticated: false`; authenticated results include Workspace and scopes.
-- Use `login` locally or `login --device-code` in a sandbox. Keep the process
-  running while the human approves the URL and user code from stderr, then
-  check `whoami` again.
-- Existing credentials work without another login. `AGENT_PASTE_API_KEY` takes
-  precedence over stored credentials.
-- Device login needs access to WorkOS and the API, but no local browser. If
-  authentication is unavailable, report the blocker or use `--ephemeral` when
-  accountless static output meets the task. MCP requires OAuth and shell-less
-  host support.
+- Start with `whoami --json` in the inherited environment. If authenticated,
+  publish directly. An injected API key needs no browser or device login.
+- If the command fails, diagnose the configured credential or network. Do not
+  silently start a login or switch to ephemeral publishing.
+- If it exits `0` with `authenticated: false`, supply an API key or use `login`
+  locally or `login --device-code` in a sandbox. Keep device login running while
+  the human approves the URL and user code from stderr, then check `whoami`
+  again. Login saves a credential but does not replace an environment key.
+- If authentication is unavailable, report the blocker or use `--ephemeral`
+  when accountless static output meets the task or is explicitly requested.
+  That flag ignores both the environment key and saved login. MCP requires
+  OAuth and shell-less host support; it does not accept API keys.
+
+## Logout
+
+`agent-paste logout` attempts to revoke the saved login credential on the server,
+then removes it locally. If revocation fails, it warns on stderr and still
+removes the local credential. An expired saved credential is removed locally
+without a revocation request. No saved credential returns
+`{ status: "no_credential" }`.
+
+Logout never unsets or revokes `AGENT_PASTE_API_KEY`. Subsequent commands still
+use that key. Unset it to stop using it in the current shell; revoke it in the
+dashboard's Keys page when it should no longer work anywhere.
+
+## Feedback
+
+`agent-paste feedback "<body>"` reports product friction through `POST /v1/feedback`.
+Without a body argument, it reads UTF-8 text from piped stdin. At an interactive
+terminal, omitting the body fails immediately. The trimmed body must contain
+1 to 10,000 characters. Quote a body with spaces as one argument. Put `--`
+before a body that begins with `--`, after any output flags.
+
+```sh
+agent-paste feedback "Upload retry failed" --json
+cat report.txt | agent-paste feedback --json
+```
+
+Feedback reuses the current environment or saved login credential. Any
+authenticated credential can submit, including a `read`-only credential.
+The CLI attaches `version`, `surface: "cli"`, and `command: "feedback"`;
+it never stores raw command arguments or credentials in context.
+
+Rich and plain output confirm submission without echoing the body or context.
+`--quiet` suppresses confirmation. `--json` returns
+`{ "feedback_id": "fb_...", "schema_version": "2" }` on stdout. Errors go to
+stderr. Validation errors exit `4`, authentication errors `2`, rate limits `3`,
+transport failures `1`, and HTTP server failures `6`, as in the exit-code table.
 
 ## Output modes
 
@@ -164,6 +231,26 @@ empty to delete the matched text. The server's stored sha256 is the source of
 truth; the client is untrusted, so a generator or apply mismatch fails the
 finalize rather than silently shipping wrong bytes.
 
+## Download
+
+`download <artifact-id> [--revision-id <id>] [--output <path>] [--json]` saves
+one Revision's Bundle as a zip. It reads the latest Revision unless
+`--revision-id` is set. The default path is `./<art_id>.zip`; the canonical
+`art_` ID is used because the short artifact ID is the URL's bearer secret.
+
+- The command refuses to overwrite an existing file and checks before any
+  download.
+- A `pending` Bundle is polled on the same Revision at its `retry_after_seconds`
+  for up to 60 seconds. If it is still pending, the command exits `6` with code
+  `bundle_pending` and `retry_after_seconds`.
+- A `failed` or `disabled` Bundle exits `1` without downloading.
+- A missing output directory fails before the wait and download.
+- The zip is created exclusively, so a file that appears at the path during the
+  wait is never replaced. A failed write removes the partial file.
+
+`--json` returns `{ schema_version, artifact_id, revision_id, title, path,
+size_bytes }`.
+
 ## Incremental revise (manifest cache + diffs)
 
 On a revise (`publish <path> --artifact-id <id>`), the CLI sends only what
@@ -203,7 +290,7 @@ exactly one; a multi-file folder with none of those fails and asks for
 `--entrypoint <path>`.
 
 Before `publish --ephemeral` provisions a Workspace, the CLI validates flags,
-title, entrypoint, render-mode inference, file paths, file counts, byte caps, and
+title, entrypoint, file paths, file counts, byte caps, and
 local file readability. `--artifact-id` is invalid with `--ephemeral`; ephemeral
 publishes always create a new Artifact. Artifact titles reject terminal control
 characters before any publish request.
@@ -238,15 +325,15 @@ error's HTTP status, not its `code` — every contract `ErrorCode` maps to a sta
 status is the durable signal. Keep this table in sync with `exitCodeFor` in
 `apps/cli/src/render.ts`.
 
-| Code | Name             | Cause                                                                                     |
-| ---- | ---------------- | ----------------------------------------------------------------------------------------- |
-| 0    | success          | command completed                                                                         |
-| 1    | generic          | any non-`AgentPasteError` failure, or a 4xx outside the buckets below                     |
-| 2    | auth             | HTTP 401/403 (e.g. `not_authenticated`)                                                   |
-| 3    | quota            | HTTP 429 — rate limits and write-allowance (`write_allowance_exceeded`, `rate_limited_*`) |
-| 4    | validation       | HTTP 400/422                                                                              |
-| 5    | not found        | HTTP 404                                                                                  |
-| 6    | network / server | HTTP 5xx                                                                                  |
+| Code | Name                | Cause                                                                                                   |
+| ---- | ------------------- | ------------------------------------------------------------------------------------------------------- |
+| 0    | success             | command completed                                                                                       |
+| 1    | generic / transport | any non-`AgentPasteError` failure, including fetch transport errors, or a 4xx outside the buckets below |
+| 2    | auth                | HTTP 401/403 (e.g. `not_authenticated`)                                                                 |
+| 3    | quota               | HTTP 429 — rate limits and write-allowance (`write_allowance_exceeded`, `rate_limited_*`)               |
+| 4    | validation          | HTTP 400/422                                                                                            |
+| 5    | not found           | HTTP 404                                                                                                |
+| 6    | server              | HTTP 5xx                                                                                                |
 
 `whoami` is the exception scripts most often trip over: a signed-out result is a
 valid auth-state answer, so `whoami --json` exits `0` and emits
@@ -309,9 +396,11 @@ lead with mode choice and exact commands before longer flag descriptions:
 | Signed in       | Durable per-Artifact capability website.                                       | `agent-paste publish <path> --json`                                                                                       | `url`                                              |
 | Accountless 24h | Same capability website with short-lived ownership and an optional claim path. | `agent-paste publish <path> --ephemeral --json` or `agent-paste publish <path> --ephemeral --claim-code <clm_...> --json` | `url`; `claim_url` when the human wants to keep it |
 
-The guide should tell agents to run `whoami --json` first, run `agent-paste
-login` with a browser on the same machine or `login --device-code` in a
-sandbox, wait for human approval, then check `whoami` again. Use `--artifact-id`
+The guide should tell agents to run `whoami --json` first using the inherited
+environment. Explain API key precedence and that a configured key needs no
+login. Only a signed-out result should lead to API key setup or `agent-paste
+login` with a browser on the same machine or `login --device-code` in a sandbox.
+Keep device login running for human approval, then check `whoami` again. Use `--artifact-id`
 when revising an existing Artifact. If copied
 instructions include `--claim-code <clm_...>`, the guide
 must tell agents to preserve it on `publish --ephemeral`; it is for attribution

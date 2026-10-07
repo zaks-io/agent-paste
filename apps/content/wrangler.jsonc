@@ -5,6 +5,7 @@
   "compatibility_date": "2026-05-21",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
+  // Native traces/invocation logs contain bearer URLs; use sanitized Sentry SDK traces.
   "observability": {
     "enabled": true,
     "logs": {
@@ -47,7 +48,7 @@
       "name": "ARTIFACT_RATE_LIMIT",
       "namespace_id": "1000003",
       "simple": {
-        "limit": 60,
+        "limit": 600,
         "period": 60
       }
     },
@@ -55,7 +56,7 @@
       "name": "CAPABILITY_LOOKUP_RATE_LIMIT",
       "namespace_id": "1000006",
       "simple": {
-        "limit": 300,
+        "limit": 3000,
         "period": 60
       }
     }
@@ -119,7 +120,7 @@
           "name": "ARTIFACT_RATE_LIMIT",
           "namespace_id": "2000003",
           "simple": {
-            "limit": 60,
+            "limit": 600,
             "period": 60
           }
         },
@@ -127,7 +128,7 @@
           "name": "CAPABILITY_LOOKUP_RATE_LIMIT",
           "namespace_id": "2000006",
           "simple": {
-            "limit": 300,
+            "limit": 3000,
             "period": 60
           }
         }
@@ -189,7 +190,7 @@
           "name": "ARTIFACT_RATE_LIMIT",
           "namespace_id": "3000003",
           "simple": {
-            "limit": 60,
+            "limit": 600,
             "period": 60
           }
         },
@@ -197,7 +198,7 @@
           "name": "CAPABILITY_LOOKUP_RATE_LIMIT",
           "namespace_id": "3000006",
           "simple": {
-            "limit": 300,
+            "limit": 3000,
             "period": 60
           }
         }

@@ -14,7 +14,8 @@ An authenticated or ephemeral publish is accepted when all of these are true:
 - Preview uses
   `https://{four-groups-of-five-lowercase-base32-symbols}-preview.agent-paste.link/`.
 - A later publish to the same Artifact keeps the hostname and advances the
-  content shown after refresh.
+  HTML shown after refresh. Static assets at reused paths can remain cached for
+  up to one hour, capped by signed expiry; a hard refresh revalidates them.
 - Claiming an ephemeral Artifact keeps the same URL and immediately refreshes
   its manifest with the destination Workspace, copied object keys, and claimed
   retention deadline.
@@ -56,3 +57,20 @@ The release gate includes unit and contract tests, OpenAPI goldens, hosted
 publish smoke, capability-host routing checks, both tier CSPs, a browser run
 that proves claimed inline JavaScript executes, and an ephemeral browser run
 that proves uploaded scripts and forms cannot execute or submit.
+
+## Feedback capture
+
+- An authenticated API key, dashboard member, or MCP member submits through
+  `POST /v1/feedback`; no publish scope is required.
+- The API rejects signed-out callers, revoked or Workspace-lockdown-suspended
+  API keys, malformed input, NUL characters, lone UTF-16 surrogates, and oversized
+  requests before persistence. Authenticated dashboard and MCP members may report feedback or
+  appeal a Workspace lockdown.
+- The row records the authenticated Workspace and actor, snapshotted contact,
+  bounded body/context, `new` status, and an unsuppressed notification flag.
+- A completed idempotent retry returns the original identifier without another
+  row, audit event, or actor rate-limit charge.
+- Local scoped adapters hide foreign rows and throw on foreign insert. The
+  Postgres `app_role` also rejects foreign writes, hides foreign reads, and
+  enforces matching submitter identity and Workspace foreign keys.
+- Capture succeeds independently of the deferred notification and operator UI.

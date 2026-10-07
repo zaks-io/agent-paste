@@ -14,6 +14,15 @@ The `jobs` Worker owns cron discovery and Cloudflare Queue consumers. It imports
 
 Only `bundle-generate-dlq` has a consumer because terminal bundle failure must update public product state to `failed`.
 
+Producers may add optional `trace_context` transport metadata after validating
+the business message. It carries a valid `sentry-trace` header and bounded
+Sentry sampling/release `baggage`, excluding transaction names and arbitrary
+application baggage. Consumers isolate each message's trace, preserve its
+context across retry and DLQ delivery, and mark failed processing spans as errors
+without changing ack/retry semantics. Old messages and malformed optional
+telemetry start independent traces. This metadata is not business authority and
+does not change the versioned job payload schemas.
+
 ## Cron Triggers
 
 | Cron              |           Cadence |             Sweep Cap | Work                                                                                                                                                     |
@@ -60,7 +69,9 @@ Handler behavior:
 - Return idempotently if Revision is retained, Artifact is deleted, or bundle status is `ready` or `disabled`.
 - Build deterministic R2 key per the
   [R2 object key layout](./data-model.md#r2-object-key-layout).
-- Enforce Bundle Size Cap during generation.
+- Deflate entries with text-like served types (HTML, CSS, JavaScript, JSON,
+  SVG, Markdown, plain text); store every other entry as-is.
+- Enforce Bundle Size Cap against the finished zip size during generation.
 - On success, set `bundle_status='ready'`, `bundle_size_bytes`, and `bundle_status_updated_at`.
 - On permanent generation error after queue retries, DLQ consumer sets `bundle_status='failed'`.
 - Bundle state changes do not create Audit Events.

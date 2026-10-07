@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { RevisionId } from "@agent-paste/contracts/primitives";
 import { configDir } from "./credentials.js";
+import { isNotFound } from "./fs-errors.js";
 
 // Per-artifact record of what the CLI last published, so a revise can diff the
 // working dir against it and send only changed/added files + deleted_paths against
@@ -76,10 +77,6 @@ export async function saveManifestCache(artifactId: string, cache: ManifestCache
   await rejectSymlink(filePath);
   await fs.writeFile(filePath, JSON.stringify(cache), { mode: 0o600 });
   await fs.chmod(filePath, 0o600);
-}
-
-function isNotFound(error: unknown): boolean {
-  return typeof error === "object" && error !== null && (error as { code?: string }).code === "ENOENT";
 }
 
 async function rejectSymlink(filePath: string): Promise<void> {

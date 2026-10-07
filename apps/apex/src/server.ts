@@ -6,6 +6,7 @@ import {
   isJsonContentType,
   readBodyTextCapped,
   sentryOptions,
+  tracesSampleRate,
   writeFunnelEvent,
 } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
@@ -20,6 +21,8 @@ export type Env = {
   AGENT_PASTE_ENV?: string;
   ASSETS: { fetch(request: Request): Promise<Response> };
   SENTRY_DSN?: string;
+  SENTRY_RELEASE?: string;
+  SENTRY_TRACES_SAMPLE_RATE?: string;
   CF_WEB_ANALYTICS_TOKEN?: string;
   BILLING_ENABLED?: string;
   FUNNEL_EVENTS?: AnalyticsEngineDataset;
@@ -83,7 +86,7 @@ const worker = {
   },
 };
 
-export default Sentry.withSentry((env: Env) => sentryOptions(env), worker);
+export default Sentry.withSentry((env: Env) => sentryOptions(env, "apex"), worker);
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -205,6 +208,8 @@ function handleClientConfig(request: Request, env: Env, security: Record<string,
     sentry: {
       dsn: env.SENTRY_DSN?.trim() || null,
       environment: env.AGENT_PASTE_ENV ?? "dev",
+      release: env.SENTRY_RELEASE,
+      tracesSampleRate: tracesSampleRate(env.SENTRY_TRACES_SAMPLE_RATE),
     },
   });
   return new Response(request.method === "HEAD" ? null : body, {

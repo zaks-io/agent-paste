@@ -1,32 +1,44 @@
-import type { CloudflareOptions } from "@sentry/cloudflare";
+import { type CloudflareOptions, httpServerIntegration } from "@sentry/cloudflare";
 import { sanitizeSentryLog } from "./logging.js";
 import { sanitizeSentryEvent, sanitizeSentrySpan } from "./sentry-sanitize.js";
 
 export type SentryEnv = {
   SENTRY_DSN?: string;
   SENTRY_TRACES_SAMPLE_RATE?: string;
+  SENTRY_RELEASE?: string;
   AGENT_PASTE_ENV?: string;
 };
 
-// Head-based sampling decides a trace once, at its root, and every downstream
-// service inherits it. A pageload's root is the Worker; a client navigation's root
-// is the browser. Sampling either side lower silently drops whole legs of the other
-// side's traces, so both read this same rate.
+export type WorkerService = "api" | "upload" | "content" | "jobs" | "mcp" | "apex" | "web" | "stream";
+
+// Downstream SDKs inherit the originating sampling decision. A shared default
+// also keeps independently initiated Worker and browser requests consistent.
 const DEFAULT_TRACES_SAMPLE_RATE = 1;
 
 export function tracesSampleRate(configured: string | undefined): number {
-  return normalizedTraceSampleRate(configured) ?? DEFAULT_TRACES_SAMPLE_RATE;
+  const trimmed = configured?.trim();
+  if (!trimmed) return DEFAULT_TRACES_SAMPLE_RATE;
+  const sampleRate = Number(trimmed);
+  if (!Number.isFinite(sampleRate) || sampleRate < 0 || sampleRate > 1) {
+    throw new Error("SENTRY_TRACES_SAMPLE_RATE must be a number between 0 and 1");
+  }
+  return sampleRate;
 }
 
-export function sentryOptions(env: SentryEnv): CloudflareOptions {
+export function sentryOptions(env: SentryEnv, service: WorkerService): CloudflareOptions {
   const normalizedDsn = env.SENTRY_DSN?.trim() ?? "";
   const enabled = normalizedDsn.length > 0;
-  const tracesSampleRate = normalizedTraceSampleRate(env.SENTRY_TRACES_SAMPLE_RATE) ?? DEFAULT_TRACES_SAMPLE_RATE;
+  const sampleRate = tracesSampleRate(env.SENTRY_TRACES_SAMPLE_RATE);
+  const serviceName = `agent-paste-${service}`;
 
   return {
     dsn: normalizedDsn,
     environment: env.AGENT_PASTE_ENV ?? "dev",
+    release: env.SENTRY_RELEASE,
+    initialScope: { tags: { "service.name": serviceName } },
     sendDefaultPii: false,
+    // The pinned HttpServer integration does not consult dataCollection.httpBodies.
+    integrations: [httpServerIntegration({ maxRequestBodySize: "none" })],
     dataCollection: {
       userInfo: false,
       httpBodies: [],
@@ -34,26 +46,34 @@ export function sentryOptions(env: SentryEnv): CloudflareOptions {
     },
     enabled,
     enableLogs: enabled,
-    // Service bindings and named RPC entrypoints are not global fetch, so the SDK's fetch
-    // instrumentation never sees them. This opts the binding proxy in so a call
-    // from web/mcp/stream into api carries sentry-trace/baggage and stays one trace.
+    // SDK binding proxies propagate context independently of global fetch. Named
+    // MCP receivers and Web's raw bindings use explicit request instrumentation.
     enableRpcTracePropagation: true,
+    propagateTraceparent: true,
+    tracePropagationTargets: [
+      /^https:\/\/(?:api|upload|app|mcp)\.(?:preview\.)?agent-paste\.sh\//,
+      /^https:\/\/agent-paste-(?:api|upload|web|mcp)-(?:preview|pr-\d+)\.isaac-a46\.workers\.dev\//,
+      /^https:\/\/(?:agent-paste|ephemeral-provision-gate|write-allowance)\.internal\//,
+      /^http:\/\/(?:localhost|127\.0\.0\.1):\d+\//,
+    ],
     beforeSend: sanitizeSentryEvent,
-    beforeSendSpan: sanitizeSentrySpan,
-    beforeSendLog: (log) =>
-      log.attributes?.["sentry.trace.parent_span_id"] === undefined ? sanitizeSentryLog(log) : null,
-    ...(enabled ? { tracesSampleRate } : {}),
+    beforeSendTransaction: (event) => {
+      const safe = sanitizeSentryEvent(event);
+      return {
+        ...safe,
+        ...(safe.spans
+          ? { spans: safe.spans.map((span) => ({ ...span, data: { ...span.data, "service.name": serviceName } })) }
+          : {}),
+      };
+    },
+    beforeSendSpan: (span) => {
+      const safe = sanitizeSentrySpan(span);
+      return { ...safe, data: { ...safe.data, "service.name": serviceName } };
+    },
+    beforeSendLog: (log) => {
+      const safe = sanitizeSentryLog(log);
+      return safe ? { ...safe, attributes: { ...safe.attributes, "service.name": serviceName } } : null;
+    },
+    ...(enabled ? { tracesSampleRate: sampleRate } : {}),
   };
-}
-
-function normalizedTraceSampleRate(value: string | undefined): number | undefined {
-  const trimmed = value?.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-  const sampleRate = Number(trimmed);
-  if (!Number.isFinite(sampleRate) || sampleRate < 0 || sampleRate > 1) {
-    return undefined;
-  }
-  return sampleRate;
 }

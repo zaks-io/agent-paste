@@ -1,11 +1,14 @@
 import * as Sentry from "@sentry/browser";
 
 export const APEX_CLIENT_CONFIG_PATH = "/__client/config.json";
+const SERVICE_NAME = "agent-paste-apex-browser";
 
 type ApexClientConfig = {
   sentry?: {
     dsn?: string | null | undefined;
     environment?: string | null | undefined;
+    release?: string | undefined;
+    tracesSampleRate?: number | undefined;
   };
 };
 
@@ -35,9 +38,18 @@ async function loadAndInitSentry(fetcher: ConfigFetcher): Promise<void> {
     Sentry.init({
       dsn,
       environment: config.sentry?.environment || "dev",
+      release: config.sentry?.release,
       sendDefaultPii: false,
       integrations: [Sentry.browserTracingIntegration()],
-      tracesSampleRate: 1,
+      tracesSampleRate: config.sentry?.tracesSampleRate ?? 1,
+      propagateTraceparent: true,
+      initialScope: { tags: { "service.name": SERVICE_NAME } },
+      beforeSendSpan: (span) => ({ ...span, data: { ...span.data, "service.name": SERVICE_NAME } }),
+      tracePropagationTargets: [
+        /^\/(?!\/)/,
+        /^https:\/\/(?:api|upload)\.(?:preview\.)?agent-paste\.sh\//,
+        /^https:\/\/agent-paste-(?:api|upload)-(?:preview|pr-\d+)\.isaac-a46\.workers\.dev\//,
+      ],
     });
     initialized = true;
   } catch (error) {

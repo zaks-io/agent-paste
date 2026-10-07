@@ -274,7 +274,7 @@ describe("local publish helpers", () => {
     await expect(walkLocalPath(root)).rejects.toThrow(/per-file limit/);
   });
 
-  it("infers title, entrypoint, and render mode", async () => {
+  it("infers title and entrypoint", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
     await fs.writeFile(path.join(root, "README.md"), "# Hello");
 
@@ -282,29 +282,20 @@ describe("local publish helpers", () => {
     expect(inferPublishOptions(root, files)).toEqual({
       title: path.basename(root),
       entrypoint: "README.md",
-      renderMode: "markdown",
     });
   });
 
   it.each([
-    ["clip.mov", "video"],
-    ["voice.m4a", "audio"],
-    ["sound.ogg", "audio"],
-    ["plain.text", "text"],
-  ] as const)("infers render mode for single-file %s as %s (shared map with the server)", async (name, mode) => {
+    "data.json",
+    "report.pdf",
+    "clip.mov",
+    "Makefile",
+  ])("uses any lone file as the entrypoint: %s", async (name) => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
     await fs.writeFile(path.join(root, name), "bytes");
 
     const files = await walkLocalPath(root);
-    expect(inferPublishOptions(root, files)).toMatchObject({ entrypoint: name, renderMode: mode });
-  });
-
-  it("refuses to infer a render mode for unknown extensions", async () => {
-    const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-paste-"));
-    await fs.writeFile(path.join(root, "data.json"), "{}");
-
-    const files = await walkLocalPath(root);
-    expect(() => inferPublishOptions(root, files)).toThrow(/render mode/);
+    expect(inferPublishOptions(root, files)).toMatchObject({ entrypoint: name });
   });
 
   it("rejects folders without an inferred entrypoint", async () => {

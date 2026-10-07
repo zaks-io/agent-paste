@@ -16,9 +16,10 @@ export function parseArgs(argv: string[]): Parsed {
   const flags = new Map<string, string | boolean>();
   const positionals: string[] = [];
   for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (!arg) {
-      continue;
+    const arg = argv[index] ?? "";
+    if (arg === "--") {
+      positionals.push(...argv.slice(index + 1));
+      break;
     }
     if (arg.startsWith("--")) {
       const raw = arg.slice(2);
@@ -69,16 +70,9 @@ function commandParts(positionals: string[]) {
 }
 
 function takesValue(name: string) {
-  return new Set([
-    "claim-code",
-    "artifact-id",
-    "title",
-    "entrypoint",
-    "render-mode",
-    "name",
-    "revision-id",
-    "edits",
-  ]).has(name);
+  return new Set(["claim-code", "artifact-id", "title", "entrypoint", "name", "revision-id", "edits", "output"]).has(
+    name,
+  );
 }
 
 export function requiredArg(parsed: Parsed, index: number, label: string) {

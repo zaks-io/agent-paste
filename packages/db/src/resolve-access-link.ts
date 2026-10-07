@@ -63,7 +63,6 @@ export async function resolveAccessLinkFromEntities(
     access_link_type: link.type,
     workspace_id: artifact.workspace_id,
     agent_view: agentView,
-    render_mode: revision.render_mode,
     title: agentView.title,
     iframe_src: agentView.revision_content_url,
   };

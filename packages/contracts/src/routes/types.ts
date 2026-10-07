@@ -9,6 +9,7 @@ export type AuthRequirement =
   | "none"
   | "api_key"
   | "api_key_or_mcp_oauth"
+  | "api_key_or_member"
   | "mcp_oauth"
   | "workos_access_token"
   | "operator"

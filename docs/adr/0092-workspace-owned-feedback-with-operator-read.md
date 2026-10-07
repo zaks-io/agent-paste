@@ -1,9 +1,17 @@
 # Workspace-Owned Feedback with Operator-Only Cross-Tenant Read
 
+Amended 2026-10-06: the [current feedback API contract](../specs/api.md#feedback-capture)
+preserves the existing member authentication boundary. Workspace lockdown
+suspends API keys; authenticated dashboard and MCP members may still submit
+reports or appeals under the standard actor and Workspace rate limits. A
+removed Workspace Member no longer resolves to an authenticated member actor.
+Capture ships independently of the planned notifications and operator tools.
+
 We want a low-friction way to capture product **Feedback** from the people and
 agents already using the platform, so day-one pain points are not lost. Two
 submitters were chosen: a **Workspace Member** in the dashboard, and an
-**Agent Credential** through the CLI and MCP. Both already carry an identity and a
+**Agent Credential** through the CLI. Authenticated MCP calls resolve to a
+Workspace Member. Both already carry an identity and a
 `workspace_id`, so neither needs anonymous submission.
 
 That leaves one structural question that is expensive to change later: **who owns a
@@ -92,8 +100,9 @@ product insight only by an Operator under the platform Run Scope.**
 
 ## Abuse response
 
-No feedback-specific ban mechanism is added; the existing escalation ladder already
-covers it, and the auth requirement makes each level apply to feedback for free:
+No feedback-specific ban mechanism is added. Existing actor and Workspace rate
+limits apply to both submitter kinds; credential revocation and Workspace
+lockdown suspend API-key authority:
 
 - **Actor Rate Limit** (above) blunts a looping agent automatically and bounds the
   notification blast.
@@ -101,10 +110,12 @@ covers it, and the auth requirement makes each level apply to feedback for free:
   credential; a revoked key gets `401` on `POST /feedback` like every route.
 - **Platform Lockdown** at `Workspace` scope
   ([ADR 0040](./0040-platform-lockdown-for-operator-initiated-takedown.md)) is the
-  ban hammer: it suspends every **Agent Credential** in the **Workspace** (all keys
-  `401`) and blocks their content. Because `POST /feedback` requires auth, a
-  locked-down **Workspace** cannot file Feedback at all and its notification pipe
-  stops — no extra wiring. It is operator-only and reversible.
+  operator control: it suspends every **Agent Credential** in the **Workspace**
+  (all keys `401`) and blocks their content. Authenticated dashboard and MCP
+  members retain their existing member authority to submit reports or appeals,
+  subject to the actor and Workspace rate limits. Removing a Workspace Member
+  prevents that identity from resolving to a member actor. Lockdown remains
+  operator-only and reversible.
 
 A lighter "feedback-muted" per-workspace state was considered and **rejected for
 now**: it would silently starve the operator's tracker pipe, and the email throttle

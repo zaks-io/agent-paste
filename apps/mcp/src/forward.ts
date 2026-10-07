@@ -6,7 +6,7 @@ import {
   mapMcpProtocolError,
   routeContractById,
 } from "@agent-paste/contracts";
-import { readBodyTextCapped } from "@agent-paste/worker-runtime";
+import { readBodyTextCapped, traceServiceRequest } from "@agent-paste/worker-runtime";
 
 export type ServiceBinding = {
   fetchMcp(request: Request, subject: string, routeId: RouteId): Promise<Response>;
@@ -77,14 +77,14 @@ async function forwardToBinding(input: ForwardToBindingInput): Promise<ForwardTo
 
   let response: Response;
   try {
-    response = await input.binding.fetchMcp(
+    response = await traceServiceRequest(
       new Request(`https://agent-paste.internal${input.path}`, {
         method: input.method,
         headers,
         ...(input.body !== undefined ? { body: input.body } : {}),
       }),
-      input.tokenSub,
-      input.routeId,
+      `MCP ${input.routeId}`,
+      (request) => input.binding.fetchMcp(request, input.tokenSub, input.routeId),
     );
   } catch {
     return {

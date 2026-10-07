@@ -115,13 +115,13 @@ export function signedOutHint(channel: Channel): string {
   const login = commandInvocation(channel, "login");
   const ephemeral = commandInvocation(channel, "publish --ephemeral");
   const deviceLogin = commandInvocation(channel, "login --device-code");
-  return `Not signed in. Run \`${login}\` locally, or \`${deviceLogin}\` in a sandbox. For accountless static output: \`${ephemeral}\`.`;
+  return `No usable credential. Supply AGENT_PASTE_API_KEY, or run \`${login}\` locally or \`${deviceLogin}\` in a sandbox. For accountless static output: \`${ephemeral}\`.`;
 }
 
 export function authHandoffHint(channel: Channel): string {
   const login = commandInvocation(channel, "login");
   const deviceLogin = commandInvocation(channel, "login --device-code");
-  return `Run ${login} locally, or ${deviceLogin} in a sandbox. Use --ephemeral for accountless static output.`;
+  return `Supply AGENT_PASTE_API_KEY, or run ${login} locally or ${deviceLogin} in a sandbox. The environment key overrides saved login. Use --ephemeral for accountless static output.`;
 }
 
 function nag(channel: Channel, latest: string): string | null {

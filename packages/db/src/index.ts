@@ -21,7 +21,6 @@ export {
   verifyAccessLinkSignedBlob,
   verifyAccessLinkSignedBlobWithRing,
 } from "./access-links.js";
-export { inferRenderMode, resolveRenderMode } from "./agent-view.js";
 export {
   type ArtifactBytePurgeHooks,
   type ArtifactBytePurgeInput,
@@ -39,6 +38,7 @@ export {
   parseClaimToken,
   verifyClaimTokenSecret,
 } from "./claim-tokens.js";
+export { resolveFeedbackContact } from "./feedback-contact.js";
 export { createLocalMvpSqlExecutor } from "./local-mvp-sql-executor.js";
 export { createLocalServices, LocalRepository } from "./local-repository.js";
 export type { UsagePolicyConfig } from "./policy.js";
@@ -110,6 +110,7 @@ export type {
   Artifact,
   ClaimToken,
   ContentBlob,
+  Feedback,
   HyperdriveBinding,
   OperationEvent,
   PlatformActor,

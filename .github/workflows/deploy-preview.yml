@@ -81,6 +81,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           # Per ADR 0078: the Preview GitHub environment is the source of truth for
           # secret VALUES. scripts/deploy.mjs injects present values onto each Worker
           # (wrangler secret bulk over stdin). An absent secret injects "" and is treated

@@ -19,10 +19,13 @@ keychain, but does support remote MCP with OAuth. Use the CLI when commands are
 available, and always for folders, binary files, images, audio, video, and
 ephemeral publishing.
 
-If a shell exists but browser OAuth cannot complete there, use
-`agent-paste login --device-code` instead of MCP. See
-[CLI remote login](../apps/cli/README.md#agent-quick-path). MCP is OAuth-only and
-cannot use the CLI's stored credential or `AGENT_PASTE_API_KEY`.
+With a shell, run `agent-paste whoami --json` first. An injected
+`AGENT_PASTE_API_KEY` or saved login credential needs no further login. For
+headless use, create a key at [API Keys](https://app.agent-paste.sh/keys) and
+inject it through your secret configuration. Without a usable credential, use
+`agent-paste login --device-code` if browser OAuth cannot complete locally.
+See [CLI authentication](../apps/cli/README.md#authentication). MCP is OAuth-only
+and cannot use the CLI's stored credential or `AGENT_PASTE_API_KEY`.
 
 ## Connect
 
@@ -51,6 +54,7 @@ Host-specific OAuth and redirect notes:
 
 | Tool                      | Scope             | Purpose                                                                         |
 | ------------------------- | ----------------- | ------------------------------------------------------------------------------- |
+| `feedback`                | none              | Report product friction and return `feedback_id`.                               |
 | `whoami`                  | none              | Authenticated member, Workspace, and scopes.                                    |
 | `publish_artifact`        | `publish`, `read` | Publish a new text Artifact and return its `url`.                               |
 | `add_revision`            | `publish`, `read` | Publish a new body for an existing Artifact at the same `url`. Keeps the title. |
@@ -71,26 +75,43 @@ URL, or a legacy `art_...` ID. Workspace authorization applies to every call.
 ([ADR 0091](./adr/0091-client-side-revise-engine-and-literal-edit-tools.md)).
 Both preserve the title; rename with `update_display_metadata`. A body or edit
 set that reproduces the stored bytes is a no-op: no Revision is minted and the
-call echoes the unchanged link, title, and expiry. `add_revision` inherits the
-base Render Mode unless the call sets one; changing it publishes a fresh
-entrypoint. `multi_edit` takes `artifact_id`, `path`, and an ordered `edits`
+call echoes the unchanged link, title, and expiry. The `render_mode` argument
+only chooses the file the tool writes: `html` writes `index.html`, `markdown`
+writes `index.md`, and `text` writes `content.txt`. Changing it on
+`add_revision` publishes the new file as the entrypoint. `multi_edit` takes `artifact_id`, `path`, and an ordered `edits`
 array of `{ old_string, new_string, replace_all? }`. Each `old_string` must
 match exactly once unless `replace_all` is set; a miss or ambiguous match
 returns `invalid_request` (HTTP 400) naming the edit index, so re-read with
 `read_file` and retry.
 
+## Feedback
+
+Call `feedback` with `{ "body": "Describe the problem" }`. Any authenticated
+member can submit, including a member with only `read`. The tool returns
+`{ "feedback_id": "fb_..." }` and attaches `surface: "mcp"`, the MCP version,
+and `tool: "feedback"` automatically. The tool forwards to the same
+`POST /v1/feedback` route as the CLI through the verified-subject RPC binding.
+
+The input accepts only `body`. Keep secrets out of feedback. A trimmed body
+outside 1 to 10,000 characters or unsupported arguments returns `invalid_params`
+with HTTP 400. The tool uses the same bounded context contract as the API for its
+automatic fields. Repeated calls with the same request ID and arguments reuse the
+derived idempotency key.
+
 ## Scopes
 
 OAuth authenticates the user; scopes come from the Workspace Member record in
-`api`, not from the OAuth token. `whoami` needs no scope. `read` covers
+`api`, not from the OAuth token. `whoami` and `feedback` need no scope. `read` covers
 `list_artifacts`, `read_artifact`, `read_file`, and `list_revisions`. Publishing tools need `publish`
 and `read`; `delete_artifact` and `update_display_metadata` need `publish`. Normal
 members hold both. `admin` exists but no MCP tool needs it.
 
 ## Limits
 
-- Text only. Folders, binary uploads, Bundle download, and ephemeral publishing
-  stay in the CLI; settings, billing, and lockdown stay in the dashboard.
+- Text only. Folders, binary uploads, and ephemeral publishing stay in the CLI;
+  settings, billing, and lockdown stay in the dashboard. `read_artifact` returns
+  the Revision's Bundle download URL once its `bundle.status` is `ready`; the
+  CLI `download` command saves the same zip.
 - Artifact lifetime follows Workspace Auto Deletion. MCP callers do not choose
   TTL.
 

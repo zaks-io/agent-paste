@@ -41,7 +41,7 @@ const authenticateApiKey = createAuthenticateApiKey({
 
 export function createApiAuthResolvers(): AuthResolvers {
   const resolveDatabase = (env: Env) => apiDatabase(env);
-  return {
+  const resolvers: AuthResolvers = {
     async none() {
       return { ok: true, principal: { kind: "none" } } as const;
     },
@@ -53,6 +53,17 @@ export function createApiAuthResolvers(): AuthResolvers {
     },
     mcp_oauth: createMcpOAuthResolver({ resolveDatabase }),
     api_key_or_mcp_oauth: createApiKeyOrMcpOAuthResolver({ authenticateApiKey, resolveDatabase }),
+    async api_key_or_member(context, contract) {
+      const resolveKey = resolvers.api_key;
+      const resolveMcp = resolvers.api_key_or_mcp_oauth;
+      const resolveMember = resolvers.workos_access_token;
+      if (!resolveKey || !resolveMcp || !resolveMember) throw new Error("Missing workspace auth resolver");
+      // Rejected key material must never be sent to the WorkOS token verifier.
+      if (bearerToken(context.req.raw)?.startsWith("ap_")) return resolveKey(context, contract);
+      const auth = await resolveMcp(context, contract);
+      if (auth.ok || auth.code !== "not_authenticated") return auth;
+      return resolveMember(context, contract);
+    },
     async signed_agent_view_token(context: Context) {
       const token = context.req.param("token");
       if (!token) {
@@ -110,6 +121,7 @@ export function createApiAuthResolvers(): AuthResolvers {
       return { ok: true, principal: { kind: "stripe_webhook_signature" } } as const;
     },
   } satisfies AuthResolvers;
+  return resolvers;
 }
 
 export async function authenticateWebIdentity(

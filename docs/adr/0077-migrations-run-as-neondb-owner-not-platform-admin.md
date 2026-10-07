@@ -7,7 +7,7 @@ This was found while fixing [AP-119](https://linear.app/zaks-io/issue/AP-119): a
 ## What is actually true
 
 - **The Neon owner role runs migrations in every environment.**
-  - Production: the `Production` GitHub environment's only database secret is `PRODUCTION_DATABASE_URL`, which is the `neondb_owner` connection. There is no `DATABASE_URL_MIGRATIONS_PRODUCTION` secret.
+  - Production: the `Production` GitHub environment's active migration secret is `PRODUCTION_DATABASE_URL`, which is the `neondb_owner` connection. There is no `DATABASE_URL_MIGRATIONS_PRODUCTION` secret.
   - PR previews: `.github/workflows/pr-preview.yml` migrates with the Neon branch's owner URL (commented in the workflow as "Bootstrap migrations with the Neon owner URL until platform_admin exists on the project").
   - Standing preview / local: `pnpm migrate:preview` resolves to `PREVIEW_DATABASE_URL` (the `neondb_owner` connection to the `preview` Neon branch), mirroring how production uses `PRODUCTION_DATABASE_URL`. **Amended 2026-10-01:** the GitHub `Preview` environment held neither name, so CI Deploy Preview skipped migration; it now holds the canonical `DATABASE_URL_MIGRATIONS_PREVIEW` and the workflow fails without it. See [`runbook-neon-database-roles.md`](../ops/runbook-neon-database-roles.md).
 - **`platform_admin` is not the owner of any table.** On both the `main` and `preview` Neon branches all public tables are owned by `neondb_owner`. `platform_admin` exists (created by `0010_db_roles.sql`) with `BYPASSRLS` and `GRANT ALL`, but `GRANT ALL` does not confer ownership, and Postgres restricts a class of DDL (`ALTER TABLE`, `DROP`, ownership changes) to the owner or a superuser. So `platform_admin` cannot run those statements.

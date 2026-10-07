@@ -298,17 +298,6 @@
             "minLength": 1,
             "maxLength": 4096
           },
-          "render_mode": {
-            "type": "string",
-            "enum": [
-              "html",
-              "markdown",
-              "text",
-              "image",
-              "audio",
-              "video"
-            ]
-          },
           "deleted_paths": {
             "type": "array",
             "items": {
@@ -588,17 +577,6 @@
             "minLength": 1,
             "maxLength": 4096
           },
-          "render_mode": {
-            "type": "string",
-            "enum": [
-              "html",
-              "markdown",
-              "text",
-              "image",
-              "audio",
-              "video"
-            ]
-          },
           "file_count": {
             "type": "integer",
             "minimum": 1
@@ -624,7 +602,6 @@
           "revision_number",
           "status",
           "entrypoint",
-          "render_mode",
           "file_count",
           "size_bytes",
           "created_at",
@@ -667,17 +644,6 @@
                   "minLength": 1,
                   "maxLength": 4096
                 },
-                "render_mode": {
-                  "type": "string",
-                  "enum": [
-                    "html",
-                    "markdown",
-                    "text",
-                    "image",
-                    "audio",
-                    "video"
-                  ]
-                },
                 "file_count": {
                   "type": "integer",
                   "minimum": 1
@@ -703,7 +669,6 @@
                 "revision_number",
                 "status",
                 "entrypoint",
-                "render_mode",
                 "file_count",
                 "size_bytes",
                 "created_at",
@@ -856,17 +821,6 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 4096
-                  },
-                  "render_mode": {
-                    "type": "string",
-                    "enum": [
-                      "html",
-                      "markdown",
-                      "text",
-                      "image",
-                      "audio",
-                      "video"
-                    ]
                   },
                   "deleted_paths": {
                     "type": "array",

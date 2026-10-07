@@ -21,11 +21,24 @@ ${SKILL_INSTALL_CMD}
 npx @zaks-io/agent-paste whoami --json
 \`\`\`
 
-\`whoami\` exits 0 even when signed out, so check \`authenticated\`. If it is
-false, run \`login\` where a browser is available or \`login --device-code\` in a
-sandbox. Device login prints a URL and code on stderr; keep it running until the
-user approves, then run \`whoami\` again. An \`AGENT_PASTE_API_KEY\` env var also
-authenticates and takes precedence over stored credentials.
+\`whoami\` exits 0 with \`authenticated: false\` when no usable local credential
+exists. A successful response identifies the Workspace, actor, and scopes; older
+CLI versions omit \`authenticated\` on success. Publish directly after a successful
+response. An injected \`AGENT_PASTE_API_KEY\` needs no login. Keep the inherited
+environment; never print the key or pass it as a command argument.
+
+For CI or headless setup, create a key at ${APP_BASE_URL}/keys and inject its
+one-time secret as \`AGENT_PASTE_API_KEY\` through sandbox or CI secret
+configuration. A non-empty key takes precedence over saved login. Invalid,
+revoked, expired, or wrong-environment keys fail with exit 2, without trying
+saved login. Correct or remove the environment key before retrying. HTTP server
+failures exit 6; transport failures exit 1. Neither means the agent is signed out.
+
+If \`authenticated\` is false, run \`login\` where a browser is available or
+\`login --device-code\` in a sandbox. Device login prints a URL and code on
+stderr; keep it running until the user approves, then check \`whoami\` again.
+\`logout\` attempts to revoke and removes saved login credentials; it leaves
+the environment key untouched.
 
 Publish:
 
@@ -45,7 +58,10 @@ The artifact ID is the first label of the URL hostname. \`--artifact-id\`,
 \`pull\`, and \`edit\` accept that ID, the \`art_...\` \`artifact_id\` from JSON
 output, or the full URL.
 
-When login is unavailable, or the user asks for accountless publishing:
+Use accountless publishing when no authenticated path is available and static
+output meets the task, or when the user asks for it. \`--ephemeral\` explicitly
+ignores both environment and saved credentials. Do not switch to it
+automatically after an authentication failure:
 
 \`\`\`sh
 npx @zaks-io/agent-paste publish ./path --ephemeral --json
@@ -80,7 +96,8 @@ workers are blocked everywhere.
 
 ## MCP
 
-Connect to \`${MCP_BASE_URL}\` with OAuth and call \`whoami\`.
+Connect to \`${MCP_BASE_URL}\` with OAuth and call \`whoami\`. MCP cannot use
+\`AGENT_PASTE_API_KEY\` or saved CLI credentials.
 
 - Create: \`publish_artifact\`
 - Revise: \`add_revision\` (whole file) or \`multi_edit\` (literal find/replace)

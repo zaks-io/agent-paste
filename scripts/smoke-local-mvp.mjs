@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { waitForHarnessHealth } from "./lib/smoke-port.mjs";
@@ -99,7 +102,24 @@ try {
   };
 
   const whoami = await runCliJson(["whoami", "--json"], apiEnv);
+  assert(whoami.authenticated === true, "whoami confirms API key authentication without login");
   assert(whoami.workspace?.id === provisioned.workspace.id, "whoami resolves the provisioned workspace");
+
+  const feedback = await runCliJson(["feedback", "Local CLI feedback smoke", "--json"], apiEnv);
+  assert(feedback.feedback_id?.startsWith("fb_"), "CLI feedback persists through the authenticated API");
+
+  const oversized = await fetch(`${uploadBaseUrl}/v1/upload-sessions`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${provisioned.api_key.secret}`,
+      "content-type": "application/json",
+      "idempotency-key": "oversized-array-security-smoke",
+    },
+    body: JSON.stringify({ title: "Oversized request", entrypoint: "index.html", files: Array(1000).fill({}) }),
+  });
+  assert(oversized.status === 400, "upload rejects an oversized invalid manifest without a server error");
+  const oversizedError = await oversized.json();
+  assert(oversizedError.error?.code === "invalid_request", "oversized manifest uses the request validation error");
 
   const published = await runCliJson(
     ["publish", "examples/local-harness/site", "--title", "Local harness", "--json"],
@@ -113,6 +133,8 @@ try {
   assert(view.status === 200, `Artifact URL returned ${view.status}`);
   const html = await view.text();
   assert(html.includes("Agent Paste Local"), "Artifact URL served the published HTML");
+
+  await assertBundleDownloads(published, apiEnv);
 
   await assertBytesPurgedAfterDelete(published);
   await assertBytesPurgedAfterExpiry(apiEnv);
@@ -151,6 +173,23 @@ try {
     await Promise.race([once(server, "exit"), delay(1000)]).catch(() => undefined);
   }
   await closeHttpServer(workosServer).catch(() => undefined);
+}
+
+// The jobs bridge builds the zip after publish, so this also covers the CLI's
+// pending-bundle wait. Zip entry names are stored uncompressed in the headers.
+async function assertBundleDownloads(published, env) {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "agent-paste-smoke-download-"));
+  try {
+    const target = path.join(directory, "bundle.zip");
+    const downloaded = await runCliJson(["download", published.artifact_id, "--output", target, "--json"], env);
+    assert(downloaded.revision_id === published.revision_id, "download read the published revision");
+    const bytes = await readFile(target);
+    assert(downloaded.size_bytes === bytes.byteLength, "download reported the written size");
+    assert(bytes.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04])), "download wrote a zip");
+    assert(bytes.includes(Buffer.from("index.html")), "bundle contains index.html");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 }
 
 async function runCliJson(args, env) {

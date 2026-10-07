@@ -1,4 +1,6 @@
 import { SafetyScanMessage } from "@agent-paste/contracts";
+import { withQueueMessageTrace } from "@agent-paste/worker-runtime";
+import * as Sentry from "@sentry/cloudflare";
 import { resolveSqlExecutor } from "../db.js";
 import type { Env, QueueMessage } from "../env.js";
 import { logOpError } from "../op-log.js";
@@ -11,15 +13,18 @@ export async function handleSafetyScanBatch(messages: readonly QueueMessage[], e
   }
 
   for (const message of messages) {
-    try {
-      const payload = SafetyScanMessage.parse(message.body);
-      await processSafetyScanMessage(payload, env, executor);
-      message.ack();
-    } catch (error) {
-      logOpError("queue.safety_scan.failed", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      message.retry();
-    }
+    await withQueueMessageTrace(message.body, "safety-scan", async () => {
+      try {
+        const payload = SafetyScanMessage.parse(message.body);
+        await processSafetyScanMessage(payload, env, executor);
+        message.ack();
+      } catch (error) {
+        Sentry.getActiveSpan()?.setStatus({ code: 2, message: "internal_error" });
+        logOpError("queue.safety_scan.failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        message.retry();
+      }
+    });
   }
 }

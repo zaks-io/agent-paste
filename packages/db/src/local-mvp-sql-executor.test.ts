@@ -16,7 +16,6 @@ function seedPublishedRevision(state: ReturnType<typeof createLocalState>) {
     revision_number: 1,
     status: "published",
     entrypoint: "index.html",
-    render_mode: "html",
     file_count: 1,
     size_bytes: 12,
     bundle_status: "pending",

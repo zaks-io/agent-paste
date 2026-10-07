@@ -30,6 +30,19 @@ tier already excluded from unit coverage. To bring a new file under the gate, ad
 `// @ts-check` to it, list it in `tsconfig.scripts.json`, and make `pnpm typecheck:scripts`
 pass.
 
+## Security checks
+
+`pnpm security:attest` runs the repository scanner bundle.
+`node scripts/security-snyk.mjs` runs the separate Snyk workspace scan. Both
+verify installed dependency patches before applying an exact advisory disposition
+and build contract dependencies before running the structural request-array bounds
+tests, so an install-only checkout can execute the checks.
+The Snyk runner preserves raw reports and the policy decision under
+`artifacts/security/snyk/`; scanner errors and incomplete workspace coverage fail
+closed. Pure report decisions live in `lib/snyk-vulnerability-policy.mjs`; pnpm manifests
+come from the native `displayTargetFile` report field. `lib/zod-build-policy.mjs`
+verifies the six build-only Zod paths and their reviewed config parsers.
+
 ## Worktree Setup
 
 ### `setup-worktree.mjs`
@@ -52,6 +65,19 @@ pnpm setup:worktree -- --dry-run
 pnpm setup:worktree -- --skip-install
 pnpm setup:worktree -- --skip-env
 ```
+
+## Local Cloudflare
+
+`pnpm dev:cloudflare` runs the actual Workers on local workerd, with local
+Postgres/Hyperdrive, persistent R2 and KV, queue consumers, Durable Objects,
+native rate limits, and a WorkOS fixture. `pnpm smoke:local:cloudflare` checks the
+running fleet end to end. Both commands use isolated configuration under
+`.wrangler/local-cloudflare/`; they do not need hosted credentials.
+
+See [the local development spec](../docs/specs/local-dev.md#local-cloudflare-runtime)
+for ports, sandbox previews, persistence, and the pinned Wrangler/Miniflare
+limitations handled by the launcher. The local smoke is separate from the fast
+Node harness used by `pnpm smoke:local`.
 
 ## Hosted Scripts
 

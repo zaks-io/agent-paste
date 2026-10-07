@@ -3,8 +3,10 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { bracesFinding, verifyBracesPatch } from "./lib/braces-patch.mjs";
 import { evaluatePnpmAuditPolicy } from "./lib/pnpm-audit-policy.mjs";
 import { evaluateGrypePolicy, evaluateTrivyPolicy } from "./lib/scanner-vulnerability-policy.mjs";
+import { verifyZodPatch } from "./lib/zod-patch.mjs";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const args = process.argv.slice(2);
@@ -153,8 +155,32 @@ function enforceSemgrepPolicy() {
 }
 
 const allowedDependencyFindings = [];
+try {
+  const verification = verifyBracesPatch(repoRoot);
+  allowedDependencyFindings.push(bracesFinding);
+  runPolicyStep("braces-patch", 0, verification);
+} catch (error) {
+  runPolicyStep("braces-patch", 1, { error: error instanceof Error ? error.message : String(error) });
+}
 
 let verifiedScannerSources = [];
+try {
+  runPolicyStep("zod-patch", 0, verifyZodPatch(repoRoot));
+} catch (error) {
+  runPolicyStep("zod-patch", 1, { error: error instanceof Error ? error.message : String(error) });
+}
+runStep(
+  "request-array-bounds-build",
+  "pnpm",
+  ["exec", "turbo", "run", "build", "--filter=@agent-paste/contracts^...", "--concurrency=2"],
+  { stdoutFile: "request-array-bounds-build.txt" },
+);
+runStep(
+  "request-array-bounds",
+  "pnpm",
+  ["--filter", "@agent-paste/contracts", "exec", "vitest", "run", "src/request-array-bounds.test.ts", "--maxWorkers=2"],
+  { stdoutFile: "request-array-bounds.txt" },
+);
 
 function scannerAllowedFindings() {
   return allowedDependencyFindings.map((finding) => ({
@@ -168,13 +194,23 @@ function scannerAllowedFindings() {
 }
 
 function verifiedSourcesFromPnpmPolicy(policy) {
-  return policy.allowed
-    .filter((finding) => finding.ghsa && finding.module)
+  // Audit still blocks unknown paths. Runtime verification additionally resolves
+  // every workspace consumer, because npm's audit report can deduplicate paths.
+  return allowedDependencyFindings
     .map((finding) => ({
-      vulnerabilityIds: [finding.ghsa],
-      packageName: finding.module,
+      vulnerabilityIds: finding.vulnerabilityIds,
+      packageName: finding.packageName,
       paths: finding.paths,
-    }));
+    }))
+    .concat(
+      policy.allowed
+        .filter((finding) => finding.ghsa && finding.module)
+        .map((finding) => ({
+          vulnerabilityIds: [finding.ghsa],
+          packageName: finding.module,
+          paths: finding.paths,
+        })),
+    );
 }
 
 function enforceTrivyPolicy() {
@@ -261,9 +297,9 @@ runStep("pnpm-audit", "pnpm", ["audit", "--audit-level", "moderate", "--json"], 
       allowedFindings: allowedDependencyFindings.map((finding) => ({
         ghsa: finding.vulnerabilityIds[0],
         module: finding.packageName,
+        version: finding.version,
         paths: finding.paths,
-        reason:
-          "Remaining OpenTelemetry baggage advisory is isolated to Lighthouse's dev-only Sentry 9 dependency; production Sentry resolves @opentelemetry/core >=2.8.0.",
+        reason: finding.reason,
       })),
     });
     verifiedScannerSources = verifiedSourcesFromPnpmPolicy(policy);

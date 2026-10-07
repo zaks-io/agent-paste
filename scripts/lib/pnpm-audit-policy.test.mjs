@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { evaluatePnpmAuditPolicy } from "./pnpm-audit-policy.mjs";
 
@@ -108,11 +109,23 @@ describe("pnpm-audit-policy", () => {
     expect(result.allowed[0]?.ghsa).toBe("GHSA-8988-4f7v-96qf");
   });
 
-  it("treats unknown severity as non-blocking only when not in the blocked list", () => {
-    const result = evaluatePnpmAuditPolicy(report({ 1: { module_name: "x", title: "y" } }), {
-      blockedSeverities: ["unknown"],
-    });
-    expect(result.status).toBe(0);
+  it.each([{}, { severity: "unknown" }, null, "high"])("fails closed on malformed advisory %j", (advisory) => {
+    expect(() => evaluatePnpmAuditPolicy(report({ 1: advisory }))).toThrow(/invalid severity/);
+  });
+
+  it("rejects a real moderate advisory from the supported pnpm report", () => {
+    const fixture = readFileSync(new URL("../fixtures/pnpm-audit-moderate.json", import.meta.url), "utf8");
+    const result = evaluatePnpmAuditPolicy(fixture);
+    expect(result.status).toBe(1);
+    expect(result.blocking).toEqual([
+      expect.objectContaining({ ghsa: "GHSA-r4xh-jqrq-34v2", module: "smol-toml", severity: "moderate" }),
+    ]);
+  });
+
+  it("fails closed on the retired npm endpoint error report", () => {
+    expect(() =>
+      evaluatePnpmAuditPolicy(JSON.stringify({ error: { code: "ERR_PNPM_AUDIT_BAD_RESPONSE", message: "HTTP 410" } })),
+    ).toThrow(/no advisories/);
   });
 
   it("fails closed on non-JSON output", () => {

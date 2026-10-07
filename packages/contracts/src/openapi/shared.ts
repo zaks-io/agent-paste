@@ -33,6 +33,7 @@ import {
   EphemeralProvisionRequest,
   EphemeralProvisionResponse,
 } from "../ephemeral.js";
+import { CreateFeedbackRequest, CreateFeedbackResponse } from "../feedback.js";
 import { LockdownDetail, LockdownListResponse, SetLockdownRequest } from "../lockdown.js";
 import { McpWhoamiResponse } from "../mcp.js";
 import { PublishRevisionRequest, RevisionListResponse, RevisionSummary } from "../revisions.js";
@@ -79,6 +80,8 @@ type RegisterApiSchemasOptions = {
 export function registerApiSchemas(registry: OpenAPIRegistry, options: RegisterApiSchemasOptions = {}): void {
   registerSharedSchemas(registry);
   registerBundleAvailabilitySchemas(registry);
+  registry.register("CreateFeedbackRequest", CreateFeedbackRequest);
+  registry.register("CreateFeedbackResponse", CreateFeedbackResponse);
   registry.register("WhoamiResponse", WhoamiResponse);
   registry.register("McpWhoamiResponse", McpWhoamiResponse);
   registry.register("UsagePolicy", UsagePolicy);
