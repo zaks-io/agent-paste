@@ -275,11 +275,15 @@ called with incorrect this reference`. Example failed revisions:
   environment holds `DATABASE_URL_MIGRATIONS_PREVIEW` (set 2026-10-01; before
   that it held neither name and Deploy Preview silently skipped migration). See
   [`runbook-neon-database-roles.md`](../runbook-neon-database-roles.md).
-- Hyperdrive configs for `api` and `upload` must use `app_role`
-  (`DATABASE_URL_RUNTIME_*`). PR previews resolve separate Neon URLs for migrate vs
-  Hyperdrive in `.github/workflows/pr-preview.yml`.
-- After merging role migrations, update production/preview Hyperdrive configs and
-  rotate GitHub secrets off legacy `PRODUCTION_DATABASE_URL` when ready.
+- The preview and production Hyperdrive configs (shared by `api`, `upload`, and
+  `jobs`) connect as `app_role` (`NOBYPASSRLS`). The `app_role` URLs are stored as
+  `DATABASE_URL_RUNTIME_PREVIEW` / `DATABASE_URL_RUNTIME_PRODUCTION` in the matching
+  GitHub environment. Before 2026-10-01 both configs connected as `neondb_owner`,
+  which has `BYPASSRLS`, so RLS was not enforced in hosted environments (AP-446).
+  PR previews resolve separate Neon URLs for migrate vs Hyperdrive in
+  `.github/workflows/pr-preview.yml`.
+- Rotate the production migration secret off legacy `PRODUCTION_DATABASE_URL`
+  when ready.
 
 ## Observability
 
@@ -310,8 +314,8 @@ lives in the [architecture spec](../../specs/architecture.md#observability).
 
 - Decide whether to add a dedicated admin/operator hostname; no CNAME is needed
   for the current path-based Access gate.
-- Update hosted Hyperdrive configs to `app_role` URLs and store
-  `DATABASE_URL_MIGRATIONS_PRODUCTION` in GitHub Production (operator action).
+- Store `DATABASE_URL_MIGRATIONS_PRODUCTION` in GitHub Production (operator
+  action).
 - Native Workers Observability -> Axiom is live. The older per-Worker Logpush
   design is superseded and kept only as a reference if dedicated datasets are
   needed later.
