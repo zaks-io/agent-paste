@@ -100,6 +100,11 @@ and compiled Linux production publish smoke. The release was published on
 artifacts. The downloaded Linux binary passed checksum and signed provenance
 verification and submitted feedback to production.
 
+The [CLI Advertise Release run 37550721424](https://github.com/zaks-io/agent-paste/actions/runs/37550721424)
+then succeeded for the same SHA. npm latest and both production and preview
+`/v1/public/cli-version` endpoints report `0.2.7`; both endpoints advertise
+`latest = min_supported = 0.2.7`.
+
 - **0.2.2:** `login --device-code` for sandboxes and remote shells. 0.2.1 was
   versioned in the repository but never published.
 - **0.2.3:** accepts an Artifact URL or bare subdomain wherever it takes an
