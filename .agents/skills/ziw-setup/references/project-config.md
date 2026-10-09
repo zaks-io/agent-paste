@@ -62,7 +62,7 @@ Project state: configured issue tracker. This file stores stable configuration o
 - Label docs:
 - Tracker scope: configured team, project, board, or repo route
 - Routing label:
-- Repo-route label: the label that names the target repo (such as `<org>/<repo>`); required before issue-assigned delegation so the agent resolves which repo to clone
+- Repo-route label: the label that names the target repo (such as `<org>/<repo>`); required for repository-scoped dispatch; issue-assigned agents also use it to resolve which repo to clone
 - Triage scope: Todo, configured intake such as Triage, and active or PR-linked
   current issues by default; Linear Backlog only when explicitly requested
 - Linear Backlog state: Backlog
@@ -128,8 +128,7 @@ Project state: configured issue tracker. This file stores stable configuration o
 - Local budget hard stop: stops new local dispatch; remote work continues
 - Local starts below soft stop per tick: 1 unless repo policy says otherwise
 - Startable work criteria: kind-slice, ready state, ready-for-agent, complete
-  body with explicit non-goals, configured required estimate, repo-route label
-  when issue-assigned, no active blockers, no active claim or open PR
+  body with explicit non-goals, configured required estimate, configured repo-route label, no active blockers, no active claim or open PR
 - Done cleanup: remove ready-for-agent or the repo-configured readiness label
   when moving an issue to Done
 - Agent suitability policy: default agent work includes docs, tests, build/CI,
@@ -191,10 +190,16 @@ Project state: configured issue tracker. This file stores stable configuration o
 - Capacity policy:
 - Worker concurrency cap: max active implementation or repair sessions (default
   3 if unset)
-- Worker count policy: count confirmed sessions until they return, stop, fail,
-  or produce a PR. Deduplicate session, issue, and provider handles. Human
-  assignees, open PRs, previews, and abandoned worktrees do not occupy worker
-  slots
+- Worker count policy: count distinct confirmed sessions until provider
+  lifecycle confirms return, stop, or failure. A linked or newly opened PR does
+  not release a live worker. Human assignees, open PRs, previews, and abandoned
+  worktrees do not occupy worker slots by themselves
+- Worker identity policy: canonical v3 handoffs preserve receipt/session IDs
+  separately from tracker issue UUID/key, PR number, and worktree path.
+  Deduplicate confirmed sessions, or receipts without a session, without merging
+  conflicts. Issue, branch, path, PR, and commit matches associate delivery or
+  collisions, not worker count. Started tracker work reserves file footprints
+  even without a confirmed session
 - Partitioned-scope cap semantics: record whether concurrent orchestrator runs
   share one repo-wide worker pool and how they reserve slots
 - Dispatch footprint policy: before fanning out startable work, compare predicted

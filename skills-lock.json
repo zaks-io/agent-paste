@@ -11,7 +11,7 @@
       "source": "zaks-io/skills",
       "sourceType": "github",
       "skillPath": "skills/ziw-code-review/SKILL.md",
-      "computedHash": "1483b33ff65bbadbb4e6f25b29fa45eeeede3d4c6b567b746a9902eef7c48afb"
+      "computedHash": "e3ebb78ed18084a5f66c1875b751904ff6b0802231c9a47ce13862a76611bf4b"
     },
     "ziw-debug": {
       "source": "zaks-io/skills",
@@ -29,25 +29,25 @@
       "source": "zaks-io/skills",
       "sourceType": "github",
       "skillPath": "skills/ziw-implement/SKILL.md",
-      "computedHash": "0fca98abd696605004adf4137e33748ef4ab2c522dd093789cb64afb5279f29d"
+      "computedHash": "c3f8c8dc8f1a9408f61bfe6ac396ff7d4d37323527e9aa8a36256e479ee644d4"
     },
     "ziw-orchestrate": {
       "source": "zaks-io/skills",
       "sourceType": "github",
       "skillPath": "skills/ziw-orchestrate/SKILL.md",
-      "computedHash": "c7f18eab10cc264789a952949ad5d32560d1ecce1c0360475bb504a102c9dc4d"
+      "computedHash": "6afbeb2fee2411697e230c772c13b2f71029e7151942d714a508dd667b9bba2a"
     },
     "ziw-pr": {
       "source": "zaks-io/skills",
       "sourceType": "github",
       "skillPath": "skills/ziw-pr/SKILL.md",
-      "computedHash": "08e864af1e460dd124ea1746c0e11cebf10376ca43640db7173e2041269952c1"
+      "computedHash": "96b3958725100e9ffbba378f03f97465d82caf6e0210f9158c05b9c481673ad9"
     },
     "ziw-setup": {
       "source": "zaks-io/skills",
       "sourceType": "github",
       "skillPath": "skills/ziw-setup/SKILL.md",
-      "computedHash": "76bb65ee4186775e116f89e04b6d16b66d1980af9e020e45bdf09184f23e17e7"
+      "computedHash": "888d546e04b1da8478c45a481a30a1407523e6e3ec26826b85b31d497efba406"
     },
     "ziw-to-issues": {
       "source": "zaks-io/skills",
@@ -59,7 +59,7 @@
       "source": "zaks-io/skills",
       "sourceType": "github",
       "skillPath": "skills/ziw-triage/SKILL.md",
-      "computedHash": "3e3ac650018c5620000d2f24cb653beb0467e591212f707ef88846ebc6c7d156"
+      "computedHash": "bbbf6e5e2882a692ea630d55589ff236d844d896d2bc6c2cd840e1b10c38c32c"
     }
   }
 }
