@@ -69,7 +69,7 @@ describe("build-only Zod advisory dispositions", () => {
     const finding = {
       id: "SNYK-JS-ZOD-20510278",
       name: "zod",
-      version: "3.25.76",
+      version: consumer.version,
       severity: "high",
       from: consumer.expectedPath,
     };
@@ -99,7 +99,8 @@ describe("build-only Zod advisory dispositions", () => {
       ]);
     expect(evaluateSnykPolicy(report(finding.from), options).status).toBe(0);
     expect(
-      evaluateSnykPolicy(report([finding.from[0], "unreviewed-server@1.0.0", "zod@3.25.76"]), options).status,
+      evaluateSnykPolicy(report([finding.from[0], "unreviewed-server@1.0.0", `zod@${consumer.version}`]), options)
+        .status,
     ).toBe(1);
   });
 });

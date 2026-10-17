@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { resolveBracesConsumer } from "./braces-patch.mjs";
+import { verifyZodBuildConsumers, zodBuildConsumers } from "./zod-build-policy.mjs";
 
 const PATCH_PATH = "patches/zod@4.4.3.patch";
 const PATCH_SHA256 = "85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2";
@@ -177,9 +178,19 @@ export function verifyZodPatch(repoRoot) {
       "Missing locked Zod patch",
     );
     const snapshots = lock.split("\nsnapshots:\n")[1] ?? "";
-    const references = [...snapshots.matchAll(/^\s+zod: (.+)$/gm)].map((m) => m[1]);
+    const buildParents = new Set(zodBuildConsumers.map((consumer) => consumer.expectedPath.at(-2)));
+    const references = snapshots.split(/(?=^ {2}\S)/m).flatMap((section) => {
+      const parent = section.match(/^ {2}'?([^'(:\n]+)/)?.[1];
+      return [...section.matchAll(/^\s+zod: (.+)$/gm)].map((match) => ({ parent, version: match[1] }));
+    });
     assert(
-      references.length > 0 && references.every((v) => v === "3.25.76" || v === `4.4.3(patch_hash=${PATCH_SHA256})`),
+      references.length > 0 &&
+        references.every(
+          ({ parent, version }) =>
+            version === "3.25.76" ||
+            version === `4.4.3(patch_hash=${PATCH_SHA256})` ||
+            (version === "4.6.5" && buildParents.has(parent)),
+        ),
       "Unpatched Zod lock reference",
     );
   }
@@ -207,5 +218,6 @@ export function verifyZodPatch(repoRoot) {
     parserSha256: files,
     verifiedCopies: [...verified],
     paths: zodConsumers,
+    build: verifyZodBuildConsumers(repoRoot),
   };
 }

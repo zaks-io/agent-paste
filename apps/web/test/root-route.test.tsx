@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@tanstack/react-router", () => ({
@@ -68,4 +69,16 @@ describe("__root route head", () => {
     expect(metaContent(head, "sentry-trace")).toBe("0011223344556677889900aabbccddee-1122334455667788-1");
     expect(metaContent(head, "baggage")).toBe("sentry-environment=test");
   });
+});
+
+it.each([
+  null,
+  undefined,
+  "<script>alert(1)</script>",
+  { reason: "failed" },
+  new Error("failure"),
+])("renders the error boundary safely for a thrown value: %j", (error) => {
+  const html = renderToStaticMarkup(Route.errorComponent({ error }));
+  expect(html).toContain('<html lang="en">');
+  expect(html).not.toContain("<script>");
 });

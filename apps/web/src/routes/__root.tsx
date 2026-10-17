@@ -89,7 +89,7 @@ function RootDocument({ children }: { children: ReactNode }) {
   );
 }
 
-function RootError({ error }: { error: Error }) {
+function RootError({ error }: { error: unknown }) {
   useEffect(() => {
     captureBrowserException(error);
   }, [error]);
@@ -102,7 +102,7 @@ function RootError({ error }: { error: Error }) {
           <p className="text-base text-muted">An unexpected error occurred. Try refreshing the page.</p>
           {import.meta.env.DEV ? (
             <pre className="font-mono text-sm text-left bg-surface-sunken p-4 rounded-sm overflow-x-auto">
-              {error.message}
+              {error instanceof Error ? error.message : typeof error === "string" ? error : "Unknown error"}
             </pre>
           ) : null}
         </div>

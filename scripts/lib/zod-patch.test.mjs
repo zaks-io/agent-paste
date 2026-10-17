@@ -84,4 +84,25 @@ describe("Zod request array mitigation verification", () => {
       rmSync(path, { recursive: true, force: true });
     }
   });
+
+  it.each([
+    "pnpm-lock.yaml",
+    "node_modules/.pnpm/lock.yaml",
+  ])("rejects unreviewed build Zod references in %s", (file) => {
+    const path = fixture();
+    try {
+      const target = join(path, file);
+      const original = readFileSync(target, "utf8");
+      for (const [parent, version] of [
+        ["unreviewed-runtime@1.0.0", "4.6.5"],
+        ["@tanstack/start-plugin-core@1.171.50", "4.6.5"],
+        ["@tanstack/start-plugin-core@1.171.49", "4.6.6"],
+      ]) {
+        writeFileSync(target, `${original}\n  '${parent}':\n    dependencies:\n      zod: ${version}\n`);
+        expect(() => verifyZodPatch(path)).toThrow("Unpatched Zod lock reference");
+      }
+    } finally {
+      rmSync(path, { recursive: true, force: true });
+    }
+  });
 });
