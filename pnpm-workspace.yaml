@@ -14,12 +14,9 @@ catalog:
   zod: 4.6.6
 
 minimumReleaseAge: 10080
-# Version-scoped exceptions only. Each package has no older fixed release.
-# source-map-js@1.2.2: GHSA-68fv-2mgg-jv7q
-# fast-uri@3.1.9: GHSA-333x-w4r6-6crp, GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr, GHSA-xhq7-xmqj-769h
+# GHSA-68fv-2mgg-jv7q has no older fixed release. Keep the exception version-scoped.
 minimumReleaseAgeExclude:
   - source-map-js@1.2.2
-  - fast-uri@3.1.9
 blockExoticSubdeps: true
 trustPolicy: no-downgrade
 

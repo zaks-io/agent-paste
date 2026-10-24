@@ -44,9 +44,10 @@ payloads, so the override uses that release rather than the advisory minimum.
 Seroval runs in the web dashboard's TanStack serialization path. Shell-quote
 belongs to the eval runner's Daytona SDK. The remaining dependencies support
 repository checks and builds. These fixes do not change scanner thresholds or
-the verified braces mitigation below. Among those fixes, only
-`source-map-js@1.2.2` needed a version-scoped exception to pnpm's seven-day
-release delay.
+the verified braces mitigation below. Only `source-map-js@1.2.2`, the sole
+fixed release, has a version-scoped exception to pnpm's seven-day release delay.
+[`docs/development.md`](../development.md) keeps that delay for every other
+package and version.
 
 ## Zod request array bound (AP-457, AP-484)
 
@@ -56,9 +57,12 @@ Its `capSize` wrapper enforces each declared array maximum before element
 validation, which is the behavior `patches/zod@4.4.3.patch` used to add for
 [SNYK-JS-ZOD-20510278](https://security.snyk.io/vuln/SNYK-JS-ZOD-20510278).
 The root override `zod@>=4.0.0 <5.0.0` = `4.6.6` selects that release for Zod
-4 consumers and does not apply to Zod 3. The catalog pin is the same release. Valid and within-limit invalid requests retain
-their behavior; oversized arrays return one `too_big` error and skip
-refinements. Arrays without a maximum remain outside this bound.
+4 consumers and does not apply to Zod 3. The catalog pin is the same release.
+Valid and within-limit invalid requests retain their behavior; oversized arrays
+return one `too_big` error and skip refinements. Arrays without a maximum
+remain outside this bound. Zod 4.6.6 no longer copies that maximum onto
+`_zod.bag`; the request-bound walker reads the `max_length` check instead.
+That introspection change is limited to the bounds test.
 
 Lighthouse 13.4.1 still resolves Zod 3.25.76 through `puppeteer-core@25.9.0` and
 `chromium-bidi@17.0.2` (`zod@^3.24.1`). `puppeteer-core@25.13.0` is the first
@@ -85,6 +89,13 @@ versions, and advisories block. GHSA-mrhx-c7xc-m3w5 still applies to the
 unresolved Zod 3.25.76 copies in TanStack build tooling and in the Lighthouse
 chain. Neither path is waived. Raw findings and mitigation evidence are
 retained.
+
+`fast-uri@3.1.9` is the first 3.x release that fixes
+[GHSA-w74x-v6f9-j3xg](https://github.com/advisories/GHSA-w74x-v6f9-j3xg) and
+[GHSA-wjr9-j795-jxcr](https://github.com/advisories/GHSA-wjr9-j795-jxcr). It was
+published at 2026-10-19T23:05:26Z, so the 10080-minute age gate makes it
+eligible at 2026-10-26T23:05:26Z. The root override stays on `3.1.8` until then.
+No age exception is added.
 
 ## Braces depth patch (AP-456)
 
