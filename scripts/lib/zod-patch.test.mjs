@@ -56,6 +56,25 @@ describe("Zod request array mitigation verification", () => {
     }
   });
 
+  it("rejects a new production path to Zod 3", () => {
+    const path = fixture();
+    try {
+      const target = join(path, "pnpm-lock.yaml");
+      writeFileSync(
+        target,
+        readFileSync(target, "utf8").replace(
+          "\nsnapshots:\n",
+          "\nsnapshots:\n\n  'production-helper@1.0.0':\n    dependencies:\n      zod: 3.25.76\n",
+        ),
+      );
+      expect(() => verifyZodPatch(path)).toThrow(
+        /Unexpected Zod lock reference 3\.25\.76 from production-helper@1\.0\.0/,
+      );
+    } finally {
+      rmSync(path, { recursive: true, force: true });
+    }
+  });
+
   it.each(["v4/core/schemas.js", "v4/core/schemas.cjs"])("rejects an altered installed %s", (file) => {
     const path = fixture();
     try {

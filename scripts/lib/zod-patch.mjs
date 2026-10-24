@@ -5,10 +5,16 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { resolveBracesConsumer } from "./braces-patch.mjs";
+import { zodBuildConsumers } from "./zod-build-policy.mjs";
 
 const ZOD_VERSION = "4.6.6";
 const BUILD_ZOD_VERSION = "3.25.76";
 const ZOD_OVERRIDE = "zod@>=4.0.0 <5.0.0";
+// Direct parents from the reviewed TanStack build paths, plus Lighthouse's recorded dev snapshot.
+const ZOD3_PARENTS = new Set([
+  ...zodBuildConsumers.map((consumer) => consumer.expectedPath.at(-2)),
+  "chromium-bidi@17.0.2",
+]);
 // Published Zod 4.6.6 parsers. Upstream capSize rejects oversized arrays before element checks.
 const files = {
   "v4/core/schemas.js": "0ee56e8afbae28eeb1060a162ad7e56f0675ee6fb83f0ae56bea2e088f6cdbc0",
@@ -162,6 +168,27 @@ packages/worker-runtime @agent-paste/db>@agent-paste/contracts>zod 4.6.6
     return { workspace, chain: chain.split(">"), version };
   });
 
+function snapshotPackageId(key) {
+  return key.replace(/^['"]|['"]$/g, "").split("(")[0];
+}
+
+/** @param {string} snapshots */
+function zodLockEdges(snapshots) {
+  /** @type {{ parent: string | null, version: string }[]} */
+  const edges = [];
+  let parent = null;
+  for (const line of snapshots.split("\n")) {
+    const header = /^ {2}([^ ].*):$/.exec(line);
+    if (header) {
+      parent = header[1];
+      continue;
+    }
+    const dependency = /^ {6}zod: (.+)$/.exec(line);
+    if (dependency) edges.push({ parent, version: dependency[1] });
+  }
+  return edges;
+}
+
 /** Verify the upstream Zod 4.6.6 parser and every enumerated installed consumer.
  * Zod 3 build tooling stays on 3.25.76; a Zod 4 override must not replace it.
  * @param {string} repoRoot
@@ -181,12 +208,19 @@ export function verifyZodPatch(repoRoot) {
   for (const path of ["pnpm-lock.yaml", "node_modules/.pnpm/lock.yaml"]) {
     const lock = readFileSync(join(repoRoot, path), "utf8");
     assert(!lock.includes("patches/zod@"), "Unexpected locked Zod patch");
-    const snapshots = lock.split("\nsnapshots:\n")[1] ?? "";
-    const references = [...snapshots.matchAll(/^\s+zod: (.+)$/gm)].map((m) => m[1]);
+    const edges = zodLockEdges(lock.split("\nsnapshots:\n")[1] ?? "");
     assert(
-      references.length > 0 && references.every((version) => version === BUILD_ZOD_VERSION || version === ZOD_VERSION),
-      "Unexpected Zod lock reference",
+      edges.some((edge) => edge.version === ZOD_VERSION),
+      "Missing Zod 4 lock reference",
     );
+    for (const edge of edges) {
+      const parent = edge.parent === null ? "" : snapshotPackageId(edge.parent);
+      const allowedZod3 = edge.version === BUILD_ZOD_VERSION && ZOD3_PARENTS.has(parent);
+      assert(
+        edge.version === ZOD_VERSION || allowedZod3,
+        `Unexpected Zod lock reference ${edge.version} from ${parent || "unknown"}`,
+      );
+    }
   }
   const verified = new Set();
   for (const consumer of zodConsumers) {

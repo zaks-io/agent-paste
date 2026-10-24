@@ -85,7 +85,9 @@ for SNYK-JS-ZOD-20510278. Those config parsers consume inline Vite options and
 repository `tsr.config.json`, not request data. `zod-build-policy.mjs` pins
 every versioned dependency hop and verifies the reviewed config parser bytes
 before enabling them. Other Zod 3 paths, dependency upgrades, changed parsers,
-versions, and advisories block. GHSA-mrhx-c7xc-m3w5 still applies to the
+versions, and advisories block. The lock verifier allows Zod 3.25.76 only
+from the reviewed TanStack build parents and the recorded
+`chromium-bidi@17.0.2` dev snapshot. Any other Zod 3 parent fails. GHSA-mrhx-c7xc-m3w5 still applies to the
 unresolved Zod 3.25.76 copies in TanStack build tooling and in the Lighthouse
 chain. Neither path is waived. Raw findings and mitigation evidence are
 retained.
