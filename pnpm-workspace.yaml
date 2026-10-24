@@ -11,12 +11,15 @@ catalog:
   turbo: ^2.9.14
   typescript: ^6.0.3
   vitest: ^4.1.11
-  zod: ^4.4.3
+  zod: 4.6.6
 
 minimumReleaseAge: 10080
-# GHSA-68fv-2mgg-jv7q has no older fixed release. Keep the exception version-scoped.
+# Version-scoped exceptions only. Each package has no older fixed release.
+# source-map-js@1.2.2: GHSA-68fv-2mgg-jv7q
+# fast-uri@3.1.9: GHSA-333x-w4r6-6crp, GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr, GHSA-xhq7-xmqj-769h
 minimumReleaseAgeExclude:
   - source-map-js@1.2.2
+  - fast-uri@3.1.9
 blockExoticSubdeps: true
 trustPolicy: no-downgrade
 
@@ -25,7 +28,6 @@ nodeLinker: isolated
 patchedDependencies:
   '@workos/authkit-tanstack-react-start@0.8.3': patches/@workos__authkit-tanstack-react-start@0.8.3.patch
   braces@3.0.3: patches/braces@3.0.3.patch
-  zod@4.4.3: patches/zod@4.4.3.patch
 
 supportedArchitectures:
   cpu: [x64, arm64]

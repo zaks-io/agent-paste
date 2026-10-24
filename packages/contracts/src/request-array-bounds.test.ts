@@ -10,9 +10,9 @@ import { mcpToolInputSchemas } from "./mcp/tool-schemas.js";
 import { requestSchemas } from "./routes/request-schemas.js";
 import { CreateUploadSessionRequest } from "./uploadSessions.js";
 
-// Array caps must be enforced before items are validated (patches/zod@4.4.3.patch),
-// so an oversized list costs one issue instead of one parse per item. Every array
-// reachable from an external request therefore needs a finite, small maximum.
+// Array caps must be enforced before items are validated. Zod 4.6.6 does that in
+// capSize, so an oversized list costs one issue instead of one parse per item.
+// Every array reachable from an external request therefore needs a finite, small maximum.
 const MAX_REQUEST_ARRAY_ITEMS = 100;
 
 const externalRequestSchemas: Record<string, z.ZodType> = {
@@ -50,6 +50,18 @@ function schemaDef(schema: unknown, path: string): SchemaDef {
   return def;
 }
 
+function arrayMaximum(schema: z.ZodArray): unknown {
+  const bagMaximum = schema._zod.bag.maximum;
+  if (typeof bagMaximum === "number") return bagMaximum;
+  const checks = schema._zod.def.checks;
+  if (!Array.isArray(checks)) return bagMaximum;
+  const maxima = checks.flatMap((check) => {
+    const def = (check as { _zod?: { def?: { check?: string; maximum?: unknown } } })._zod?.def;
+    return def?.check === "max_length" && typeof def.maximum === "number" ? [def.maximum] : [];
+  });
+  return maxima.length === 0 ? bagMaximum : Math.min(...maxima);
+}
+
 function child(def: SchemaDef, key: string, path: string): unknown {
   if (def[key] === undefined) throw new Error(`Missing ${def.type}.${key} at ${path}`);
   return def[key];
@@ -68,7 +80,7 @@ function collectArrayBounds(schema: unknown, path: string, found: ArrayBound[] =
   if (wrapperTypes.has(def.type)) return collectArrayBounds(child(def, "innerType", path), path, found);
   switch (def.type) {
     case "array":
-      found.push({ path, maximum: (schema as z.ZodArray)._zod.bag.maximum });
+      found.push({ path, maximum: arrayMaximum(schema as z.ZodArray) });
       return collectArrayBounds(child(def, "element", path), `${path}[]`, found);
     case "object": {
       const shape = child(def, "shape", path) as Record<string, unknown>;

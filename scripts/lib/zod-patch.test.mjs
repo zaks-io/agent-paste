@@ -18,7 +18,7 @@ import { verifyZodPatch, zodConsumers } from "./zod-patch.mjs";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 function fixture() {
   const path = mkdtempSync(join(tmpdir(), "zod-verification-"));
-  for (const file of ["patches", "pnpm-workspace.yaml", "pnpm-lock.yaml"])
+  for (const file of ["package.json", "patches", "pnpm-workspace.yaml", "pnpm-lock.yaml"])
     cpSync(join(root, file), join(path, file), { recursive: true });
   mkdirSync(join(path, "node_modules/.pnpm"), { recursive: true });
   cpSync(join(root, "node_modules/.pnpm/lock.yaml"), join(path, "node_modules/.pnpm/lock.yaml"));
@@ -38,11 +38,13 @@ describe("Zod request array mitigation verification", () => {
   });
 
   it.each([
-    ["patches/zod@4.4.3.patch", () => "changed"],
-    ["pnpm-workspace.yaml", (text) => text.replace("  zod@4.4.3:", "  zod@4.4.2:")],
-    ["pnpm-lock.yaml", (text) => text.replace("hash: 85a342", "hash: changed")],
-    ["node_modules/.pnpm/lock.yaml", (text) => text.replace("hash: 85a342", "hash: changed")],
+    ["package.json", (text) => text.replace('"zod@>=4.0.0 <5.0.0": "4.6.6"', '"zod@>=4.0.0 <5.0.0": "4.6.5"')],
+    [
+      "pnpm-workspace.yaml",
+      (text) => text.replace("patchedDependencies:\n", "patchedDependencies:\n  zod@4.6.6: patches/zod@4.6.6.patch\n"),
+    ],
     ["pnpm-lock.yaml", (text) => `${text}\n      zod: 4.4.3\n`],
+    ["node_modules/.pnpm/lock.yaml", (text) => `${text}\n      zod: 4.6.5\n`],
   ])("fails closed on altered mitigation configuration in %s", (file, change) => {
     const path = fixture();
     try {

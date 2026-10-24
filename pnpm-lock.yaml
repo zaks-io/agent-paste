@@ -31,8 +31,8 @@ catalogs:
       specifier: ^4.1.11
       version: 4.1.11
     zod:
-      specifier: ^4.4.3
-      version: 4.4.3
+      specifier: 4.6.6
+      version: 4.6.6
 
 overrides:
   '@esbuild-kit/core-utils>esbuild': ^0.25.12
@@ -47,7 +47,7 @@ overrides:
   brace-expansion: 5.0.12
   browserslist: 4.28.8
   esbuild: 0.28.1
-  fast-uri: 3.1.8
+  fast-uri: 3.1.9
   js-yaml: 4.3.2
   jsdom>ws: ^8.21.0
   knip>smol-toml: 1.9.0
@@ -63,8 +63,9 @@ overrides:
   shell-quote: 1.11.0
   source-map-js: 1.2.2
   typed-rest-client>qs: 6.16.0
-  undici: 7.29.1
+  undici: 7.30.1
   valibot: 1.4.2
+  zod@>=4.0.0 <5.0.0: 4.6.6
 
 patchedDependencies:
   '@workos/authkit-tanstack-react-start@0.8.3':
@@ -73,9 +74,6 @@ patchedDependencies:
   braces@3.0.3:
     hash: 36ee6956e6eb776c159142f683631b4c638917ebf5d04a6a61f9771a119eaa60
     path: patches/braces@3.0.3.patch
-  zod@4.4.3:
-    hash: 85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2
-    path: patches/zod@4.4.3.patch
 
 importers:
 
@@ -379,10 +377,10 @@ importers:
         version: 0.207.0
       '@openrouter/ai-sdk-provider':
         specifier: ^2.9.1
-        version: 2.9.1(ai@6.0.208(zod@4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2)))(zod@4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2))
+        version: 2.9.1(ai@6.0.208(zod@4.6.6))(zod@4.6.6)
       ai:
         specifier: ^6.0.208
-        version: 6.0.208(zod@4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2))
+        version: 6.0.208(zod@4.6.6)
       ink:
         specifier: ^7.1.0
         version: 7.1.0(@types/react@19.2.17)(react@19.2.7)
@@ -394,7 +392,7 @@ importers:
         version: 2.9.0
       zod:
         specifier: 'catalog:'
-        version: 4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2)
+        version: 4.6.6
     devDependencies:
       '@types/node':
         specifier: ^24.12.4
@@ -452,7 +450,7 @@ importers:
         version: 4.13.9
       zod:
         specifier: 'catalog:'
-        version: 4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2)
+        version: 4.6.6
     devDependencies:
       '@electric-sql/pglite':
         specifier: ^0.4.5
@@ -752,10 +750,10 @@ importers:
         version: link:../tokens
       '@asteasolutions/zod-to-openapi':
         specifier: ^8.5.0
-        version: 8.5.0(zod@4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2))
+        version: 8.5.0(zod@4.6.6)
       zod:
         specifier: 'catalog:'
-        version: 4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2)
+        version: 4.6.6
     devDependencies:
       typescript:
         specifier: 'catalog:'
@@ -1019,13 +1017,13 @@ packages:
     resolution: {integrity: sha512-Ebs+7iS9zUgJu5B0RlxM2JmDWzq79Cpd6YdiqcCzB5qFdpfQJPUDiXutqlQP89F2XGjOdDeidulBTXUdXWzOxw==}
     engines: {node: '>=18'}
     peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
+      zod: 4.6.6
 
   '@ai-sdk/provider-utils@4.0.30':
     resolution: {integrity: sha512-VO7I+vPffqI5sMnPoUq5DCSqKIgQIk/naJWRdQVpz2ma2zoprC/lqiJiUEl2s6DfvTD76TbhD3q39ROjlA6rGw==}
     engines: {node: '>=18'}
     peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
+      zod: 4.6.6
 
   '@ai-sdk/provider@3.0.10':
     resolution: {integrity: sha512-Q3BZ27qfpYqnCYGvE3vt+Qi6LGOF9R5Nmzn+9JoM1lCRsD9mYaIhfJLkSunN48nfGXJ6n+XNV0J/XVpqGQl7Dw==}
@@ -1052,7 +1050,7 @@ packages:
   '@asteasolutions/zod-to-openapi@8.5.0':
     resolution: {integrity: sha512-SABbKiObg5dLRiTFnqiW1WWwGcg1BJfmHtT2asIBnBHg6Smy/Ms2KHc650+JI4Hw7lSkdiNebEGXpwoxfben8Q==}
     peerDependencies:
-      zod: ^4.0.0
+      zod: 4.6.6
 
   '@aws-sdk/checksums@3.1000.29':
     resolution: {integrity: sha512-Dtu0gr4dnATZAPwEYbpCsG+MpLM7OAliy2gTepEFQwl1vZ6DL3QMH2FveMa3HLvPsOdhJsPRB3KtxVhph9T75A==}
@@ -2330,7 +2328,7 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       ai: ^6.0.0
-      zod: ^3.25.0 || ^4.0.0
+      zod: 4.6.6
 
   '@opentelemetry/api-logs@0.214.0':
     resolution: {integrity: sha512-40lSJeqYO8Uz2Yj7u94/SJWE/wONa7rmMKjI1ZcIjgf3MHNHv1OZUCrCETGuaRF62d5pQD1wKIW+L4lmSMTzZA==}
@@ -3692,7 +3690,7 @@ packages:
     resolution: {integrity: sha512-STz+AaZqJ4ZjH7UkpXkbHx+bjgIDOsE8fIUoZjkZ2whoZcfVmG9K/TqEKouJZ03SuZuD7lagntlU3zBhAEkRpQ==}
     engines: {node: '>=18'}
     peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
+      zod: 4.6.6
 
   ajv@8.18.0:
     resolution: {integrity: sha512-PlXPeEWMXMZ7sPYOHqmDyCJzcfNrUr3fGNKtezX14ykXOEIvyK81d+qydx89KY5O71FKMPaQ2vBfBFI5NHR63A==}
@@ -4353,8 +4351,8 @@ packages:
   fast-string-width@3.0.2:
     resolution: {integrity: sha512-gX8LrtNEI5hq8DVUfRQMbr5lpaS4nMIWV+7XEbXk2b8kiQIizgnlr12B4dA3ZEx3308ze0O4Q1R+cHts8kyUJg==}
 
-  fast-uri@3.1.8:
-    resolution: {integrity: sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg==}
+  fast-uri@3.1.9:
+    resolution: {integrity: sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ==}
 
   fast-wrap-ansi@0.2.2:
     resolution: {integrity: sha512-7F2Fl+TjRSenLqlU3UjSH0iyqopqoZIu7eZVpEirP2g1GtWa2G/ecEmBdgz31+Mxr+ELclgg6sokpSFIQiZ02Q==}
@@ -5865,8 +5863,8 @@ packages:
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
-  undici@7.29.1:
-    resolution: {integrity: sha512-RYONW2MeafgYlkVOKYKkA/Ag7BmXqgIWCa8t1m0JcxrQg9pI9lEqRhAOruOBCbAohOa/gkCF+iPi9hrgvTzu6Q==}
+  undici@7.30.1:
+    resolution: {integrity: sha512-03KrMbjIFDWQR5RNPrSw3bd1r12JpyFQl9/yxjUbJtqkjmllqC5lFjZh6ujeuJCKr8EOQvRW872Oy/az+nLYxg==}
     engines: {node: '>=20.18.1'}
 
   unenv@2.0.0-rc.24:
@@ -6227,26 +6225,26 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
-  zod@4.4.3:
-    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+  zod@4.6.6:
+    resolution: {integrity: sha512-4UmzQUF5fxvfcYHlbjBmejU+w+hbDnWFx4aS8kBx7nPBHcO2SqPbpAG8snbdg+Xse4pRefR98hgjFgIMCI/UhA==}
 
 snapshots:
 
   '@adobe/css-tools@4.4.4': {}
 
-  '@ai-sdk/gateway@3.0.133(zod@4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2))':
+  '@ai-sdk/gateway@3.0.133(zod@4.6.6)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.30(zod@4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2))
+      '@ai-sdk/provider-utils': 4.0.30(zod@4.6.6)
       '@vercel/oidc': 3.2.0
-      zod: 4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2)
+      zod: 4.6.6
 
-  '@ai-sdk/provider-utils@4.0.30(zod@4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2))':
+  '@ai-sdk/provider-utils@4.0.30(zod@4.6.6)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.1.0
-      zod: 4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2)
+      zod: 4.6.6
 
   '@ai-sdk/provider@3.0.10':
     dependencies:
@@ -6289,10 +6287,10 @@ snapshots:
       '@csstools/css-tokenizer': 3.0.4
       lru-cache: 10.4.3
 
-  '@asteasolutions/zod-to-openapi@8.5.0(zod@4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2))':
+  '@asteasolutions/zod-to-openapi@8.5.0(zod@4.6.6)':
     dependencies:
       openapi3-ts: 4.5.0
-      zod: 4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2)
+      zod: 4.6.6
 
   '@aws-sdk/checksums@3.1000.29':
     dependencies:
@@ -7531,10 +7529,10 @@ snapshots:
       jszip: 3.10.1
       tar: 7.5.22
 
-  '@openrouter/ai-sdk-provider@2.9.1(ai@6.0.208(zod@4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2)))(zod@4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2))':
+  '@openrouter/ai-sdk-provider@2.9.1(ai@6.0.208(zod@4.6.6))(zod@4.6.6)':
     dependencies:
-      ai: 6.0.208(zod@4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2))
-      zod: 4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2)
+      ai: 6.0.208(zod@4.6.6)
+      zod: 4.6.6
 
   '@opentelemetry/api-logs@0.214.0':
     dependencies:
@@ -8911,18 +8909,18 @@ snapshots:
 
   agent-base@7.1.4: {}
 
-  ai@6.0.208(zod@4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2)):
+  ai@6.0.208(zod@4.6.6):
     dependencies:
-      '@ai-sdk/gateway': 3.0.133(zod@4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2))
+      '@ai-sdk/gateway': 3.0.133(zod@4.6.6)
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.30(zod@4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2))
+      '@ai-sdk/provider-utils': 4.0.30(zod@4.6.6)
       '@opentelemetry/api': 1.9.1
-      zod: 4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2)
+      zod: 4.6.6
 
   ajv@8.18.0:
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.8
+      fast-uri: 3.1.9
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
@@ -9109,7 +9107,7 @@ snapshots:
       parse5: 7.3.0
       parse5-htmlparser2-tree-adapter: 7.1.0
       parse5-parser-stream: 7.1.2
-      undici: 7.29.1
+      undici: 7.30.1
       whatwg-mimetype: 4.0.0
 
   chokidar@3.6.0:
@@ -9556,7 +9554,7 @@ snapshots:
     dependencies:
       fast-string-truncated-width: 3.0.3
 
-  fast-uri@3.1.8: {}
+  fast-uri@3.1.9: {}
 
   fast-wrap-ansi@0.2.2:
     dependencies:
@@ -10020,7 +10018,7 @@ snapshots:
       tinyglobby: 0.2.16
       unbash: 3.0.0
       yaml: 2.9.0
-      zod: 4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2)
+      zod: 4.6.6
     transitivePeerDependencies:
       - '@emnapi/core'
       - '@emnapi/runtime'
@@ -10245,7 +10243,7 @@ snapshots:
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       sharp: 0.35.5(@types/node@24.12.4)
-      undici: 7.29.1
+      undici: 7.30.1
       workerd: 1.20260520.1
       ws: 8.21.3
       youch: 4.1.0-beta.10
@@ -10258,7 +10256,7 @@ snapshots:
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       sharp: 0.35.5(@types/node@24.12.4)
-      undici: 7.29.1
+      undici: 7.30.1
       workerd: 1.20260521.1
       ws: 8.21.0
       youch: 4.1.0-beta.10
@@ -10291,7 +10289,7 @@ snapshots:
 
   mutation-server-protocol@0.4.1:
     dependencies:
-      zod: 4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2)
+      zod: 4.6.6
 
   mutation-testing-elements@3.7.3: {}
 
@@ -11130,7 +11128,7 @@ snapshots:
 
   undici-types@7.16.0: {}
 
-  undici@7.29.1: {}
+  undici@7.30.1: {}
 
   unenv@2.0.0-rc.24:
     dependencies:
@@ -11427,4 +11425,4 @@ snapshots:
 
   zod@3.25.76: {}
 
-  zod@4.4.3(patch_hash=85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2): {}
+  zod@4.6.6: {}

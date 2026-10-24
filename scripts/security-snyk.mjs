@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { bracesConsumers, bracesFinding, verifyBracesPatch } from "./lib/braces-patch.mjs";
 import { evaluateSnykPolicy } from "./lib/snyk-vulnerability-policy.mjs";
 import { verifyZodBuildConsumers, zodBuildConsumers } from "./lib/zod-build-policy.mjs";
-import { verifyZodPatch, zodConsumers } from "./lib/zod-patch.mjs";
+import { verifyZodPatch } from "./lib/zod-patch.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const out = join(root, "artifacts/security/snyk");
@@ -71,17 +71,6 @@ try {
     paths: [consumerPath(consumer)],
     reason: bracesFinding.reason,
   }));
-  allowedFindings.push(
-    ...zodConsumers.map((consumer) => ({
-      id: "SNYK-JS-ZOD-20510278",
-      module: "zod",
-      version: consumer.version,
-      target: join(consumer.workspace, "package.json"),
-      paths: [consumerPath(consumer)],
-      reason:
-        "Verified parser patch rejects oversized arrays before element validation; structural request tests require array bounds.",
-    })),
-  );
   allowedFindings.push(
     ...zodBuildConsumers.map((consumer) => ({
       id: "SNYK-JS-ZOD-20510278",
