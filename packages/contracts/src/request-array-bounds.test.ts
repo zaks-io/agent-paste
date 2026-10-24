@@ -50,16 +50,21 @@ function schemaDef(schema: unknown, path: string): SchemaDef {
   return def;
 }
 
+// Zod 4.6.6 sizeCaps keeps only a leading run of size checks and stops at the first other check.
+const leadingSizeCheck = /_(?:length|size)$|_equals$/;
+
 function arrayMaximum(schema: z.ZodArray): unknown {
-  const bagMaximum = schema._zod.bag.maximum;
-  if (typeof bagMaximum === "number") return bagMaximum;
   const checks = schema._zod.def.checks;
-  if (!Array.isArray(checks)) return bagMaximum;
-  const maxima = checks.flatMap((check) => {
-    const def = (check as { _zod?: { def?: { check?: string; maximum?: unknown } } })._zod?.def;
-    return def?.check === "max_length" && typeof def.maximum === "number" ? [def.maximum] : [];
-  });
-  return maxima.length === 0 ? bagMaximum : Math.min(...maxima);
+  if (!Array.isArray(checks)) return undefined;
+  const maxima: number[] = [];
+  for (const check of checks) {
+    const def = (check as { _zod?: { def?: { check?: string; maximum?: unknown; length?: unknown; size?: unknown } } })
+      ._zod?.def;
+    if (typeof def?.check !== "string" || !leadingSizeCheck.test(def.check)) break;
+    const max = def.maximum ?? def.length ?? def.size;
+    if (typeof max === "number" && max >= 0) maxima.push(max);
+  }
+  return maxima.length === 0 ? undefined : Math.min(...maxima);
 }
 
 function child(def: SchemaDef, key: string, path: string): unknown {
@@ -156,6 +161,43 @@ describe("external request array bounds", () => {
         "JobsQueueMessage|0.prefixes",
       ]),
     );
+  });
+
+  it("accepts a leading max, including one that follows another size check", () => {
+    const leading = z.array(z.string()).max(MAX_REQUEST_ARRAY_ITEMS);
+    const minThenMax = z.array(z.string()).min(1).max(MAX_REQUEST_ARRAY_ITEMS);
+    const maxThenRefine = z
+      .array(z.string())
+      .max(MAX_REQUEST_ARRAY_ITEMS)
+      .refine(() => true);
+    for (const schema of [leading, minThenMax, maxThenRefine]) {
+      expect(collectArrayBounds(z.object({ items: schema }), "$")).toEqual([
+        { path: "$.items", maximum: MAX_REQUEST_ARRAY_ITEMS },
+      ]);
+    }
+  });
+
+  it("rejects a max that follows a non-size check", () => {
+    const refineThenMax = z
+      .array(z.string())
+      .refine(() => true)
+      .max(MAX_REQUEST_ARRAY_ITEMS);
+    expect(collectArrayBounds(z.object({ items: refineThenMax }), "$")).toEqual([
+      { path: "$.items", maximum: undefined },
+    ]);
+
+    let itemChecks = 0;
+    const parsed = z
+      .array(
+        z.string().superRefine(() => {
+          itemChecks += 1;
+        }),
+      )
+      .refine(() => true)
+      .max(MAX_REQUEST_ARRAY_ITEMS)
+      .safeParse(Array.from({ length: 1000 }, () => "x"));
+    expect(parsed.success).toBe(false);
+    expect(itemChecks).toBe(1000);
   });
 
   it("fails closed on schema kinds the walk does not understand", () => {

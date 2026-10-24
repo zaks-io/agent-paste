@@ -60,9 +60,9 @@ The root override `zod@>=4.0.0 <5.0.0` = `4.6.6` selects that release for Zod
 4 consumers and does not apply to Zod 3. The catalog pin is the same release.
 Valid and within-limit invalid requests retain their behavior; oversized arrays
 return one `too_big` error and skip refinements. Arrays without a maximum
-remain outside this bound. Zod 4.6.6 no longer copies that maximum onto
-`_zod.bag`; the request-bound walker reads the `max_length` check instead.
-That introspection change is limited to the bounds test.
+remain outside this bound. Zod 4.6.6 `sizeCaps` reads only a leading run of
+size checks, so the request-bound walker does the same. A `.max()` after
+`.refine()` is not a pre-element cap.
 
 Lighthouse 13.4.1 still resolves Zod 3.25.76 through `puppeteer-core@25.9.0` and
 `chromium-bidi@17.0.2` (`zod@^3.24.1`). `puppeteer-core@25.13.0` is the first
