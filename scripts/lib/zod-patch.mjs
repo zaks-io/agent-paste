@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { resolveBracesConsumer } from "./braces-patch.mjs";
+import { verifyZodBuildConsumers } from "./zod-build-policy.mjs";
 
 const ZOD_VERSION = "4.6.6";
 const BUILD_ZOD_VERSION = "3.25.76";
@@ -163,7 +164,7 @@ packages/worker-runtime @agent-paste/db>@agent-paste/contracts>zod 4.6.6
   });
 
 /** Verify the upstream Zod 4.6.6 parser and every enumerated installed consumer.
- * Zod 3 build tooling stays on 3.25.76; a Zod 4 override must not replace it.
+ * Lighthouse's Zod 3 dependency stays on 3.25.76; a Zod 4 override must not replace it.
  * @param {string} repoRoot
  */
 export function verifyZodPatch(repoRoot) {
@@ -212,5 +213,6 @@ export function verifyZodPatch(repoRoot) {
     parserSha256: files,
     verifiedCopies: [...verified],
     paths: zodConsumers,
+    build: verifyZodBuildConsumers(repoRoot),
   };
 }

@@ -8,17 +8,10 @@ import { dirname, join, resolve } from "node:path";
 const PATCH_PATH = "patches/braces@3.0.3.patch";
 const PATCH_SHA256 = "36ee6956e6eb776c159142f683631b4c638917ebf5d04a6a61f9771a119eaa60";
 const PARSER_SHA256 = "f4abd91a55191aeb16a28d84f43d2ab57b0f1888e49f7c276c9698bbe11c78c3";
-const webChain = ["@tanstack/start-plugin-core", "@tanstack/router-plugin", "chokidar", "braces"];
+// TanStack now uses Chokidar 5, which no longer depends on braces.
 export const bracesConsumers = [
   { workspace: ".", chain: ["jscpd", "@jscpd/finder", "fast-glob", "micromatch", "braces"] },
   { workspace: "apps/evals", chain: ["@daytona/sdk", "fast-glob", "micromatch", "braces"] },
-  { workspace: "apps/web", chain: ["@tanstack/react-start", ...webChain] },
-  { workspace: "apps/web", chain: ["@tanstack/react-start", "@tanstack/react-start-rsc", ...webChain] },
-  { workspace: "apps/web", chain: ["@workos/authkit-tanstack-react-start", "@tanstack/react-start", ...webChain] },
-  {
-    workspace: "apps/web",
-    chain: ["@workos/authkit-tanstack-react-start", "@tanstack/react-start", "@tanstack/react-start-rsc", ...webChain],
-  },
 ];
 
 export const bracesFinding = {
