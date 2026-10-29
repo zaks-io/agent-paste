@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { resolveBracesConsumer } from "./braces-patch.mjs";
-import { evaluateSnykPolicy } from "./snyk-vulnerability-policy.mjs";
 import { verifyZodBuildConsumers, zodBuildConsumers } from "./zod-build-policy.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -36,7 +35,7 @@ function fixture() {
   return path;
 }
 
-describe("build-only Zod advisory dispositions", () => {
+describe("TanStack build Zod consumer verification", () => {
   it("verifies every pinned dependency hop and reviewed configuration parser", () => {
     expect(verifyZodBuildConsumers(root).paths).toEqual(zodBuildConsumers.map((c) => c.expectedPath));
   });
@@ -62,45 +61,5 @@ describe("build-only Zod advisory dispositions", () => {
     } finally {
       rmSync(path, { recursive: true, force: true });
     }
-  });
-
-  it("blocks the same advisory through any unreviewed runtime path", () => {
-    const consumer = zodBuildConsumers[0];
-    const finding = {
-      id: "SNYK-JS-ZOD-20510278",
-      name: "zod",
-      version: consumer.version,
-      severity: "high",
-      from: consumer.expectedPath,
-    };
-    const options = {
-      repoRoot: "/fixture",
-      expectedTargets: ["apps/web/package.json"],
-      allowedFindings: [
-        {
-          id: finding.id,
-          module: "zod",
-          version: finding.version,
-          target: "apps/web/package.json",
-          paths: [consumer.expectedPath],
-          reason: "Verified trusted build parser",
-        },
-      ],
-    };
-    const report = (from) =>
-      JSON.stringify([
-        {
-          path: "/fixture",
-          targetFile: "",
-          displayTargetFile: "apps/web/package.json",
-          ok: false,
-          vulnerabilities: [{ ...finding, from }],
-        },
-      ]);
-    expect(evaluateSnykPolicy(report(finding.from), options).status).toBe(0);
-    expect(
-      evaluateSnykPolicy(report([finding.from[0], "unreviewed-server@1.0.0", `zod@${consumer.version}`]), options)
-        .status,
-    ).toBe(1);
   });
 });

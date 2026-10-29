@@ -80,13 +80,12 @@ the early-rejection behavior. The request-schema tests still require every
 array maximum to be at most 100.
 
 The AP-481 TanStack Start update moved its build tooling from Zod 3 to Zod 4,
-so those six exact paths now resolve the same Zod 4.6.6 as the runtime
-consumers. They keep their build-only dispositions for SNYK-JS-ZOD-20510278.
-Those config parsers consume inline Vite options and repository
-`tsr.config.json`, not request data. `zod-build-policy.mjs` pins every
-versioned dependency hop and verifies the reviewed config parser bytes before
-enabling them. Other paths, dependency upgrades, changed parsers, versions, and
-advisories block.
+so those six exact paths now resolve the same fixed Zod 4.6.6 as the runtime
+consumers, and their build-only Snyk dispositions for SNYK-JS-ZOD-20510278 are
+removed. Those config parsers consume inline Vite options and repository
+`tsr.config.json`, not request data. `zod-build-policy.mjs` still pins every
+versioned dependency hop and the reviewed config parser bytes, so a TanStack
+upgrade fails verification until it is reviewed.
 
 There is no Zod 3 release for GHSA-mrhx-c7xc-m3w5. The Lighthouse chain is the
 only remaining Zod 3.25.76 copy, and it is not waived. Raw findings and
@@ -138,10 +137,11 @@ recursive AST walkers exhausting the stack on deeply nested strings.
 `patches/braces@3.0.3.patch` rejects a combined brace/parenthesis parse depth
 above 100 before an AST reaches those walkers. Normal glob patterns and depth
 100 remain supported. Directly supplied, hand-crafted ASTs are outside this
-mitigation; current micromatch and chokidar consumers pass strings.
+mitigation; current micromatch consumers pass strings.
 
-The patch covers root jscpd, the eval runner's Daytona SDK, and TanStack's
-chokidar paths. Before any scanner disposition, `scripts/lib/braces-patch.mjs`
+The patch covers root jscpd and the eval runner's Daytona SDK. The AP-481
+TanStack Start update moved its build tooling to chokidar 5, which no longer
+depends on braces, so those paths are gone. Before any scanner disposition, `scripts/lib/braces-patch.mjs`
 checks the registered patch and its digest, both repository and installed pnpm
 locks, every resolved consumer's parser digest/version, rejection through parse,
 compile, expand, and stringify, and an ordinary expansion. Missing or modified
