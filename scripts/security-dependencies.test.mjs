@@ -106,4 +106,23 @@ describe("dependency security regressions", () => {
     payload.t.l = length;
     expect(() => seroval.fromJSON(payload)).toThrow();
   });
+
+  it("keeps a RegExp source from opening markup inside the serialized script", () => {
+    // GHSA-9wx9-5pv9-3349: a `<` in a RegExp source was written verbatim into the inline script.
+    const pattern = /(?<=<)(?<tag>[^>]+)>/;
+    const output = seroval.serialize(pattern);
+    expect(output).not.toContain("<");
+    const restored = new Function(`return ${output}`)();
+    expect(restored.source).toBe(pattern.source);
+    expect(restored.exec("<b>")?.groups?.tag).toBe("b");
+  });
+
+  it("names a serialized TypedArray by its internal type, not an own constructor property", () => {
+    // GHSA-f86p-h4j2-7qgj: an own `constructor` supplied the class name emitted as code.
+    const bytes = new Uint8Array([1, 2, 3]);
+    Object.defineProperty(bytes, "constructor", { value: { name: "globalThis.injected=1,Uint8Array" } });
+    const output = seroval.serialize(bytes);
+    expect(output).not.toContain("injected");
+    expect(new Function(`return ${output}`)()).toEqual(new Uint8Array([1, 2, 3]));
+  });
 });

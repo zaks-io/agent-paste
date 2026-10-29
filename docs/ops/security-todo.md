@@ -90,12 +90,36 @@ unresolved Zod 3.25.76 copies in TanStack build tooling and in the Lighthouse
 chain. Neither path is waived. Raw findings and mitigation evidence are
 retained.
 
-`fast-uri@3.1.9` is the first 3.x release that fixes
-[GHSA-w74x-v6f9-j3xg](https://github.com/advisories/GHSA-w74x-v6f9-j3xg) and
-[GHSA-wjr9-j795-jxcr](https://github.com/advisories/GHSA-wjr9-j795-jxcr). It was
-published at 2026-10-19T23:05:26Z, so the 10080-minute age gate makes it
-eligible at 2026-10-26T23:05:26Z. The root override stays on `3.1.8` until then.
-No age exception is added.
+Rechecked 2026-10-29: Lighthouse 13.6.0 requires `puppeteer-core@^25.16.0`,
+which still resolves `chromium-bidi@157.0.8090-0`, and the newest
+`chromium-bidi@159.0.8131-0` still has no provenance. The path stays blocked.
+
+## Dependency remediation (AP-484)
+
+The 2026-10-29 `pnpm audit` found 24 advisories on `main`. Except for the Zod 3
+path above and the TanStack Start advisory owned by AP-481, every one has a
+fixed release past the seven-day age gate. No age exception is added.
+
+| Dependency       | Fixed version | Advisory                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| undici           | 7.30.1        | [GHSA-xjj6-f33q-929c](https://github.com/advisories/GHSA-xjj6-f33q-929c), [GHSA-4qv8-2p9j-2685](https://github.com/advisories/GHSA-4qv8-2p9j-2685), [GHSA-f72v-6w45-q472](https://github.com/advisories/GHSA-f72v-6w45-q472), [GHSA-2m5v-pch6-74hx](https://github.com/advisories/GHSA-2m5v-pch6-74hx), [GHSA-4w7w-5xrc-9h26](https://github.com/advisories/GHSA-4w7w-5xrc-9h26), [GHSA-55wc-3pg8-jfw6](https://github.com/advisories/GHSA-55wc-3pg8-jfw6), [GHSA-9fm3-97px-rjf6](https://github.com/advisories/GHSA-9fm3-97px-rjf6), [GHSA-qrxm-fqhp-jwvm](https://github.com/advisories/GHSA-qrxm-fqhp-jwvm) |
+| fast-uri         | 3.1.9         | [GHSA-w74x-v6f9-j3xg](https://github.com/advisories/GHSA-w74x-v6f9-j3xg), [GHSA-wjr9-j795-jxcr](https://github.com/advisories/GHSA-wjr9-j795-jxcr)                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| seroval          | 1.6.12        | [GHSA-9wx9-5pv9-3349](https://github.com/advisories/GHSA-9wx9-5pv9-3349), [GHSA-f86p-h4j2-7qgj](https://github.com/advisories/GHSA-f86p-h4j2-7qgj)                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| hono             | 4.13.13       | [GHSA-5r4p-p66f-jhc7](https://github.com/advisories/GHSA-5r4p-p66f-jhc7)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| vite             | 7.3.7         | [GHSA-587h-7wmj-h5pm](https://github.com/advisories/GHSA-587h-7wmj-h5pm), [GHSA-698v-4r3x-3vcv](https://github.com/advisories/GHSA-698v-4r3x-3vcv), [GHSA-r825-w8mm-5pxw](https://github.com/advisories/GHSA-r825-w8mm-5pxw), [GHSA-rq7h-c2jc-7f22](https://github.com/advisories/GHSA-rq7h-c2jc-7f22)                                                                                                                                                                                                                                                                                                         |
+| @vitest/mocker   | 4.1.12        | [GHSA-qxg6-89mg-rqv8](https://github.com/advisories/GHSA-qxg6-89mg-rqv8), [GHSA-xp26-3454-mjgp](https://github.com/advisories/GHSA-xp26-3454-mjgp)                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| follow-redirects | 1.16.1        | [GHSA-8r9p-f939-6h3c](https://github.com/advisories/GHSA-8r9p-f939-6h3c), [GHSA-q3jh-wrc6-jgq8](https://github.com/advisories/GHSA-q3jh-wrc6-jgq8)                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| qs               | 6.16.1        | [GHSA-6pq8-jhm2-2vcw](https://github.com/advisories/GHSA-6pq8-jhm2-2vcw)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+
+Seroval runs in the web dashboard's TanStack serialization path. Its root
+override moves from the AP-457 release to `1.6.12`, the newest eligible patch,
+and `scripts/security-dependencies.test.mjs` keeps a regression for each new
+advisory. The Hono Workers do not use `serveStatic`, the affected API. Their
+manifests now require `^4.13.13`. `typed-rest-client` pins `qs@6.15.1`, so its
+root override selects the fix. Axios's `follow-redirects@^1.16.0` range and
+the Vite and Vitest manifest ranges select the rest in the lockfile without new
+overrides. The other packages support evals, mutation testing, builds, and
+tests.
 
 ## Braces depth patch (AP-456)
 
