@@ -5,154 +5,156 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { resolveBracesConsumer } from "./braces-patch.mjs";
-import { verifyZodBuildConsumers, zodBuildConsumers } from "./zod-build-policy.mjs";
+import { verifyZodBuildConsumers } from "./zod-build-policy.mjs";
 
-const PATCH_PATH = "patches/zod@4.4.3.patch";
-const PATCH_SHA256 = "85a342777b8a71e8e179f610cf412071450669b312897ee82d140f61296684f2";
+const ZOD_VERSION = "4.6.6";
+const BUILD_ZOD_VERSION = "3.25.76";
+const ZOD_OVERRIDE = "zod@>=4.0.0 <5.0.0";
+// Published Zod 4.6.6 parsers. Upstream capSize rejects oversized arrays before element checks.
 const files = {
-  "v4/core/schemas.js": "acfbc0314d8d60ffd84b57dc3c9e279651da164e3e21ba7f32904bb65925eb0b",
-  "v4/core/schemas.cjs": "70cd683f9fd1993fe531d488754326a967d8add29a78646217be3150ac7c8a47",
+  "v4/core/schemas.js": "0ee56e8afbae28eeb1060a162ad7e56f0675ee6fb83f0ae56bea2e088f6cdbc0",
+  "v4/core/schemas.cjs": "7e35563b275bcc457a6d8ae0f5e1354b3c499ddd38401439f16bed1b8f357e41",
 };
 
 // Enumerated production-manifest paths, including peer dependencies. New paths fail closed.
 export const zodConsumers = `
-apps/apex @agent-paste/plans>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/apex @agent-paste/plans>@agent-paste/contracts>zod 4.4.3
-apps/apex @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/apex @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>zod 4.4.3
-apps/apex @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/apex @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/apex @agent-paste/worker-runtime>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/apex @agent-paste/worker-runtime>@agent-paste/contracts>zod 4.4.3
-apps/apex @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/apex @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/api @agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/api @agent-paste/auth>@agent-paste/contracts>zod 4.4.3
-apps/api @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/api @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/api @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/api @agent-paste/contracts>zod 4.4.3
-apps/api @agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/api @agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/api @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/api @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>zod 4.4.3
-apps/api @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/api @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/api @agent-paste/worker-runtime>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/api @agent-paste/worker-runtime>@agent-paste/contracts>zod 4.4.3
-apps/api @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/api @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/content @agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/content @agent-paste/auth>@agent-paste/contracts>zod 4.4.3
-apps/content @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/content @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/content @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/content @agent-paste/contracts>zod 4.4.3
-apps/content @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/content @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>zod 4.4.3
-apps/content @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/content @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/content @agent-paste/worker-runtime>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/content @agent-paste/worker-runtime>@agent-paste/contracts>zod 4.4.3
-apps/content @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/content @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/evals @openrouter/ai-sdk-provider>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>zod 4.4.3
-apps/evals @openrouter/ai-sdk-provider>ai>@ai-sdk/gateway>zod 4.4.3
-apps/evals @openrouter/ai-sdk-provider>ai>@ai-sdk/provider-utils>zod 4.4.3
-apps/evals @openrouter/ai-sdk-provider>ai>zod 4.4.3
-apps/evals @openrouter/ai-sdk-provider>zod 4.4.3
-apps/evals ai>@ai-sdk/gateway>@ai-sdk/provider-utils>zod 4.4.3
-apps/evals ai>@ai-sdk/gateway>zod 4.4.3
-apps/evals ai>@ai-sdk/provider-utils>zod 4.4.3
-apps/evals ai>zod 4.4.3
-apps/evals zod 4.4.3
-apps/jobs @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/jobs @agent-paste/contracts>zod 4.4.3
-apps/jobs @agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/jobs @agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/jobs @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/jobs @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>zod 4.4.3
-apps/jobs @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/jobs @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/jobs @agent-paste/worker-runtime>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/jobs @agent-paste/worker-runtime>@agent-paste/contracts>zod 4.4.3
-apps/jobs @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/jobs @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/jobs zod 4.4.3
-apps/mcp @agent-paste/api-client>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/mcp @agent-paste/api-client>@agent-paste/contracts>zod 4.4.3
-apps/mcp @agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/mcp @agent-paste/auth>@agent-paste/contracts>zod 4.4.3
-apps/mcp @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/mcp @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/mcp @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/mcp @agent-paste/contracts>zod 4.4.3
-apps/mcp @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/mcp @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>zod 4.4.3
-apps/mcp @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/mcp @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/mcp @agent-paste/worker-runtime>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/mcp @agent-paste/worker-runtime>@agent-paste/contracts>zod 4.4.3
-apps/mcp @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/mcp @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/stream @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/stream @agent-paste/contracts>zod 4.4.3
-apps/stream @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/stream @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>zod 4.4.3
-apps/stream @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/stream @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/stream @agent-paste/worker-runtime>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/stream @agent-paste/worker-runtime>@agent-paste/contracts>zod 4.4.3
-apps/stream @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/stream @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/upload @agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/upload @agent-paste/auth>@agent-paste/contracts>zod 4.4.3
-apps/upload @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/upload @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/upload @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/upload @agent-paste/contracts>zod 4.4.3
-apps/upload @agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/upload @agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/upload @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/upload @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>zod 4.4.3
-apps/upload @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/upload @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/upload @agent-paste/worker-runtime>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/upload @agent-paste/worker-runtime>@agent-paste/contracts>zod 4.4.3
-apps/upload @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/upload @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/web @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/web @agent-paste/contracts>zod 4.4.3
-apps/web @agent-paste/plans>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/web @agent-paste/plans>@agent-paste/contracts>zod 4.4.3
-apps/web @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/web @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>zod 4.4.3
-apps/web @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/web @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-apps/web @agent-paste/worker-runtime>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/web @agent-paste/worker-runtime>@agent-paste/contracts>zod 4.4.3
-apps/web @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-apps/web @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-packages/api-client @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-packages/api-client @agent-paste/contracts>zod 4.4.3
-packages/auth @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-packages/auth @agent-paste/contracts>zod 4.4.3
-packages/auth @agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-packages/auth @agent-paste/db>@agent-paste/contracts>zod 4.4.3
-packages/contracts @asteasolutions/zod-to-openapi>zod 4.4.3
-packages/contracts zod 4.4.3
-packages/db @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-packages/db @agent-paste/contracts>zod 4.4.3
-packages/plans @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-packages/plans @agent-paste/contracts>zod 4.4.3
-packages/worker-runtime @agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-packages/worker-runtime @agent-paste/auth>@agent-paste/contracts>zod 4.4.3
-packages/worker-runtime @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-packages/worker-runtime @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.4.3
-packages/worker-runtime @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-packages/worker-runtime @agent-paste/contracts>zod 4.4.3
-packages/worker-runtime @agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.4.3
-packages/worker-runtime @agent-paste/db>@agent-paste/contracts>zod 4.4.3
+apps/apex @agent-paste/plans>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/apex @agent-paste/plans>@agent-paste/contracts>zod 4.6.6
+apps/apex @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/apex @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>zod 4.6.6
+apps/apex @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/apex @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/apex @agent-paste/worker-runtime>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/apex @agent-paste/worker-runtime>@agent-paste/contracts>zod 4.6.6
+apps/apex @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/apex @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/api @agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/api @agent-paste/auth>@agent-paste/contracts>zod 4.6.6
+apps/api @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/api @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/api @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/api @agent-paste/contracts>zod 4.6.6
+apps/api @agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/api @agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/api @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/api @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>zod 4.6.6
+apps/api @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/api @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/api @agent-paste/worker-runtime>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/api @agent-paste/worker-runtime>@agent-paste/contracts>zod 4.6.6
+apps/api @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/api @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/content @agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/content @agent-paste/auth>@agent-paste/contracts>zod 4.6.6
+apps/content @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/content @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/content @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/content @agent-paste/contracts>zod 4.6.6
+apps/content @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/content @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>zod 4.6.6
+apps/content @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/content @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/content @agent-paste/worker-runtime>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/content @agent-paste/worker-runtime>@agent-paste/contracts>zod 4.6.6
+apps/content @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/content @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/evals @openrouter/ai-sdk-provider>ai>@ai-sdk/gateway>@ai-sdk/provider-utils>zod 4.6.6
+apps/evals @openrouter/ai-sdk-provider>ai>@ai-sdk/gateway>zod 4.6.6
+apps/evals @openrouter/ai-sdk-provider>ai>@ai-sdk/provider-utils>zod 4.6.6
+apps/evals @openrouter/ai-sdk-provider>ai>zod 4.6.6
+apps/evals @openrouter/ai-sdk-provider>zod 4.6.6
+apps/evals ai>@ai-sdk/gateway>@ai-sdk/provider-utils>zod 4.6.6
+apps/evals ai>@ai-sdk/gateway>zod 4.6.6
+apps/evals ai>@ai-sdk/provider-utils>zod 4.6.6
+apps/evals ai>zod 4.6.6
+apps/evals zod 4.6.6
+apps/jobs @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/jobs @agent-paste/contracts>zod 4.6.6
+apps/jobs @agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/jobs @agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/jobs @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/jobs @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>zod 4.6.6
+apps/jobs @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/jobs @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/jobs @agent-paste/worker-runtime>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/jobs @agent-paste/worker-runtime>@agent-paste/contracts>zod 4.6.6
+apps/jobs @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/jobs @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/jobs zod 4.6.6
+apps/mcp @agent-paste/api-client>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/mcp @agent-paste/api-client>@agent-paste/contracts>zod 4.6.6
+apps/mcp @agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/mcp @agent-paste/auth>@agent-paste/contracts>zod 4.6.6
+apps/mcp @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/mcp @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/mcp @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/mcp @agent-paste/contracts>zod 4.6.6
+apps/mcp @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/mcp @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>zod 4.6.6
+apps/mcp @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/mcp @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/mcp @agent-paste/worker-runtime>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/mcp @agent-paste/worker-runtime>@agent-paste/contracts>zod 4.6.6
+apps/mcp @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/mcp @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/stream @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/stream @agent-paste/contracts>zod 4.6.6
+apps/stream @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/stream @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>zod 4.6.6
+apps/stream @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/stream @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/stream @agent-paste/worker-runtime>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/stream @agent-paste/worker-runtime>@agent-paste/contracts>zod 4.6.6
+apps/stream @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/stream @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/upload @agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/upload @agent-paste/auth>@agent-paste/contracts>zod 4.6.6
+apps/upload @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/upload @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/upload @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/upload @agent-paste/contracts>zod 4.6.6
+apps/upload @agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/upload @agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/upload @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/upload @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>zod 4.6.6
+apps/upload @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/upload @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/upload @agent-paste/worker-runtime>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/upload @agent-paste/worker-runtime>@agent-paste/contracts>zod 4.6.6
+apps/upload @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/upload @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/web @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/web @agent-paste/contracts>zod 4.6.6
+apps/web @agent-paste/plans>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/web @agent-paste/plans>@agent-paste/contracts>zod 4.6.6
+apps/web @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/web @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/contracts>zod 4.6.6
+apps/web @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/web @agent-paste/worker-runtime>@agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+apps/web @agent-paste/worker-runtime>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/web @agent-paste/worker-runtime>@agent-paste/contracts>zod 4.6.6
+apps/web @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+apps/web @agent-paste/worker-runtime>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+packages/api-client @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+packages/api-client @agent-paste/contracts>zod 4.6.6
+packages/auth @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+packages/auth @agent-paste/contracts>zod 4.6.6
+packages/auth @agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+packages/auth @agent-paste/db>@agent-paste/contracts>zod 4.6.6
+packages/contracts @asteasolutions/zod-to-openapi>zod 4.6.6
+packages/contracts zod 4.6.6
+packages/db @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+packages/db @agent-paste/contracts>zod 4.6.6
+packages/plans @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+packages/plans @agent-paste/contracts>zod 4.6.6
+packages/worker-runtime @agent-paste/auth>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+packages/worker-runtime @agent-paste/auth>@agent-paste/contracts>zod 4.6.6
+packages/worker-runtime @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+packages/worker-runtime @agent-paste/auth>@agent-paste/db>@agent-paste/contracts>zod 4.6.6
+packages/worker-runtime @agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+packages/worker-runtime @agent-paste/contracts>zod 4.6.6
+packages/worker-runtime @agent-paste/db>@agent-paste/contracts>@asteasolutions/zod-to-openapi>zod 4.6.6
+packages/worker-runtime @agent-paste/db>@agent-paste/contracts>zod 4.6.6
 `
   .trim()
   .split("\n")
@@ -161,37 +163,30 @@ packages/worker-runtime @agent-paste/db>@agent-paste/contracts>zod 4.4.3
     return { workspace, chain: chain.split(">"), version };
   });
 
-/** Verify the pinned patch and every enumerated installed consumer before disposition.
+/** Verify the upstream Zod 4.6.6 parser and every enumerated installed consumer.
+ * Lighthouse's Zod 3 dependency stays on 3.25.76; a Zod 4 override must not replace it.
  * @param {string} repoRoot
  */
 export function verifyZodPatch(repoRoot) {
   const digest = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
-  assert.equal(digest(join(repoRoot, PATCH_PATH)), PATCH_SHA256, "Unexpected Zod patch bytes");
+  const rootManifest = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8"));
+  assert.equal(rootManifest.pnpm?.overrides?.[ZOD_OVERRIDE], ZOD_VERSION, "Missing Zod 4 security override");
   assert(
-    readFileSync(join(repoRoot, "pnpm-workspace.yaml"), "utf8").includes(`\n  zod@4.4.3: ${PATCH_PATH}\n`),
-    "Missing Zod patch registration",
+    !Object.keys(rootManifest.pnpm?.patchedDependencies ?? {}).some((key) => key.startsWith("zod@")),
+    "Unexpected Zod patch registration",
+  );
+  assert(
+    !/^\s*zod@/m.test(readFileSync(join(repoRoot, "pnpm-workspace.yaml"), "utf8")),
+    "Unexpected Zod patch registration",
   );
   for (const path of ["pnpm-lock.yaml", "node_modules/.pnpm/lock.yaml"]) {
     const lock = readFileSync(join(repoRoot, path), "utf8");
-    assert(
-      lock.includes(`  zod@4.4.3:\n    hash: ${PATCH_SHA256}\n    path: ${PATCH_PATH}\n`),
-      "Missing locked Zod patch",
-    );
+    assert(!lock.includes("patches/zod@"), "Unexpected locked Zod patch");
     const snapshots = lock.split("\nsnapshots:\n")[1] ?? "";
-    const buildParents = new Set(zodBuildConsumers.map((consumer) => consumer.expectedPath.at(-2)));
-    const references = snapshots.split(/(?=^ {2}\S)/m).flatMap((section) => {
-      const parent = section.match(/^ {2}'?([^'(:\n]+)/)?.[1];
-      return [...section.matchAll(/^\s+zod: (.+)$/gm)].map((match) => ({ parent, version: match[1] }));
-    });
+    const references = [...snapshots.matchAll(/^\s+zod: (.+)$/gm)].map((m) => m[1]);
     assert(
-      references.length > 0 &&
-        references.every(
-          ({ parent, version }) =>
-            version === "3.25.76" ||
-            version === `4.4.3(patch_hash=${PATCH_SHA256})` ||
-            (version === "4.6.5" && buildParents.has(parent)),
-        ),
-      "Unpatched Zod lock reference",
+      references.length > 0 && references.every((version) => version === BUILD_ZOD_VERSION || version === ZOD_VERSION),
+      "Unexpected Zod lock reference",
     );
   }
   const verified = new Set();
@@ -201,7 +196,7 @@ export function verifyZodPatch(repoRoot) {
     assert.equal(require("./package.json").version, consumer.version, "Unexpected Zod consumer version");
     if (verified.has(directory)) continue;
     for (const [path, hash] of Object.entries(files))
-      assert.equal(digest(join(directory, path)), hash, "Installed Zod parser differs from patch");
+      assert.equal(digest(join(directory, path)), hash, "Installed Zod parser differs from the reviewed parser");
     const z = require(join(directory, "index.cjs"));
     let calls = 0;
     const schema = z.array(z.string().superRefine(() => calls++)).max(100);
@@ -214,7 +209,7 @@ export function verifyZodPatch(repoRoot) {
     verified.add(directory);
   }
   return {
-    patchSha256: PATCH_SHA256,
+    version: ZOD_VERSION,
     parserSha256: files,
     verifiedCopies: [...verified],
     paths: zodConsumers,

@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { resolveBracesConsumer } from "./braces-patch.mjs";
 
 // These parsers consume inline Vite options and tsr.config.json from the repository.
-// Zod 4.6.5 is build-only here; it does not replace the patched runtime consumers.
+// They resolve the same upstream-fixed Zod 4.6.6 release as the runtime consumers.
 const configParsers = {
   "@tanstack/start-plugin-core": [
     "dist/esm/schema.js",
@@ -24,19 +24,19 @@ const configParsers = {
 };
 
 export const zodBuildConsumers = [
-  "@agent-paste/web@0.0.0>@tanstack/react-start@1.168.60>@tanstack/react-start-rsc@0.1.59>@tanstack/start-plugin-core@1.171.49>@tanstack/router-generator@1.167.40>zod@4.6.5",
-  "@agent-paste/web@0.0.0>@workos/authkit-tanstack-react-start@0.8.3>@tanstack/react-start@1.168.60>@tanstack/react-start-rsc@0.1.59>@tanstack/start-plugin-core@1.171.49>@tanstack/router-generator@1.167.40>zod@4.6.5",
-  "@agent-paste/web@0.0.0>@tanstack/react-start@1.168.60>@tanstack/react-start-rsc@0.1.59>@tanstack/start-plugin-core@1.171.49>zod@4.6.5",
-  "@agent-paste/web@0.0.0>@workos/authkit-tanstack-react-start@0.8.3>@tanstack/react-start@1.168.60>@tanstack/react-start-rsc@0.1.59>@tanstack/start-plugin-core@1.171.49>zod@4.6.5",
-  "@agent-paste/web@0.0.0>@tanstack/react-start@1.168.60>@tanstack/react-start-rsc@0.1.59>@tanstack/start-plugin-core@1.171.49>@tanstack/router-plugin@1.168.42>zod@4.6.5",
-  "@agent-paste/web@0.0.0>@workos/authkit-tanstack-react-start@0.8.3>@tanstack/react-start@1.168.60>@tanstack/react-start-rsc@0.1.59>@tanstack/start-plugin-core@1.171.49>@tanstack/router-plugin@1.168.42>zod@4.6.5",
+  "@agent-paste/web@0.0.0>@tanstack/react-start@1.168.60>@tanstack/react-start-rsc@0.1.59>@tanstack/start-plugin-core@1.171.49>@tanstack/router-generator@1.167.40>zod@4.6.6",
+  "@agent-paste/web@0.0.0>@workos/authkit-tanstack-react-start@0.8.3>@tanstack/react-start@1.168.60>@tanstack/react-start-rsc@0.1.59>@tanstack/start-plugin-core@1.171.49>@tanstack/router-generator@1.167.40>zod@4.6.6",
+  "@agent-paste/web@0.0.0>@tanstack/react-start@1.168.60>@tanstack/react-start-rsc@0.1.59>@tanstack/start-plugin-core@1.171.49>zod@4.6.6",
+  "@agent-paste/web@0.0.0>@workos/authkit-tanstack-react-start@0.8.3>@tanstack/react-start@1.168.60>@tanstack/react-start-rsc@0.1.59>@tanstack/start-plugin-core@1.171.49>zod@4.6.6",
+  "@agent-paste/web@0.0.0>@tanstack/react-start@1.168.60>@tanstack/react-start-rsc@0.1.59>@tanstack/start-plugin-core@1.171.49>@tanstack/router-plugin@1.168.42>zod@4.6.6",
+  "@agent-paste/web@0.0.0>@workos/authkit-tanstack-react-start@0.8.3>@tanstack/react-start@1.168.60>@tanstack/react-start-rsc@0.1.59>@tanstack/start-plugin-core@1.171.49>@tanstack/router-plugin@1.168.42>zod@4.6.6",
 ].map((path) => {
   const expectedPath = path.split(">");
   return {
     workspace: "apps/web",
     chain: expectedPath.slice(1).map((part) => part.slice(0, part.lastIndexOf("@"))),
     expectedPath,
-    version: "4.6.5",
+    version: "4.6.6",
   };
 });
 
