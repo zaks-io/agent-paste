@@ -96,9 +96,14 @@ which still resolves `chromium-bidi@157.0.8090-0`, and the newest
 
 ## Dependency remediation (AP-484)
 
-The 2026-10-29 `pnpm audit` found 24 advisories on `main`. Except for the Zod 3
-path above and the TanStack Start advisory owned by AP-481, every one has a
-fixed release past the seven-day age gate. No age exception is added.
+The 2026-10-29 `pnpm audit` found 24 distinct advisory IDs at the policy's
+blocking severities (moderate, high, and critical) on `main`. Its summary count of
+30 also includes four low-severity findings. Except for the Zod 3 path above and
+the TanStack Start advisory owned by AP-481, every blocking advisory has a fixed
+release past the seven-day age gate. No age exception is added. The remaining
+low-severity [GHSA-866g-f22w-33x8](https://github.com/advisories/GHSA-866g-f22w-33x8)
+in the eval runner's `@ai-sdk/provider-utils@4.0.30` stays open; its fix requires
+a much newer `ai` release.
 
 | Dependency       | Fixed version | Advisory                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ---------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
