@@ -10,11 +10,13 @@ import { evaluateGrypePolicy } from "./scanner-vulnerability-policy.mjs";
 import {
   verifyLockedZodLighthouseConsumers,
   verifyZodLighthouseIsolation,
+  workspaceProjects,
   zodLighthouseFinding,
 } from "./zod-lighthouse-policy.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const lock = readFileSync(join(root, "pnpm-lock.yaml"), "utf8");
+const projects = new Set(Object.keys(parse(lock).importers));
 const chain = ["lighthouse", "puppeteer-core", "chromium-bidi", "zod"];
 const [ghsa, cve] = zodLighthouseFinding.vulnerabilityIds;
 
@@ -67,8 +69,56 @@ describe("Lighthouse Zod 3 isolation", () => {
     }
   });
 
-  it("accepts the current lockfile", () => {
-    expect(() => verifyLockedZodLighthouseConsumers(lock)).not.toThrow();
+  it("accepts the current lockfile, whose importers are exactly the pnpm workspace projects", () => {
+    expect(workspaceProjects(root)).toEqual(projects);
+    expect(() => verifyLockedZodLighthouseConsumers(lock, projects)).not.toThrow();
+  });
+
+  it.each([
+    ["an unclosed peer suffix", "schema-validator@1.0.0(unclosed"],
+    ["text after the peer suffix", "1.0.0(peer@1.0.0)extra"],
+  ])("rejects a reference with %s", (_case, version) => {
+    const mutated = withLock((lockfile) => {
+      lockfile.importers["apps/web"].dependencies["schema-validator"] = { specifier: "npm:zod@3.25.76", version };
+    });
+    expect(() => verifyLockedZodLighthouseConsumers(mutated, projects)).toThrow(/Malformed lockfile peer suffix/);
+  });
+
+  it("rejects a snapshot key with a malformed peer suffix", () => {
+    const mutated = withLock((lockfile) => {
+      lockfile.snapshots["schema-validator@1.0.0(unclosed"] = {};
+    });
+    expect(() => verifyLockedZodLighthouseConsumers(mutated, projects)).toThrow(/Malformed lockfile peer suffix/);
+  });
+
+  it("rejects a package resolved from a directory instead of the registry", () => {
+    const mutated = withLock((lockfile) => {
+      lockfile.packages["rogue@1.0.0"] = {
+        resolution: { type: "directory", directory: "node_modules/.pnpm/zod@3.25.76/node_modules/zod" },
+      };
+    });
+    expect(() => verifyLockedZodLighthouseConsumers(mutated, projects)).toThrow(/non-registry package resolution/);
+  });
+
+  it("rejects an importer that pnpm does not discover as a workspace project", () => {
+    const store = "node_modules/.pnpm/zod@3.25.76/node_modules/zod";
+    const mutated = withLock((lockfile) => {
+      lockfile.importers[store] = {};
+      lockfile.importers["apps/web"].dependencies["schema-validator"] = {
+        specifier: `link:../../${store}`,
+        version: `link:../../${store}`,
+      };
+    });
+    expect(() => verifyLockedZodLighthouseConsumers(mutated, projects)).toThrow(/not a workspace project/);
+    const linkOnly = withLock((lockfile) => {
+      lockfile.importers["apps/web"].dependencies["schema-validator"] = {
+        specifier: "x",
+        version: `link:../../${store}`,
+      };
+    });
+    expect(() => verifyLockedZodLighthouseConsumers(linkOnly, new Set([...projects, store]))).toThrow(
+      /Unreviewed local link/,
+    );
   });
 
   it.each([
@@ -82,13 +132,13 @@ describe("Lighthouse Zod 3 isolation", () => {
       const mutated = withLock((lockfile) => {
         lockfile.snapshots["rogue@1.0.0"] = { [section]: { [name]: reference } };
       });
-      expect(() => verifyLockedZodLighthouseConsumers(mutated)).toThrow(message);
+      expect(() => verifyLockedZodLighthouseConsumers(mutated, projects)).toThrow(message);
     }
   });
 
   it("parses quoted lockfile keys and versions", () => {
     const quoted = `${lock}\n  'rogue@1.0.0':\n    dependencies:\n      'zod': '3.25.76'\n`;
-    expect(() => verifyLockedZodLighthouseConsumers(quoted)).toThrow(/consumer of zod@3\.25\.76/);
+    expect(() => verifyLockedZodLighthouseConsumers(quoted, projects)).toThrow(/consumer of zod@3\.25\.76/);
   });
 
   it.each([
@@ -97,9 +147,9 @@ describe("Lighthouse Zod 3 isolation", () => {
     ["lighthouse", { specifier: "13.4.1", version: "13.4.1" }, /consumer of lighthouse@13\.4\.1/],
   ])("rejects a workspace that depends on %s", (name, entry, message) => {
     const mutated = withLock((lockfile) => {
-      lockfile.importers["apps/rogue"] = { dependencies: { [name]: entry } };
+      lockfile.importers["apps/web"].dependencies[name] = entry;
     });
-    expect(() => verifyLockedZodLighthouseConsumers(mutated)).toThrow(message);
+    expect(() => verifyLockedZodLighthouseConsumers(mutated, projects)).toThrow(message);
   });
 
   it.each([
@@ -111,7 +161,7 @@ describe("Lighthouse Zod 3 isolation", () => {
     const mutated = withLock((lockfile) => {
       lockfile.importers["apps/web"].dependencies["schema-validator"] = { specifier: version, version };
     });
-    expect(() => verifyLockedZodLighthouseConsumers(mutated)).toThrow(message);
+    expect(() => verifyLockedZodLighthouseConsumers(mutated, projects)).toThrow(message);
   });
 
   it.each([".", "apps/web"])("rejects a %s link that hides its target behind a parenthetical", (importer) => {
@@ -121,14 +171,16 @@ describe("Lighthouse Zod 3 isolation", () => {
       const entry = lockfile.importers[importer];
       entry.dependencies = { ...entry.dependencies, "schema-validator": { specifier: version, version } };
     });
-    expect(() => verifyLockedZodLighthouseConsumers(mutated)).toThrow(/Unreviewed local link/);
+    expect(() => verifyLockedZodLighthouseConsumers(mutated, projects)).toThrow(/Unreviewed local link/);
   });
 
   it("rejects a link reference inside a snapshot", () => {
     const mutated = withLock((lockfile) => {
       lockfile.snapshots["rogue@1.0.0"] = { dependencies: { zod: "link:../zod" } };
     });
-    expect(() => verifyLockedZodLighthouseConsumers(mutated)).toThrow(/Unreviewed non-registry lockfile reference/);
+    expect(() => verifyLockedZodLighthouseConsumers(mutated, projects)).toThrow(
+      /Unreviewed non-registry lockfile reference/,
+    );
   });
 
   it("requires Lighthouse to stay a root devDependency", () => {
@@ -136,7 +188,7 @@ describe("Lighthouse Zod 3 isolation", () => {
       root.dependencies = { ...root.dependencies, lighthouse: root.devDependencies.lighthouse };
       delete root.devDependencies.lighthouse;
     });
-    expect(() => verifyLockedZodLighthouseConsumers(mutated)).toThrow(/consumer of lighthouse@13\.4\.1/);
+    expect(() => verifyLockedZodLighthouseConsumers(mutated, projects)).toThrow(/consumer of lighthouse@13\.4\.1/);
   });
 });
 

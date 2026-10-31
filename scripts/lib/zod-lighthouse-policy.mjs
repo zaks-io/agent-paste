@@ -1,9 +1,9 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { createRequire, registerHooks } from "node:module";
-import { join, posix } from "node:path";
+import { join, posix, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse } from "yaml";
 import { resolveBracesConsumer } from "./braces-patch.mjs";
@@ -33,12 +33,28 @@ const snapshotSections = ["dependencies", "optionalDependencies"];
 
 const REGISTRY_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
+/** Strip a pnpm peer or patch suffix. Anything after the first "(" must be balanced groups
+ * running to the end; otherwise pnpm reads the whole string as a non-semver version.
+ * @param {string} reference
+ */
+function withoutPeerSuffix(reference) {
+  const start = reference.indexOf("(");
+  if (start === -1) return reference;
+  let depth = 0;
+  for (const char of reference.slice(start)) {
+    assert(depth > 0 || char === "(", `Malformed lockfile peer suffix: ${reference}`);
+    depth += char === "(" ? 1 : char === ")" ? -1 : 0;
+  }
+  assert.equal(depth, 0, `Malformed lockfile peer suffix: ${reference}`);
+  return reference.slice(0, start);
+}
+
 /** Resolve a locked reference to a registry identity or a workspace link. Links outside the
  * workspace and file, tarball, or git references could hide a consumer from pnpm audit, so
  * they fail closed until this disposition is reviewed for them.
  * @param {string} name dependency key, or "" for a snapshot key
  * @param {unknown} reference locked version, alias target, link, or peer-suffixed key
- * @param {{ importer: string, importerPaths: Set<string> }} [workspace] set for importer edges
+ * @param {{ importer: string, projects: Set<string> }} [workspace] set for importer edges
  */
 function packageIdentity(name, reference, workspace) {
   assert.equal(typeof reference, "string", `Malformed locked reference for ${name}`);
@@ -47,12 +63,12 @@ function packageIdentity(name, reference, workspace) {
   if (workspace && raw.startsWith("link:")) {
     const target = posix.normalize(posix.join(workspace.importer, raw.slice("link:".length)));
     assert(
-      !raw.startsWith("link:/") && workspace.importerPaths.has(target),
+      !raw.startsWith("link:/") && !target.split("/").includes("node_modules") && workspace.projects.has(target),
       `Unreviewed local link ${name}: ${reference} in ${workspace.importer}`,
     );
     return `link:${target}`;
   }
-  const resolved = raw.replace(/\(.*$/, "");
+  const resolved = withoutPeerSuffix(raw);
   // Aliased dependencies lock as `alias: real-name@version`.
   const alias = resolved.match(/^((?:@[^/@:]+\/)?[^@/:]+)@(.+)$/);
   const [packageName, version] = alias ? [alias[1], alias[2]] : [name, resolved];
@@ -67,20 +83,46 @@ function lockedRecord(value, label) {
   return /** @type {Record<string, any>} */ (value);
 }
 
+/** Workspace projects as pnpm discovers them from pnpm-workspace.yaml, relative to the root.
+ * Lockfile importer keys alone cannot prove that a link target is a workspace project.
+ * @param {string} repoRoot
+ */
+export function workspaceProjects(repoRoot) {
+  const result = spawnSync("pnpm", ["ls", "--recursive", "--depth", "-1", "--json"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    timeout: 60_000,
+  });
+  assert.equal(result.status, 0, `pnpm workspace discovery failed: ${result.stderr || result.signal}`);
+  const root = realpathSync(repoRoot);
+  return new Set(JSON.parse(result.stdout).map(({ path }) => relative(root, realpathSync(path)) || "."));
+}
+
 /** Verify every importer and snapshot edge into the reviewed chain, including aliases.
  * @param {string} lock pnpm-lock.yaml or node_modules/.pnpm/lock.yaml text
+ * @param {Set<string>} projects workspace project paths from {@link workspaceProjects}
  */
-export function verifyLockedZodLighthouseConsumers(lock) {
+export function verifyLockedZodLighthouseConsumers(lock, projects) {
   const lockfile = parse(lock);
   assert.equal(lockfile?.lockfileVersion, "9.0", "Unsupported lockfile version");
+  // A directory, tarball, or git resolution could point a registry-looking identity at any copy.
+  for (const [key, entry] of Object.entries(lockedRecord(lockfile.packages, "packages"))) {
+    const resolution = lockedRecord(entry?.resolution, `${key} resolution`);
+    assert(
+      typeof resolution.integrity === "string" && Object.keys(resolution).length === 1,
+      `Unreviewed non-registry package resolution: ${key}`,
+    );
+  }
+  const importers = lockedRecord(lockfile.importers, "importers");
+  for (const path of Object.keys(importers)) {
+    assert(projects.has(path), `Lockfile importer is not a workspace project: ${path}`);
+  }
   /** @type {Array<[string, string]>} */
   const edges = [];
-  const importers = lockedRecord(lockfile.importers, "importers");
-  const importerPaths = new Set(Object.keys(importers));
   for (const [path, importer] of Object.entries(importers)) {
     for (const section of importerSections) {
       for (const [name, entry] of Object.entries(lockedRecord(importer?.[section], `${path} ${section}`))) {
-        edges.push([`${path} ${section}`, packageIdentity(name, entry?.version, { importer: path, importerPaths })]);
+        edges.push([`${path} ${section}`, packageIdentity(name, entry?.version, { importer: path, projects })]);
       }
     }
   }
@@ -109,8 +151,9 @@ export function verifyZodLighthouseIsolation(repoRoot) {
     const manifest = JSON.parse(readFileSync(join(directory, "package.json"), "utf8"));
     assert.equal(`${manifest.name}@${manifest.version}`, reviewedChain[i], "Unreviewed Lighthouse Zod dependency path");
   });
+  const projects = workspaceProjects(repoRoot);
   for (const path of ["pnpm-lock.yaml", "node_modules/.pnpm/lock.yaml"]) {
-    verifyLockedZodLighthouseConsumers(readFileSync(join(repoRoot, path), "utf8"));
+    verifyLockedZodLighthouseConsumers(readFileSync(join(repoRoot, path), "utf8"), projects);
   }
   const [, puppeteer, chromiumBidi, zod] = directories;
   const probe = spawnSync(

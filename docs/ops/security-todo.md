@@ -111,10 +111,13 @@ Before any scanner disposition, `scripts/lib/zod-lighthouse-policy.mjs` checks:
   `puppeteer-core@25.9.0`, `chromium-bidi@17.0.2`, and `zod@3.25.76`. Every
   importer and snapshot dependency and optional-dependency edge counts, because
   pnpm audit deduplicates visited packages and skips local links, so it can
-  report only the reviewed path when a second consumer exists. Workspace
-  `link:` references must resolve to another workspace importer. Any other
-  link, and any file, tarball, or git reference, fails verification until this
-  disposition is reviewed for it;
+  report only the reviewed path when a second consumer exists;
+- the locks contain nothing the consumer check cannot see: every importer is a
+  workspace project that `pnpm ls --recursive` discovers, every `link:`
+  resolves to one of those projects outside `node_modules`, every peer or patch
+  suffix is well formed, and every package resolves from the registry by
+  integrity alone. Any file, tarball, git, or directory source fails
+  verification until this disposition is reviewed for it;
 - a child process that loads Lighthouse and the puppeteer-core BiDi bridge
   resolves chromium-bidi modules, which proves it observes that path, and no
   module from the Zod 3 package.
