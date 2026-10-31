@@ -26,8 +26,11 @@ export const zodLighthouseFinding = {
 
 // pnpm audit deduplicates visited packages, so a second consumer can hide behind the reviewed
 // path. The root devDependency must be the only entry into the chain, and each reviewed package
-// the only consumer of the next.
-const reviewedDependents = [". devDependencies", ...reviewedChain.slice(0, -1)];
+// the only consumer of the next. Dependency names keep a second alias from the same dependent
+// distinct.
+const reviewedDependents = [". devDependencies", ...reviewedChain.slice(0, -1)].map(
+  (dependent, i) => `${dependent} ${chainNames[i]}`,
+);
 const importerSections = ["dependencies", "devDependencies", "optionalDependencies"];
 const snapshotSections = ["dependencies", "optionalDependencies"];
 
@@ -98,15 +101,32 @@ export function workspaceProjects(repoRoot) {
   return new Set(JSON.parse(result.stdout).map(({ path }) => relative(root, realpathSync(path)) || "."));
 }
 
-/** Verify every importer and snapshot edge into the reviewed chain, including aliases.
- * @param {string} lock pnpm-lock.yaml or node_modules/.pnpm/lock.yaml text
- * @param {Set<string>} projects workspace project paths from {@link workspaceProjects}
+/** Resolve a packages or snapshots key, rejecting entry metadata that disagrees with it.
+ * pnpm prefers an entry's own name and version over its key, so a mismatch could lock a
+ * Zod 3 tarball under a key the consumer check reads as another version.
+ * @param {string} key
+ * @param {unknown} entry
  */
-export function verifyLockedZodLighthouseConsumers(lock, projects) {
-  const lockfile = parse(lock);
-  assert.equal(lockfile?.lockfileVersion, "9.0", "Unsupported lockfile version");
+function keyedIdentity(key, entry) {
+  const identity = packageIdentity("", key);
+  const at = identity.lastIndexOf("@");
+  const { name, version } = lockedRecord(entry, key);
+  assert(
+    (name === undefined || name === identity.slice(0, at)) &&
+      (version === undefined || version === identity.slice(at + 1)),
+    `Lockfile entry metadata disagrees with its key: ${key}`,
+  );
+  return identity;
+}
+
+/** Every edge from an importer or snapshot dependency to a package identity.
+ * @param {Record<string, any>} lockfile parsed lockfile
+ * @param {Set<string>} projects
+ */
+function lockedEdges(lockfile, projects) {
   // A directory, tarball, or git resolution could point a registry-looking identity at any copy.
   for (const [key, entry] of Object.entries(lockedRecord(lockfile.packages, "packages"))) {
+    keyedIdentity(key, entry);
     const resolution = lockedRecord(entry?.resolution, `${key} resolution`);
     assert(
       typeof resolution.integrity === "string" && Object.keys(resolution).length === 1,
@@ -122,18 +142,29 @@ export function verifyLockedZodLighthouseConsumers(lock, projects) {
   for (const [path, importer] of Object.entries(importers)) {
     for (const section of importerSections) {
       for (const [name, entry] of Object.entries(lockedRecord(importer?.[section], `${path} ${section}`))) {
-        edges.push([`${path} ${section}`, packageIdentity(name, entry?.version, { importer: path, projects })]);
+        edges.push([`${path} ${section} ${name}`, packageIdentity(name, entry?.version, { importer: path, projects })]);
       }
     }
   }
   for (const [key, snapshot] of Object.entries(lockedRecord(lockfile.snapshots, "snapshots"))) {
-    const dependent = packageIdentity("", key);
+    const dependent = keyedIdentity(key, snapshot);
     for (const section of snapshotSections) {
       for (const [name, reference] of Object.entries(lockedRecord(snapshot?.[section], `${key} ${section}`))) {
-        edges.push([dependent, packageIdentity(name, reference)]);
+        edges.push([`${dependent} ${name}`, packageIdentity(name, reference)]);
       }
     }
   }
+  return edges;
+}
+
+/** Verify every importer and snapshot edge into the reviewed chain, including aliases.
+ * @param {string} lock pnpm-lock.yaml or node_modules/.pnpm/lock.yaml text
+ * @param {Set<string>} projects workspace project paths from {@link workspaceProjects}
+ */
+export function verifyLockedZodLighthouseConsumers(lock, projects) {
+  const lockfile = parse(lock);
+  assert.equal(lockfile?.lockfileVersion, "9.0", "Unsupported lockfile version");
+  const edges = lockedEdges(lockfile, projects);
   reviewedChain.forEach((identity, i) => {
     const dependents = [...new Set(edges.filter(([, target]) => target === identity).map(([from]) => from))];
     assert.deepEqual(dependents.sort(), [reviewedDependents[i]], `Unreviewed locked consumer of ${identity}`);
@@ -196,6 +227,7 @@ async function probeModuleLoads([lighthouseEntry, bidiBridge, ...watched]) {
   process.stdout.write(JSON.stringify(resolved.map((urls) => urls.size)));
 }
 
-if (import.meta.main) {
+// import.meta.main needs Node 24.2; the repository supports every Node 24 release.
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   await probeModuleLoads(process.argv.slice(2));
 }

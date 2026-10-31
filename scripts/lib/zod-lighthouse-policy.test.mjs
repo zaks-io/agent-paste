@@ -100,6 +100,27 @@ describe("Lighthouse Zod 3 isolation", () => {
     expect(() => verifyLockedZodLighthouseConsumers(mutated, projects)).toThrow(/non-registry package resolution/);
   });
 
+  it.each(["packages", "snapshots"])("rejects %s metadata that overrides the version in its key", (section) => {
+    const mutated = withLock((lockfile) => {
+      const { resolution } = lockfile.packages["zod@3.25.76"];
+      lockfile.importers["apps/web"].dependencies["schema-validator"] = {
+        specifier: "npm:zod@3.25.76",
+        version: "zod@99.0.0",
+      };
+      lockfile.packages["zod@99.0.0"] = { resolution };
+      lockfile.snapshots["zod@99.0.0"] = {};
+      lockfile[section]["zod@99.0.0"].version = "3.25.76";
+    });
+    expect(() => verifyLockedZodLighthouseConsumers(mutated, projects)).toThrow(/metadata disagrees with its key/);
+  });
+
+  it("rejects a second root alias of Lighthouse", () => {
+    const mutated = withLock(({ importers: { ".": root } }) => {
+      root.devDependencies["lighthouse-alias"] = { specifier: "npm:lighthouse@13.4.1", version: "lighthouse@13.4.1" };
+    });
+    expect(() => verifyLockedZodLighthouseConsumers(mutated, projects)).toThrow(/consumer of lighthouse@13\.4\.1/);
+  });
+
   it("rejects an importer that pnpm does not discover as a workspace project", () => {
     const store = "node_modules/.pnpm/zod@3.25.76/node_modules/zod";
     const mutated = withLock((lockfile) => {

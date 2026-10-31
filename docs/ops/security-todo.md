@@ -107,15 +107,17 @@ Before any scanner disposition, `scripts/lib/zod-lighthouse-policy.mjs` checks:
 - every installed hop matches the reviewed version;
 - both the repository and installed pnpm locks, parsed as YAML with aliases
   resolved to package identities, have exactly one consumer per hop: the root
-  `devDependencies` entry for `lighthouse@13.4.1`, then the reviewed parent for
-  `puppeteer-core@25.9.0`, `chromium-bidi@17.0.2`, and `zod@3.25.76`. Every
-  importer and snapshot dependency and optional-dependency edge counts, because
-  pnpm audit deduplicates visited packages and skips local links, so it can
-  report only the reviewed path when a second consumer exists;
-- the locks contain nothing the consumer check cannot see: every importer is a
-  workspace project that `pnpm ls --recursive` discovers, every `link:`
+  `devDependencies` entry named `lighthouse` for `lighthouse@13.4.1`, then the
+  reviewed parent for `puppeteer-core@25.9.0`, `chromium-bidi@17.0.2`, and
+  `zod@3.25.76`. Every importer and snapshot dependency and optional-dependency
+  edge counts, and a second alias from the same dependent counts as another
+  consumer, because pnpm audit deduplicates visited packages and skips local
+  links, so it can report only the reviewed path when a second consumer exists;
+- the locks use only shapes the consumer check understands: every importer is
+  a workspace project that `pnpm ls --recursive` discovers, every `link:`
   resolves to one of those projects outside `node_modules`, every peer or patch
-  suffix is well formed, and every package resolves from the registry by
+  suffix is well formed, no package or snapshot entry carries a name or version
+  that disagrees with its key, and every package resolves from the registry by
   integrity alone. Any file, tarball, git, or directory source fails
   verification until this disposition is reviewed for it;
 - a child process that loads Lighthouse and the puppeteer-core BiDi bridge
