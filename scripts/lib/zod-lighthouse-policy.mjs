@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync, realpathSync } from "node:fs";
 import { createRequire, registerHooks } from "node:module";
-import { join, posix, relative } from "node:path";
+import { join, posix, relative, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse } from "yaml";
 import { resolveBracesConsumer } from "./braces-patch.mjs";
@@ -86,8 +86,9 @@ function lockedRecord(value, label) {
   return /** @type {Record<string, any>} */ (value);
 }
 
-/** Workspace projects as pnpm discovers them from pnpm-workspace.yaml, relative to the root.
- * Lockfile importer keys alone cannot prove that a link target is a workspace project.
+/** Workspace projects as pnpm discovers them from pnpm-workspace.yaml, relative to the root
+ * with "/" separators like lockfile importer keys. Lockfile importer keys alone cannot prove
+ * that a link target is a workspace project.
  * @param {string} repoRoot
  */
 export function workspaceProjects(repoRoot) {
@@ -98,7 +99,9 @@ export function workspaceProjects(repoRoot) {
   });
   assert.equal(result.status, 0, `pnpm workspace discovery failed: ${result.stderr || result.signal}`);
   const root = realpathSync(repoRoot);
-  return new Set(JSON.parse(result.stdout).map(({ path }) => relative(root, realpathSync(path)) || "."));
+  return new Set(
+    JSON.parse(result.stdout).map(({ path }) => relative(root, realpathSync(path)).split(sep).join("/") || "."),
+  );
 }
 
 // pnpm prefers an entry's own id or version over its key, and importer metadata such as
