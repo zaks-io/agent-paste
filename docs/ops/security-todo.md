@@ -105,9 +105,13 @@ passes no parser, so chromium-bidi falls back to `BidiNoOpParser`.
 Before any scanner disposition, `scripts/lib/zod-lighthouse-policy.mjs` checks:
 
 - every installed hop matches the reviewed version;
-- in both the repository and installed pnpm locks, the reviewed parent is the
-  only snapshot that depends on `puppeteer-core@25.9.0`, `chromium-bidi@17.0.2`,
-  and `zod@3.25.76`, and no workspace depends on Zod 3 directly;
+- both the repository and installed pnpm locks, parsed as YAML with aliases
+  resolved to package identities, have exactly one consumer per hop: the root
+  `devDependencies` entry for `lighthouse@13.4.1`, then the reviewed parent for
+  `puppeteer-core@25.9.0`, `chromium-bidi@17.0.2`, and `zod@3.25.76`. Every
+  importer and snapshot dependency and optional-dependency edge counts, because
+  pnpm audit deduplicates visited packages and can report only the reviewed
+  path when a second consumer exists;
 - a child process that loads Lighthouse and the puppeteer-core BiDi bridge
   resolves chromium-bidi modules, which proves it observes that path, and no
   module from the Zod 3 package.
@@ -115,7 +119,9 @@ Before any scanner disposition, `scripts/lib/zod-lighthouse-policy.mjs` checks:
 Failed verification fails the attestation and enables no exception. The pnpm
 audit, Trivy, and Grype policies then allow only GHSA-mrhx-c7xc-m3w5 and its CVE
 alias, `zod@3.25.76`, the `.>lighthouse>puppeteer-core>chromium-bidi>zod` path,
-and the root `pnpm-lock.yaml` target. Raw reports are preserved. The weekly Snyk
+and the root `pnpm-lock.yaml` target. Every location a scanner reports for the
+artifact must be an allowed target, so a match that also names another lockfile
+blocks. Raw reports are preserved. The weekly Snyk
 scan runs without `--dev`, so it does not report this root devDependency path.
 
 Any Lighthouse or puppeteer-core upgrade fails verification until it is

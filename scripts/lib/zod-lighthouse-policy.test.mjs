@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { parse, stringify } from "yaml";
 import { resolveBracesConsumer } from "./braces-patch.mjs";
 import { evaluatePnpmAuditPolicy } from "./pnpm-audit-policy.mjs";
 import { evaluateGrypePolicy } from "./scanner-vulnerability-policy.mjs";
@@ -22,16 +23,22 @@ function auditReport(findings) {
   return JSON.stringify({ advisories: { 1243066: advisory } });
 }
 
-function grypeReport(version) {
+function grypeReport(version, locations = ["/pnpm-lock.yaml"]) {
   return JSON.stringify({
     matches: [
       {
         vulnerability: { id: ghsa, severity: "High" },
         relatedVulnerabilities: [{ id: cve }],
-        artifact: { name: "zod", version, locations: [{ path: "/pnpm-lock.yaml" }] },
+        artifact: { name: "zod", version, locations: locations.map((path) => ({ path })) },
       },
     ],
   });
+}
+
+function withLock(mutate) {
+  const lockfile = parse(lock);
+  mutate(lockfile);
+  return stringify(lockfile);
 }
 
 describe("Lighthouse Zod 3 isolation", () => {
@@ -65,20 +72,42 @@ describe("Lighthouse Zod 3 isolation", () => {
   });
 
   it.each([
-    ["zod: 3.25.76", /consumer of zod@3\.25\.76/],
-    ["chromium-bidi: 17.0.2(devtools-protocol@0.0.1666840)", /consumer of chromium-bidi@17\.0\.2/],
-    ["puppeteer-core: 25.9.0(yauzl@2.10.0)", /consumer of puppeteer-core@25\.9\.0/],
-  ])("rejects another locked snapshot depending on %s", (dependency, message) => {
-    const extra = `\n  rogue@1.0.0:\n    dependencies:\n      ${dependency}\n`;
-    expect(() => verifyLockedZodLighthouseConsumers(lock + extra)).toThrow(message);
+    ["zod", "3.25.76", /consumer of zod@3\.25\.76/],
+    ["schema-validator", "zod@3.25.76", /consumer of zod@3\.25\.76/],
+    ["chromium-bidi", "17.0.2(devtools-protocol@0.0.1666840)", /consumer of chromium-bidi@17\.0\.2/],
+    ["puppeteer-core", "25.9.0(yauzl@2.10.0)", /consumer of puppeteer-core@25\.9\.0/],
+    ["lighthouse", "13.4.1", /consumer of lighthouse@13\.4\.1/],
+  ])("rejects another snapshot depending on %s: %s", (name, reference, message) => {
+    for (const section of ["dependencies", "optionalDependencies"]) {
+      const mutated = withLock((lockfile) => {
+        lockfile.snapshots["rogue@1.0.0"] = { [section]: { [name]: reference } };
+      });
+      expect(() => verifyLockedZodLighthouseConsumers(mutated)).toThrow(message);
+    }
   });
 
-  it("rejects a workspace that depends on Zod 3 directly", () => {
-    const importer =
-      "\nimporters:\n\n  apps/rogue:\n    dependencies:\n      zod:\n        specifier: ^3.25.0\n        version: 3.25.76\n";
-    expect(() => verifyLockedZodLighthouseConsumers(lock.replace("\nimporters:\n", importer))).toThrow(
-      /workspace Zod 3 dependency/,
-    );
+  it("parses quoted lockfile keys and versions", () => {
+    const quoted = `${lock}\n  'rogue@1.0.0':\n    dependencies:\n      'zod': '3.25.76'\n`;
+    expect(() => verifyLockedZodLighthouseConsumers(quoted)).toThrow(/consumer of zod@3\.25\.76/);
+  });
+
+  it.each([
+    ["zod", { specifier: "^3.25.0", version: "3.25.76" }, /consumer of zod@3\.25\.76/],
+    ["schema-validator", { specifier: "npm:zod@^3.25.0", version: "zod@3.25.76" }, /consumer of zod@3\.25\.76/],
+    ["lighthouse", { specifier: "13.4.1", version: "13.4.1" }, /consumer of lighthouse@13\.4\.1/],
+  ])("rejects a workspace that depends on %s", (name, entry, message) => {
+    const mutated = withLock((lockfile) => {
+      lockfile.importers["apps/rogue"] = { dependencies: { [name]: entry } };
+    });
+    expect(() => verifyLockedZodLighthouseConsumers(mutated)).toThrow(message);
+  });
+
+  it("requires Lighthouse to stay a root devDependency", () => {
+    const mutated = withLock(({ importers: { ".": root } }) => {
+      root.dependencies = { ...root.dependencies, lighthouse: root.devDependencies.lighthouse };
+      delete root.devDependencies.lighthouse;
+    });
+    expect(() => verifyLockedZodLighthouseConsumers(mutated)).toThrow(/consumer of lighthouse@13\.4\.1/);
   });
 });
 
@@ -106,5 +135,10 @@ describe("Lighthouse Zod 3 scanner disposition", () => {
     expect(evaluate("3.25.76", verifiedSources)).toBe(0);
     expect(evaluate("3.25.76", [])).toBe(1);
     expect(evaluate("3.25.75", verifiedSources)).toBe(1);
+  });
+
+  it("blocks a Grype match that also reports an unapproved lockfile", () => {
+    const report = grypeReport("3.25.76", ["/pnpm-lock.yaml", "/apps/rogue/pnpm-lock.yaml"]);
+    expect(evaluateGrypePolicy(report, { allowedFindings: [allowed], verifiedSources }).status).toBe(1);
   });
 });

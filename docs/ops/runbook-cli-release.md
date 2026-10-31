@@ -102,7 +102,7 @@ unpatched copy or a different advisory, version, dependency path, or scanner
 target. See [AP-456 patch rationale and removal plan](./security-todo.md#braces-depth-patch-ap-456).
 
 The `zod@3.25.76` disposition on the Lighthouse chain applies only after its
-verifier confirms the reviewed dependency path, its sole lock consumers, and
+verifier confirms the reviewed dependency path, a single locked consumer per hop, and
 that loading Lighthouse resolves no Zod 3 module. See
 [AP-485 rationale and removal plan](./security-todo.md#lighthouse-zod-3-disposition-ap-485).
 

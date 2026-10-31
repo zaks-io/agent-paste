@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { createRequire, registerHooks } from "node:module";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { parse } from "yaml";
 import { resolveBracesConsumer } from "./braces-patch.mjs";
 
 // No Zod 3 release fixes GHSA-mrhx-c7xc-m3w5. Every chromium-bidi release that moved to Zod 4
@@ -20,30 +21,58 @@ export const zodLighthouseFinding = {
   paths: [[".", ...chainNames].join(">")],
   scannerTargets: ["pnpm-lock.yaml"],
   reason:
-    "Lighthouse is a root devDependency used only by CI accessibility checks. Only chromium-bidi's in-browser protocol parser imports this Zod 3 copy; puppeteer-core's Node BiDi bridge uses the no-op parser and Lighthouse connects over CDP. The pinned chain, sole lock consumers, and a load probe that resolves no Zod module are verified.",
+    "Lighthouse is a root devDependency used only by CI accessibility checks. Only chromium-bidi's in-browser protocol parser imports this Zod 3 copy; puppeteer-core's Node BiDi bridge uses the no-op parser and Lighthouse connects over CDP. The pinned chain, a single locked consumer per hop from the root devDependency, and a load probe that resolves no Zod module are verified.",
 };
 
-/** Each reviewed package may be the only snapshot that depends on the next one,
- * because another consumer could load chromium-bidi's Zod-backed parser.
+// pnpm audit deduplicates visited packages, so a second consumer can hide behind the reviewed
+// path. The root devDependency must be the only entry into the chain, and each reviewed package
+// the only consumer of the next.
+const reviewedDependents = [". devDependencies", ...reviewedChain.slice(0, -1)];
+const importerSections = ["dependencies", "devDependencies", "optionalDependencies"];
+const snapshotSections = ["dependencies", "optionalDependencies"];
+
+/** @param {string} name @param {unknown} reference locked version, alias target, or peer-suffixed key */
+function packageIdentity(name, reference) {
+  assert.equal(typeof reference, "string", `Malformed locked reference for ${name}`);
+  const resolved = String(reference).replace(/\(.*$/, "");
+  // Aliased dependencies lock as `alias: real-name@version`.
+  return /^(@[^/@]+\/)?[^@]+@/.test(resolved) ? resolved : `${name}@${resolved}`;
+}
+
+/** @param {unknown} value @param {string} label */
+function lockedRecord(value, label) {
+  if (value === undefined) return {};
+  assert(value && typeof value === "object" && !Array.isArray(value), `Malformed lockfile ${label}`);
+  return /** @type {Record<string, any>} */ (value);
+}
+
+/** Verify every importer and snapshot edge into the reviewed chain, including aliases.
  * @param {string} lock pnpm-lock.yaml or node_modules/.pnpm/lock.yaml text
  */
 export function verifyLockedZodLighthouseConsumers(lock) {
-  const [importers = "", snapshots = ""] = lock.split("\nsnapshots:\n");
-  assert(!/^ {6}zod:\n {8}specifier: .+\n {8}version: 3\./m.test(importers), "Unreviewed workspace Zod 3 dependency");
-  const entries = snapshots.split(/\n(?= {2}\S)/).map((entry) => entry.split("\n"));
-  for (let i = 1; i < reviewedChain.length; i++) {
-    const [name, version] = [chainNames[i], reviewedChain[i].slice(chainNames[i].length + 1)];
-    const dependency = new RegExp(`^ {6}${name}: ${version.replaceAll(".", "\\.")}(\\(|$)`);
-    const dependents = entries
-      .filter((lines) => lines.slice(1).some((line) => dependency.test(line)))
-      .map(([key]) =>
-        key
-          .trim()
-          .replace(/^'|':$|:$/g, "")
-          .replace(/\(.*$/, ""),
-      );
-    assert.deepEqual(dependents, [reviewedChain[i - 1]], `Unreviewed locked consumer of ${reviewedChain[i]}`);
+  const lockfile = parse(lock);
+  assert.equal(lockfile?.lockfileVersion, "9.0", "Unsupported lockfile version");
+  /** @type {Array<[string, string]>} */
+  const edges = [];
+  for (const [path, importer] of Object.entries(lockedRecord(lockfile.importers, "importers"))) {
+    for (const section of importerSections) {
+      for (const [name, entry] of Object.entries(lockedRecord(importer?.[section], `${path} ${section}`))) {
+        edges.push([`${path} ${section}`, packageIdentity(name, entry?.version)]);
+      }
+    }
   }
+  for (const [key, snapshot] of Object.entries(lockedRecord(lockfile.snapshots, "snapshots"))) {
+    const dependent = packageIdentity("", key);
+    for (const section of snapshotSections) {
+      for (const [name, reference] of Object.entries(lockedRecord(snapshot?.[section], `${key} ${section}`))) {
+        edges.push([dependent, packageIdentity(name, reference)]);
+      }
+    }
+  }
+  reviewedChain.forEach((identity, i) => {
+    const dependents = [...new Set(edges.filter(([, target]) => target === identity).map(([from]) => from))];
+    assert.deepEqual(dependents.sort(), [reviewedDependents[i]], `Unreviewed locked consumer of ${identity}`);
+  });
 }
 
 /** Fail closed before scanners may dispose of the Lighthouse Zod 3 advisory.
