@@ -64,13 +64,8 @@ remain outside this bound. Zod 4.6.6 `sizeCaps` reads only a leading run of
 size checks, so the request-bound walker does the same. A `.max()` after
 `.refine()` is not a pre-element cap.
 
-Lighthouse 13.4.1 still resolves Zod 3.25.76 through `puppeteer-core@25.9.0` and
-`chromium-bidi@17.0.2` (`zod@^3.24.1`). `puppeteer-core@25.13.0` is the first
-release inside Lighthouse's `puppeteer-core@^25.3.0` range whose chromium-bidi
-depends on Zod 4, but `chromium-bidi@157.0.8090-0` and later releases dropped
-the trusted-publisher provenance that `17.0.2` has. `trustPolicy: no-downgrade`
-rejects that parent update. Forcing Zod 4 onto chromium-bidi 17 is not a
-compatible repair. This path stays unresolved.
+The Lighthouse chain's Zod 3.25.76 copy has a separate verified disposition;
+see [Lighthouse Zod 3 disposition](#lighthouse-zod-3-disposition-ap-485).
 
 The local 4.4.3 patch and the Zod 4 Snyk waiver are removed because the upstream
 parser covers those inputs. `scripts/lib/zod-patch.mjs` still fails closed: it
@@ -87,19 +82,68 @@ removed. Those config parsers consume inline Vite options and repository
 versioned dependency hop and the reviewed config parser bytes, so a TanStack
 upgrade fails verification until it is reviewed.
 
-There is no Zod 3 release for GHSA-mrhx-c7xc-m3w5. The Lighthouse chain is the
-only remaining Zod 3.25.76 copy, and it is not waived. Raw findings and
-mitigation evidence are retained.
+## Lighthouse Zod 3 disposition (AP-485)
 
-Rechecked 2026-10-29: Lighthouse 13.6.0 requires `puppeteer-core@^25.16.0`,
-which still resolves `chromium-bidi@157.0.8090-0`, and the newest
-`chromium-bidi@159.0.8131-0` still has no provenance. The path stays blocked.
+Lighthouse 13.4.1, a root devDependency for the CI accessibility checks, still
+resolves `zod@3.25.76` through `puppeteer-core@25.9.0` and
+`chromium-bidi@17.0.2` (`zod@^3.24.1`). No Zod 3 release fixes
+GHSA-mrhx-c7xc-m3w5. `puppeteer-core@25.13.0` is the first release inside
+Lighthouse's range whose chromium-bidi depends on Zod 4, but
+`chromium-bidi@157.0.8090-0` and every later release checked through 2026-10-31
+lack the trusted-publisher provenance that `17.0.2` has. `trustPolicy:
+no-downgrade` rejects that update, and forcing Zod 4 onto chromium-bidi 17 is
+not a compatible repair. Excluding chromium-bidi from the trust policy would
+install a package without provenance in CI jobs that hold preview secrets, a
+larger risk than this advisory.
+
+This Zod copy does not load in Node. Only chromium-bidi's `protocol-parser`,
+which its in-browser BiDi tab mapper uses, imports it. Lighthouse calls
+`puppeteer.connect({ browserURL })` over CDP. puppeteer-core loads chromium-bidi
+only through a dynamic import in its WebDriver BiDi branch, and that bridge
+passes no parser, so chromium-bidi falls back to `BidiNoOpParser`.
+
+Before any scanner disposition, `scripts/lib/zod-lighthouse-policy.mjs` checks:
+
+- every installed hop matches the reviewed version;
+- both the repository and installed pnpm locks, parsed as YAML with aliases
+  resolved to package identities, have exactly one consumer per hop: the root
+  `devDependencies` entry named `lighthouse` for `lighthouse@13.4.1`, then the
+  reviewed parent for `puppeteer-core@25.9.0`, `chromium-bidi@17.0.2`, and
+  `zod@3.25.76`. Every importer and snapshot dependency and optional-dependency
+  edge counts, and a second alias from the same dependent counts as another
+  consumer, because pnpm audit deduplicates visited packages and skips local
+  links, so it can report only the reviewed path when a second consumer exists;
+- the locks use only shapes the consumer check understands: every importer is
+  a workspace project that `pnpm ls --recursive` discovers, every `link:`
+  resolves to one of those projects outside `node_modules`, every peer or patch
+  suffix is well formed, every package resolves from the registry by integrity
+  alone, and importer, dependency, package, and snapshot entries carry only the
+  fields these locks use today. pnpm prefers an entry's own `id` or `version`
+  over its key, so any other field fails verification, as does any file,
+  tarball, git, or directory source, until this disposition is reviewed for it;
+- a child process that loads Lighthouse and the puppeteer-core BiDi bridge
+  resolves chromium-bidi modules, which proves it observes that path, and no
+  module from the Zod 3 package.
+
+Failed verification fails the attestation and enables no exception. The pnpm
+audit, Trivy, and Grype policies then allow only GHSA-mrhx-c7xc-m3w5 and its CVE
+alias, `zod@3.25.76`, the `.>lighthouse>puppeteer-core>chromium-bidi>zod` path,
+and the root `pnpm-lock.yaml` target. Every location a scanner reports for the
+artifact must be an allowed target, so a match that also names another lockfile
+blocks. Raw reports are preserved. The weekly Snyk
+scan runs without `--dev`, so it does not report this root devDependency path.
+
+Any Lighthouse or puppeteer-core upgrade fails verification until it is
+reviewed. Remove the verifier, disposition, and tests together once a
+chromium-bidi release with provenance that depends on Zod 4 clears the
+seven-day age gate, or a Lighthouse release drops the Zod 3 chain.
 
 ## Dependency remediation (AP-484)
 
 The 2026-10-29 `pnpm audit` found 24 distinct advisory IDs at the policy's
 blocking severities (moderate, high, and critical) on `main`. Its summary count of
-30 also includes four low-severity findings. Except for the Zod 3 path above and
+30 also includes four low-severity findings. Except for the Lighthouse Zod 3 path
+(AP-485) and
 the TanStack Start advisory owned by AP-481, every blocking advisory has a fixed
 release past the seven-day age gate. No age exception is added. The remaining
 low-severity [GHSA-866g-f22w-33x8](https://github.com/advisories/GHSA-866g-f22w-33x8)

@@ -42,6 +42,8 @@ The Snyk runner preserves raw reports and the policy decision under
 closed. Pure report decisions live in `lib/snyk-vulnerability-policy.mjs`; pnpm manifests
 come from the native `displayTargetFile` report field. `lib/zod-build-policy.mjs`
 verifies the six build-only Zod paths and their reviewed config parsers.
+`lib/zod-lighthouse-policy.mjs` verifies the Lighthouse Zod 3 chain before the
+attestation disposes of its advisory.
 
 ## Worktree Setup
 

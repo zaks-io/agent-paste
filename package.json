@@ -108,7 +108,8 @@
     "turbo": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "wrangler": "^4.94.0"
+    "wrangler": "^4.94.0",
+    "yaml": "2.9.0"
   },
   "pnpm": {
     "overrides": {
