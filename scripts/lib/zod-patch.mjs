@@ -6,9 +6,10 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import { resolveBracesConsumer } from "./braces-patch.mjs";
 import { verifyZodBuildConsumers } from "./zod-build-policy.mjs";
+import { zodLighthouseFinding } from "./zod-lighthouse-policy.mjs";
 
 const ZOD_VERSION = "4.6.6";
-const BUILD_ZOD_VERSION = "3.25.76";
+const LIGHTHOUSE_ZOD_VERSION = zodLighthouseFinding.version;
 const ZOD_OVERRIDE = "zod@>=4.0.0 <5.0.0";
 // Published Zod 4.6.6 parsers. Upstream capSize rejects oversized arrays before element checks.
 const files = {
@@ -185,7 +186,8 @@ export function verifyZodPatch(repoRoot) {
     const snapshots = lock.split("\nsnapshots:\n")[1] ?? "";
     const references = [...snapshots.matchAll(/^\s+zod: (.+)$/gm)].map((m) => m[1]);
     assert(
-      references.length > 0 && references.every((version) => version === BUILD_ZOD_VERSION || version === ZOD_VERSION),
+      references.length > 0 &&
+        references.every((version) => version === LIGHTHOUSE_ZOD_VERSION || version === ZOD_VERSION),
       "Unexpected Zod lock reference",
     );
   }

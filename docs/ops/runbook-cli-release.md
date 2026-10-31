@@ -101,6 +101,11 @@ patch to pass runtime verification before it applies. It does not allow an
 unpatched copy or a different advisory, version, dependency path, or scanner
 target. See [AP-456 patch rationale and removal plan](./security-todo.md#braces-depth-patch-ap-456).
 
+The `zod@3.25.76` disposition on the Lighthouse chain applies only after its
+verifier confirms the reviewed dependency path, its sole lock consumers, and
+that loading Lighthouse resolves no Zod 3 module. See
+[AP-485 rationale and removal plan](./security-todo.md#lighthouse-zod-3-disposition-ap-485).
+
 ### 3. Review and publish the draft
 
 Open the draft release. Confirm the four binaries, four `*.intoto.jsonl`
