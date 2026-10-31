@@ -23,13 +23,13 @@ function auditReport(findings) {
   return JSON.stringify({ advisories: { 1243066: advisory } });
 }
 
-function grypeReport(version, locations = ["/pnpm-lock.yaml"]) {
+function grypeReport(version, locations = [{ path: "/pnpm-lock.yaml" }]) {
   return JSON.stringify({
     matches: [
       {
         vulnerability: { id: ghsa, severity: "High" },
         relatedVulnerabilities: [{ id: cve }],
-        artifact: { name: "zod", version, locations: locations.map((path) => ({ path })) },
+        artifact: { name: "zod", version, locations },
       },
     ],
   });
@@ -102,6 +102,25 @@ describe("Lighthouse Zod 3 isolation", () => {
     expect(() => verifyLockedZodLighthouseConsumers(mutated)).toThrow(message);
   });
 
+  it.each([
+    ["link into the pnpm store", "link:../../node_modules/.pnpm/zod@3.25.76/node_modules/zod", /Unreviewed local link/],
+    ["absolute link", "link:/repo/packages/contracts", /Unreviewed local link/],
+    ["tarball", "https://registry.example/zod/-/zod-3.25.76.tgz", /Unreviewed non-registry lockfile reference/],
+    ["git reference", "github.com/colinhacks/zod/abc123", /Unreviewed non-registry lockfile reference/],
+  ])("rejects a workspace %s reference", (_kind, version, message) => {
+    const mutated = withLock((lockfile) => {
+      lockfile.importers["apps/web"].dependencies["schema-validator"] = { specifier: version, version };
+    });
+    expect(() => verifyLockedZodLighthouseConsumers(mutated)).toThrow(message);
+  });
+
+  it("rejects a link reference inside a snapshot", () => {
+    const mutated = withLock((lockfile) => {
+      lockfile.snapshots["rogue@1.0.0"] = { dependencies: { zod: "link:../zod" } };
+    });
+    expect(() => verifyLockedZodLighthouseConsumers(mutated)).toThrow(/Unreviewed non-registry lockfile reference/);
+  });
+
   it("requires Lighthouse to stay a root devDependency", () => {
     const mutated = withLock(({ importers: { ".": root } }) => {
       root.dependencies = { ...root.dependencies, lighthouse: root.devDependencies.lighthouse };
@@ -137,8 +156,12 @@ describe("Lighthouse Zod 3 scanner disposition", () => {
     expect(evaluate("3.25.75", verifiedSources)).toBe(1);
   });
 
-  it("blocks a Grype match that also reports an unapproved lockfile", () => {
-    const report = grypeReport("3.25.76", ["/pnpm-lock.yaml", "/apps/rogue/pnpm-lock.yaml"]);
+  it.each([
+    ["an unapproved lockfile", [{ path: "/pnpm-lock.yaml" }, { path: "/apps/rogue/pnpm-lock.yaml" }]],
+    ["a non-string path", [{ path: "/pnpm-lock.yaml" }, { path: 42 }]],
+    ["a null location", [null, { path: "/pnpm-lock.yaml" }]],
+  ])("blocks a Grype match that also reports %s", (_case, locations) => {
+    const report = grypeReport("3.25.76", locations);
     expect(evaluateGrypePolicy(report, { allowedFindings: [allowed], verifiedSources }).status).toBe(1);
   });
 });

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createRequire, registerHooks } from "node:module";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse } from "yaml";
 import { resolveBracesConsumer } from "./braces-patch.mjs";
@@ -31,12 +31,31 @@ const reviewedDependents = [". devDependencies", ...reviewedChain.slice(0, -1)];
 const importerSections = ["dependencies", "devDependencies", "optionalDependencies"];
 const snapshotSections = ["dependencies", "optionalDependencies"];
 
-/** @param {string} name @param {unknown} reference locked version, alias target, or peer-suffixed key */
-function packageIdentity(name, reference) {
+const REGISTRY_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+
+/** Resolve a locked reference to a registry identity or a workspace link. Links outside the
+ * workspace and file, tarball, or git references could hide a consumer from pnpm audit, so
+ * they fail closed until this disposition is reviewed for them.
+ * @param {string} name dependency key, or "" for a snapshot key
+ * @param {unknown} reference locked version, alias target, link, or peer-suffixed key
+ * @param {{ importer: string, importerPaths: Set<string> }} [workspace] set for importer edges
+ */
+function packageIdentity(name, reference, workspace) {
   assert.equal(typeof reference, "string", `Malformed locked reference for ${name}`);
   const resolved = String(reference).replace(/\(.*$/, "");
+  if (workspace && resolved.startsWith("link:")) {
+    const target = posix.normalize(posix.join(workspace.importer, resolved.slice("link:".length)));
+    assert(
+      !resolved.startsWith("link:/") && workspace.importerPaths.has(target),
+      `Unreviewed local link ${name}: ${reference} in ${workspace.importer}`,
+    );
+    return `link:${target}`;
+  }
   // Aliased dependencies lock as `alias: real-name@version`.
-  return /^(@[^/@]+\/)?[^@]+@/.test(resolved) ? resolved : `${name}@${resolved}`;
+  const alias = resolved.match(/^((?:@[^/@:]+\/)?[^@/:]+)@(.+)$/);
+  const [packageName, version] = alias ? [alias[1], alias[2]] : [name, resolved];
+  assert(REGISTRY_VERSION.test(version), `Unreviewed non-registry lockfile reference ${name}: ${reference}`);
+  return `${packageName}@${version}`;
 }
 
 /** @param {unknown} value @param {string} label */
@@ -54,10 +73,12 @@ export function verifyLockedZodLighthouseConsumers(lock) {
   assert.equal(lockfile?.lockfileVersion, "9.0", "Unsupported lockfile version");
   /** @type {Array<[string, string]>} */
   const edges = [];
-  for (const [path, importer] of Object.entries(lockedRecord(lockfile.importers, "importers"))) {
+  const importers = lockedRecord(lockfile.importers, "importers");
+  const importerPaths = new Set(Object.keys(importers));
+  for (const [path, importer] of Object.entries(importers)) {
     for (const section of importerSections) {
       for (const [name, entry] of Object.entries(lockedRecord(importer?.[section], `${path} ${section}`))) {
-        edges.push([`${path} ${section}`, packageIdentity(name, entry?.version)]);
+        edges.push([`${path} ${section}`, packageIdentity(name, entry?.version, { importer: path, importerPaths })]);
       }
     }
   }
