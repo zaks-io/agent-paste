@@ -100,7 +100,13 @@ describe("Lighthouse Zod 3 isolation", () => {
     expect(() => verifyLockedZodLighthouseConsumers(mutated, projects)).toThrow(/non-registry package resolution/);
   });
 
-  it.each(["packages", "snapshots"])("rejects %s metadata that overrides the version in its key", (section) => {
+  it.each([
+    ["packages", "version", "3.25.76"],
+    ["snapshots", "version", "3.25.76"],
+    ["packages", "id", "zod@3.25.76"],
+    ["snapshots", "id", "zod@3.25.76"],
+    ["packages", "name", "zod"],
+  ])("rejects %s metadata %s that pnpm prefers over the key", (section, field, value) => {
     const mutated = withLock((lockfile) => {
       const { resolution } = lockfile.packages["zod@3.25.76"];
       lockfile.importers["apps/web"].dependencies["schema-validator"] = {
@@ -109,9 +115,24 @@ describe("Lighthouse Zod 3 isolation", () => {
       };
       lockfile.packages["zod@99.0.0"] = { resolution };
       lockfile.snapshots["zod@99.0.0"] = {};
-      lockfile[section]["zod@99.0.0"].version = "3.25.76";
+      lockfile[section]["zod@99.0.0"][field] = value;
     });
-    expect(() => verifyLockedZodLighthouseConsumers(mutated, projects)).toThrow(/metadata disagrees with its key/);
+    expect(() => verifyLockedZodLighthouseConsumers(mutated, projects)).toThrow(
+      new RegExp(`Unreviewed lockfile ${section} field in zod@99\\.0\\.0`),
+    );
+  });
+
+  it("rejects unreviewed importer metadata", () => {
+    const meta = withLock((lockfile) => {
+      lockfile.importers["apps/web"].dependenciesMeta = { "@agent-paste/ui": { injected: true } };
+    });
+    expect(() => verifyLockedZodLighthouseConsumers(meta, projects)).toThrow(/Unreviewed lockfile importers field/);
+    const entry = withLock((lockfile) => {
+      Object.values(lockfile.importers["apps/web"].dependencies)[0].id = "zod@3.25.76";
+    });
+    expect(() => verifyLockedZodLighthouseConsumers(entry, projects)).toThrow(
+      /Unreviewed lockfile importer dependency field/,
+    );
   });
 
   it("rejects a second root alias of Lighthouse", () => {

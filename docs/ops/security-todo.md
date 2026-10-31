@@ -116,10 +116,11 @@ Before any scanner disposition, `scripts/lib/zod-lighthouse-policy.mjs` checks:
 - the locks use only shapes the consumer check understands: every importer is
   a workspace project that `pnpm ls --recursive` discovers, every `link:`
   resolves to one of those projects outside `node_modules`, every peer or patch
-  suffix is well formed, no package or snapshot entry carries a name or version
-  that disagrees with its key, and every package resolves from the registry by
-  integrity alone. Any file, tarball, git, or directory source fails
-  verification until this disposition is reviewed for it;
+  suffix is well formed, every package resolves from the registry by integrity
+  alone, and importer, dependency, package, and snapshot entries carry only the
+  fields these locks use today. pnpm prefers an entry's own `id` or `version`
+  over its key, so any other field fails verification, as does any file,
+  tarball, git, or directory source, until this disposition is reviewed for it;
 - a child process that loads Lighthouse and the puppeteer-core BiDi bridge
   resolves chromium-bidi modules, which proves it observes that path, and no
   module from the Zod 3 package.

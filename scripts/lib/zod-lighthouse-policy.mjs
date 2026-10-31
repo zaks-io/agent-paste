@@ -101,22 +101,37 @@ export function workspaceProjects(repoRoot) {
   return new Set(JSON.parse(result.stdout).map(({ path }) => relative(root, realpathSync(path)) || "."));
 }
 
-/** Resolve a packages or snapshots key, rejecting entry metadata that disagrees with it.
- * pnpm prefers an entry's own name and version over its key, so a mismatch could lock a
- * Zod 3 tarball under a key the consumer check reads as another version.
- * @param {string} key
- * @param {unknown} entry
+// pnpm prefers an entry's own id or version over its key, and importer metadata such as
+// dependenciesMeta changes how a dependency installs, so unread fields could hide a consumer.
+// Only the fields these locks use are allowed; any other field fails closed until reviewed.
+const reviewedFields = {
+  packages: new Set([
+    "resolution",
+    "engines",
+    "cpu",
+    "os",
+    "libc",
+    "hasBin",
+    "deprecated",
+    "bundledDependencies",
+    "peerDependencies",
+    "peerDependenciesMeta",
+  ]),
+  snapshots: new Set(["dependencies", "optionalDependencies", "transitivePeerDependencies", "optional"]),
+  importers: new Set(importerSections),
+  "importer dependency": new Set(["specifier", "version"]),
+};
+
+/** A lockfile record that carries only reviewed fields.
+ * @param {keyof typeof reviewedFields} kind
+ * @param {unknown} value
+ * @param {string} label
  */
-function keyedIdentity(key, entry) {
-  const identity = packageIdentity("", key);
-  const at = identity.lastIndexOf("@");
-  const { name, version } = lockedRecord(entry, key);
-  assert(
-    (name === undefined || name === identity.slice(0, at)) &&
-      (version === undefined || version === identity.slice(at + 1)),
-    `Lockfile entry metadata disagrees with its key: ${key}`,
-  );
-  return identity;
+function reviewedRecord(kind, value, label) {
+  const record = lockedRecord(value, label);
+  const unreviewed = Object.keys(record).filter((field) => !reviewedFields[kind].has(field));
+  assert.deepEqual(unreviewed, [], `Unreviewed lockfile ${kind} field in ${label}`);
+  return record;
 }
 
 /** Every edge from an importer or snapshot dependency to a package identity.
@@ -126,8 +141,8 @@ function keyedIdentity(key, entry) {
 function lockedEdges(lockfile, projects) {
   // A directory, tarball, or git resolution could point a registry-looking identity at any copy.
   for (const [key, entry] of Object.entries(lockedRecord(lockfile.packages, "packages"))) {
-    keyedIdentity(key, entry);
-    const resolution = lockedRecord(entry?.resolution, `${key} resolution`);
+    packageIdentity("", key);
+    const resolution = lockedRecord(reviewedRecord("packages", entry, key).resolution, `${key} resolution`);
     assert(
       typeof resolution.integrity === "string" && Object.keys(resolution).length === 1,
       `Unreviewed non-registry package resolution: ${key}`,
@@ -139,17 +154,20 @@ function lockedEdges(lockfile, projects) {
   }
   /** @type {Array<[string, string]>} */
   const edges = [];
-  for (const [path, importer] of Object.entries(importers)) {
+  for (const [path, value] of Object.entries(importers)) {
+    const importer = reviewedRecord("importers", value, path);
     for (const section of importerSections) {
-      for (const [name, entry] of Object.entries(lockedRecord(importer?.[section], `${path} ${section}`))) {
-        edges.push([`${path} ${section} ${name}`, packageIdentity(name, entry?.version, { importer: path, projects })]);
+      for (const [name, entry] of Object.entries(lockedRecord(importer[section], `${path} ${section}`))) {
+        const { version } = reviewedRecord("importer dependency", entry, `${path} ${name}`);
+        edges.push([`${path} ${section} ${name}`, packageIdentity(name, version, { importer: path, projects })]);
       }
     }
   }
-  for (const [key, snapshot] of Object.entries(lockedRecord(lockfile.snapshots, "snapshots"))) {
-    const dependent = keyedIdentity(key, snapshot);
+  for (const [key, value] of Object.entries(lockedRecord(lockfile.snapshots, "snapshots"))) {
+    const snapshot = reviewedRecord("snapshots", value, key);
+    const dependent = packageIdentity("", key);
     for (const section of snapshotSections) {
-      for (const [name, reference] of Object.entries(lockedRecord(snapshot?.[section], `${key} ${section}`))) {
+      for (const [name, reference] of Object.entries(lockedRecord(snapshot[section], `${key} ${section}`))) {
         edges.push([`${dependent} ${name}`, packageIdentity(name, reference)]);
       }
     }
