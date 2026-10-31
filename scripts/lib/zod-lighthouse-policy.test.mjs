@@ -114,6 +114,16 @@ describe("Lighthouse Zod 3 isolation", () => {
     expect(() => verifyLockedZodLighthouseConsumers(mutated)).toThrow(message);
   });
 
+  it.each([".", "apps/web"])("rejects a %s link that hides its target behind a parenthetical", (importer) => {
+    const up = importer === "." ? "" : "../../";
+    const version = `link:.(ignored)/../${up}node_modules/.pnpm/zod@3.25.76/node_modules/zod`;
+    const mutated = withLock((lockfile) => {
+      const entry = lockfile.importers[importer];
+      entry.dependencies = { ...entry.dependencies, "schema-validator": { specifier: version, version } };
+    });
+    expect(() => verifyLockedZodLighthouseConsumers(mutated)).toThrow(/Unreviewed local link/);
+  });
+
   it("rejects a link reference inside a snapshot", () => {
     const mutated = withLock((lockfile) => {
       lockfile.snapshots["rogue@1.0.0"] = { dependencies: { zod: "link:../zod" } };

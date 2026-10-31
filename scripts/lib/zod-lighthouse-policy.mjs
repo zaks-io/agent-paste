@@ -42,15 +42,17 @@ const REGISTRY_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)
  */
 function packageIdentity(name, reference, workspace) {
   assert.equal(typeof reference, "string", `Malformed locked reference for ${name}`);
-  const resolved = String(reference).replace(/\(.*$/, "");
-  if (workspace && resolved.startsWith("link:")) {
-    const target = posix.normalize(posix.join(workspace.importer, resolved.slice("link:".length)));
+  const raw = String(reference);
+  // Validate the whole link path: parentheses inside a path are not a peer suffix.
+  if (workspace && raw.startsWith("link:")) {
+    const target = posix.normalize(posix.join(workspace.importer, raw.slice("link:".length)));
     assert(
-      !resolved.startsWith("link:/") && workspace.importerPaths.has(target),
+      !raw.startsWith("link:/") && workspace.importerPaths.has(target),
       `Unreviewed local link ${name}: ${reference} in ${workspace.importer}`,
     );
     return `link:${target}`;
   }
+  const resolved = raw.replace(/\(.*$/, "");
   // Aliased dependencies lock as `alias: real-name@version`.
   const alias = resolved.match(/^((?:@[^/@:]+\/)?[^@/:]+)@(.+)$/);
   const [packageName, version] = alias ? [alias[1], alias[2]] : [name, resolved];
