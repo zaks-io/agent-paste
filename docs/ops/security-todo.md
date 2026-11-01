@@ -46,32 +46,130 @@ belongs to the eval runner's Daytona SDK. The remaining dependencies support
 repository checks and builds. These fixes do not change scanner thresholds or
 the verified braces mitigation below. Only `source-map-js@1.2.2`, the sole
 fixed release, has a version-scoped exception to pnpm's seven-day release delay.
+[`docs/development.md`](../development.md) keeps that delay for every other
+package and version.
 
-## Zod request array patch (AP-457)
+## Zod request array bound (AP-457, AP-484)
 
-[SNYK-JS-ZOD-20510278](https://security.snyk.io/vuln/SNYK-JS-ZOD-20510278)
-has no upstream fixed release. Zod validates array items before enforcing `.max()`,
-so the one-MiB body limit still permits substantial error-allocation amplification.
-`patches/zod@4.4.3.patch` enforces each declared array maximum before validating
-items in both runtime module formats. Valid and within-limit invalid requests
-retain their behavior; oversized arrays return one `too_big` error and skip
-refinements. Arrays without a maximum remain outside the mitigation.
+Zod 4.6.6 is the first release that fixes
+[GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5).
+Its `capSize` wrapper enforces each declared array maximum before element
+validation, which is the behavior `patches/zod@4.4.3.patch` used to add for
+[SNYK-JS-ZOD-20510278](https://security.snyk.io/vuln/SNYK-JS-ZOD-20510278).
+The root override `zod@>=4.0.0 <5.0.0` = `4.6.6` selects that release for Zod
+4 consumers and does not apply to Zod 3. The catalog pin is the same release.
+Valid and within-limit invalid requests retain their behavior; oversized arrays
+return one `too_big` error and skip refinements. Arrays without a maximum
+remain outside this bound. Zod 4.6.6 `sizeCaps` reads only a leading run of
+size checks, so the request-bound walker does the same. A `.max()` after
+`.refine()` is not a pre-element cap.
 
-The request-schema tests walk API, MCP, agent-auth, live-update, and queue inputs
-and require every array maximum to be at most 100. The attestation and Snyk runner
-build contract dependencies and execute these tests before considering the
-mitigation valid. The verifier checks
-the patch digest, registration, both locks, installed parser digests, consumer
-versions, and actual early rejection. Snyk dispositions match only this advisory,
-version 4.4.3, manifest, and enumerated full dependency path. Six exact paths to
-Zod 3.25.76 in TanStack build tooling receive separate build-only dispositions.
-These config parsers consume inline Vite options and repository `tsr.config.json`,
-not request data. `zod-build-policy.mjs` pins every versioned dependency hop and
-verifies the reviewed config parser bytes before enabling them. Other Zod 3
-paths, dependency upgrades, changed parsers, versions, and advisories block. Raw findings and mitigation evidence are retained.
+The Lighthouse chain's Zod 3.25.76 copy has a separate verified disposition;
+see [Lighthouse Zod 3 disposition](#lighthouse-zod-3-disposition-ap-485).
 
-Remove the patch, verifier, and dispositions when an upstream fix covers these
-inputs. Keep the request bounds and behavioral regressions.
+The local 4.4.3 patch and the Zod 4 Snyk waiver are removed because the upstream
+parser covers those inputs. `scripts/lib/zod-patch.mjs` still fails closed: it
+checks the override, rejects any Zod patch registration, checks both locks,
+pins the 4.6.6 parser digests, checks enumerated consumer versions, and runs
+the early-rejection behavior. The request-schema tests still require every
+array maximum to be at most 100.
+
+The AP-481 TanStack Start update moved its build tooling from Zod 3 to Zod 4,
+so those six exact paths now resolve the same fixed Zod 4.6.6 as the runtime
+consumers, and their build-only Snyk dispositions for SNYK-JS-ZOD-20510278 are
+removed. Those config parsers consume inline Vite options and repository
+`tsr.config.json`, not request data. `zod-build-policy.mjs` still pins every
+versioned dependency hop and the reviewed config parser bytes, so a TanStack
+upgrade fails verification until it is reviewed.
+
+## Lighthouse Zod 3 disposition (AP-485)
+
+Lighthouse 13.4.1, a root devDependency for the CI accessibility checks, still
+resolves `zod@3.25.76` through `puppeteer-core@25.9.0` and
+`chromium-bidi@17.0.2` (`zod@^3.24.1`). No Zod 3 release fixes
+GHSA-mrhx-c7xc-m3w5. `puppeteer-core@25.13.0` is the first release inside
+Lighthouse's range whose chromium-bidi depends on Zod 4, but
+`chromium-bidi@157.0.8090-0` and every later release checked through 2026-10-31
+lack the trusted-publisher provenance that `17.0.2` has. `trustPolicy:
+no-downgrade` rejects that update, and forcing Zod 4 onto chromium-bidi 17 is
+not a compatible repair. Excluding chromium-bidi from the trust policy would
+install a package without provenance in CI jobs that hold preview secrets, a
+larger risk than this advisory.
+
+This Zod copy does not load in Node. Only chromium-bidi's `protocol-parser`,
+which its in-browser BiDi tab mapper uses, imports it. Lighthouse calls
+`puppeteer.connect({ browserURL })` over CDP. puppeteer-core loads chromium-bidi
+only through a dynamic import in its WebDriver BiDi branch, and that bridge
+passes no parser, so chromium-bidi falls back to `BidiNoOpParser`.
+
+Before any scanner disposition, `scripts/lib/zod-lighthouse-policy.mjs` checks:
+
+- every installed hop matches the reviewed version;
+- both the repository and installed pnpm locks, parsed as YAML with aliases
+  resolved to package identities, have exactly one consumer per hop: the root
+  `devDependencies` entry named `lighthouse` for `lighthouse@13.4.1`, then the
+  reviewed parent for `puppeteer-core@25.9.0`, `chromium-bidi@17.0.2`, and
+  `zod@3.25.76`. Every importer and snapshot dependency and optional-dependency
+  edge counts, and a second alias from the same dependent counts as another
+  consumer, because pnpm audit deduplicates visited packages and skips local
+  links, so it can report only the reviewed path when a second consumer exists;
+- the locks use only shapes the consumer check understands: every importer is
+  a workspace project that `pnpm ls --recursive` discovers, every `link:`
+  resolves to one of those projects outside `node_modules`, every peer or patch
+  suffix is well formed, every package resolves from the registry by integrity
+  alone, and importer, dependency, package, and snapshot entries carry only the
+  fields these locks use today. pnpm prefers an entry's own `id` or `version`
+  over its key, so any other field fails verification, as does any file,
+  tarball, git, or directory source, until this disposition is reviewed for it;
+- a child process that loads Lighthouse and the puppeteer-core BiDi bridge
+  resolves chromium-bidi modules, which proves it observes that path, and no
+  module from the Zod 3 package.
+
+Failed verification fails the attestation and enables no exception. The pnpm
+audit, Trivy, and Grype policies then allow only GHSA-mrhx-c7xc-m3w5 and its CVE
+alias, `zod@3.25.76`, the `.>lighthouse>puppeteer-core>chromium-bidi>zod` path,
+and the root `pnpm-lock.yaml` target. Every location a scanner reports for the
+artifact must be an allowed target, so a match that also names another lockfile
+blocks. Raw reports are preserved. The weekly Snyk
+scan runs without `--dev`, so it does not report this root devDependency path.
+
+Any Lighthouse or puppeteer-core upgrade fails verification until it is
+reviewed. Remove the verifier, disposition, and tests together once a
+chromium-bidi release with provenance that depends on Zod 4 clears the
+seven-day age gate, or a Lighthouse release drops the Zod 3 chain.
+
+## Dependency remediation (AP-484)
+
+The 2026-10-29 `pnpm audit` found 24 distinct advisory IDs at the policy's
+blocking severities (moderate, high, and critical) on `main`. Its summary count of
+30 also includes four low-severity findings. Except for the Lighthouse Zod 3 path
+(AP-485) and
+the TanStack Start advisory owned by AP-481, every blocking advisory has a fixed
+release past the seven-day age gate. No age exception is added. The remaining
+low-severity [GHSA-866g-f22w-33x8](https://github.com/advisories/GHSA-866g-f22w-33x8)
+in the eval runner's `@ai-sdk/provider-utils@4.0.30` stays open; its fix requires
+a much newer `ai` release.
+
+| Dependency       | Fixed version | Advisory                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| undici           | 7.30.1        | [GHSA-xjj6-f33q-929c](https://github.com/advisories/GHSA-xjj6-f33q-929c), [GHSA-4qv8-2p9j-2685](https://github.com/advisories/GHSA-4qv8-2p9j-2685), [GHSA-f72v-6w45-q472](https://github.com/advisories/GHSA-f72v-6w45-q472), [GHSA-2m5v-pch6-74hx](https://github.com/advisories/GHSA-2m5v-pch6-74hx), [GHSA-4w7w-5xrc-9h26](https://github.com/advisories/GHSA-4w7w-5xrc-9h26), [GHSA-55wc-3pg8-jfw6](https://github.com/advisories/GHSA-55wc-3pg8-jfw6), [GHSA-9fm3-97px-rjf6](https://github.com/advisories/GHSA-9fm3-97px-rjf6), [GHSA-qrxm-fqhp-jwvm](https://github.com/advisories/GHSA-qrxm-fqhp-jwvm) |
+| fast-uri         | 3.1.9         | [GHSA-w74x-v6f9-j3xg](https://github.com/advisories/GHSA-w74x-v6f9-j3xg), [GHSA-wjr9-j795-jxcr](https://github.com/advisories/GHSA-wjr9-j795-jxcr)                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| seroval          | 1.6.12        | [GHSA-9wx9-5pv9-3349](https://github.com/advisories/GHSA-9wx9-5pv9-3349), [GHSA-f86p-h4j2-7qgj](https://github.com/advisories/GHSA-f86p-h4j2-7qgj)                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| hono             | 4.13.13       | [GHSA-5r4p-p66f-jhc7](https://github.com/advisories/GHSA-5r4p-p66f-jhc7)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| vite             | 7.3.7         | [GHSA-587h-7wmj-h5pm](https://github.com/advisories/GHSA-587h-7wmj-h5pm), [GHSA-698v-4r3x-3vcv](https://github.com/advisories/GHSA-698v-4r3x-3vcv), [GHSA-r825-w8mm-5pxw](https://github.com/advisories/GHSA-r825-w8mm-5pxw), [GHSA-rq7h-c2jc-7f22](https://github.com/advisories/GHSA-rq7h-c2jc-7f22)                                                                                                                                                                                                                                                                                                         |
+| @vitest/mocker   | 4.1.12        | [GHSA-qxg6-89mg-rqv8](https://github.com/advisories/GHSA-qxg6-89mg-rqv8), [GHSA-xp26-3454-mjgp](https://github.com/advisories/GHSA-xp26-3454-mjgp)                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| follow-redirects | 1.16.1        | [GHSA-8r9p-f939-6h3c](https://github.com/advisories/GHSA-8r9p-f939-6h3c), [GHSA-q3jh-wrc6-jgq8](https://github.com/advisories/GHSA-q3jh-wrc6-jgq8)                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| qs               | 6.16.1        | [GHSA-6pq8-jhm2-2vcw](https://github.com/advisories/GHSA-6pq8-jhm2-2vcw)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+
+Seroval runs in the web dashboard's TanStack serialization path. Its root
+override moves from the AP-457 release to `1.6.12`, the newest eligible patch,
+and `scripts/security-dependencies.test.mjs` keeps a regression for each new
+advisory. The Hono Workers do not use `serveStatic`, the affected API. Their
+manifests now require `^4.13.13`. `typed-rest-client` pins `qs@6.15.1`, so its
+root override selects the fix. Axios's `follow-redirects@^1.16.0` range and
+the Vite and Vitest manifest ranges select the rest in the lockfile without new
+overrides. The other packages support evals, mutation testing, builds, and
+tests.
 
 ## Braces depth patch (AP-456)
 
@@ -83,10 +181,11 @@ recursive AST walkers exhausting the stack on deeply nested strings.
 `patches/braces@3.0.3.patch` rejects a combined brace/parenthesis parse depth
 above 100 before an AST reaches those walkers. Normal glob patterns and depth
 100 remain supported. Directly supplied, hand-crafted ASTs are outside this
-mitigation; current micromatch and chokidar consumers pass strings.
+mitigation; current micromatch consumers pass strings.
 
-The patch covers root jscpd, the eval runner's Daytona SDK, and TanStack's
-chokidar paths. Before any scanner disposition, `scripts/lib/braces-patch.mjs`
+The patch covers root jscpd and the eval runner's Daytona SDK. The AP-481
+TanStack Start update moved its build tooling to chokidar 5, which no longer
+depends on braces, so those paths are gone. Before any scanner disposition, `scripts/lib/braces-patch.mjs`
 checks the registered patch and its digest, both repository and installed pnpm
 locks, every resolved consumer's parser digest/version, rejection through parse,
 compile, expand, and stringify, and an ordinary expansion. Missing or modified

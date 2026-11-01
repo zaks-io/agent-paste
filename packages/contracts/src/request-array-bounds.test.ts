@@ -10,9 +10,9 @@ import { mcpToolInputSchemas } from "./mcp/tool-schemas.js";
 import { requestSchemas } from "./routes/request-schemas.js";
 import { CreateUploadSessionRequest } from "./uploadSessions.js";
 
-// Array caps must be enforced before items are validated (patches/zod@4.4.3.patch),
-// so an oversized list costs one issue instead of one parse per item. Every array
-// reachable from an external request therefore needs a finite, small maximum.
+// Array caps must be enforced before items are validated. Zod 4.6.6 does that in
+// capSize, so an oversized list costs one issue instead of one parse per item.
+// Every array reachable from an external request therefore needs a finite, small maximum.
 const MAX_REQUEST_ARRAY_ITEMS = 100;
 
 const externalRequestSchemas: Record<string, z.ZodType> = {
@@ -50,6 +50,23 @@ function schemaDef(schema: unknown, path: string): SchemaDef {
   return def;
 }
 
+// Zod 4.6.6 sizeCaps keeps only a leading run of size checks and stops at the first other check.
+const leadingSizeCheck = /_(?:length|size)$|_equals$/;
+
+function arrayMaximum(schema: z.ZodArray): unknown {
+  const checks = schema._zod.def.checks;
+  if (!Array.isArray(checks)) return undefined;
+  const maxima: number[] = [];
+  for (const check of checks) {
+    const def = (check as { _zod?: { def?: { check?: string; maximum?: unknown; length?: unknown; size?: unknown } } })
+      ._zod?.def;
+    if (typeof def?.check !== "string" || !leadingSizeCheck.test(def.check)) break;
+    const max = def.maximum ?? def.length ?? def.size;
+    if (typeof max === "number" && max >= 0) maxima.push(max);
+  }
+  return maxima.length === 0 ? undefined : Math.min(...maxima);
+}
+
 function child(def: SchemaDef, key: string, path: string): unknown {
   if (def[key] === undefined) throw new Error(`Missing ${def.type}.${key} at ${path}`);
   return def[key];
@@ -68,7 +85,7 @@ function collectArrayBounds(schema: unknown, path: string, found: ArrayBound[] =
   if (wrapperTypes.has(def.type)) return collectArrayBounds(child(def, "innerType", path), path, found);
   switch (def.type) {
     case "array":
-      found.push({ path, maximum: (schema as z.ZodArray)._zod.bag.maximum });
+      found.push({ path, maximum: arrayMaximum(schema as z.ZodArray) });
       return collectArrayBounds(child(def, "element", path), `${path}[]`, found);
     case "object": {
       const shape = child(def, "shape", path) as Record<string, unknown>;
@@ -144,6 +161,43 @@ describe("external request array bounds", () => {
         "JobsQueueMessage|0.prefixes",
       ]),
     );
+  });
+
+  it("accepts a leading max, including one that follows another size check", () => {
+    const leading = z.array(z.string()).max(MAX_REQUEST_ARRAY_ITEMS);
+    const minThenMax = z.array(z.string()).min(1).max(MAX_REQUEST_ARRAY_ITEMS);
+    const maxThenRefine = z
+      .array(z.string())
+      .max(MAX_REQUEST_ARRAY_ITEMS)
+      .refine(() => true);
+    for (const schema of [leading, minThenMax, maxThenRefine]) {
+      expect(collectArrayBounds(z.object({ items: schema }), "$")).toEqual([
+        { path: "$.items", maximum: MAX_REQUEST_ARRAY_ITEMS },
+      ]);
+    }
+  });
+
+  it("rejects a max that follows a non-size check", () => {
+    const refineThenMax = z
+      .array(z.string())
+      .refine(() => true)
+      .max(MAX_REQUEST_ARRAY_ITEMS);
+    expect(collectArrayBounds(z.object({ items: refineThenMax }), "$")).toEqual([
+      { path: "$.items", maximum: undefined },
+    ]);
+
+    let itemChecks = 0;
+    const parsed = z
+      .array(
+        z.string().superRefine(() => {
+          itemChecks += 1;
+        }),
+      )
+      .refine(() => true)
+      .max(MAX_REQUEST_ARRAY_ITEMS)
+      .safeParse(Array.from({ length: 1000 }, () => "x"));
+    expect(parsed.success).toBe(false);
+    expect(itemChecks).toBe(1000);
   });
 
   it("fails closed on schema kinds the walk does not understand", () => {

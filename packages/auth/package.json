@@ -22,7 +22,7 @@
     "@agent-paste/contracts": "workspace:*",
     "@agent-paste/db": "workspace:*",
     "@agent-paste/tokens": "workspace:*",
-    "hono": "^4.13.9",
+    "hono": "^4.13.13",
     "jose": "^6.2.3"
   },
   "devDependencies": {

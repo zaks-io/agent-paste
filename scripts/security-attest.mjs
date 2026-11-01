@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { bracesFinding, verifyBracesPatch } from "./lib/braces-patch.mjs";
 import { evaluatePnpmAuditPolicy } from "./lib/pnpm-audit-policy.mjs";
 import { evaluateGrypePolicy, evaluateTrivyPolicy } from "./lib/scanner-vulnerability-policy.mjs";
+import { verifyZodLighthouseIsolation, zodLighthouseFinding } from "./lib/zod-lighthouse-policy.mjs";
 import { verifyZodPatch } from "./lib/zod-patch.mjs";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -155,13 +156,18 @@ function enforceSemgrepPolicy() {
 }
 
 const allowedDependencyFindings = [];
-try {
-  const verification = verifyBracesPatch(repoRoot);
-  allowedDependencyFindings.push(bracesFinding);
-  runPolicyStep("braces-patch", 0, verification);
-} catch (error) {
-  runPolicyStep("braces-patch", 1, { error: error instanceof Error ? error.message : String(error) });
+// A disposition applies only after its verification passes; a failed check leaves the finding blocking.
+function verifyDisposition(name, verify, finding) {
+  try {
+    const verification = verify(repoRoot);
+    allowedDependencyFindings.push(finding);
+    runPolicyStep(name, 0, verification);
+  } catch (error) {
+    runPolicyStep(name, 1, { error: error instanceof Error ? error.message : String(error) });
+  }
 }
+verifyDisposition("braces-patch", verifyBracesPatch, bracesFinding);
+verifyDisposition("zod-lighthouse", verifyZodLighthouseIsolation, zodLighthouseFinding);
 
 let verifiedScannerSources = [];
 try {

@@ -9,60 +9,40 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as HealthzRouteImport } from './routes/healthz'
-import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthedSettingsRouteImport } from './routes/_authed.settings'
-import { Route as AuthedKeysRouteImport } from './routes/_authed.keys'
-import { Route as AuthedDashboardRouteImport } from './routes/_authed.dashboard'
-import { Route as AuthedClaimRouteImport } from './routes/_authed.claim'
-import { Route as AuthedBillingRouteImport } from './routes/_authed.billing'
-import { Route as AuthedAuditRouteImport } from './routes/_authed.audit'
+import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as HealthzRouteImport } from './routes/healthz'
 import { Route as AuthedAdminRouteImport } from './routes/_authed.admin'
-import { Route as AuthedArtifactsIndexRouteImport } from './routes/_authed.artifacts.index'
-import { Route as ApiAuthSignOutRouteImport } from './routes/api/auth/sign-out'
-import { Route as ApiAuthSignInRouteImport } from './routes/api/auth/sign-in'
-import { Route as ApiAuthCallbackRouteImport } from './routes/api/auth/callback'
-import { Route as AuthedArtifactsArtifactIdRouteImport } from './routes/_authed.artifacts.$artifactId'
+import { Route as AuthedAuditRouteImport } from './routes/_authed.audit'
+import { Route as AuthedBillingRouteImport } from './routes/_authed.billing'
+import { Route as AuthedClaimRouteImport } from './routes/_authed.claim'
+import { Route as AuthedDashboardRouteImport } from './routes/_authed.dashboard'
+import { Route as AuthedKeysRouteImport } from './routes/_authed.keys'
+import { Route as AuthedSettingsRouteImport } from './routes/_authed.settings'
 import { Route as AuthedAgentAuthClaimRouteImport } from './routes/_authed.agent-auth.claim'
+import { Route as AuthedArtifactsIndexRouteImport } from './routes/_authed.artifacts.index'
+import { Route as AuthedArtifactsArtifactIdRouteImport } from './routes/_authed.artifacts.$artifactId'
+import { Route as ApiAuthCallbackRouteImport } from './routes/api/auth/callback'
+import { Route as ApiAuthSignInRouteImport } from './routes/api/auth/sign-in'
+import { Route as ApiAuthSignOutRouteImport } from './routes/api/auth/sign-out'
 
-const HealthzRoute = HealthzRouteImport.update({
-  id: '/healthz',
-  path: '/healthz',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const HealthzRoute = HealthzRouteImport.update({
+  id: '/healthz',
+  path: '/healthz',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthedSettingsRoute = AuthedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedKeysRoute = AuthedKeysRouteImport.update({
-  id: '/keys',
-  path: '/keys',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedDashboardRoute = AuthedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedClaimRoute = AuthedClaimRouteImport.update({
-  id: '/claim',
-  path: '/claim',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedBillingRoute = AuthedBillingRouteImport.update({
-  id: '/billing',
-  path: '/billing',
+const AuthedAdminRoute = AuthedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedAuditRoute = AuthedAuditRouteImport.update({
@@ -70,9 +50,34 @@ const AuthedAuditRoute = AuthedAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedAdminRoute = AuthedAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const AuthedBillingRoute = AuthedBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedClaimRoute = AuthedClaimRouteImport.update({
+  id: '/claim',
+  path: '/claim',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedDashboardRoute = AuthedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedKeysRoute = AuthedKeysRouteImport.update({
+  id: '/keys',
+  path: '/keys',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSettingsRoute = AuthedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedAgentAuthClaimRoute = AuthedAgentAuthClaimRouteImport.update({
+  id: '/agent-auth/claim',
+  path: '/agent-auth/claim',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedArtifactsIndexRoute = AuthedArtifactsIndexRouteImport.update({
@@ -80,9 +85,15 @@ const AuthedArtifactsIndexRoute = AuthedArtifactsIndexRouteImport.update({
   path: '/artifacts/',
   getParentRoute: () => AuthedRoute,
 } as any)
-const ApiAuthSignOutRoute = ApiAuthSignOutRouteImport.update({
-  id: '/api/auth/sign-out',
-  path: '/api/auth/sign-out',
+const AuthedArtifactsArtifactIdRoute =
+  AuthedArtifactsArtifactIdRouteImport.update({
+    id: '/artifacts/$artifactId',
+    path: '/artifacts/$artifactId',
+    getParentRoute: () => AuthedRoute,
+  } as any)
+const ApiAuthCallbackRoute = ApiAuthCallbackRouteImport.update({
+  id: '/api/auth/callback',
+  path: '/api/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSignInRoute = ApiAuthSignInRouteImport.update({
@@ -90,21 +101,10 @@ const ApiAuthSignInRoute = ApiAuthSignInRouteImport.update({
   path: '/api/auth/sign-in',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAuthCallbackRoute = ApiAuthCallbackRouteImport.update({
-  id: '/api/auth/callback',
-  path: '/api/auth/callback',
+const ApiAuthSignOutRoute = ApiAuthSignOutRouteImport.update({
+  id: '/api/auth/sign-out',
+  path: '/api/auth/sign-out',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AuthedArtifactsArtifactIdRoute =
-  AuthedArtifactsArtifactIdRouteImport.update({
-    id: '/artifacts/$artifactId',
-    path: '/artifacts/$artifactId',
-    getParentRoute: () => AuthedRoute,
-  } as any)
-const AuthedAgentAuthClaimRoute = AuthedAgentAuthClaimRouteImport.update({
-  id: '/agent-auth/claim',
-  path: '/agent-auth/claim',
-  getParentRoute: () => AuthedRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -226,11 +226,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/healthz': {
-      id: '/healthz'
-      path: '/healthz'
-      fullPath: '/healthz'
-      preLoaderRoute: typeof HealthzRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authed': {
@@ -240,46 +240,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/healthz': {
+      id: '/healthz'
+      path: '/healthz'
+      fullPath: '/healthz'
+      preLoaderRoute: typeof HealthzRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authed/settings': {
-      id: '/_authed/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AuthedSettingsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/keys': {
-      id: '/_authed/keys'
-      path: '/keys'
-      fullPath: '/keys'
-      preLoaderRoute: typeof AuthedKeysRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/dashboard': {
-      id: '/_authed/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthedDashboardRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/claim': {
-      id: '/_authed/claim'
-      path: '/claim'
-      fullPath: '/claim'
-      preLoaderRoute: typeof AuthedClaimRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/billing': {
-      id: '/_authed/billing'
-      path: '/billing'
-      fullPath: '/billing'
-      preLoaderRoute: typeof AuthedBillingRouteImport
+    '/_authed/admin': {
+      id: '/_authed/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthedAdminRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/audit': {
@@ -289,11 +261,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAuditRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/admin': {
-      id: '/_authed/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AuthedAdminRouteImport
+    '/_authed/billing': {
+      id: '/_authed/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof AuthedBillingRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/claim': {
+      id: '/_authed/claim'
+      path: '/claim'
+      fullPath: '/claim'
+      preLoaderRoute: typeof AuthedClaimRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/dashboard': {
+      id: '/_authed/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthedDashboardRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/keys': {
+      id: '/_authed/keys'
+      path: '/keys'
+      fullPath: '/keys'
+      preLoaderRoute: typeof AuthedKeysRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/settings': {
+      id: '/_authed/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthedSettingsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/agent-auth/claim': {
+      id: '/_authed/agent-auth/claim'
+      path: '/agent-auth/claim'
+      fullPath: '/agent-auth/claim'
+      preLoaderRoute: typeof AuthedAgentAuthClaimRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/artifacts/': {
@@ -303,11 +310,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedArtifactsIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/api/auth/sign-out': {
-      id: '/api/auth/sign-out'
-      path: '/api/auth/sign-out'
-      fullPath: '/api/auth/sign-out'
-      preLoaderRoute: typeof ApiAuthSignOutRouteImport
+    '/_authed/artifacts/$artifactId': {
+      id: '/_authed/artifacts/$artifactId'
+      path: '/artifacts/$artifactId'
+      fullPath: '/artifacts/$artifactId'
+      preLoaderRoute: typeof AuthedArtifactsArtifactIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/api/auth/callback': {
+      id: '/api/auth/callback'
+      path: '/api/auth/callback'
+      fullPath: '/api/auth/callback'
+      preLoaderRoute: typeof ApiAuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/sign-in': {
@@ -317,26 +331,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSignInRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/auth/callback': {
-      id: '/api/auth/callback'
-      path: '/api/auth/callback'
-      fullPath: '/api/auth/callback'
-      preLoaderRoute: typeof ApiAuthCallbackRouteImport
+    '/api/auth/sign-out': {
+      id: '/api/auth/sign-out'
+      path: '/api/auth/sign-out'
+      fullPath: '/api/auth/sign-out'
+      preLoaderRoute: typeof ApiAuthSignOutRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_authed/artifacts/$artifactId': {
-      id: '/_authed/artifacts/$artifactId'
-      path: '/artifacts/$artifactId'
-      fullPath: '/artifacts/$artifactId'
-      preLoaderRoute: typeof AuthedArtifactsArtifactIdRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/agent-auth/claim': {
-      id: '/_authed/agent-auth/claim'
-      path: '/agent-auth/claim'
-      fullPath: '/agent-auth/claim'
-      preLoaderRoute: typeof AuthedAgentAuthClaimRouteImport
-      parentRoute: typeof AuthedRoute
     }
   }
 }

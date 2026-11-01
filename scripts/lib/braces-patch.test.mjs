@@ -181,17 +181,20 @@ describe("patched braces scanner disposition", () => {
           },
         ],
       });
-    const grype = JSON.stringify({
-      matches: [
-        {
-          vulnerability: { id: allowed.vulnerabilityIds[0], severity: "High" },
-          artifact: { name: "braces", version: "3.0.3", locations: [{ path: "/pnpm-lock.yaml" }] },
-        },
-      ],
-    });
+    const grype = (locations = [{ path: "/pnpm-lock.yaml" }]) =>
+      JSON.stringify({
+        matches: [
+          {
+            vulnerability: { id: allowed.vulnerabilityIds[0], severity: "High" },
+            artifact: { name: "braces", version: "3.0.3", locations },
+          },
+        ],
+      });
     const options = { allowedFindings: [allowed], verifiedSources: verified };
     expect(evaluateTrivyPolicy(trivy(), options).status).toBe(0);
-    expect(evaluateGrypePolicy(grype, options).status).toBe(0);
+    expect(evaluateGrypePolicy(grype(), options).status).toBe(0);
+    expect(evaluateGrypePolicy(grype([{ path: "/pnpm-lock.yaml" }, { path: 42 }]), options).status).toBe(1);
+    expect(evaluateGrypePolicy(grype([null, { path: "/pnpm-lock.yaml" }]), options).status).toBe(1);
     expect(evaluateTrivyPolicy(trivy(), { allowedFindings: [allowed] }).status).toBe(1);
     expect(evaluateTrivyPolicy(trivy({ InstalledVersion: "3.0.2" }), options).status).toBe(1);
     expect(evaluateTrivyPolicy(trivy({ VulnerabilityID: "CVE-other", VendorIDs: [] }), options).status).toBe(1);
