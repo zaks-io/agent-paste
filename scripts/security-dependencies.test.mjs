@@ -74,19 +74,19 @@ describe("dependency security regressions", () => {
     }
   });
 
-  it.each([Minimatch, strykerMinimatch.Minimatch])(
-    "honors the pattern budget when preprocessing globstar-parent segments",
-    (Matcher) => {
-      const matcher = new Matcher("a/**/../b/**/../c/**/../file.js", {
-        optimizationLevel: 2,
-        braceExpandMax: 2,
-      });
-      expect(matcher.globParts.length).toBeLessThanOrEqual(2);
-      const ordinary = new Matcher("src/**/*.ts");
-      expect(ordinary.match("src/nested/file.ts")).toBe(true);
-      expect(ordinary.match("src/nested/file.js")).toBe(false);
-    },
-  );
+  it.each([
+    Minimatch,
+    strykerMinimatch.Minimatch,
+  ])("honors the pattern budget when preprocessing globstar-parent segments", (Matcher) => {
+    const matcher = new Matcher("a/**/../b/**/../c/**/../file.js", {
+      optimizationLevel: 2,
+      braceExpandMax: 2,
+    });
+    expect(matcher.globParts.length).toBeLessThanOrEqual(2);
+    const ordinary = new Matcher("src/**/*.ts");
+    expect(ordinary.match("src/nested/file.ts")).toBe(true);
+    expect(ordinary.match("src/nested/file.js")).toBe(false);
+  });
 
   it("discovers source-map upload assets using Sentry's glob options", async () => {
     const directory = mkdtempSync(join(tmpdir(), "security-sentry-assets-"));

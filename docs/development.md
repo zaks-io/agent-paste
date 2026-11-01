@@ -220,6 +220,10 @@ deploy production from a laptop.
   enforced by CI.
 - The exact `source-map-js@1.2.2` release is exempt from the seven-day age
   delay to remediate [GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q).
+  AP-486 also exempts exact follow-redirects 1.16.2, glob 14.0.2,
+  minimatch 11.0.1, path-scurry 3.0.0, and
+  @isaacs/nonrecursive-glob-match 1.0.1 releases for advisory fixes and their
+  required dependencies. See [security follow-ups](./ops/security-todo.md).
   pnpm supports [version-scoped age exceptions](https://pnpm.io/settings#minimumreleaseageexclude);
   other versions and packages keep the normal delay.
 - The `semver@6` override upgrades Babel's version checks to `7.8.5` because

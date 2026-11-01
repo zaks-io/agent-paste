@@ -40,7 +40,11 @@ tests, so an install-only checkout can execute the checks.
 The Snyk runner preserves raw reports and the policy decision under
 `artifacts/security/snyk/`; scanner errors and incomplete workspace coverage fail
 closed. Pure report decisions live in `lib/snyk-vulnerability-policy.mjs`; pnpm manifests
-come from the native `displayTargetFile` report field. `lib/zod-build-policy.mjs`
+come from the native repository-relative `displayTargetFile` report field, never
+from Snyk's synthetic package-name `path`. The runner pins Snyk CLI 1.1308.3;
+`fixtures/snyk-workspaces.json` preserves the sanitized 30-workspace report shape
+from the failed scheduled scan. Paths must be canonical expected manifests,
+with no duplicate or missing workspace reports. `lib/zod-build-policy.mjs`
 verifies the six build-only Zod paths and their reviewed config parsers.
 `lib/zod-lighthouse-policy.mjs` verifies the Lighthouse Zod 3 chain before the
 attestation disposes of its advisory.

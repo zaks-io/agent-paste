@@ -2,9 +2,8 @@
 
 Project start: 2026-05-18.
 
-Last updated: 2026-10-07 for production feedback capture, CLI 0.2.7 publication,
-and AP-457 dependency security remediation. Release and deployment evidence is
-recorded below.
+Last updated: 2026-11-01 for current deployment and security remediation status.
+The feedback and CLI publication evidence below remains dated 2026-10-07.
 The deployed one-URL architecture status below was recorded on 2026-09-03. See [changelog.md](./status/changelog.md) for older shipped
 work.
 
@@ -13,6 +12,24 @@ in [`docs/specs/`](../specs/README.md); ADRs and the older ledgers record why th
 system reached that behavior.
 
 ## Current Release
+
+The latest verified production deployment is
+[`aeac09bc`](https://github.com/zaks-io/agent-paste/commit/aeac09bce110287f296196709a31bfcb4d8d4823),
+deployed on 2026-10-31 by
+[Deploy Production 41225973050](https://github.com/zaks-io/agent-paste/actions/runs/41225973050)
+after [CI 41225850348](https://github.com/zaks-io/agent-paste/actions/runs/41225850348).
+[Security 41225850244](https://github.com/zaks-io/agent-paste/actions/runs/41225850244)
+failed for the same SHA on follow-redirects, glob, and minimatch advisories.
+The Lighthouse Zod isolation verification passed. Deployment success does not
+establish a green security attestation.
+
+The current next step is to complete
+[AP-486](https://linear.app/zaks-io/issue/AP-486) dependency remediation and
+[AP-487](https://linear.app/zaks-io/issue/AP-487) Snyk workspace parsing, then
+verify both hosted Security jobs on the remediation branch. The repaired Snyk
+parser also exposes a picomatch advisory with no fixed release. See
+[security follow-ups](./security-todo.md). These fixes are not yet deployed;
+merging them can trigger production deployment and requires explicit approval.
 
 The current release removes the app-hosted viewer and makes every successful
 publish return one top-level Artifact URL:
