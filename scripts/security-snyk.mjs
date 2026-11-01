@@ -83,7 +83,7 @@ try {
     "pnpm",
     [
       "dlx",
-      "snyk@latest",
+      "snyk@1.1308.3",
       "test",
       "--all-projects",
       "--severity-threshold=high",

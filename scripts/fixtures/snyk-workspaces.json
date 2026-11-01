@@ -1,0 +1,434 @@
+[
+  {
+    "path": "/fixture/agent-paste",
+    "displayTargetFile": "package.json",
+    "projectName": "agent-paste-monorepo",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/apex",
+    "displayTargetFile": "apps/apex/package.json",
+    "projectName": "@agent-paste/apex",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/api",
+    "displayTargetFile": "apps/api/package.json",
+    "projectName": "@agent-paste/api",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/agent-paste",
+    "displayTargetFile": "apps/cli/package.json",
+    "projectName": "@zaks-io/agent-paste",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/content",
+    "displayTargetFile": "apps/content/package.json",
+    "projectName": "@agent-paste/content",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/evals",
+    "displayTargetFile": "apps/evals/package.json",
+    "projectName": "@agent-paste/evals",
+    "packageManager": "pnpm",
+    "ok": false,
+    "vulnerabilities": [
+      {
+        "id": "SNYK-JS-BRACES-19963945",
+        "name": "braces",
+        "version": "3.0.3",
+        "severity": "high",
+        "from": [
+          "@agent-paste/evals@0.0.0",
+          "@daytona/sdk@0.207.0",
+          "fast-glob@3.3.3",
+          "micromatch@4.0.8",
+          "braces@3.0.3"
+        ]
+      },
+      {
+        "id": "SNYK-JS-FOLLOWREDIRECTS-21762031",
+        "name": "follow-redirects",
+        "version": "1.16.1",
+        "severity": "high",
+        "from": [
+          "@agent-paste/evals@0.0.0",
+          "@daytona/sdk@0.207.0",
+          "@daytona/analytics-api-client@0.207.0",
+          "axios@1.20.0",
+          "follow-redirects@1.16.1"
+        ]
+      },
+      {
+        "id": "SNYK-JS-PICOMATCH-21248802",
+        "name": "picomatch",
+        "version": "2.3.2",
+        "severity": "high",
+        "from": [
+          "@agent-paste/evals@0.0.0",
+          "@daytona/sdk@0.207.0",
+          "fast-glob@3.3.3",
+          "micromatch@4.0.8",
+          "picomatch@2.3.2"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/fixture/agent-paste/jobs",
+    "displayTargetFile": "apps/jobs/package.json",
+    "projectName": "@agent-paste/jobs",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/mcp",
+    "displayTargetFile": "apps/mcp/package.json",
+    "projectName": "@agent-paste/mcp",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/stream",
+    "displayTargetFile": "apps/stream/package.json",
+    "projectName": "@agent-paste/stream",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/upload",
+    "displayTargetFile": "apps/upload/package.json",
+    "projectName": "@agent-paste/upload",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/web",
+    "displayTargetFile": "apps/web/package.json",
+    "projectName": "@agent-paste/web",
+    "packageManager": "pnpm",
+    "ok": false,
+    "vulnerabilities": [
+      {
+        "id": "SNYK-JS-PICOMATCH-21248802",
+        "name": "picomatch",
+        "version": "4.0.7",
+        "severity": "high",
+        "from": [
+          "@agent-paste/web@0.0.0",
+          "@tanstack/react-start@1.168.60",
+          "@tanstack/react-start-rsc@0.1.59",
+          "@tanstack/start-plugin-core@1.171.49",
+          "picomatch@4.0.7"
+        ]
+      },
+      {
+        "id": "SNYK-JS-PICOMATCH-21248802",
+        "name": "picomatch",
+        "version": "4.0.7",
+        "severity": "high",
+        "from": [
+          "@agent-paste/web@0.0.0",
+          "@tanstack/react-start@1.168.60",
+          "@tanstack/react-start-rsc@0.1.59",
+          "@tanstack/router-utils@1.162.3",
+          "tinyglobby@0.2.17",
+          "picomatch@4.0.7"
+        ]
+      },
+      {
+        "id": "SNYK-JS-PICOMATCH-21248802",
+        "name": "picomatch",
+        "version": "4.0.7",
+        "severity": "high",
+        "from": [
+          "@agent-paste/web@0.0.0",
+          "@workos/authkit-tanstack-react-start@0.8.3",
+          "@tanstack/react-start@1.168.60",
+          "@tanstack/react-start-rsc@0.1.59",
+          "@tanstack/start-plugin-core@1.171.49",
+          "picomatch@4.0.7"
+        ]
+      },
+      {
+        "id": "SNYK-JS-PICOMATCH-21248802",
+        "name": "picomatch",
+        "version": "4.0.7",
+        "severity": "high",
+        "from": [
+          "@agent-paste/web@0.0.0",
+          "@tanstack/react-start@1.168.60",
+          "@tanstack/react-start-rsc@0.1.59",
+          "@tanstack/router-utils@1.162.3",
+          "tinyglobby@0.2.17",
+          "fdir@6.5.0",
+          "picomatch@4.0.7"
+        ]
+      },
+      {
+        "id": "SNYK-JS-PICOMATCH-21248802",
+        "name": "picomatch",
+        "version": "4.0.7",
+        "severity": "high",
+        "from": [
+          "@agent-paste/web@0.0.0",
+          "@workos/authkit-tanstack-react-start@0.8.3",
+          "@tanstack/react-start@1.168.60",
+          "@tanstack/react-start-rsc@0.1.59",
+          "@tanstack/router-utils@1.162.3",
+          "tinyglobby@0.2.17",
+          "picomatch@4.0.7"
+        ]
+      },
+      {
+        "id": "SNYK-JS-PICOMATCH-21248802",
+        "name": "picomatch",
+        "version": "4.0.7",
+        "severity": "high",
+        "from": [
+          "@agent-paste/web@0.0.0",
+          "@tanstack/react-start@1.168.60",
+          "@tanstack/react-start-rsc@0.1.59",
+          "@tanstack/start-plugin-core@1.171.49",
+          "@tanstack/router-plugin@1.168.42",
+          "unplugin@3.4.0",
+          "picomatch@4.0.7"
+        ]
+      },
+      {
+        "id": "SNYK-JS-PICOMATCH-21248802",
+        "name": "picomatch",
+        "version": "4.0.7",
+        "severity": "high",
+        "from": [
+          "@agent-paste/web@0.0.0",
+          "@workos/authkit-tanstack-react-start@0.8.3",
+          "@tanstack/react-start@1.168.60",
+          "@tanstack/react-start-rsc@0.1.59",
+          "@tanstack/router-utils@1.162.3",
+          "tinyglobby@0.2.17",
+          "fdir@6.5.0",
+          "picomatch@4.0.7"
+        ]
+      },
+      {
+        "id": "SNYK-JS-PICOMATCH-21248802",
+        "name": "picomatch",
+        "version": "4.0.7",
+        "severity": "high",
+        "from": [
+          "@agent-paste/web@0.0.0",
+          "@workos/authkit-tanstack-react-start@0.8.3",
+          "@tanstack/react-start@1.168.60",
+          "@tanstack/react-start-rsc@0.1.59",
+          "@tanstack/start-plugin-core@1.171.49",
+          "@tanstack/router-plugin@1.168.42",
+          "unplugin@3.4.0",
+          "picomatch@4.0.7"
+        ]
+      },
+      {
+        "id": "SNYK-JS-PICOMATCH-21248802",
+        "name": "picomatch",
+        "version": "4.0.7",
+        "severity": "high",
+        "from": [
+          "@agent-paste/web@0.0.0",
+          "@tanstack/react-start@1.168.60",
+          "@tanstack/react-start-rsc@0.1.59",
+          "@tanstack/start-plugin-core@1.171.49",
+          "@tanstack/router-plugin@1.168.42",
+          "unplugin@3.4.0",
+          "vite@7.3.7",
+          "picomatch@4.0.7"
+        ]
+      },
+      {
+        "id": "SNYK-JS-PICOMATCH-21248802",
+        "name": "picomatch",
+        "version": "4.0.7",
+        "severity": "high",
+        "from": [
+          "@agent-paste/web@0.0.0",
+          "@workos/authkit-tanstack-react-start@0.8.3",
+          "@tanstack/react-start@1.168.60",
+          "@tanstack/react-start-rsc@0.1.59",
+          "@tanstack/start-plugin-core@1.171.49",
+          "@tanstack/router-plugin@1.168.42",
+          "unplugin@3.4.0",
+          "vite@7.3.7",
+          "picomatch@4.0.7"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/fixture/agent-paste/api-client",
+    "displayTargetFile": "packages/api-client/package.json",
+    "projectName": "@agent-paste/api-client",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/auth",
+    "displayTargetFile": "packages/auth/package.json",
+    "projectName": "@agent-paste/auth",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/auth-md",
+    "displayTargetFile": "packages/auth-md/package.json",
+    "projectName": "@agent-paste/auth-md",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/billing",
+    "displayTargetFile": "packages/billing/package.json",
+    "projectName": "@agent-paste/billing",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/brand",
+    "displayTargetFile": "packages/brand/package.json",
+    "projectName": "@agent-paste/brand",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/commands",
+    "displayTargetFile": "packages/commands/package.json",
+    "projectName": "@agent-paste/commands",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/config",
+    "displayTargetFile": "packages/config/package.json",
+    "projectName": "@agent-paste/config",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/contracts",
+    "displayTargetFile": "packages/contracts/package.json",
+    "projectName": "@agent-paste/contracts",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/db",
+    "displayTargetFile": "packages/db/package.json",
+    "projectName": "@agent-paste/db",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/plans",
+    "displayTargetFile": "packages/plans/package.json",
+    "projectName": "@agent-paste/plans",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/repo-lint",
+    "displayTargetFile": "packages/repo-lint/package.json",
+    "projectName": "@agent-paste/repo-lint",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/revise-core",
+    "displayTargetFile": "packages/revise-core/package.json",
+    "projectName": "@agent-paste/revise-core",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/rotation",
+    "displayTargetFile": "packages/rotation/package.json",
+    "projectName": "@agent-paste/rotation",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/storage",
+    "displayTargetFile": "packages/storage/package.json",
+    "projectName": "@agent-paste/storage",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/tokens",
+    "displayTargetFile": "packages/tokens/package.json",
+    "projectName": "@agent-paste/tokens",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/tsconfig",
+    "displayTargetFile": "packages/tsconfig/package.json",
+    "projectName": "@agent-paste/tsconfig",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/ui",
+    "displayTargetFile": "packages/ui/package.json",
+    "projectName": "@agent-paste/ui",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/worker-runtime",
+    "displayTargetFile": "packages/worker-runtime/package.json",
+    "projectName": "@agent-paste/worker-runtime",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  },
+  {
+    "path": "/fixture/agent-paste/write-allowance",
+    "displayTargetFile": "packages/write-allowance/package.json",
+    "projectName": "@agent-paste/write-allowance",
+    "packageManager": "pnpm",
+    "ok": true,
+    "vulnerabilities": []
+  }
+]
