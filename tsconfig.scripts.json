@@ -35,6 +35,7 @@
     "scripts/lib/load-env-files.mjs",
     "scripts/lib/local-cloudflare-request.mjs",
     "scripts/lib/local-env-secrets.mjs",
+    "scripts/lib/picomatch-patch.mjs",
     "scripts/lib/pnpm-audit-policy.mjs",
     "scripts/lib/rotation-audit.mjs",
     "scripts/lib/rotation-profiles.mjs",

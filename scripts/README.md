@@ -48,6 +48,9 @@ with no duplicate or missing workspace reports. `lib/zod-build-policy.mjs`
 verifies the six build-only Zod paths and their reviewed config parsers.
 `lib/zod-lighthouse-policy.mjs` verifies the Lighthouse Zod 3 chain before the
 attestation disposes of its advisory.
+`lib/picomatch-patch.mjs` verifies all active installed copies and locked paths
+before Snyk can dispose of its repeated-extglob advisory. The patches reject
+repeated extglobs; see [the mitigation contract](../docs/ops/security-todo.md#picomatch-repeated-extglob-mitigation).
 
 ## Worktree Setup
 
