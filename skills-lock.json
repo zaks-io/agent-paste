@@ -29,7 +29,7 @@
       "source": "zaks-io/skills",
       "sourceType": "github",
       "skillPath": "skills/ziw-implement/SKILL.md",
-      "computedHash": "36f5d2cbc764b60b5f6174c270f2fad32ce4f2265670716cc9b948b4ecb5e860"
+      "computedHash": "c3f8c8dc8f1a9408f61bfe6ac396ff7d4d37323527e9aa8a36256e479ee644d4"
     },
     "ziw-orchestrate": {
       "source": "zaks-io/skills",
@@ -41,7 +41,7 @@
       "source": "zaks-io/skills",
       "sourceType": "github",
       "skillPath": "skills/ziw-pr/SKILL.md",
-      "computedHash": "74bcd5305949cef7dedc3e37f6e9532ae497ac02cd57a04dc7a71c77a95db67d"
+      "computedHash": "96b3958725100e9ffbba378f03f97465d82caf6e0210f9158c05b9c481673ad9"
     },
     "ziw-setup": {
       "source": "zaks-io/skills",
