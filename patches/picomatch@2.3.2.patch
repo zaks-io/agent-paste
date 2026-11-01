@@ -1,0 +1,16 @@
+diff --git a/lib/parse.js b/lib/parse.js
+index caa2b86aa5a567df33cef4bda3c7a97794f439f8..c1315c3c3f55b22f4d72994bc46d012707999442 100644
+--- a/lib/parse.js
++++ b/lib/parse.js
+@@ -492,6 +492,11 @@ const parse = (input, options) => {
+   };
+ 
+   const extglobOpen = (type, value) => {
++    // Repeated extglobs can generate exponentially backtracking regular expressions.
++    if (type === 'plus' || type === 'star') {
++      throw new SyntaxError('Repeated extglobs are disabled');
++    }
++
+     const token = { ...EXTGLOB_CHARS[value], conditions: 1, inner: '' };
+ 
+     token.prev = prev;

@@ -44,10 +44,77 @@ payloads, so the override uses that release rather than the advisory minimum.
 Seroval runs in the web dashboard's TanStack serialization path. Shell-quote
 belongs to the eval runner's Daytona SDK. The remaining dependencies support
 repository checks and builds. These fixes do not change scanner thresholds or
-the verified braces mitigation below. Only `source-map-js@1.2.2`, the sole
+the verified braces mitigation below. `source-map-js@1.2.2`, the sole
 fixed release, has a version-scoped exception to pnpm's seven-day release delay.
-[`docs/development.md`](../development.md) keeps that delay for every other
-package and version.
+The additional AP-486 exceptions below are also exact versions.
+[`docs/development.md`](../development.md) keeps that delay for other packages
+and versions.
+
+## Redirect and glob tooling remediation (AP-486)
+
+The 2026-10-31 attestation failed on follow-redirects, glob, and minimatch.
+Scoped root overrides select follow-redirects 1.16.2 under axios, glob 14.0.2
+under Sentry's bundler plugin, and minimatch 11.0.1 under both that glob and
+Stryker. Regression tests exercise cross-realm sensitive-header removal over
+real cross-origin HTTP redirects, glob cancellation during directory traversal,
+Sentry source-map file discovery, and the minimatch globstar-parent pattern
+budget in both consumers.
+
+The fixed releases are newer than the seven-day install delay. Exact
+`minimumReleaseAgeExclude` entries cover follow-redirects 1.16.2, glob 14.0.2,
+minimatch 11.0.1, and glob's required path-scurry 3.0.0 and
+@isaacs/nonrecursive-glob-match 1.0.1. The default delay and provenance
+`trustPolicy: no-downgrade` remain enforced. Remove these age exceptions after
+the releases have aged seven days; future versions do not inherit them.
+
+## Snyk workspace report contract (AP-487)
+
+Snyk's pnpm report can set `path` to the repository plus an unscoped package
+name such as `apex`, while `displayTargetFile` is already repository-relative
+`apps/apex/package.json`. Joining both duplicated the target and rejected all
+workspace reports before evaluating their findings.
+
+The policy now resolves `displayTargetFile` directly from the repository root.
+It requires canonical expected manifest paths and rejects absolute, traversal,
+duplicate, unknown, and missing workspace targets. The sanitized real
+30-workspace report is a regression fixture. The CLI is pinned to 1.1308.3,
+rather than following `latest`; thresholds and exact mitigation matching are
+unchanged. Replaying the repaired report also exposed
+[SNYK-JS-PICOMATCH-21248802](https://security.snyk.io/vuln/SNYK-JS-PICOMATCH-21248802),
+which has no fixed release. A green Snyk result requires separate remediation
+of that finding, not a parser-only fix.
+
+## Picomatch repeated extglob mitigation
+
+[CVE-2026-112366](https://security.snyk.io/vuln/SNYK-JS-PICOMATCH-21248802)
+affects picomatch's repeated extglob parsing. No fixed upstream release exists
+as of 2026-11-01. Upstream PR #194 explicitly leaves `+(*a)` vulnerable.
+Independent bounded subprocess checks reproduced the attack in all three
+installed versions, 2.3.2, 4.0.4, and 4.0.7.
+
+The exact pnpm patches reject parsed `+(...)` and `*(...)` extglobs with
+`SyntaxError` before regex compilation, including when callers disable
+`maxExtglobRecursion`. Repeated extglobs are intentionally unsupported in this
+repository's tooling until an upstream fix can safely restore them. Ordinary
+globs, braces, and optional, negate, and single-choice extglobs remain supported.
+Consumer checks cover micromatch/fast-glob, the repository analysis tools, and
+the web and eval builds. This is a mitigation of the reported repeated-extglob
+attack, not a general safety guarantee for arbitrary regular expressions.
+
+`scripts/lib/picomatch-patch.mjs` verifies exact patch and installed runtime
+hashes, registrations in both package.json and pnpm-workspace.yaml, both YAML
+locks, every active importer/snapshot reference including aliases and optional
+edges, and every installed consumer path to picomatch. Registering patches in
+only the workspace file is insufficient while the manifest patch map exists.
+Unknown versions, unpatched active copies, changed code, or lock drift fail
+verification. Inactive pnpm store directories do not grant a disposition.
+
+Only after that verification does Snyk receive dispositions for the exact
+advisory, package, installed versions, manifest targets, and eleven complete
+versioned report paths under evals and the web build. Unmatched findings remain
+blockers and raw reports are preserved. Remove the patches, verifier,
+dispositions, and regression tests together after an upstream fix is reviewed
+and the dependency graph is upgraded.
 
 ## Zod request array bound (AP-457, AP-484)
 
