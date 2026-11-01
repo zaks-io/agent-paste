@@ -17,6 +17,12 @@ minimumReleaseAge: 10080
 # GHSA-68fv-2mgg-jv7q has no older fixed release. Keep the exception version-scoped.
 minimumReleaseAgeExclude:
   - source-map-js@1.2.2
+  # AP-486: exact advisory fixes and their required transitive dependencies.
+  - follow-redirects@1.16.2
+  - glob@14.0.2
+  - minimatch@11.0.1
+  - path-scurry@3.0.0
+  - '@isaacs/nonrecursive-glob-match@1.0.1'
 blockExoticSubdeps: true
 trustPolicy: no-downgrade
 

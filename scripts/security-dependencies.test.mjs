@@ -1,7 +1,10 @@
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdir, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
 import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -21,8 +24,116 @@ function consumerDependency(workspace, chain) {
 
 const shell = consumerDependency("apps/evals", ["@daytona/sdk", "shell-quote"]);
 const seroval = consumerDependency("apps/web", ["@tanstack/react-router", "@tanstack/router-core", "seroval"]);
+const sentryGlobChain = ["@sentry/tanstackstart-react", "@sentry/vite-plugin", "@sentry/bundler-plugin-core", "glob"];
+const { glob } = consumerDependency("apps/web", sentryGlobChain);
+const { Minimatch } = consumerDependency("apps/web", [...sentryGlobChain, "minimatch"]);
+const strykerMinimatch = consumerDependency("packages/billing", ["@stryker-mutator/core", "minimatch"]);
+const redirects = consumerDependency("apps/evals", ["@daytona/sdk", "axios", "follow-redirects"]);
+
+async function listen(server) {
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  return `http://127.0.0.1:${server.address().port}`;
+}
+
+const close = (server) => new Promise((resolve) => server.close(resolve));
 
 describe("dependency security regressions", () => {
+  it("removes cross-realm custom sensitive headers on a cross-origin redirect", async () => {
+    let received;
+    const destination = createServer((request, response) => {
+      received = request.headers;
+      response.end("ok");
+    });
+    const destinationUrl = await listen(destination);
+    const source = createServer((_request, response) => {
+      response.writeHead(302, { Location: destinationUrl });
+      response.end();
+    });
+    try {
+      const sourceUrl = await listen(source);
+      await new Promise((resolve, reject) => {
+        redirects.http
+          .get(
+            sourceUrl,
+            {
+              headers: { "X-Custom-Credential": "fixture-value", "X-Harmless": "keep" },
+              sensitiveHeaders: runInNewContext('["X-Custom-Credential"]'),
+            },
+            (response) => {
+              response.resume();
+              response.on("end", resolve);
+              response.on("error", reject);
+            },
+          )
+          .on("error", reject);
+      });
+      expect(received["x-custom-credential"]).toBeUndefined();
+      expect(received["x-harmless"]).toBe("keep");
+    } finally {
+      await Promise.all([close(source), close(destination)]);
+    }
+  });
+
+  it.each([Minimatch, strykerMinimatch.Minimatch])(
+    "honors the pattern budget when preprocessing globstar-parent segments",
+    (Matcher) => {
+      const matcher = new Matcher("a/**/../b/**/../c/**/../file.js", {
+        optimizationLevel: 2,
+        braceExpandMax: 2,
+      });
+      expect(matcher.globParts.length).toBeLessThanOrEqual(2);
+      const ordinary = new Matcher("src/**/*.ts");
+      expect(ordinary.match("src/nested/file.ts")).toBe(true);
+      expect(ordinary.match("src/nested/file.js")).toBe(false);
+    },
+  );
+
+  it("discovers source-map upload assets using Sentry's glob options", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "security-sentry-assets-"));
+    try {
+      mkdirSync(join(directory, "nested"));
+      writeFileSync(join(directory, "app.js"), "");
+      writeFileSync(join(directory, "app.js.map"), "{}");
+      writeFileSync(join(directory, "nested", "chunk.mjs"), "");
+      writeFileSync(join(directory, "ignored.css"), "");
+      const files = await glob("**/*.{js,mjs,map}", { cwd: directory, absolute: true, nodir: true });
+      expect(files.sort()).toEqual(
+        ["app.js", "app.js.map", "nested/chunk.mjs"].map((file) => join(directory, file)).sort(),
+      );
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("stops directory traversal after cancellation during the first directory read", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "security-glob-abort-"));
+    const controller = new AbortController();
+    const reason = new Error("fixture cancellation");
+    let reads = 0;
+    try {
+      mkdirSync(join(directory, "nested", "child"), { recursive: true });
+      writeFileSync(join(directory, "nested", "child", "file.js"), "");
+      const result = glob("**/*", {
+        cwd: directory,
+        signal: controller.signal,
+        fs: {
+          readdir(path, options, callback) {
+            reads++;
+            readdir(path, options, (error, entries) => {
+              controller.abort(reason);
+              callback(error, entries);
+            });
+          },
+        },
+      });
+      await expect(result).rejects.toBe(reason);
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(reads).toBe(1);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it.each(["\n", "\r", "\u2028", "\u2029"])("rejects a line terminator after a shell comment: %j", (newline) => {
     // GHSA-pqg4-j6r4-53mv: the comment swallows the opening quote before the newline.
     expect(() => shell.quote(["echo", "ok", { comment: "x" }, `a${newline}id;#`])).toThrow(TypeError);
