@@ -78,6 +78,15 @@ patchedDependencies:
   braces@3.0.3:
     hash: 36ee6956e6eb776c159142f683631b4c638917ebf5d04a6a61f9771a119eaa60
     path: patches/braces@3.0.3.patch
+  picomatch@2.3.2:
+    hash: 86a04a2f952e69d16469a541adacff57744457626ede5078a8d58227f867077b
+    path: patches/picomatch@2.3.2.patch
+  picomatch@4.0.4:
+    hash: 2f81dd7db0d560ea6217271b602cb3f35b6968cbbab93f8fa859fc7865ada511
+    path: patches/picomatch@4.0.4.patch
+  picomatch@4.0.7:
+    hash: a7fe1d1bf56620d20545087d980a5fb58959bb79b63bc900ebd9a9ba5e4e0434
+    path: patches/picomatch@4.0.7.patch
 
 importers:
 
@@ -8653,7 +8662,7 @@ snapshots:
       exsolve: 1.1.3
       lightningcss: 1.33.0
       pathe: 2.0.3
-      picomatch: 4.0.7
+      picomatch: 4.0.7(patch_hash=a7fe1d1bf56620d20545087d980a5fb58959bb79b63bc900ebd9a9ba5e4e0434)
       seroval: 1.6.12
       source-map: 0.7.6
       srvx: 0.11.22
@@ -9244,7 +9253,7 @@ snapshots:
       interpret: 3.1.1
       is-installed-globally: 1.0.0
       json5: 2.2.3
-      picomatch: 4.0.4
+      picomatch: 4.0.4(patch_hash=2f81dd7db0d560ea6217271b602cb3f35b6968cbbab93f8fa859fc7865ada511)
       prompts: 2.4.2
       rechoir: 0.8.0
       safe-regex: 2.1.1
@@ -9518,13 +9527,13 @@ snapshots:
       pend: 1.2.0
     optional: true
 
-  fdir@6.5.0(picomatch@4.0.4):
+  fdir@6.5.0(picomatch@4.0.4(patch_hash=2f81dd7db0d560ea6217271b602cb3f35b6968cbbab93f8fa859fc7865ada511)):
     optionalDependencies:
-      picomatch: 4.0.4
+      picomatch: 4.0.4(patch_hash=2f81dd7db0d560ea6217271b602cb3f35b6968cbbab93f8fa859fc7865ada511)
 
-  fdir@6.5.0(picomatch@4.0.7):
+  fdir@6.5.0(picomatch@4.0.7(patch_hash=a7fe1d1bf56620d20545087d980a5fb58959bb79b63bc900ebd9a9ba5e4e0434)):
     optionalDependencies:
-      picomatch: 4.0.7
+      picomatch: 4.0.7(patch_hash=a7fe1d1bf56620d20545087d980a5fb58959bb79b63bc900ebd9a9ba5e4e0434)
 
   fetchdts@0.1.7: {}
 
@@ -9943,14 +9952,14 @@ snapshots:
 
   knip@6.14.2(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3):
     dependencies:
-      fdir: 6.5.0(picomatch@4.0.4)
+      fdir: 6.5.0(picomatch@4.0.4(patch_hash=2f81dd7db0d560ea6217271b602cb3f35b6968cbbab93f8fa859fc7865ada511))
       formatly: 0.3.0
       get-tsconfig: 4.14.0
       jiti: 2.7.0
       minimist: 1.2.8
       oxc-parser: 0.130.0
       oxc-resolver: 11.19.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)
-      picomatch: 4.0.4
+      picomatch: 4.0.4(patch_hash=2f81dd7db0d560ea6217271b602cb3f35b6968cbbab93f8fa859fc7865ada511)
       smol-toml: 1.9.0
       strip-json-comments: 5.0.3
       tinyglobby: 0.2.16
@@ -10214,7 +10223,7 @@ snapshots:
   micromatch@4.0.8:
     dependencies:
       braces: 3.0.3(patch_hash=36ee6956e6eb776c159142f683631b4c638917ebf5d04a6a61f9771a119eaa60)
-      picomatch: 2.3.2
+      picomatch: 2.3.2(patch_hash=86a04a2f952e69d16469a541adacff57744457626ede5078a8d58227f867077b)
 
   mime-db@1.52.0: {}
 
@@ -10446,11 +10455,11 @@ snapshots:
 
   picocolors@1.1.1: {}
 
-  picomatch@2.3.2: {}
+  picomatch@2.3.2(patch_hash=86a04a2f952e69d16469a541adacff57744457626ede5078a8d58227f867077b): {}
 
-  picomatch@4.0.4: {}
+  picomatch@4.0.4(patch_hash=2f81dd7db0d560ea6217271b602cb3f35b6968cbbab93f8fa859fc7865ada511): {}
 
-  picomatch@4.0.7: {}
+  picomatch@4.0.7(patch_hash=a7fe1d1bf56620d20545087d980a5fb58959bb79b63bc900ebd9a9ba5e4e0434): {}
 
   postcss@8.5.26:
     dependencies:
@@ -11004,13 +11013,13 @@ snapshots:
 
   tinyglobby@0.2.16:
     dependencies:
-      fdir: 6.5.0(picomatch@4.0.7)
-      picomatch: 4.0.7
+      fdir: 6.5.0(picomatch@4.0.7(patch_hash=a7fe1d1bf56620d20545087d980a5fb58959bb79b63bc900ebd9a9ba5e4e0434))
+      picomatch: 4.0.7(patch_hash=a7fe1d1bf56620d20545087d980a5fb58959bb79b63bc900ebd9a9ba5e4e0434)
 
   tinyglobby@0.2.17:
     dependencies:
-      fdir: 6.5.0(picomatch@4.0.7)
-      picomatch: 4.0.7
+      fdir: 6.5.0(picomatch@4.0.7(patch_hash=a7fe1d1bf56620d20545087d980a5fb58959bb79b63bc900ebd9a9ba5e4e0434))
+      picomatch: 4.0.7(patch_hash=a7fe1d1bf56620d20545087d980a5fb58959bb79b63bc900ebd9a9ba5e4e0434)
 
   tinyrainbow@3.1.0: {}
 
@@ -11119,7 +11128,7 @@ snapshots:
   unplugin@3.4.0(esbuild@0.28.1)(rollup@4.60.4)(vite@7.3.7(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.22.3)(yaml@2.9.0)):
     dependencies:
       '@jridgewell/remapping': 2.3.5
-      picomatch: 4.0.7
+      picomatch: 4.0.7(patch_hash=a7fe1d1bf56620d20545087d980a5fb58959bb79b63bc900ebd9a9ba5e4e0434)
       webpack-virtual-modules: 0.6.2
     optionalDependencies:
       esbuild: 0.28.1
@@ -11145,8 +11154,8 @@ snapshots:
   vite@7.3.7(@types/node@24.12.4)(jiti@2.7.0)(lightningcss@1.33.0)(tsx@4.22.3)(yaml@2.9.0):
     dependencies:
       esbuild: 0.28.1
-      fdir: 6.5.0(picomatch@4.0.7)
-      picomatch: 4.0.7
+      fdir: 6.5.0(picomatch@4.0.7(patch_hash=a7fe1d1bf56620d20545087d980a5fb58959bb79b63bc900ebd9a9ba5e4e0434))
+      picomatch: 4.0.7(patch_hash=a7fe1d1bf56620d20545087d980a5fb58959bb79b63bc900ebd9a9ba5e4e0434)
       postcss: 8.5.26
       rollup: 4.60.4
       tinyglobby: 0.2.17
@@ -11176,7 +11185,7 @@ snapshots:
       magic-string: 0.30.21
       obug: 2.1.1
       pathe: 2.0.3
-      picomatch: 4.0.7
+      picomatch: 4.0.7(patch_hash=a7fe1d1bf56620d20545087d980a5fb58959bb79b63bc900ebd9a9ba5e4e0434)
       std-env: 4.1.0
       tinybench: 2.9.0
       tinyexec: 1.1.2

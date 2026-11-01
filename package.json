@@ -151,7 +151,10 @@
     },
     "patchedDependencies": {
       "@workos/authkit-tanstack-react-start@0.8.3": "patches/@workos__authkit-tanstack-react-start@0.8.3.patch",
-      "braces@3.0.3": "patches/braces@3.0.3.patch"
+      "braces@3.0.3": "patches/braces@3.0.3.patch",
+      "picomatch@2.3.2": "patches/picomatch@2.3.2.patch",
+      "picomatch@4.0.4": "patches/picomatch@4.0.4.patch",
+      "picomatch@4.0.7": "patches/picomatch@4.0.7.patch"
     }
   },
   "optionalDependencies": {

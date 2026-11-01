@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bracesConsumers, bracesFinding, verifyBracesPatch } from "./lib/braces-patch.mjs";
+import { verifyPicomatchPatch } from "./lib/picomatch-patch.mjs";
 import { evaluateSnykPolicy } from "./lib/snyk-vulnerability-policy.mjs";
 import { verifyZodBuildConsumers } from "./lib/zod-build-policy.mjs";
 import { verifyZodPatch } from "./lib/zod-patch.mjs";
@@ -38,6 +39,7 @@ function consumerPath({ workspace, chain }) {
 
 try {
   const verification = verifyBracesPatch(root);
+  const picomatchVerification = verifyPicomatchPatch(root);
   const zodVerification = verifyZodPatch(root);
   const zodBuildVerification = verifyZodBuildConsumers(root);
   const build = spawnSync(
@@ -62,7 +64,12 @@ try {
   );
   writeFileSync(join(out, "request-array-bounds.txt"), `${bounds.stdout ?? ""}\n${bounds.stderr ?? ""}`);
   if (bounds.error || bounds.status !== 0) throw new Error("Request array bounds verification failed");
-  writeReport("mitigation.json", { braces: verification, zod: zodVerification, zodBuild: zodBuildVerification });
+  writeReport("mitigation.json", {
+    braces: verification,
+    picomatch: picomatchVerification,
+    zod: zodVerification,
+    zodBuild: zodBuildVerification,
+  });
   const allowedFindings = bracesConsumers.map((consumer) => ({
     id: "SNYK-JS-BRACES-19963945",
     module: bracesFinding.packageName,
@@ -71,6 +78,7 @@ try {
     paths: [consumerPath(consumer)],
     reason: bracesFinding.reason,
   }));
+  allowedFindings.push(...picomatchVerification.allowedFindings);
   const expectedTargets = [
     "package.json",
     ...["apps", "packages"].flatMap((directory) =>
