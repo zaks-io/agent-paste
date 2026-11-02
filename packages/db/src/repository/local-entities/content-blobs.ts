@@ -14,11 +14,17 @@ export function localContentBlobs(state: LocalState): Entities["contentBlobs"] {
     },
     async findReusableAndTouch(workspaceId, files, updatedAt) {
       const reusable = [];
+      // Match SQL: map registrations may precede their R2 objects, including retained maps.
+      const maps = new Set(
+        [...state.revisions.values()]
+          .filter((r) => r.workspace_id === workspaceId && r.file_map_sha256)
+          .map((r) => `${r.file_map_sha256}:${r.file_map_size_bytes}`),
+      );
       for (const file of files) {
         const key = keyFor({ workspaceId, sha256: file.sha256, sizeBytes: file.sizeBytes });
         const blob = state.contentBlobs.get(key);
         if (blob?.gc_state === "deleting") repositoryError("blob_cleanup_in_progress");
-        if (blob) {
+        if (blob && !maps.has(`${file.sha256}:${file.sizeBytes}`)) {
           const touched = { ...blob, updated_at: updatedAt };
           state.contentBlobs.set(key, touched);
           reusable.push(touched);

@@ -2,7 +2,7 @@ import { and, eq, or, sql } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { defineSqlQuerySourceMap } from "../postgres/query-source.js";
 import { repositoryError } from "../repository-error.js";
-import { contentBlobs } from "../schema.js";
+import { contentBlobs, revisions } from "../schema.js";
 import type { ContentBlob } from "../types.js";
 import type { WorkspaceBlobRef } from "./reparent-blobs.js";
 
@@ -51,7 +51,18 @@ export const contentBlobQueries = defineSqlQuerySourceMap(
       const rows = await db
         .update(contentBlobs)
         .set({ updatedAt: new Date(updatedAt) })
-        .where(and(eq(contentBlobs.workspaceId, workspaceId), eq(contentBlobs.gcState, "live"), filePredicate))
+        .where(
+          and(
+            eq(contentBlobs.workspaceId, workspaceId),
+            eq(contentBlobs.gcState, "live"),
+            filePredicate,
+            // Map rows reserve bytes before R2 materialization, so they cannot prove an upload exists.
+            sql`not exists (select 1 from ${revisions}
+            where ${revisions.workspaceId} = ${contentBlobs.workspaceId}
+              and ${revisions.fileMapSha256} = ${contentBlobs.sha256}
+              and ${revisions.fileMapSizeBytes} = ${contentBlobs.sizeBytes})`,
+          ),
+        )
         .returning();
       if (rows.length < uniqueFiles.length) {
         const unavailable = await db

@@ -181,18 +181,21 @@ representation of each whole file, either `single` or `chunked-v1`.
 
 ### `content_blobs`
 
-| Column         | Type                                      | Notes                                                   |
-| -------------- | ----------------------------------------- | ------------------------------------------------------- |
-| `workspace_id` | `UUID NOT NULL REFERENCES workspaces(id)` | Deduplication scope.                                    |
-| `sha256`       | `TEXT NOT NULL`                           | Lowercase hex SHA-256.                                  |
-| `size_bytes`   | `BIGINT NOT NULL`                         | Plaintext file size.                                    |
-| `r2_key`       | `TEXT NOT NULL UNIQUE`                    | Shared blob object key.                                 |
-| `created_at`   | `TIMESTAMPTZ NOT NULL`                    | First verified upload time.                             |
-| `updated_at`   | `TIMESTAMPTZ NOT NULL`                    | Last successful upsert for the verified blob reference. |
+| Column         | Type                                      | Notes                                       |
+| -------------- | ----------------------------------------- | ------------------------------------------- |
+| `workspace_id` | `UUID NOT NULL REFERENCES workspaces(id)` | Deduplication scope.                        |
+| `sha256`       | `TEXT NOT NULL`                           | Lowercase hex SHA-256.                      |
+| `size_bytes`   | `BIGINT NOT NULL`                         | Plaintext file size.                        |
+| `r2_key`       | `TEXT NOT NULL UNIQUE`                    | Shared blob object key.                     |
+| `created_at`   | `TIMESTAMPTZ NOT NULL`                    | First blob registration time.               |
+| `updated_at`   | `TIMESTAMPTZ NOT NULL`                    | Last successful blob registration or reuse. |
 
 Primary key `(workspace_id, sha256, size_bytes)`. The digest always identifies
 full plaintext bytes. Deduplication is scoped to the owning Workspace. Legacy
-revision-key objects are not backfilled. Additional columns:
+revision-key objects are not backfilled. Revision file-map digests are excluded
+from upload deduplication, including maps for retained or inactive Revisions:
+their registry rows can exist before R2 materialization. Uploading those exact
+bytes as a normal file requires a verified PUT. Additional columns:
 
 | Column                | Type                             | Meaning                                                                      |
 | --------------------- | -------------------------------- | ---------------------------------------------------------------------------- |
