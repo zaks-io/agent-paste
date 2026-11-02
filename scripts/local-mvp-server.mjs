@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 import { randomBytes } from "node:crypto";
 import { createServer } from "node:http";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
+import { fileMapStore } from "../apps/api/dist/file-map-store.js";
 import apiWorker, { createMemoryEphemeralProvisionGateNamespace, handleMcpApiRequest } from "../apps/api/dist/index.js";
 import contentWorker from "../apps/content/dist/index.js";
 import jobsWorker from "../apps/jobs/dist/index.js";
@@ -65,6 +68,10 @@ function createWorkerServer(name, worker, env) {
       const response = await worker.fetch(request, env);
       await writeFetchResponse(outgoing, response);
     } catch (error) {
+      if (outgoing.headersSent) {
+        outgoing.destroy(error instanceof Error ? error : new Error(String(error)));
+        return;
+      }
       const message = error instanceof Error ? error.message : String(error);
       outgoing.writeHead(500, { "content-type": "application/json; charset=utf-8" });
       outgoing.end(JSON.stringify({ error: { code: "local_harness_error", message: `${name}: ${message}` } }));
@@ -107,61 +114,8 @@ async function writeFetchResponse(outgoing, response) {
     outgoing.end();
     return;
   }
-  const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("text/event-stream")) {
-    await pipeWebStreamToNode(outgoing, response.body);
-    return;
-  }
-  const bytes = Buffer.from(await response.arrayBuffer());
-  outgoing.end(bytes);
-}
-
-function isOutgoingClosed(outgoing) {
-  return outgoing.destroyed || outgoing.writableEnded;
-}
-
-async function pipeWebStreamToNode(outgoing, webStream) {
-  const reader = webStream.getReader();
-  const waitForDrain = () =>
-    new Promise((resolve) => {
-      if (isOutgoingClosed(outgoing)) {
-        resolve();
-        return;
-      }
-      const onDone = () => {
-        outgoing.off("drain", onDone);
-        outgoing.off("close", onDone);
-        outgoing.off("error", onDone);
-        resolve();
-      };
-      outgoing.on("drain", onDone);
-      outgoing.on("close", onDone);
-      outgoing.on("error", onDone);
-    });
-
-  try {
-    while (true) {
-      if (isOutgoingClosed(outgoing)) {
-        break;
-      }
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
-      }
-      if (!value?.byteLength) {
-        continue;
-      }
-      const canWrite = outgoing.write(Buffer.from(value));
-      if (!canWrite) {
-        await waitForDrain();
-      }
-    }
-  } finally {
-    reader.releaseLock();
-    if (!isOutgoingClosed(outgoing)) {
-      outgoing.end();
-    }
-  }
+  // Forward backpressure and disconnects so local transfers exercise streaming.
+  await pipeline(Readable.fromWeb(response.body), outgoing);
 }
 
 function listenNamedServer(server, name) {
@@ -211,6 +165,12 @@ function createApiDatabase(repo) {
   return {
     getWhoami: repo.getWhoami.bind(repo),
     getUsagePolicy: repo.getUsagePolicy.bind(repo),
+    setArtifactRetention: repo.setArtifactRetention.bind(repo),
+    listArtifactFiles: repo.listArtifactFiles.bind(repo),
+    getRevisionReadTarget: repo.getRevisionReadTarget.bind(repo),
+    getStorageUsage: repo.getStorageUsage.bind(repo),
+    pinWebArtifact: repo.pinWebArtifact.bind(repo),
+    unpinWebArtifact: repo.unpinWebArtifact.bind(repo),
     submitFeedback: repo.submitFeedback.bind(repo),
     getAgentView: repo.getAgentView?.bind(repo),
     getPublicAgentView: repo.getPublicAgentView.bind(repo),
@@ -226,7 +186,7 @@ function createApiDatabase(repo) {
     revokeApiKey: repo.revokeApiKey.bind(repo),
     async publishRevision(input) {
       const result = await repo.publishRevision(input);
-      if (result?.bundle?.status === "pending") {
+      if (result?.bundle?.status === "pending" && result.no_change !== true) {
         await jobsEnv.BUNDLE_GENERATE_QUEUE.send({
           type: "bundle.generate.v1",
           workspace_id: input.actor.workspace_id,
@@ -276,6 +236,10 @@ const revisionReconstructor = revisionReconstructorFromEnv({
   ARTIFACTS: artifacts,
   ARTIFACT_BYTES_ENCRYPTION_KEY: artifactBytesEncryptionKey,
 });
+const revisionMaps = fileMapStore({
+  ARTIFACTS: artifacts,
+  ARTIFACT_BYTES_ENCRYPTION_KEY: artifactBytesEncryptionKey,
+});
 const services = postgresBinding
   ? createPostgresServices({
       binding: postgresBinding,
@@ -284,6 +248,7 @@ const services = postgresBinding
       contentBaseUrl,
       reparentBlobMigrator,
       revisionReconstructor,
+      fileMapStore: revisionMaps,
     })
   : createLocalServices({
       apiKeyPepper,
@@ -291,6 +256,7 @@ const services = postgresBinding
       contentBaseUrl,
       reparentBlobMigrator,
       revisionReconstructor,
+      fileMapStore: revisionMaps,
     });
 const denylist = new MemoryKVNamespace();
 const cliRelease = new MemoryKVNamespace();

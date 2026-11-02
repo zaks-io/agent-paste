@@ -593,6 +593,12 @@ in this table. The parent hands this list to the host owner.
 
 ### 4.5 Tokens (`packages/tokens`)
 
+Integration amendment: `ContentTokenPayload` gains `original_bytes?: true`.
+Revision read grants set it to select attachment delivery of original identity
+bytes, including HTML without injection. Browsing capability tokens omit it.
+ETag material uses `original-download` for this representation. Existing CSP,
+noindex response headers, denylist checks, and workspace authorization remain.
+
 - `ContentTokenPayload` gains `file_map?: { sha256: string; size_bytes: number }`.
   The validator requires hex SHA-256 and `0 < size_bytes <= MAX_FILE_MAP_BYTES`,
   and rejects `file_map` combined with `paths`, `object_key`, `object_keys` or
