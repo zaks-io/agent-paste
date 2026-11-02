@@ -40,7 +40,7 @@ export function responseHeadersForPath(
   headers.set("content-type", served.contentType);
   headers.set("content-security-policy", served.csp);
   if (served.disposition === "attachment" || payload.original_bytes === true) {
-    headers.set("content-disposition", `attachment; filename="${attachmentFilename(path)}"`);
+    headers.set("content-disposition", attachmentDisposition(path));
   }
   if (payload.noindex === true) {
     headers.set("x-robots-tag", NOINDEX_HEADER);
@@ -53,6 +53,19 @@ export function responseHeadersForPath(
   }
   applyOpaqueOriginCors(headers, request);
   return headers;
+}
+
+function attachmentDisposition(path: string): string {
+  const filename = attachmentFilename(path);
+  const fallback = filename.replace(/[^\u0020-\u007e]/gu, "_");
+  const disposition = `attachment; filename="${fallback}"`;
+  if (fallback === filename) return disposition;
+  // RFC 8187 encodes UTF-8 while the quoted fallback stays valid HTTP ASCII.
+  const encoded = encodeURIComponent(filename).replace(
+    /[!'()*]/gu,
+    (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `${disposition}; filename*=UTF-8''${encoded}`;
 }
 
 function applyOpaqueOriginCors(headers: Headers, request?: Request): void {

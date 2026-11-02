@@ -126,6 +126,40 @@ describe("map-authorized content", () => {
     expect(await response.text()).toBe(body);
     expect(response.headers.get("content-length")).toBe(String(body.length));
   });
+  it.each([
+    ["map", "日本語.txt"],
+    ["legacy", "日本語.txt"],
+    ["map", "café(1)!.txt"],
+    ["legacy", "café(1)!.txt"],
+  ])("preserves Unicode attachment names and original bytes with %s tokens for %s", async (kind, path) => {
+    const f = await fixture({ path });
+    const overrides: Partial<ContentTokenPayload> = {
+      original_bytes: true,
+      ...(kind === "legacy"
+        ? {
+            file_map: undefined,
+            paths: [path],
+            object_keys: { [path]: workspaceBlobObjectKeyFor({ workspaceId, sha256: f.digest }) },
+          }
+        : {}),
+    };
+    for (const method of ["GET", "HEAD", "RANGE"]) {
+      const response = await f.request(
+        method === "RANGE" ? { range: "bytes=2-5" } : {},
+        method === "HEAD" ? "HEAD" : "GET",
+        overrides,
+      );
+      expect(response.status).toBe(method === "RANGE" ? 206 : 200);
+      const disposition = response.headers.get("content-disposition");
+      expect(disposition).toMatch(/^attachment; filename="[\u0020-\u007e]+"; filename\*=UTF-8''/u);
+      const encoded = disposition?.split("filename*=UTF-8''")[1] ?? "";
+      expect(encoded).not.toMatch(/[!'()*]/u);
+      expect(decodeURIComponent(encoded)).toBe(path);
+      expect(response.headers.get("content-encoding")).toBeNull();
+      expect(response.headers.get("content-length")).toBe(method === "RANGE" ? "4" : "10");
+      expect(await response.text()).toBe(method === "HEAD" ? "" : method === "RANGE" ? "2345" : "0123456789");
+    }
+  });
   it("requires a strong If-Range match, ignores ranges on HEAD, and handles empty files", async () => {
     const f = await fixture();
     const first = await f.request({}, "HEAD");
