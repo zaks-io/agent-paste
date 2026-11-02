@@ -2,23 +2,11 @@
 
 /** Shared helpers for MCP smoke scripts (local harness + hosted verification). */
 
-import { MCP_RESOURCE_INDICATOR, trimTrailingSlashes } from "../packages/contracts/dist/mcp.js";
+import { MCP_RESOURCE_INDICATOR, McpToolName, trimTrailingSlashes } from "../packages/contracts/dist/mcp.js";
 
 export const MCP_PROTOCOL_VERSION = "2025-06-18";
 
-export const MCP_TOOL_NAMES = [
-  "publish_artifact",
-  "add_revision",
-  "multi_edit",
-  "list_artifacts",
-  "read_artifact",
-  "read_file",
-  "list_revisions",
-  "delete_artifact",
-  "update_display_metadata",
-  "whoami",
-  "feedback",
-];
+export const MCP_TOOL_NAMES = McpToolName.options;
 
 export function normalizeMcpSmokeTarget(value) {
   if (!value || value === "local") {

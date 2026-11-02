@@ -185,6 +185,7 @@ export function spawnLocalMvpForMcpSmoke({ root, serverEntry, ports, harnessSecr
       AGENT_PASTE_LOCAL_API_PORT: String(ports.apiPort),
       AGENT_PASTE_LOCAL_UPLOAD_PORT: String(ports.uploadPort),
       AGENT_PASTE_LOCAL_CONTENT_PORT: String(ports.contentPort),
+      AGENT_PASTE_LOCAL_CAPABILITY_DOMAIN: "mcp-smoke.test",
       SMOKE_HARNESS_SECRET: harnessSecret,
       AGENT_PASTE_LOCAL_MCP_RPC_SECRET: localMcpRpcSecret,
       ...workosEnv,
@@ -254,7 +255,10 @@ export async function provisionLocalMcpWorkspace(apiBaseUrl, { memberSubject, wo
 export async function runLocalMcpAuthenticatedChecks(mcpBaseUrl, mcpToken, expectedWorkspaceId) {
   await mcpInitializeSession(mcpBaseUrl, mcpToken);
   const tools = await mcpToolsList(mcpBaseUrl, mcpToken);
-  assert(tools.length === MCP_TOOL_NAMES.length, "local tools/list returns the registered tools");
+  assert(
+    tools.length === MCP_TOOL_NAMES.length && MCP_TOOL_NAMES.every((name) => tools.some((tool) => tool.name === name)),
+    "local tools/list returns the registered tools",
+  );
 
   const whoami = await mcpCallTool(mcpBaseUrl, mcpToken, "whoami", {}, 3);
   assert(whoami.workspace.id === expectedWorkspaceId, "whoami resolves provisioned workspace");
@@ -275,6 +279,15 @@ export async function runLocalMcpAuthenticatedChecks(mcpBaseUrl, mcpToken, expec
   const agentView = await mcpCallTool(mcpBaseUrl, mcpToken, "read_artifact", { artifact_id: published.artifact_id }, 5);
   assert(agentView.artifact_id === published.artifact_id, "read_artifact returns the published artifact");
 
+  const pinned = await mcpCallTool(mcpBaseUrl, mcpToken, "pin_artifact", { artifact_id: published.artifact_id }, 6);
+  assert(pinned.retention === "pinned" && pinned.effective_expires_at === null, "pin_artifact removes expiry");
+  assert(pinned.url === published.url, "pin_artifact preserves the URL");
+  const unpinned = await mcpCallTool(mcpBaseUrl, mcpToken, "unpin_artifact", { artifact_id: published.artifact_id }, 7);
+  assert(
+    unpinned.retention === "temporary" && Date.parse(unpinned.effective_expires_at) > Date.now(),
+    "unpin_artifact grants a fresh expiry",
+  );
+  assert(unpinned.url === published.url, "unpin_artifact preserves the URL");
   return { whoami, published, agentView };
 }
 

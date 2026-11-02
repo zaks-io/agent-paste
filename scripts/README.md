@@ -171,8 +171,9 @@ DATABASE_URL=postgres://agent_paste:agent_paste@127.0.0.1:5432/agent_paste pnpm 
 ```
 
 The wrapper applies committed migrations once with the owner URL, sets an
-`app_role` password through `DATABASE_RUNTIME_ROLE_PASSWORD`, then runs
-`smoke-local-mvp.mjs` with `AGENT_PASTE_LOCAL_DATABASE_BACKEND=postgres`. This
+`app_role` password through `DATABASE_RUNTIME_ROLE_PASSWORD`, runs the upload
+lifecycle, transfer recovery, quota, map materialization and GC lock regression
+suites against Postgres, then runs `smoke-local-mvp.mjs` with `AGENT_PASTE_LOCAL_DATABASE_BACKEND=postgres`. This
 exercises the local CLI publish/delete/expiry/ephemeral path against real
 Postgres roles and RLS without creating a Neon branch or Hyperdrive config.
 
