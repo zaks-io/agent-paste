@@ -1,5 +1,8 @@
 # Workspace-Scoped Content-Addressed Blob Deduplication
 
+Amended by [ADR 0101](./0101-persistent-static-hosting-and-guarded-transfers.md) for
+chunk and file-map references, quota accounting, and tombstoned cleanup for newly created blobs. The original decision below records its historical scope.
+
 Status: Accepted (retroactive). Records a decision already shipped in code and
 [`data-model.md`](../specs/data-model.md)/[`api.md`](../specs/api.md) but not
 previously captured as an ADR. Drafted because the next decision

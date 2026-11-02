@@ -1,5 +1,8 @@
 # ETag Validators and Conditional 304s for Content Responses
 
+Amended by [ADR 0101](./0101-persistent-static-hosting-and-guarded-transfers.md) for
+content-hash validators across Revisions when the digest is known. The original decision below records its historical scope.
+
 Status: Cache policy partially superseded by [ADR 0100](./0100-bounded-browser-cache-for-static-assets.md). The uniform no-cache policy below is historical; static assets now have bounded private browser freshness. ETag and authorization-on-network-request decisions remain in force.
 
 The content origin will answer a reload of unchanged artifact bytes with a single zero-body round trip instead of re-downloading the file. A content-gateway token is a deterministic HMAC of its payload, and `exp` is fixed from the artifact's non-null `expires_at`, so the signed URL is stable across reloads for the same `(artifact_id, revision_id, path)`. The browser cache therefore already keys correctly on the URL; what was missing was a validator, so a hard reload or a lapsed `max-age` forced a full re-download.

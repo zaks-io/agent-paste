@@ -11,6 +11,19 @@ This is the status entrypoint after `AGENTS.md`. Current behavior is specified
 in [`docs/specs/`](../specs/README.md); ADRs and the older ledgers record why the
 system reached that behavior.
 
+## Persistent hosting implementation
+
+The `t3/407885af` branch implements persistent static hosting with 250 MiB
+files, resumable selected-path transfers, agent pin/unpin, and guarded sync.
+It is not deployed. The [implementation contract](../proposals/persistent-static-hosting-implementation.md)
+defines the acceptance checks. Integration, large-transfer validation, and
+independent review remain in progress. Existing production release evidence
+below is unchanged.
+
+The gateway route request is recorded as exposure-ledger host change **51**.
+Sandbox gateway verification must accompany preview acceptance. Production
+migration and deployment require Isaac's explicit approval.
+
 ## Current Release
 
 The latest verified production deployment is

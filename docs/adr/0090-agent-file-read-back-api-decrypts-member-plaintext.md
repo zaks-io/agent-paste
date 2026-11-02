@@ -1,5 +1,8 @@
 # Agent File Read-Back: `api` Decrypts and Returns Member Plaintext
 
+Amended by [ADR 0101](./0101-persistent-static-hosting-and-guarded-transfers.md) for
+manifest-based guarded sync and Revision-scoped downloads, replacing the directory manifest cache and silent full-publish fallback. The original decision below records its historical scope.
+
 [ADR 0089](./0089-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md)
 gave the server everything it needs to accept a **partial-manifest publish with
 per-file unified-diff patches**, and Stage 4 made reconstruction fail loud at

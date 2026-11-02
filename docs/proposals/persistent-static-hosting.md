@@ -1,11 +1,10 @@
 # Persistent static hosting
 
-Proposal, 2026-11-02. Investigated against `d82a6a8d`, current GitHub branch and
-PR metadata, Linear, and a read-only `agent-paste whoami --json` call against
-Isaac's workspace. Revised after an Opus 5.5 review on the same date. The
-revision has not received a second review. Isaac subsequently specified a
-250 MB per-file requirement. This remains a proposal, not an accepted spec or
-implementation.
+Proposal, 2026-11-02. Investigated against `d82a6a8d` and reviewed by
+Opus 5.5. Isaac approved implementation and specified a 250 MiB per-file limit.
+The [implementation contract](./persistent-static-hosting-implementation.md)
+supersedes this proposal's open design questions. The investigation below
+records the starting behavior; it is not the current capability list.
 
 ## Outcome
 
