@@ -30,6 +30,8 @@ await run(
     "src/repository/persistent-lifecycle.test.ts",
     "src/repository/staging-usage.test.ts",
     "src/repository/content-blob-gc.test.ts",
+    "src/repository/upload-targets.test.ts",
+    "src/repository/file-map-dedup.test.ts",
     "src/repository/revision-file-map-commit.test.ts",
     "src/repository/revision-file-map-recovery.test.ts",
     "src/repository/revision-file-map-gc.postgres.test.ts",

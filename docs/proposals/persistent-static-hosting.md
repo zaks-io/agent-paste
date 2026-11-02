@@ -33,8 +33,9 @@ explicit deletion or platform lockdown.
   capability token has `exp: null`, so it does not need periodic renewal.
   Pinning and unpinning preserve the URL. Only dashboard routes expose these
   operations today. Enforcement uses the effective `live_artifacts_cap`, which
-  is 50 on Free and 1,000 on Pro. The exported `PINNED_ARTIFACT_CAP = 50`
-  constant is not the enforced pin allowance.
+  is 50 on Free and 1,000 on Pro. The starting code exported an unused
+  `PINNED_ARTIFACT_CAP = 50` constant. The implementation removes it; pin
+  allowance continues to use policy.
 - `publish <directory> --artifact-id <reference>` updates the same URL. The
   shared publisher supports content hashes, blob reuse, partial file trees,
   deleted paths, verified text patches, and immutable parent Revisions.
