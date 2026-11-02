@@ -25,7 +25,7 @@ function commandKey(input: {
 
 type IdempotencyEntry = { kind: "in_flight" } | { kind: "completed"; value: unknown };
 
-// The local backend has no rollback, but it serializes top-level commands so workflows
+// The local backend rolls back failed commands and serializes top-level commands so workflows
 // that rely on Postgres row locks keep the same ordering guarantees. It also enforces the
 // Run Scope through a Scoped View (ADR 0083): each read/command binds the entity adapters
 // to a scope-filtered view of the in-memory state, so a foreign read returns nothing and
@@ -97,8 +97,16 @@ export class LocalUnitOfWork implements UnitOfWork {
       release = resolve;
     });
     await previous;
+    const snapshot = structuredClone(this.state);
     try {
       return await run();
+    } catch (error) {
+      for (const key of Object.keys(this.state) as Array<keyof LocalState>) {
+        const target = this.state[key] as Map<string, unknown>;
+        target.clear();
+        for (const [id, row] of snapshot[key]) target.set(id, row);
+      }
+      throw error;
     } finally {
       release();
     }

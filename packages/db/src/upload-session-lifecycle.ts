@@ -1,11 +1,11 @@
-import { ciphertextByteLengthForPlaintext } from "@agent-paste/storage";
+import { ciphertextByteLengthForPlaintext, workspaceBlobObjectKeyFor } from "@agent-paste/storage";
 import type { ObservedUploadFile } from "./repository/upload-session-lifecycle.js";
 import type { toUploadSessionRecord } from "./transforms.js";
 import { objectKeyFor } from "./validation.js";
 
 export type UploadSessionRecord = ReturnType<typeof toUploadSessionRecord>;
 
-export type UploadSessionFileDescriptor = UploadSessionRecord["files"][number];
+export type UploadSessionFileDescriptor = UploadSessionRecord["files"][number] & { chunk_index?: number };
 
 export type ObjectStoragePort = {
   head(key: string): Promise<{ size: number } | null>;
@@ -23,57 +23,73 @@ export function resolveSessionObjectKey(session: UploadSessionRecord, path: stri
   return explicitKey ?? objectKeyFor(session.artifact_id, session.revision_id, path);
 }
 
-export async function buildCreateUploadSessionWireResponse(
-  session: UploadSessionRecord,
-  signing: UploadSigningPort,
-): Promise<{
-  upload_session_id: string;
-  artifact_id: string;
-  revision_id: string;
-  status: "pending";
-  expires_at: string;
-  files: Array<
+export async function buildCreateUploadSessionWireResponse(session: UploadSessionRecord, signing: UploadSigningPort) {
+  const files: Array<
+    | { status: "reused" | "verify_required"; path: string }
     | {
-        status: "upload_required";
+        status: "upload_required" | "chunk_upload_required";
         path: string;
         put_url: string;
         required_headers: { "content-length": string };
         expires_at: string;
+        chunk_index?: number;
       }
-    | {
-        status: "reused";
-        path: string;
+  > = [];
+  const seen = new Set<string>();
+  filesLoop: for (const file of session.files) {
+    if (files.length >= 2000) break;
+    if (file.content_format === "chunked-v1") {
+      if (file.verified_at) {
+        files.push({ status: "reused", path: file.path });
+        continue;
       }
-  >;
-}> {
-  const signedByObjectKey = new Set<string>();
-  const files = [];
-  for (const file of session.files as UploadSessionFileDescriptor[]) {
-    const objectKey = resolveSessionObjectKey(session, file.path, file.object_key);
-    const alreadySatisfied = file.uploaded_at !== null && file.uploaded_at !== undefined;
-    const shouldUpload = !alreadySatisfied && !signedByObjectKey.has(objectKey);
-    if (!shouldUpload) {
-      files.push({ status: "reused" as const, path: file.path });
-      continue;
+      const missing = (session.chunks ?? []).filter((c) => c.path === file.path && !c.uploaded_at);
+      if (!missing.length) files.push({ status: "verify_required", path: file.path });
+      for (const c of missing) {
+        if (files.length >= 2000) break filesLoop;
+        const signed = await signing.signPutUrl(session, {
+          ...file,
+          object_key: workspaceBlobObjectKeyFor({ workspaceId: session.workspace_id, sha256: c.sha256 }),
+          size_bytes: c.size_bytes,
+          sha256: c.sha256,
+          chunk_index: c.chunk_index,
+        });
+        files.push({
+          status: "chunk_upload_required",
+          path: file.path,
+          chunk_index: c.chunk_index,
+          put_url: signed.url,
+          required_headers: { "content-length": String(c.size_bytes) },
+          expires_at: signed.expiresAt,
+        });
+      }
+    } else {
+      const key = resolveSessionObjectKey(session, file.path, file.object_key);
+      if (file.uploaded_at || seen.has(key)) {
+        files.push({ status: "reused", path: file.path });
+        continue;
+      }
+      seen.add(key);
+      const signed = await signing.signPutUrl(session, file);
+      files.push({
+        status: "upload_required",
+        path: file.path,
+        put_url: signed.url,
+        required_headers: { "content-length": String(file.size_bytes) },
+        expires_at: signed.expiresAt,
+      });
     }
-    signedByObjectKey.add(objectKey);
-    const signed = await signing.signPutUrl(session, file);
-    files.push({
-      status: "upload_required" as const,
-      path: file.path,
-      put_url: signed.url,
-      required_headers: { "content-length": String(file.size_bytes) },
-      expires_at: signed.expiresAt,
-    });
   }
-
   return {
     upload_session_id: session.session_id,
     artifact_id: session.artifact_id,
     revision_id: session.revision_id,
-    status: "pending",
+    status: "pending" as const,
     expires_at: session.expires_at,
-    files,
+    files: files.slice(0, 2000),
+    ...(session.commit_guard
+      ? { sealed: session.sealed ?? false, next_batch_index: session.next_batch_index ?? 1 }
+      : {}),
   };
 }
 
@@ -81,6 +97,7 @@ export async function observeUploadSessionForFinalize(
   session: UploadSessionRecord,
   storage: ObjectStoragePort,
 ): Promise<{ observedFiles: ObservedUploadFile[] } | { incompletePath: string }> {
+  if (session.commit_guard) return { observedFiles: [] };
   const observedFiles: ObservedUploadFile[] = [];
   for (let offset = 0; offset < session.files.length; offset += MAX_CONCURRENT_STORAGE_CHECKS) {
     const files = session.files.slice(offset, offset + MAX_CONCURRENT_STORAGE_CHECKS);

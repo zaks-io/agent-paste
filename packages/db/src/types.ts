@@ -68,6 +68,7 @@ export type SubscriptionStatus =
   | "paused";
 
 export type Workspace = {
+  storage_budget_bytes?: number | null;
   id: string;
   name: string;
   contact_email: string | null;
@@ -210,6 +211,8 @@ export type SafetyWarningSeverity = "info" | "warning";
 export type SafetyWarningScope = "artifact" | "revision" | "file";
 
 export type Revision = {
+  file_map_sha256?: string | null;
+  file_map_size_bytes?: number | null;
   id: string;
   workspace_id: string;
   artifact_id: string;
@@ -276,7 +279,13 @@ export type UploadSession = {
   workspace_id: string;
   artifact_id: string;
   revision_id: string;
-  status: "pending" | "finalized" | "expired" | "failed";
+  status: "pending" | "ready" | "finalized" | "expired" | "failed";
+  commit_guard?: "paths" | "snapshot" | null;
+  commit_snapshot_prefix?: string | null;
+  commit_snapshot_sha256?: string | null;
+  pin_on_commit?: boolean;
+  sealed_at?: string | null;
+  next_batch_index?: number;
   title: string;
   entrypoint: string;
   artifact_expires_at: string;
@@ -294,6 +303,10 @@ export type UploadSession = {
 };
 
 export type ContentBlob = {
+  content_format?: "single" | "chunked-v1";
+  gc_state?: "live" | "deleting";
+  gc_marked_at?: string | null;
+  r2_cleanup_eligible?: boolean;
   workspace_id: string;
   sha256: string;
   size_bytes: number;
@@ -305,6 +318,12 @@ export type ContentBlob = {
 export type StoredFileStorageKind = "revision" | "blob";
 
 export type StoredFile = {
+  content_format?: "single" | "chunked-v1";
+  verified_at?: string | null;
+  expect_sha256?: string | null;
+  expect_size_bytes?: number | null;
+  expect_absent?: boolean;
+  batch_index?: number;
   workspace_id: string;
   artifact_id?: string;
   revision_id?: string;
@@ -379,6 +398,7 @@ export type ReparentBlobMigrator = {
 // else (mapped to a retryable error, never a conflict).
 export type RevisionReconstructionRequest = {
   workspaceId: string;
+  maxResultBytes?: number;
   files: ReadonlyArray<{
     path: string;
     diffObjectKey: string;

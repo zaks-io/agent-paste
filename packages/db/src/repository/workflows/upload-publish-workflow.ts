@@ -1,7 +1,5 @@
-import type { AgentViewLockdownState } from "@agent-paste/contracts";
 import { mintContentCapabilityId } from "@agent-paste/tokens/content-capability";
-import { buildAgentView, buildPublishResult } from "../../agent-view.js";
-import { isArtifactExpired } from "../../artifact-expiry.js";
+import { buildPublishResult } from "../../agent-view.js";
 import { operationActorFromApiActor } from "../../created-by.js";
 import { artifactExpiresAtFromWorkspace, isEphemeralWorkspace, usagePolicyForLegacyUpload } from "../../policy.js";
 import { toRevisionSummary } from "../../queries/revisions.js";
@@ -19,6 +17,9 @@ import {
   type UploadSessionState,
 } from "../upload-session-lifecycle.js";
 import { nextArtifactUpdatedAt } from "./artifact-workflow-helpers.js";
+import { publishGuardedCommit } from "./commit-workflow.js";
+import { bundleStatusFor, fileChanges, writeRevisionFileMap } from "./revision-file-map.js";
+import { checkStorageGrowth, storageUsageInEntities } from "./storage-usage-workflow.js";
 
 export async function createUploadSession(
   ctx: RepositoryCoreContext,
@@ -38,14 +39,20 @@ export async function createUploadSession(
       now: input.now,
     },
     async (entities) => {
+      await entities.persistent.lockWorkspace(input.actor.workspace_id);
+      const before = await storageUsageInEntities(ctx, entities, input.actor.workspace_id, input.now);
       const workspace = await ctx.mustWorkspace(entities, input.actor.workspace_id);
-      return createUploadSessionInEntities(entities, {
+      const session = await createUploadSessionInEntities(entities, {
         actor: input.actor,
         request: input.request,
         now: input.now,
-        usagePolicy: usagePolicyForLegacyUpload(workspace, ctx.billingEnabled()),
+        usagePolicy: input.request.commit
+          ? ctx.usagePolicyFor(workspace)
+          : usagePolicyForLegacyUpload(workspace, ctx.billingEnabled()),
         workspace,
       });
+      checkStorageGrowth(before, await storageUsageInEntities(ctx, entities, input.actor.workspace_id, input.now));
+      return session;
     },
   );
 }
@@ -59,12 +66,40 @@ export async function recordUploadedFile(
     objectKey?: string;
     sizeBytes?: number;
     sha256?: string;
+    r2CleanupEligible?: boolean;
     uploadedAt: string;
   },
 ) {
-  await ctx.uow.read(PLATFORM_SCOPE, async (entities) => {
-    await entities.uploadSessionFiles.recordUpload(input);
-  });
+  const source = await ctx.uow.read(PLATFORM_SCOPE, (e) =>
+    e.uploadSessions.findById(input.sessionId, input.workspaceId),
+  );
+  if (!source) repositoryError("upload_session_not_found");
+  await ctx.uow.command(
+    {
+      actor: { type: "system", id: "upload", workspaceId: source.workspace_id },
+      operation: "upload.file.record",
+      idempotencyKey: `${input.sessionId}:${input.path}:${input.uploadedAt}`,
+      scope: workspaceScope(source.workspace_id),
+      now: input.uploadedAt,
+    },
+    async (entities) => {
+      await entities.persistent.lockWorkspace(source.workspace_id);
+      const session = await entities.uploadSessions.findById(input.sessionId, source.workspace_id);
+      if (!session || session.status !== "pending" || Date.parse(session.expires_at) <= Date.parse(input.uploadedAt))
+        repositoryError("upload_session_expired");
+      const file = (await entities.uploadSessionFiles.listForSession(session.id)).find((f) => f.path === input.path);
+      if (
+        !file ||
+        file.content_format === "chunked-v1" ||
+        (input.objectKey && file.r2_key !== input.objectKey) ||
+        (input.sizeBytes !== undefined && file.size_bytes !== input.sizeBytes) ||
+        (input.sha256 && file.sha256 !== input.sha256)
+      )
+        repositoryError("invalid_request");
+      await entities.uploadSessionFiles.recordUpload({ ...input, workspaceId: source.workspace_id });
+      return null;
+    },
+  );
 }
 
 export async function getUploadSession(ctx: RepositoryCoreContext, input: { actor: ApiActor; sessionId: string }) {
@@ -103,8 +138,12 @@ export async function finalizeUploadSession(
       scope: workspaceScope(input.actor.workspace_id),
       now: input.now,
     },
-    (entities) =>
-      finalizeUploadSessionInEntities(entities, {
+    async (entities) => {
+      await entities.persistent.lockWorkspace(input.actor.workspace_id);
+      const source = await entities.uploadSessions.findById(input.sessionId, input.actor.workspace_id);
+      if (!source) repositoryError("upload_session_not_found");
+      const before = await storageUsageInEntities(ctx, entities, input.actor.workspace_id, input.now);
+      const result = await finalizeUploadSessionInEntities(entities, {
         actor: input.actor,
         sessionId: input.sessionId,
         observedFiles: input.observedFiles,
@@ -113,9 +152,17 @@ export async function finalizeUploadSession(
         // workspace still collapses to upload_session_not_found (non-enumerable)
         // via the workspace-scoped session lookup rather than workspace_not_found.
         resolveUsagePolicy: async () =>
-          usagePolicyForLegacyUpload(await ctx.mustWorkspace(entities, input.actor.workspace_id), ctx.billingEnabled()),
+          source?.commit_guard
+            ? ctx.usagePolicyFor(await ctx.mustWorkspace(entities, input.actor.workspace_id))
+            : usagePolicyForLegacyUpload(
+                await ctx.mustWorkspace(entities, input.actor.workspace_id),
+                ctx.billingEnabled(),
+              ),
         ...(ctx.options.revisionReconstructor ? { revisionReconstructor: ctx.options.revisionReconstructor } : {}),
-      }),
+      });
+      checkStorageGrowth(before, await storageUsageInEntities(ctx, entities, input.actor.workspace_id, input.now));
+      return result;
+    },
   );
 }
 
@@ -130,9 +177,22 @@ export async function peekPublishWriteGate(
   return ctx.uow.read(workspaceScope(input.actor.workspace_id), async (entities) => {
     const workspace = await ctx.mustWorkspace(entities, input.actor.workspace_id);
     const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
-    if (!artifact || artifact.status !== "active") {
-      return null;
+    const session = await entities.uploadSessions.findByRevisionId(input.revisionId, input.actor.workspace_id);
+    if (
+      session?.status === "ready" &&
+      session.artifact_id === input.artifactId &&
+      (!artifact || artifact.status === "active")
+    ) {
+      const policy = ctx.usagePolicyFor(workspace);
+      return {
+        is_already_published: false as const,
+        is_new_artifact: !artifact,
+        next_revision_number: artifact ? await entities.revisions.nextRevisionNumber(artifact.id) : 1,
+        daily_new_artifact_allowance: policy.daily_new_artifact_allowance,
+        lifetime_revision_ceiling: policy.lifetime_revision_ceiling,
+      };
     }
+    if (!artifact || artifact.status !== "active") return null;
     const revision = await entities.revisions.findById(input.revisionId, input.actor.workspace_id);
     if (!revision || revision.artifact_id !== artifact.id) {
       return null;
@@ -198,6 +258,8 @@ async function validateDraftForPublish(
   revision: Revision,
   lifetimeRevisionCeiling: number,
 ) {
+  if (revision.parent_revision_id && revision.parent_revision_id !== artifact.revision_id)
+    repositoryError("commit_conflict", { details: { kind: "head", head_revision_id: artifact.revision_id } });
   const revisionFiles = await entities.artifactFiles.listForArtifact(artifact.id, revision.id);
   if (!revisionFiles.some((file) => file.path === revision.entrypoint)) {
     repositoryError("entrypoint_not_in_revision");
@@ -213,6 +275,7 @@ function publishFileObjectKeys(
   revision: Revision,
   revisionFiles: Awaited<ReturnType<Entities["artifactFiles"]["listForArtifact"]>>,
 ): { entrypoint_object_key?: string; file_object_keys?: Record<string, string> } {
+  if (revision.file_map_sha256 && revision.file_map_size_bytes) return {};
   const fileObjectKeys: Record<string, string> = {};
   for (const file of revisionFiles) {
     fileObjectKeys[file.path] = file.r2_key;
@@ -325,6 +388,14 @@ export async function publishRevision(
       now: input.now,
     },
     async (entities) => {
+      await entities.persistent.lockWorkspace(input.actor.workspace_id);
+      const candidate = await entities.revisions.findById(input.revisionId, input.actor.workspace_id);
+      if (!candidate) {
+        const session = await entities.uploadSessions.findByRevisionId(input.revisionId, input.actor.workspace_id);
+        if (!session) repositoryError("revision_unpublished");
+        return publishGuardedCommit(ctx, entities, input, session);
+      }
+      await entities.persistent.lockArtifact(input.artifactId, input.actor.workspace_id);
       const publishInput: PublishRevisionInput = {
         actor: input.actor,
         artifactId: input.artifactId,
@@ -339,6 +410,7 @@ export async function publishRevision(
         const publishMeta = {
           ephemeral_tier: isEphemeralWorkspace(workspace),
           ...publishFileObjectKeys(revision, revisionFiles),
+          has_chunked_files: revisionFiles.some((f) => f.content_format === "chunked-v1"),
         };
         return buildPublishResult(
           { ...publishedArtifact, revision_id: revision.id, entrypoint: revision.entrypoint },
@@ -355,7 +427,21 @@ export async function publishRevision(
         revision,
         policy.lifetime_revision_ceiling,
       );
-      const bundleStatus = policy.bundles_enabled ? ("pending" as const) : ("disabled" as const);
+      const beforeUsage = await storageUsageInEntities(ctx, entities, input.actor.workspace_id, input.now);
+      const oldFiles = artifact.revision_id
+        ? await entities.artifactFiles.listForArtifact(artifact.id, artifact.revision_id)
+        : [];
+      const fileMap = await writeRevisionFileMap(ctx, entities, {
+        workspaceId: artifact.workspace_id,
+        artifactId: artifact.id,
+        revisionId: revision.id,
+        entrypoint: revision.entrypoint,
+        files: revisionFiles,
+        now: input.now,
+      });
+      revision.file_map_sha256 = fileMap.sha256;
+      revision.file_map_size_bytes = fileMap.size_bytes;
+      const bundleStatus = bundleStatusFor(revisionFiles, policy.bundles_enabled);
       const { updatedArtifact, publishedRevision } = await executePublishWrites(entities, {
         ...publishInput,
         workspace,
@@ -364,10 +450,15 @@ export async function publishRevision(
         revisionNumber,
         bundleStatus,
       });
-      return buildPublishResult(updatedArtifact, publishedRevision, undefined, ctx.options, {
-        ephemeral_tier: isEphemeralWorkspace(workspace),
-        ...publishFileObjectKeys(publishedRevision, revisionFiles),
-      });
+      checkStorageGrowth(beforeUsage, await storageUsageInEntities(ctx, entities, input.actor.workspace_id, input.now));
+      return {
+        ...buildPublishResult(updatedArtifact, publishedRevision, undefined, ctx.options, {
+          ephemeral_tier: isEphemeralWorkspace(workspace),
+          ...publishFileObjectKeys(publishedRevision, revisionFiles),
+          has_chunked_files: revisionFiles.some((f) => f.content_format === "chunked-v1"),
+        }),
+        changes: fileChanges(oldFiles, revisionFiles),
+      };
     },
   );
 }
@@ -387,138 +478,4 @@ export async function listRevisions(ctx: RepositoryCoreContext, input: { actor: 
   });
 }
 
-export async function getPublicAgentView(ctx: RepositoryCoreContext, input: { token: string; contentBaseUrl: string }) {
-  const dotIndex = input.token.indexOf(".");
-  const artifactId = dotIndex === -1 ? input.token : input.token.slice(0, dotIndex);
-  const requestedRevisionId = dotIndex === -1 ? undefined : input.token.slice(dotIndex + 1);
-  return ctx.uow.read(PLATFORM_SCOPE, async (entities) => {
-    const artifact = await entities.artifacts.findById(artifactId);
-    if (!artifact || artifact.status !== "active" || isArtifactExpired(artifact, Date.now())) {
-      return null;
-    }
-    const platformLockdown = await agentViewPlatformLockdownState(entities, {
-      workspaceId: artifact.workspace_id,
-      artifactId: artifact.id,
-    });
-    const lockdown = agentViewLockdownState(artifact, platformLockdown);
-    if (hasAgentViewLockdown(lockdown)) {
-      return null;
-    }
-    const revisionId = requestedRevisionId ?? artifact.revision_id;
-    if (!revisionId) {
-      return null;
-    }
-    const revision = await entities.revisions.findById(revisionId);
-    if (!revision || revision.artifact_id !== artifact.id || revision.status !== "published") {
-      return null;
-    }
-    const viewArtifact =
-      revisionId !== artifact.revision_id ? { ...artifact, entrypoint: revision.entrypoint } : artifact;
-    const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
-    const warnings = await entities.safetyWarnings.listForRevision(artifact.workspace_id, revisionId);
-    const workspace = await entities.workspaces.findById(artifact.workspace_id);
-    return buildAgentView(
-      viewArtifact,
-      revisionId,
-      files,
-      input.contentBaseUrl,
-      revision,
-      warnings,
-      workspace && isEphemeralWorkspace(workspace) ? { ephemeral_tier: true } : undefined,
-    );
-  });
-}
-
-export async function getAgentView(
-  ctx: RepositoryCoreContext,
-  input: { actor: ApiActor; artifactId: string; revisionId?: string; contentBaseUrl: string },
-) {
-  const platformLockdown = await ctx.uow.read(PLATFORM_SCOPE, (entities) =>
-    agentViewPlatformLockdownState(entities, {
-      workspaceId: input.actor.workspace_id,
-      artifactId: input.artifactId,
-    }),
-  );
-
-  if (input.actor.type !== "member" && hasPlatformAgentViewLockdown(platformLockdown)) {
-    return null;
-  }
-
-  return ctx.uow.read(workspaceScope(input.actor.workspace_id), async (entities) => {
-    const artifact = await entities.artifacts.findById(input.artifactId, input.actor.workspace_id);
-    if (!artifact || artifact.status !== "active" || isArtifactExpired(artifact, Date.now())) {
-      return null;
-    }
-    const lockdown = agentViewLockdownState(artifact, platformLockdown);
-    const revisionId = input.revisionId ?? artifact.revision_id;
-    if (!revisionId) {
-      return null;
-    }
-    const revision = await entities.revisions.findById(revisionId, input.actor.workspace_id);
-    if (!revision || revision.artifact_id !== artifact.id || revision.status !== "published") {
-      return null;
-    }
-    const viewArtifact =
-      revisionId !== artifact.revision_id ? { ...artifact, entrypoint: revision.entrypoint } : artifact;
-    const files = await entities.artifactFiles.listForArtifact(artifact.id, revisionId);
-    const warnings = await entities.safetyWarnings.listForRevision(artifact.workspace_id, revisionId);
-    const workspace = await entities.workspaces.findById(input.actor.workspace_id);
-    return buildAgentView(
-      viewArtifact,
-      revisionId,
-      files,
-      input.contentBaseUrl,
-      revision,
-      warnings,
-      agentViewOptions(workspace && isEphemeralWorkspace(workspace), input.actor.type === "member" ? lockdown : null),
-    );
-  });
-}
-
-type AgentViewPlatformLockdownState = AgentViewLockdownState["platform"];
-
-async function agentViewPlatformLockdownState(
-  entities: Entities,
-  input: { workspaceId: string; artifactId: string },
-): Promise<AgentViewPlatformLockdownState> {
-  const [workspaceLockdown, artifactLockdown] = await Promise.all([
-    entities.platformLockdowns.findEffective("workspace", input.workspaceId),
-    entities.platformLockdowns.findEffective("artifact", input.artifactId),
-  ]);
-
-  return {
-    workspace: {
-      locked: workspaceLockdown !== null,
-      locked_at: workspaceLockdown?.set_at ?? null,
-    },
-    artifact: {
-      locked: artifactLockdown !== null,
-      locked_at: artifactLockdown?.set_at ?? null,
-    },
-  };
-}
-
-function agentViewLockdownState(artifact: Artifact, platform: AgentViewPlatformLockdownState): AgentViewLockdownState {
-  return {
-    access_link: {
-      locked: artifact.access_link_lockdown_at !== null,
-      locked_at: artifact.access_link_lockdown_at,
-    },
-    platform,
-  };
-}
-
-function hasAgentViewLockdown(lockdown: AgentViewLockdownState): boolean {
-  return lockdown.access_link.locked || hasPlatformAgentViewLockdown(lockdown.platform);
-}
-
-function hasPlatformAgentViewLockdown(lockdown: AgentViewPlatformLockdownState): boolean {
-  return lockdown.workspace.locked || lockdown.artifact.locked;
-}
-
-function agentViewOptions(ephemeralTier: boolean | null, lockdown: AgentViewLockdownState | null) {
-  return {
-    ...(ephemeralTier ? { ephemeral_tier: true as const } : {}),
-    ...(lockdown && hasAgentViewLockdown(lockdown) ? { lockdown } : {}),
-  };
-}
+export { getAgentView, getPublicAgentView } from "./artifact-agent-view-workflow.js";

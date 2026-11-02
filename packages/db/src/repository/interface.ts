@@ -37,7 +37,16 @@ import type { SubmitFeedbackInput } from "./workflows/feedback-workflow.js";
 
 type AgentView = ReturnType<typeof buildAgentView>;
 type PublishResult = ReturnType<typeof buildPublishResult>;
-type FinalizeResult = ReturnType<typeof buildFinalizeResult>;
+type FinalizeResult =
+  | ReturnType<typeof buildFinalizeResult>
+  | {
+      status: "ready";
+      upload_session_id: string;
+      artifact_id: string;
+      revision_id: string;
+      file_count: number;
+      deletion_count: number;
+    };
 type WorkspaceSummary = ReturnType<typeof toWorkspaceSummary>;
 type ApiKeySummary = ReturnType<typeof toApiKeySummary>;
 type UploadSessionRecord = ReturnType<typeof toUploadSessionRecord>;
@@ -346,6 +355,7 @@ export type Repository = PersistentHostingRepository & {
     objectKey?: string;
     sizeBytes?: number;
     sha256?: string;
+    r2CleanupEligible?: boolean;
     uploadedAt: string;
   }): Promise<void>;
   getUploadSession(input: { actor: ApiActor; sessionId: string }): Promise<UploadSessionRecord | null>;

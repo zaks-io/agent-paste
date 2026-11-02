@@ -32,9 +32,27 @@ does not change the versioned job payload schemas.
 | Lockdown Recovery |            hourly |          200 per page | Rewrite every effective persisted Platform Lockdown as a non-expiring denylist marker; no byte purge.                                                    |
 | Purge Recovery    |            hourly |                   200 | Rediscover deleted or expired Artifacts whose current Revision lacks `bytes_purge_enqueued_at`; write denylist and enqueue byte purge.                   |
 | Retention         |            hourly |                   500 | Mark non-current Revisions retained when `revision_retention_days` is set.                                                                               |
-| Content Blob GC   |            hourly |                   500 | Delete unreferenced `content_blobs` rows after active Artifact and live pending upload-session checks; v1 leaves deterministic R2 blob bytes in place.   |
+| Content Blob GC   |            hourly |                   500 | Mark unreferenced blobs after a 24-hour age floor, delete eligible R2 bytes, then remove rows. Historical bytes remain.                                  |
 | Maintenance GC    |            hourly | 5000 idempotency rows | Delete old idempotency rows; archive audit events past Audit Retention to R2 (`audit/` NDJSON under `ARTIFACTS`), then delete from Postgres.             |
 | Billing Reconcile | daily (06:00 UTC) |                   500 | Reconcile Stripe subscription state into workspace plans (ADR 0074). No-op unless `BILLING_ENABLED` is `true` and Stripe secrets are present.            |
+
+Upload Cleanup expires both `pending` and `ready` sessions. It wins the guarded
+state transition before enqueueing any legacy Revision-prefix purge. Workspace
+blobs and chunks are never included in prefix purge messages; shared committed
+bytes remain reusable and only blob GC can reclaim them.
+
+Content Blob GC uses the shared database collector. References include live
+Artifact Revision files and maps, unexpired pending/ready session files and
+chunks, and physical chunks belonging to a live logical blob. Reuse touches
+rows under the same row lock as GC; deleting tombstones cannot be reused.
+Sweeps retry tombstones first, mark live unreferenced rows older than 24 hours,
+delete eligible single-format R2 objects in batches of at most 1,000, and then
+remove the rows. Logical parent deletion cascades to its chunk list; unreferenced
+physical chunks become collectible on a later sweep. Failed R2 deletion leaves
+tombstones for retry. Missing R2 access leaves eligible tombstones in place.
+Rows predating migration 0033 have `r2_cleanup_eligible=false` and receive row-only
+GC, preserving historical bytes. Unreferenced bytes continue to count toward
+storage usage until their rows are removed, up to the age floor plus one sweep.
 
 Retention is implemented from day one, but the default `revision_retention_days` is null, so it keeps all Revisions unless a policy value is later set.
 
@@ -81,6 +99,11 @@ Handler behavior:
 - On permanent generation error after queue retries, DLQ consumer sets `bundle_status='failed'`.
 - Bundle state changes do not create Audit Events.
 
+Disabled bundles report `revision_too_large` when any file is chunked or the
+Revision exceeds 16 MiB of plaintext input. Other disabled bundles report
+`disabled_by_policy`. Repository publish and Agent View metadata use the same
+reason mapping.
+
 ### `safety-scan`
 
 This queue is product warning metadata and abuse-response support. It is not
@@ -102,9 +125,12 @@ trust boundary.
 Handler behavior:
 
 - Return idempotently if Revision is retained or Artifact is deleted.
-- Resolve `scanner_id` and run warning rules over `revision_files`.
+- Resolve `scanner_id` and run warning rules over `artifact_files`.
   `builtin_content` uses built-in text warning rules. `ephemeral_tier` adds
   dormant-script warnings and optional Llama Guard text moderation.
+- Skip `chunked-v1` files without fetching their virtual keys and log
+  `safety_scan.file_skipped` with reason `chunked_file`. Single files keep the
+  existing encrypted read and scanner workflow.
 - Replace all warnings in `(revision_id, scanner_id)` inside `runCommand`.
 - Include `scanner_version` in the idempotency key so rule changes can re-scan
   the same Revision.

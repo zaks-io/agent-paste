@@ -2,7 +2,7 @@ import { remapWorkspaceBlobR2Key } from "../../queries/reparent-blobs.js";
 import type { LocalState } from "../local-state.js";
 import type { Entities } from "../ports.js";
 import { bumpArtifactExpiresAt } from "./artifacts-helpers.js";
-import { isLiveArtifactBlobForReparent, isLiveSessionBlobForReparent } from "./content-blobs.js";
+import { isLiveArtifactBlobForReparent, isLiveSessionBlobForReparent, localContentBlobs } from "./content-blobs.js";
 
 function reparentArtifacts(
   state: LocalState,
@@ -52,9 +52,9 @@ function reparentBlobFiles<T extends { workspace_id: string; storage_kind?: stri
   }
 }
 
-function upsertReparentedContentBlobs(state: LocalState, workspaceId: string, updatedAt: string) {
+async function upsertReparentedContentBlobs(state: LocalState, workspaceId: string, updatedAt: string) {
   const seen = new Set<string>();
-  const upsert = (file: { sha256?: string | null; size_bytes: number; r2_key: string }) => {
+  const upsert = async (file: { sha256?: string | null; size_bytes: number; r2_key: string }) => {
     if (!file.sha256) {
       return;
     }
@@ -63,8 +63,7 @@ function upsertReparentedContentBlobs(state: LocalState, workspaceId: string, up
       return;
     }
     seen.add(dedupeKey);
-    const key = `${workspaceId}:${file.sha256}:${file.size_bytes}`;
-    state.contentBlobs.set(key, {
+    await localContentBlobs(state).upsert({
       workspace_id: workspaceId,
       sha256: file.sha256,
       size_bytes: file.size_bytes,
@@ -76,12 +75,12 @@ function upsertReparentedContentBlobs(state: LocalState, workspaceId: string, up
 
   for (const file of state.artifactFiles.values()) {
     if (isLiveArtifactBlobForReparent(state, file, workspaceId)) {
-      upsert(file);
+      await upsert(file);
     }
   }
   for (const file of state.uploadSessionFiles.values()) {
     if (isLiveSessionBlobForReparent(state, file, workspaceId, updatedAt)) {
-      upsert(file);
+      await upsert(file);
     }
   }
 }
@@ -94,9 +93,11 @@ export function localArtifactReparentMethods(state: LocalState): Pick<Entities["
       reparentWorkspaceId(state.accessLinks.values(), fromWorkspaceId, toWorkspaceId);
       reparentWorkspaceId(state.safetyWarnings.values(), fromWorkspaceId, toWorkspaceId);
       reparentWorkspaceId(state.uploadSessions.values(), fromWorkspaceId, toWorkspaceId);
+      reparentWorkspaceId(state.uploadSessionChunks.values(), fromWorkspaceId, toWorkspaceId);
+      reparentWorkspaceId(state.uploadSessionDeletions.values(), fromWorkspaceId, toWorkspaceId);
       reparentBlobFiles(state.uploadSessionFiles.values(), fromWorkspaceId, toWorkspaceId);
       reparentBlobFiles(state.artifactFiles.values(), fromWorkspaceId, toWorkspaceId);
-      upsertReparentedContentBlobs(state, toWorkspaceId, updatedAt);
+      await upsertReparentedContentBlobs(state, toWorkspaceId, updatedAt);
       return artifactIds;
     },
   };

@@ -73,7 +73,11 @@ export async function finalizeUploadSession(
     }
     const repositoryCode = repositoryErrorToAppError(error);
     if (repositoryCode) {
-      return getBoundResponders(context).respondError(repositoryCode, finalizeErrorDetail(repositoryCode, error));
+      return getBoundResponders(context).respondError(
+        repositoryCode,
+        finalizeErrorDetail(repositoryCode, error),
+        isRepositoryError(error) && error.details ? { details: error.details } : undefined,
+      );
     }
     throw error;
   }

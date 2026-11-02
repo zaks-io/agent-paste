@@ -1,3 +1,4 @@
+import { LEGACY_SINGLE_PUT_MAX_BYTES } from "@agent-paste/config";
 import { artifactBytesEncryptionRingFromEnv } from "@agent-paste/rotation";
 import {
   applyUnifiedDiff,
@@ -6,6 +7,7 @@ import {
   type WorkspaceBlobR2,
   writeWorkspaceBlob,
 } from "@agent-paste/storage";
+import { repositoryError } from "../repository-error.js";
 import { RevisionReconstructionConflict, type RevisionReconstructor } from "../types.js";
 
 // ADR 0089 Stage 4: builds the reconstructor that applies an agent-uploaded unified diff
@@ -53,6 +55,8 @@ export function revisionReconstructorFromEnv(env: {
         if (!result.ok) {
           throw new RevisionReconstructionConflict(file.path, result.reason);
         }
+        if (result.result.byteLength > (input.maxResultBytes ?? LEGACY_SINGLE_PUT_MAX_BYTES))
+          repositoryError("file_size_cap_exceeded");
         applied.push({ path: file.path, sha256: file.resultSha256, resultBytes: result.result });
       }
 

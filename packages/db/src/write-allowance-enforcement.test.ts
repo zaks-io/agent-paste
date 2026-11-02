@@ -7,6 +7,7 @@ import {
 } from "@agent-paste/config";
 import { describe, expect, it } from "vitest";
 import { createLocalServices } from "./local-repository.js";
+import { fakeFileMapStore } from "./test-helpers/file-map-store.js";
 
 describe("write allowance policy resolution", () => {
   it("returns the ephemeral allowance for unclaimed workspaces regardless of plan", () => {
@@ -36,7 +37,11 @@ describe("write allowance policy resolution", () => {
 
 describe("publish write gate", () => {
   it("blocks publishing beyond the lifetime revision ceiling", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "pepper", billingEnabled: true });
+    const { repo } = createLocalServices({
+      fileMapStore: fakeFileMapStore,
+      apiKeyPepper: "pepper",
+      billingEnabled: true,
+    });
     const workspace = await repo.createWorkspace({
       actor: { type: "admin", id: "admin@example.com" },
       idempotencyKey: "idem-fixture-workspace-ceiling",
@@ -114,7 +119,11 @@ describe("publish write gate", () => {
   });
 
   it("classifies the first publish as a new artifact and later publishes as revisions", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "pepper", billingEnabled: true });
+    const { repo } = createLocalServices({
+      fileMapStore: fakeFileMapStore,
+      apiKeyPepper: "pepper",
+      billingEnabled: true,
+    });
     const workspace = await repo.createWorkspace({
       actor: { type: "admin", id: "admin@example.com" },
       idempotencyKey: "idem-fixture-workspace-gate",
@@ -204,7 +213,11 @@ describe("publish write gate", () => {
 
 describe("usage policy read surface", () => {
   it("includes write allowance caps for claimed and ephemeral workspaces", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "pepper", billingEnabled: true });
+    const { repo } = createLocalServices({
+      fileMapStore: fakeFileMapStore,
+      apiKeyPepper: "pepper",
+      billingEnabled: true,
+    });
     const workspace = await repo.createWorkspace({
       actor: { type: "admin", id: "admin@example.com" },
       idempotencyKey: "idem-fixture-workspace-policy",

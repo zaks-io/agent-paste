@@ -2,13 +2,14 @@ import { KeyRing } from "@agent-paste/rotation";
 import { describe, expect, it } from "vitest";
 import { createAccessLinkRow, mintAccessLinkSignedUrl, verifyAccessLinkSignedBlobWithRing } from "./access-links.js";
 import { LocalRepository } from "./local-repository.js";
+import { fakeFileMapStore } from "./test-helpers/file-map-store.js";
 
 const APP_BASE = "https://app.agent-paste.test";
 const CONTENT_BASE = "https://content.agent-paste.test";
 const RING = KeyRing.single("access-link-resolve-secret", 1);
 
 async function repoWithPublishedArtifact() {
-  const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+  const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
   const workspace = await repo.createWorkspace({
     actor: { type: "platform", id: "admin" },
     idempotencyKey: "idem-ws",

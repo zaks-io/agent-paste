@@ -30,7 +30,7 @@ export async function runUploadCleanupDiscovery(
     platformExecutor.query<ExpiredSessionRow>(
       `select id, workspace_id, artifact_id, revision_id
      from upload_sessions
-     where status = 'pending' and expires_at <= $1
+     where status in ('pending','ready') and expires_at <= $1
      order by expires_at asc
      limit $2`,
       [now, limit],
@@ -97,7 +97,7 @@ async function expireUploadSession(executor: SqlExecutor, sessionId: string, now
     executor.query<{ id: string }>(
       `update upload_sessions
      set status = 'expired'
-     where id = $1 and status = 'pending' and expires_at <= $2
+     where id = $1 and status in ('pending','ready') and expires_at <= $2
      returning id`,
       [sessionId, now],
     ),

@@ -1,4 +1,4 @@
-import type { ApiKey, Artifact, StoredFile, UploadSession, Workspace } from "./types.js";
+import type { ApiKey, Artifact, StoredFile, UploadSession, UploadSessionChunk, Workspace } from "./types.js";
 
 export function toWorkspaceDetail(workspace: Workspace) {
   return { ...toWorkspaceSummary(workspace), contact_email: workspace.contact_email };
@@ -32,6 +32,9 @@ export function toArtifactSummary(artifact: Artifact) {
     file_count: artifact.file_count,
     size_bytes: artifact.size_bytes,
     expires_at: artifact.expires_at,
+    pinned_at: artifact.pinned_at,
+    retention: artifact.pinned_at ? ("pinned" as const) : ("temporary" as const),
+    effective_expires_at: artifact.pinned_at ? null : artifact.expires_at,
     created_at: artifact.created_at,
     updated_at: artifact.updated_at,
     deleted_at: artifact.deleted_at,
@@ -39,8 +42,13 @@ export function toArtifactSummary(artifact: Artifact) {
   };
 }
 
-export function toUploadSessionRecord(session: UploadSession, files: StoredFile[]) {
+export function toUploadSessionRecord(session: UploadSession, files: StoredFile[], chunks: UploadSessionChunk[] = []) {
   return {
+    commit_guard: session.commit_guard ?? null,
+    status: session.status,
+    sealed: session.commit_guard ? !!session.sealed_at : true,
+    next_batch_index: session.next_batch_index ?? 1,
+    chunks,
     session_id: session.id,
     upload_session_id: session.id,
     workspace_id: session.workspace_id,
@@ -48,6 +56,8 @@ export function toUploadSessionRecord(session: UploadSession, files: StoredFile[
     revision_id: session.revision_id,
     expires_at: session.expires_at,
     files: files.map((file) => ({
+      content_format: file.content_format ?? "single",
+      verified_at: file.verified_at ?? null,
       path: file.path,
       size_bytes: file.size_bytes,
       object_key: file.r2_key,

@@ -1,9 +1,6 @@
 import type { LocalState } from "../local-state.js";
 import type { Entities } from "../ports.js";
-
-function blobKey(input: { workspaceId: string; sha256: string; sizeBytes: number }) {
-  return `${input.workspaceId}:${input.sha256}:${input.sizeBytes}`;
-}
+import { localContentBlobs } from "./content-blobs.js";
 
 export function localUploadSessionFiles(state: LocalState): Entities["uploadSessionFiles"] {
   return {
@@ -20,17 +17,15 @@ export function localUploadSessionFiles(state: LocalState): Entities["uploadSess
     },
     async recordUpload(input) {
       if (input.workspaceId && input.sha256 && input.objectKey && typeof input.sizeBytes === "number") {
-        state.contentBlobs.set(
-          blobKey({ workspaceId: input.workspaceId, sha256: input.sha256, sizeBytes: input.sizeBytes }),
-          {
-            workspace_id: input.workspaceId,
-            sha256: input.sha256,
-            size_bytes: input.sizeBytes,
-            r2_key: input.objectKey,
-            created_at: input.uploadedAt,
-            updated_at: input.uploadedAt,
-          },
-        );
+        await localContentBlobs(state).upsert({
+          workspace_id: input.workspaceId,
+          sha256: input.sha256,
+          size_bytes: input.sizeBytes,
+          r2_key: input.objectKey,
+          r2_cleanup_eligible: input.r2CleanupEligible ?? true,
+          created_at: input.uploadedAt,
+          updated_at: input.uploadedAt,
+        });
       }
       for (const file of state.uploadSessionFiles.values()) {
         if (file.upload_session_id !== input.sessionId) {

@@ -1,9 +1,7 @@
-import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { ArtifactId, type CreateUploadSessionRequest, type routeContracts } from "@agent-paste/contracts";
 import {
   buildCreateUploadSessionWireResponse,
   type Repository,
-  repositoryErrorToAppError,
   resolveSessionObjectKey,
   type UploadSessionFileDescriptor,
   type UploadSessionRecord,
@@ -48,39 +46,25 @@ export async function createUploadSession(
   }
   // TTL is omitted so the repository derives it from the workspace tier (ephemeral
   // workspaces are hard-capped at one day). Clients cannot influence artifact lifetime.
-  const files = body.files.map((file) => ({
-    path: file.path,
-    size_bytes: file.size_bytes,
-    ...(file.sha256 ? { sha256: file.sha256 } : {}),
-    ...(file.patch ? { patch: file.patch } : {}),
-  }));
   const createRequest = {
     entrypoint: body.entrypoint,
-    files,
+    files: body.files,
+    ...(body.commit ? { commit: body.commit } : {}),
+    ...(body.deletions ? { deletions: body.deletions } : {}),
+    ...(body.prefix_deletions ? { prefix_deletions: body.prefix_deletions } : {}),
+    ...(body.more_files !== undefined ? { more_files: body.more_files } : {}),
     ...(body.title === undefined ? {} : { title: body.title }),
     ...(artifactId === undefined ? {} : { artifact_id: artifactId }),
     ...(body.base_revision_id === undefined ? {} : { base_revision_id: body.base_revision_id }),
     ...(body.deleted_paths === undefined ? {} : { deleted_paths: body.deleted_paths }),
   };
 
-  let session: UploadSessionRecord;
-  try {
-    session = await db.createUploadSession({
-      actor,
-      idempotencyKey,
-      request: createRequest,
-      now: new Date().toISOString(),
-    });
-  } catch (error) {
-    if (error instanceof IdempotencyInFlightError) {
-      return getBoundResponders(context).respondError("idempotency_in_flight");
-    }
-    const repositoryCode = repositoryErrorToAppError(error);
-    if (repositoryCode) {
-      return getBoundResponders(context).respondError(repositoryCode);
-    }
-    throw error;
-  }
+  const session = await db.createUploadSession({
+    actor,
+    idempotencyKey,
+    request: createRequest,
+    now: new Date().toISOString(),
+  });
 
   return getBoundResponders(context).respondJson(
     await buildCreateUploadSessionWireResponse(session, {
@@ -110,6 +94,7 @@ export async function signUploadUrl(
       key: resolveSessionObjectKey(session, file.path, file.object_key),
       size: file.size_bytes,
       ...(file.sha256 ? { sha256: file.sha256 } : {}),
+      ...(file.chunk_index === undefined ? {} : { ci: file.chunk_index }),
       exp: expSeconds,
     },
   });

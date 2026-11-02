@@ -1,11 +1,13 @@
 import { type SqlExecutor, withSqlQuerySource } from "@agent-paste/db";
 import type { ArtifactBytesKeyRing } from "@agent-paste/storage";
 import type { Env } from "../env.js";
+import { logOp } from "../op-log.js";
 import { readRevisionFileBytes } from "./revision-file-bytes.js";
 
 type R2GetObject = NonNullable<NonNullable<Env["ARTIFACTS"]>["get"]>;
 
 type RevisionFileRow = {
+  content_format?: string;
   path: string;
   r2_key: string;
   served_content_type: string;
@@ -24,6 +26,15 @@ export async function loadScannerFiles(
   const files = await loadRevisionFiles(executor, input.artifactId, input.revisionId);
   const scannerFiles = [];
   for (const file of files) {
+    if (file.content_format === "chunked-v1") {
+      logOp("safety_scan.file_skipped", {
+        artifact_id: input.artifactId,
+        revision_id: input.revisionId,
+        path: file.path,
+        reason: "chunked_file",
+      });
+      continue;
+    }
     const object = await input.getObject(file.r2_key);
     if (!object?.body) {
       throw new Error(`missing_r2_object:${file.path}`);
@@ -49,7 +60,7 @@ async function loadRevisionFiles(
 ): Promise<RevisionFileRow[]> {
   return withSource("loadRevisionFiles", async () => {
     const result = await executor.query<RevisionFileRow>(
-      `select path, r2_key, served_content_type
+      `select path, r2_key, served_content_type, content_format
      from artifact_files
      where artifact_id = $1 and revision_id = $2
      order by path asc`,

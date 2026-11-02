@@ -52,6 +52,11 @@ export async function reparentTenantContent(
           input.toWorkspaceId,
           input.fromWorkspaceId,
         ]);
+        for (const table of ["upload_session_chunks", "upload_session_deletions"])
+          await tx.query(`update ${table} set workspace_id=$1 where workspace_id=$2`, [
+            input.toWorkspaceId,
+            input.fromWorkspaceId,
+          ]);
         await tx.query(
           `update upload_session_files
          set workspace_id = $1,

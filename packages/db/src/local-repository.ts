@@ -11,6 +11,7 @@ import type {
   Artifact,
   ClaimToken,
   ContentBlob,
+  ContentBlobChunk,
   Feedback,
   OperationEvent,
   PlatformLockdown,
@@ -19,6 +20,8 @@ import type {
   SafetyWarning,
   StoredFile,
   UploadSession,
+  UploadSessionChunk,
+  UploadSessionDeletion,
   Workspace,
   WorkspaceMember,
 } from "./types.js";
@@ -27,6 +30,9 @@ import type {
 // RepositoryCore; this subclass only supplies the Map-backed unit of work and keeps
 // the underlying tables as public Maps so tests and the MVP server can seed/inspect them.
 export class LocalRepository extends RepositoryCore {
+  readonly contentBlobChunks: Map<string, ContentBlobChunk>;
+  readonly uploadSessionChunks: Map<string, UploadSessionChunk>;
+  readonly uploadSessionDeletions: Map<string, UploadSessionDeletion>;
   readonly feedback: Map<string, Feedback>;
   readonly workspaces: Map<string, Workspace>;
   readonly workspaceMembers: Map<string, WorkspaceMember>;
@@ -50,6 +56,9 @@ export class LocalRepository extends RepositoryCore {
   constructor(options: RepositoryOptions) {
     const state: LocalState = createLocalState();
     super(new LocalUnitOfWork(state), options);
+    this.contentBlobChunks = state.contentBlobChunks;
+    this.uploadSessionChunks = state.uploadSessionChunks;
+    this.uploadSessionDeletions = state.uploadSessionDeletions;
     this.feedback = state.feedback;
     this.workspaces = state.workspaces;
     this.workspaceMembers = state.workspaceMembers;

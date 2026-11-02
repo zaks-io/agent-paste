@@ -3,12 +3,24 @@ import type { Artifact, BundleStatus, RepositoryOptions, SafetyWarning, StoredFi
 
 const PENDING_BUNDLE_RETRY_SECONDS = 5;
 
-export function buildBundleAvailability(revision: {
-  bundle_status: BundleStatus;
-  bundle_status_updated_at: string | null;
-  bundle_size_bytes: number | null;
-}) {
+export function buildBundleAvailability(
+  revision: {
+    bundle_status: BundleStatus;
+    bundle_status_updated_at: string | null;
+    bundle_size_bytes: number | null;
+    size_bytes?: number;
+  },
+  chunked = false,
+) {
   const bundle = { status: revision.bundle_status };
+  if (revision.bundle_status === "disabled")
+    return {
+      ...bundle,
+      reason:
+        chunked || (revision.size_bytes ?? 0) > 16 * 1024 * 1024
+          ? ("revision_too_large" as const)
+          : ("disabled_by_policy" as const),
+    };
   if (revision.bundle_status === "ready") {
     return {
       ...bundle,
@@ -39,6 +51,10 @@ export function buildAgentView(
   files: StoredFile[],
   contentBaseUrl: string,
   revision: {
+    file_map_sha256?: string | null;
+    file_map_size_bytes?: number | null;
+    file_count?: number;
+    size_bytes?: number;
     revision_number: number | null;
     bundle_status: BundleStatus;
     bundle_status_updated_at: string | null;
@@ -62,18 +78,42 @@ export function buildAgentView(
     expires_at: artifact.expires_at,
     entrypoint: artifact.entrypoint,
     revision_content_url: `${prefix}/${encodePath(artifact.entrypoint)}`,
-    files: files.map((file) => ({
-      path: file.path,
-      size_bytes: file.size_bytes,
-      content_type: file.content_type,
-      object_key: file.r2_key,
-      url: `${prefix}/${encodePath(file.path)}`,
-      // Plaintext content address so an agent can detect changes and declare a
-      // patch base (ADR 0090). Omitted for non-blob/diff-only rows.
-      ...(file.sha256 ? { sha256: file.sha256 } : {}),
-    })),
+    file_count: files.length,
+    files_truncated: files.length > 100,
+    retention: artifact.pinned_at ? ("pinned" as const) : ("temporary" as const),
+    effective_expires_at: artifact.pinned_at ? null : artifact.expires_at,
+    ...(revision.file_map_sha256 && revision.file_map_size_bytes
+      ? { file_map: { sha256: revision.file_map_sha256, size_bytes: revision.file_map_size_bytes } }
+      : {}),
+    files: [...files]
+      .sort((a, b) =>
+        a.path === artifact.entrypoint
+          ? -1
+          : b.path === artifact.entrypoint
+            ? 1
+            : a.path < b.path
+              ? -1
+              : a.path > b.path
+                ? 1
+                : 0,
+      )
+      .slice(0, 100)
+      .map((file) => ({
+        format: file.content_format ?? "single",
+        path: file.path,
+        size_bytes: file.size_bytes,
+        content_type: file.content_type,
+        object_key: file.r2_key,
+        url: `${prefix}/${encodePath(file.path)}`,
+        // Plaintext content address so an agent can detect changes and declare a
+        // patch base (ADR 0090). Omitted for non-blob/diff-only rows.
+        ...(file.sha256 ? { sha256: file.sha256 } : {}),
+      })),
     safety_warnings: warnings.slice(0, 100).map(toAgentViewSafetyWarning),
-    bundle: buildBundleAvailability(revision),
+    bundle: buildBundleAvailability(
+      revision,
+      files.some((f) => f.content_format === "chunked-v1"),
+    ),
     ...(options?.ephemeral_tier ? { ephemeral_tier: true as const } : {}),
     ...(options?.lockdown ? { lockdown: options.lockdown } : {}),
   };
@@ -115,6 +155,10 @@ export function buildPublishResult(
   artifact: Artifact,
   revision: {
     id: string;
+    file_map_sha256?: string | null;
+    file_map_size_bytes?: number | null;
+    file_count?: number;
+    size_bytes?: number;
     revision_number: number | null;
     bundle_status: BundleStatus;
     bundle_status_updated_at: string | null;
@@ -122,7 +166,12 @@ export function buildPublishResult(
   },
   uploadSessionId: string | undefined,
   options: RepositoryOptions,
-  publishMeta?: { ephemeral_tier?: boolean; entrypoint_object_key?: string; file_object_keys?: Record<string, string> },
+  publishMeta?: {
+    ephemeral_tier?: boolean;
+    entrypoint_object_key?: string;
+    file_object_keys?: Record<string, string>;
+    has_chunked_files?: boolean;
+  },
 ) {
   const contentBaseUrl = trimTrailingSlash(options.contentBaseUrl ?? "http://127.0.0.1:8789");
   const apiBaseUrl = trimTrailingSlash(options.apiBaseUrl ?? "http://127.0.0.1:8787");
@@ -133,6 +182,13 @@ export function buildPublishResult(
     capability_id: artifact.capability_id,
     pinned_at: artifact.pinned_at,
     artifact_updated_at: artifact.updated_at,
+    retention: artifact.pinned_at ? ("pinned" as const) : ("temporary" as const),
+    effective_expires_at: artifact.pinned_at ? null : artifact.expires_at,
+    no_change: false,
+    changes: { added: revision.file_count ?? 0, changed: 0, removed: 0 },
+    ...(revision.file_map_sha256 && revision.file_map_size_bytes
+      ? { file_map: { sha256: revision.file_map_sha256, size_bytes: revision.file_map_size_bytes } }
+      : {}),
     revision_id: revision.id,
     revision_number: revision.revision_number,
     title: artifact.title,
@@ -140,7 +196,7 @@ export function buildPublishResult(
     revision_content_url: revisionContentUrl,
     agent_view_url: `${apiBaseUrl}/v1/public/agent-view/${artifact.id}.${revision.id}`,
     expires_at: artifact.expires_at,
-    bundle: buildBundleAvailability(revision),
+    bundle: buildBundleAvailability(revision, publishMeta?.has_chunked_files),
     ...(publishMeta?.entrypoint_object_key ? { entrypoint_object_key: publishMeta.entrypoint_object_key } : {}),
     ...(publishMeta?.file_object_keys ? { file_object_keys: publishMeta.file_object_keys } : {}),
     ...(publishMeta?.ephemeral_tier ? { ephemeral_tier: true as const } : {}),

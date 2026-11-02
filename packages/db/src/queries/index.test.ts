@@ -18,7 +18,7 @@ const now = new Date("2026-01-01T00:00:00.000Z");
 
 describe("postgres query adapters", () => {
   it("writes upload-session files, artifact files, and content blobs with one statement per batch", async () => {
-    const db = fakeDrizzle([]);
+    const db = fakeDrizzle([[{ sha256: "a".repeat(64) }, { sha256: "b".repeat(64) }]]);
     const files = [fileEntity(), { ...fileEntity(), path: "styles.css", r2_key: "r2/styles.css" }];
     const blob = contentBlobEntity();
     const blobs = [

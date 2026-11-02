@@ -1,4 +1,5 @@
-import { DEFAULT_UPLOAD_SESSION_TTL_MS } from "../../policy.js";
+import { CONTENT_BLOB_GC_AGE_MS } from "../../queries/content-blob-gc.js";
+import { repositoryError } from "../../repository-error.js";
 import type { LocalState } from "../local-state.js";
 import type { Entities } from "../ports.js";
 
@@ -16,6 +17,7 @@ export function localContentBlobs(state: LocalState): Entities["contentBlobs"] {
       for (const file of files) {
         const key = keyFor({ workspaceId, sha256: file.sha256, sizeBytes: file.sizeBytes });
         const blob = state.contentBlobs.get(key);
+        if (blob?.gc_state === "deleting") repositoryError("blob_cleanup_in_progress");
         if (blob) {
           const touched = { ...blob, updated_at: updatedAt };
           state.contentBlobs.set(key, touched);
@@ -25,37 +27,36 @@ export function localContentBlobs(state: LocalState): Entities["contentBlobs"] {
       return reusable;
     },
     async upsert(blob) {
-      state.contentBlobs.set(
-        keyFor({ workspaceId: blob.workspace_id, sha256: blob.sha256, sizeBytes: blob.size_bytes }),
-        blob,
-      );
+      upsertLocalBlob(state, blob);
     },
     async upsertMany(blobs) {
-      for (const blob of blobs) {
-        state.contentBlobs.set(
-          keyFor({ workspaceId: blob.workspace_id, sha256: blob.sha256, sizeBytes: blob.size_bytes }),
-          blob,
-        );
-      }
+      for (const blob of blobs) upsertLocalBlob(state, blob);
     },
     async deleteUnreferenced(input) {
       // Age floor mirroring the Postgres query: a blob touched within the last
       // upload-session TTL may be referenced by an in-flight session create
       // this reader cannot see yet.
-      const ageFloorMs = new Date(input.now).getTime() - DEFAULT_UPLOAD_SESSION_TTL_MS;
+      const ageFloorMs = new Date(input.now).getTime() - CONTENT_BLOB_GC_AGE_MS;
       const deleted = [];
       for (const [key, blob] of state.contentBlobs) {
         if (deleted.length >= input.limit) {
           break;
         }
-        if (new Date(blob.updated_at).getTime() >= ageFloorMs) {
+        if (blob.gc_state !== "deleting" && new Date(blob.updated_at).getTime() >= ageFloorMs) {
           continue;
         }
         if (isBlobReferenced(state, blob, input.now)) {
           continue;
         }
-        state.contentBlobs.delete(key);
-        deleted.push(blob);
+        const marked = { ...blob, gc_state: "deleting" as const, gc_marked_at: blob.gc_marked_at ?? input.now };
+        state.contentBlobs.set(key, marked);
+        if (blob.content_format === "chunked-v1" || blob.r2_cleanup_eligible !== true) {
+          state.contentBlobs.delete(key);
+          for (const c of state.contentBlobChunks.values())
+            if (c.workspace_id === blob.workspace_id && c.sha256 === blob.sha256 && c.size_bytes === blob.size_bytes)
+              state.contentBlobChunks.delete(`${c.workspace_id}:${c.sha256}:${c.size_bytes}:${c.chunk_index}`);
+        }
+        deleted.push(marked);
       }
       return deleted;
     },
@@ -131,7 +132,11 @@ export function isLiveSessionBlobForReparent(
     return false;
   }
   const session = file.upload_session_id ? state.uploadSessions.get(file.upload_session_id) : null;
-  return Boolean(session?.status === "pending" && new Date(session.expires_at).getTime() > new Date(now).getTime());
+  return Boolean(
+    session &&
+      ["pending", "ready"].includes(session.status) &&
+      new Date(session.expires_at).getTime() > new Date(now).getTime(),
+  );
 }
 
 function isBlobReferenced(
@@ -165,10 +170,67 @@ function isBlobReferenced(
       file.storage_kind === "blob"
     ) {
       const session = file.upload_session_id ? state.uploadSessions.get(file.upload_session_id) : null;
-      if (session?.status === "pending" && new Date(session.expires_at).getTime() > new Date(now).getTime()) {
+      if (
+        session &&
+        ["pending", "ready"].includes(session.status) &&
+        new Date(session.expires_at).getTime() > new Date(now).getTime()
+      ) {
         return true;
       }
     }
   }
+  return isChunkOrMapReferenced(state, blob, now);
+}
+
+function isChunkOrMapReferenced(
+  state: LocalState,
+  blob: { workspace_id: string; sha256: string; size_bytes: number },
+  now: string,
+) {
+  for (const chunk of state.uploadSessionChunks.values()) {
+    const session = state.uploadSessions.get(chunk.upload_session_id);
+    if (
+      chunk.workspace_id === blob.workspace_id &&
+      chunk.sha256 === blob.sha256 &&
+      chunk.size_bytes === blob.size_bytes &&
+      session &&
+      ["pending", "ready"].includes(session.status) &&
+      Date.parse(session.expires_at) > Date.parse(now)
+    )
+      return true;
+  }
+  for (const c of state.contentBlobChunks.values()) {
+    const parent = state.contentBlobs.get(`${c.workspace_id}:${c.sha256}:${c.size_bytes}`);
+    if (
+      c.workspace_id === blob.workspace_id &&
+      c.chunk_sha256 === blob.sha256 &&
+      c.chunk_size_bytes === blob.size_bytes &&
+      parent &&
+      parent.gc_state !== "deleting"
+    )
+      return true;
+  }
+  for (const r of state.revisions.values())
+    if (
+      r.workspace_id === blob.workspace_id &&
+      r.file_map_sha256 === blob.sha256 &&
+      r.file_map_size_bytes === blob.size_bytes &&
+      ["draft", "published"].includes(r.status) &&
+      state.artifacts.get(r.artifact_id)?.status === "active"
+    )
+      return true;
   return false;
+}
+
+function upsertLocalBlob(state: LocalState, blob: import("../../types.js").ContentBlob) {
+  const key = keyFor({ workspaceId: blob.workspace_id, sha256: blob.sha256, sizeBytes: blob.size_bytes });
+  const old = state.contentBlobs.get(key);
+  if (old?.gc_state === "deleting") repositoryError("blob_cleanup_in_progress");
+  state.contentBlobs.set(key, {
+    ...blob,
+    created_at: old?.created_at ?? blob.created_at,
+    content_format: old && old.content_format !== "chunked-v1" ? "single" : (blob.content_format ?? "single"),
+    gc_state: "live",
+    r2_cleanup_eligible: old ? (old.r2_cleanup_eligible ?? false) : (blob.r2_cleanup_eligible ?? true),
+  });
 }

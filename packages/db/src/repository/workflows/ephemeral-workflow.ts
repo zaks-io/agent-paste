@@ -18,6 +18,8 @@ import {
 } from "../core-helpers.js";
 import type { Entities } from "../ports.js";
 import { buildApiKey } from "../shared.js";
+import { writeRevisionFileMap } from "./revision-file-map.js";
+import { checkStorageGrowth, storageUsageInEntities } from "./storage-usage-workflow.js";
 
 /** Default claim-token lifetime for a freshly provisioned ephemeral workspace. */
 export const DEFAULT_CLAIM_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
@@ -231,20 +233,6 @@ export async function claimResolvedEphemeralWorkspaceWithReplayState(
     }
   });
 
-  const blobs = await ctx.uow.read(PLATFORM_SCOPE, (entities) =>
-    entities.contentBlobs.listForReparent(sourceWorkspaceId, now),
-  );
-  if (blobs.length > 0) {
-    if (!ctx.options.reparentBlobMigrator) {
-      repositoryError("storage_unavailable");
-    }
-    await ctx.options.reparentBlobMigrator.migrate({
-      fromWorkspaceId: sourceWorkspaceId,
-      toWorkspaceId: destinationWorkspaceId,
-      blobs,
-    });
-  }
-
   return ctx.uow.commandWithReplay(
     {
       actor: commandActor,
@@ -254,6 +242,9 @@ export async function claimResolvedEphemeralWorkspaceWithReplayState(
       now,
     },
     async (entities) => {
+      for (const workspaceId of [sourceWorkspaceId, destinationWorkspaceId].sort())
+        await entities.persistent.lockWorkspace(workspaceId);
+      const usageBefore = await storageUsageInEntities(ctx, entities, destinationWorkspaceId, now);
       const resolvedToken = await entities.claimTokens.findByPublicId(input.claimToken.public_id);
       if (!resolvedToken) {
         repositoryError("not_found");
@@ -265,6 +256,7 @@ export async function claimResolvedEphemeralWorkspaceWithReplayState(
         repositoryError("not_found");
       }
 
+      await migrateClaimBlobs(ctx, entities, sourceWorkspace.id, destinationWorkspace.id, now);
       const minArtifactExpiresAt = artifactExpiresAtFromWorkspace(destinationWorkspace, now);
       const artifactIds = await entities.artifacts.reparentWorkspace(
         sourceWorkspace.id,
@@ -272,6 +264,22 @@ export async function claimResolvedEphemeralWorkspaceWithReplayState(
         minArtifactExpiresAt,
         now,
       );
+      // A map binds its workspace ID and object keys, so moving only SQL ownership
+      // would leave every newly published ephemeral Revision unreadable.
+      for (const artifactId of artifactIds)
+        for (const revision of await entities.revisions.listForArtifact(artifactId)) {
+          if (!revision.file_map_sha256) continue;
+          const files = await entities.artifactFiles.listForArtifact(artifactId, revision.id);
+          await writeRevisionFileMap(ctx, entities, {
+            workspaceId: destinationWorkspace.id,
+            artifactId,
+            revisionId: revision.id,
+            entrypoint: revision.entrypoint,
+            files,
+            now,
+          });
+        }
+      checkStorageGrowth(usageBefore, await storageUsageInEntities(ctx, entities, destinationWorkspaceId, now));
       await entities.apiKeys.revokeAllForWorkspace(sourceWorkspace.id, now);
       const markedClaimed = await entities.workspaces.markClaimed(sourceWorkspace.id, {
         claimedAt: now,
@@ -309,6 +317,24 @@ export async function claimResolvedEphemeralWorkspaceWithReplayState(
       };
     },
   );
+}
+
+async function migrateClaimBlobs(
+  ctx: RepositoryCoreContext,
+  entities: Entities,
+  sourceId: string,
+  destinationId: string,
+  now: string,
+) {
+  const blobs = await entities.contentBlobs.listForReparent(sourceId, now);
+  if (!blobs.length) return;
+  if (!ctx.options.reparentBlobMigrator) repositoryError("storage_unavailable");
+  for (let offset = 0; offset < blobs.length; offset += 1000) {
+    const refs = blobs.slice(offset, offset + 1000).map((b) => ({ sha256: b.sha256, sizeBytes: b.size_bytes }));
+    await entities.contentBlobs.findReusableAndTouch(sourceId, refs, now);
+    await entities.contentBlobs.findReusableAndTouch(destinationId, refs, now);
+  }
+  await ctx.options.reparentBlobMigrator.migrate({ fromWorkspaceId: sourceId, toWorkspaceId: destinationId, blobs });
 }
 
 export async function peekEphemeralClaimReplay(

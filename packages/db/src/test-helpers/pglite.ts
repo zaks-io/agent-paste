@@ -46,16 +46,30 @@ export function executorForPglite(client: PGlite, role?: string): SqlExecutor {
 export function pgliteConnection(client: PGlite): DrizzleConnection {
   const drizzleDb = drizzle(client, { schema }) as unknown as DrizzleDb;
 
-  function wrapRunner(runner: { query: PGlite["query"] }, db: DrizzleDb): SqlExecutor {
+  let savepointIndex = 0;
+  function wrapRunner(runner: { query: PGlite["query"] }, db: DrizzleDb, nested = false): SqlExecutor {
     const executor: SqlExecutor = {
       async query<Row = Record<string, unknown>>(sql: string, params: readonly SqlValue[] = []) {
         const result = await runner.query<Record<string, unknown>>(sql, params as unknown[]);
         return { rows: result.rows as Row[] };
       },
       async transaction<T>(run: (tx: SqlExecutor) => Promise<T>) {
+        if (nested) {
+          const savepoint = `test_nested_${++savepointIndex}`;
+          await runner.query(`savepoint ${savepoint}`);
+          try {
+            const result = await run(executor);
+            await runner.query(`release savepoint ${savepoint}`);
+            return result;
+          } catch (error) {
+            await runner.query(`rollback to savepoint ${savepoint}`);
+            await runner.query(`release savepoint ${savepoint}`);
+            throw error;
+          }
+        }
         return client.transaction(async (tx) => {
           const txDb = drizzle(tx, { schema }) as unknown as DrizzleDb;
-          const txExecutor = wrapRunner(tx, txDb);
+          const txExecutor = wrapRunner(tx, txDb, true);
           return run(txExecutor);
         }) as Promise<T>;
       },

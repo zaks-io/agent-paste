@@ -2,12 +2,17 @@ import { LIFETIME_REVISION_CEILING } from "@agent-paste/config";
 import { describe, expect, it } from "vitest";
 import { createLocalServices, type LocalRepository } from "../../local-repository.js";
 import { RepositoryError } from "../../repository-error.js";
+import { fakeFileMapStore } from "../../test-helpers/file-map-store.js";
 import type { ApiActor } from "../../types.js";
 
 const adminActor = { type: "admin" as const, id: "publish-characterization" };
 
 async function localRepoWithActor() {
-  const { repo } = createLocalServices({ apiKeyPepper: "pepper", billingEnabled: true });
+  const { repo } = createLocalServices({
+    fileMapStore: fakeFileMapStore,
+    apiKeyPepper: "pepper",
+    billingEnabled: true,
+  });
   const workspace = await repo.createWorkspace({
     actor: adminActor,
     idempotencyKey: "idem-ws",

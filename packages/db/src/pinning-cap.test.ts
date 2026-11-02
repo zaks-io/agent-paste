@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { fakeFileMapStore } from "./test-helpers/file-map-store.js";
 
 vi.mock("./policy.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./policy.js")>();
@@ -55,7 +56,7 @@ async function publishLocalArtifact(
 
 describe("pinned artifact cap", () => {
   it("rejects pinning when the workspace is at the cap", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const session = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "cap@example.com",

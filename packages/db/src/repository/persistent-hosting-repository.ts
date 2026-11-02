@@ -1,4 +1,4 @@
-import type { AppendUploadFilesRequest } from "@agent-paste/contracts";
+import type { AppendUploadFilesRequest, CompleteUploadFilesResponse } from "@agent-paste/contracts";
 import type { ApiActor } from "../types.js";
 import type { UploadSessionRecord } from "../upload-session-lifecycle.js";
 import type {
@@ -31,6 +31,7 @@ export type PersistentHostingRepository = {
     sessionId: string;
     path: string;
     chunkIndex: number;
+    r2CleanupEligible?: boolean;
     sha256: string;
     sizeBytes: number;
     objectKey: string;
@@ -42,6 +43,13 @@ export type PersistentHostingRepository = {
     path: string;
   }): Promise<ChunkedFileForCompletion | null>;
   recordChunkedFileVerified(input: { actor: ApiActor; sessionId: string; path: string; now: string }): Promise<void>;
+  completeUploadFiles(input: {
+    actor: ApiActor;
+    idempotencyKey: string;
+    sessionId: string;
+    paths: string[];
+    now: string;
+  }): Promise<CompleteUploadFilesResponse>;
   setArtifactRetention(input: {
     actor: ApiActor;
     idempotencyKey: string;

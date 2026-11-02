@@ -13,13 +13,19 @@ import type { CreateUploadSessionRequest } from "./upload-session-lifecycle.js";
 import * as accessLinksWorkflow from "./workflows/access-links-workflow.js";
 import * as agentAuthAnonymousWorkflow from "./workflows/agent-auth-anonymous-workflow.js";
 import * as agentAuthWorkflow from "./workflows/agent-auth-workflow.js";
+import * as fileReadWorkflow from "./workflows/artifact-files-workflow.js";
 import * as artifactReferenceWorkflow from "./workflows/artifact-reference-workflow.js";
+import * as retentionWorkflow from "./workflows/artifact-retention-workflow.js";
+import * as chunkWorkflow from "./workflows/chunk-workflow.js";
 import * as cleanupWorkflow from "./workflows/cleanup-workflow.js";
 import * as ephemeralWorkflow from "./workflows/ephemeral-workflow.js";
 import { type SubmitFeedbackInput, submitFeedback } from "./workflows/feedback-workflow.js";
+import * as guardedSessions from "./workflows/guarded-session-workflow.js";
 import * as lockdownWorkflow from "./workflows/lockdown-workflow.js";
 import * as memberArtifactsWorkflow from "./workflows/member-artifacts-workflow.js";
+import * as storageWorkflow from "./workflows/storage-usage-workflow.js";
 import * as uploadPublishWorkflow from "./workflows/upload-publish-workflow.js";
+import * as targetWorkflow from "./workflows/upload-targets-workflow.js";
 import * as webDashboardWorkflow from "./workflows/web-dashboard-workflow.js";
 import * as webMemberWorkflow from "./workflows/web-member-workflow.js";
 import * as workspaceAdminWorkflow from "./workflows/workspace-admin-workflow.js";
@@ -34,59 +40,63 @@ export class RepositoryCore implements Repository {
     this.ctx = new RepositoryCoreContext(uow, options);
   }
 
-  // Phase 0 integration seams. W1 replaces every throwing method below.
   async appendUploadFiles(
-    _input: Parameters<Repository["appendUploadFiles"]>[0],
+    input: Parameters<Repository["appendUploadFiles"]>[0],
   ): ReturnType<Repository["appendUploadFiles"]> {
-    throw new Error("not_implemented");
+    return guardedSessions.appendUploadFiles(this.ctx, input);
   }
 
   async listUploadTargets(
-    _input: Parameters<Repository["listUploadTargets"]>[0],
+    input: Parameters<Repository["listUploadTargets"]>[0],
   ): ReturnType<Repository["listUploadTargets"]> {
-    throw new Error("not_implemented");
+    return targetWorkflow.listUploadTargets(this.ctx, input);
   }
 
+  async completeUploadFiles(
+    input: Parameters<Repository["completeUploadFiles"]>[0],
+  ): ReturnType<Repository["completeUploadFiles"]> {
+    return chunkWorkflow.completeUploadFiles(this.ctx, input);
+  }
   async recordUploadedChunk(
-    _input: Parameters<Repository["recordUploadedChunk"]>[0],
+    input: Parameters<Repository["recordUploadedChunk"]>[0],
   ): ReturnType<Repository["recordUploadedChunk"]> {
-    throw new Error("not_implemented");
+    return chunkWorkflow.recordUploadedChunk(this.ctx, input);
   }
 
   async getChunkedFileForCompletion(
-    _input: Parameters<Repository["getChunkedFileForCompletion"]>[0],
+    input: Parameters<Repository["getChunkedFileForCompletion"]>[0],
   ): ReturnType<Repository["getChunkedFileForCompletion"]> {
-    throw new Error("not_implemented");
+    return chunkWorkflow.getChunkedFileForCompletion(this.ctx, input);
   }
 
   async recordChunkedFileVerified(
-    _input: Parameters<Repository["recordChunkedFileVerified"]>[0],
+    input: Parameters<Repository["recordChunkedFileVerified"]>[0],
   ): ReturnType<Repository["recordChunkedFileVerified"]> {
-    throw new Error("not_implemented");
+    return chunkWorkflow.recordChunkedFileVerified(this.ctx, input);
   }
 
   async setArtifactRetention(
-    _input: Parameters<Repository["setArtifactRetention"]>[0],
+    input: Parameters<Repository["setArtifactRetention"]>[0],
   ): ReturnType<Repository["setArtifactRetention"]> {
-    throw new Error("not_implemented");
+    return retentionWorkflow.setArtifactRetention(this.ctx, input);
   }
 
   async listArtifactFiles(
-    _input: Parameters<Repository["listArtifactFiles"]>[0],
+    input: Parameters<Repository["listArtifactFiles"]>[0],
   ): ReturnType<Repository["listArtifactFiles"]> {
-    throw new Error("not_implemented");
+    return fileReadWorkflow.listArtifactFiles(this.ctx, input);
   }
 
   async getRevisionReadTarget(
-    _input: Parameters<Repository["getRevisionReadTarget"]>[0],
+    input: Parameters<Repository["getRevisionReadTarget"]>[0],
   ): ReturnType<Repository["getRevisionReadTarget"]> {
-    throw new Error("not_implemented");
+    return fileReadWorkflow.getRevisionReadTarget(this.ctx, input);
   }
 
   async getStorageUsage(
-    _input: Parameters<Repository["getStorageUsage"]>[0],
+    input: Parameters<Repository["getStorageUsage"]>[0],
   ): ReturnType<Repository["getStorageUsage"]> {
-    throw new Error("not_implemented");
+    return storageWorkflow.getStorageUsage(this.ctx, input);
   }
 
   async submitFeedback(input: SubmitFeedbackInput) {
@@ -365,6 +375,7 @@ export class RepositoryCore implements Repository {
     objectKey?: string;
     sizeBytes?: number;
     sha256?: string;
+    r2CleanupEligible?: boolean;
     uploadedAt: string;
   }) {
     return uploadPublishWorkflow.recordUploadedFile(this.ctx, input);

@@ -3,6 +3,7 @@ import { PepperRing } from "@agent-paste/rotation";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { verifyClaimTokenSecret } from "../../claim-tokens.js";
 import { createLocalServices, type LocalRepository } from "../../local-repository.js";
+import { fakeFileMapStore } from "../../test-helpers/file-map-store.js";
 import * as coreHelpers from "../core-helpers.js";
 import { localClaimTokens } from "../local-entities/claim-tokens.js";
 import { createLocalState } from "../local-state.js";
@@ -15,7 +16,7 @@ describe("createEphemeralWorkspace", () => {
   });
 
   it("creates an unclaimed workspace and hashed claim token through runCommand", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const { repo } = createLocalServices({ fileMapStore: fakeFileMapStore, apiKeyPepper: "test-pepper" });
     const result = await repo.createEphemeralWorkspace({ idempotencyKey: "ephemeral-1" });
 
     expect(result.workspace.claimed_at).toBeNull();
@@ -37,7 +38,7 @@ describe("createEphemeralWorkspace", () => {
   it("uses command now when ttl conversion returns null", async () => {
     const spy = vi.spyOn(coreHelpers, "expiresAtFromSeconds").mockReturnValue(null);
     const now = new Date("2026-06-01T12:00:00.000Z");
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const { repo } = createLocalServices({ fileMapStore: fakeFileMapStore, apiKeyPepper: "test-pepper" });
     const result = await repo.createEphemeralWorkspace({ idempotencyKey: "ephemeral-null-ttl", now });
     expect(result.claim_token.expires_at).toBe(now.toISOString());
     expect(result.api_key.expires_at).toBe(now.toISOString());
@@ -47,6 +48,7 @@ describe("createEphemeralWorkspace", () => {
   it("uses configured pepper ring and api key env when provided", async () => {
     const pepperRing = PepperRing.single("ring-pepper", 1);
     const { repo } = createLocalServices({
+      fileMapStore: fakeFileMapStore,
       apiKeyPepper: "ignored",
       apiKeyEnv: "production",
       pepperRing,
@@ -57,7 +59,7 @@ describe("createEphemeralWorkspace", () => {
   });
 
   it("embeds claim code attribution in the claim token secret", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const { repo } = createLocalServices({ fileMapStore: fakeFileMapStore, apiKeyPepper: "test-pepper" });
     const result = await repo.createEphemeralWorkspace({
       idempotencyKey: "ephemeral-claim-code",
       claimCode,
@@ -72,7 +74,7 @@ describe("createEphemeralWorkspace", () => {
   });
 
   it("honors a custom claim-token TTL", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const { repo } = createLocalServices({ fileMapStore: fakeFileMapStore, apiKeyPepper: "test-pepper" });
     const now = new Date("2026-06-01T12:00:00.000Z");
     const result = await repo.createEphemeralWorkspace({
       idempotencyKey: "ephemeral-ttl",
@@ -107,7 +109,7 @@ describe("createEphemeralWorkspace", () => {
   });
 
   it("sets a one-day publish expiry for ephemeral artifacts", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const { repo } = createLocalServices({ fileMapStore: fakeFileMapStore, apiKeyPepper: "test-pepper" });
     const provisioned = await repo.createEphemeralWorkspace({ idempotencyKey: "ephemeral-publish-ttl" });
     const actor = {
       type: "api_key" as const,
@@ -158,7 +160,7 @@ describe("createEphemeralWorkspace", () => {
   });
 
   it("isolates claim token rows per workspace in local state", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const { repo } = createLocalServices({ fileMapStore: fakeFileMapStore, apiKeyPepper: "test-pepper" });
     const first = await repo.createEphemeralWorkspace({ idempotencyKey: "ephemeral-a" });
     const second = await repo.createEphemeralWorkspace({ idempotencyKey: "ephemeral-b" });
 

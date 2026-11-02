@@ -175,12 +175,10 @@ export const artifactQueries = defineSqlQuerySourceMap("packages/db/src/queries/
     updatedAt: string,
     cap: number,
   ): Promise<"pinned" | "cap_exceeded" | "not_found"> {
-    const pinnedAtDate = new Date(pinnedAt);
-    const updatedAtDate = new Date(updatedAt);
     const rows = await db.execute<{ id: string }>(sql`
       update artifacts as a
-      set pinned_at = ${pinnedAtDate},
-          updated_at = ${updatedAtDate}
+      set pinned_at = ${pinnedAt},
+          updated_at = ${updatedAt}
       where a.id = ${artifactId}
         and a.workspace_id = ${workspaceId}
         and a.status = 'active'
@@ -263,6 +261,7 @@ export const artifactFileQueries = defineSqlQuerySourceMap(
           servedContentType: file.content_type,
           r2Key: file.r2_key,
           sha256: file.sha256 ?? null,
+          contentFormat: file.content_format ?? "single",
           storageKind: file.storage_kind ?? "revision",
           uploadedAt: file.uploaded_at ? new Date(file.uploaded_at) : new Date(fallbackUploadedAt),
         })),
@@ -312,6 +311,7 @@ function mapArtifactFile(row: typeof artifactFiles.$inferSelect): StoredFile {
     content_type: row.servedContentType,
     r2_key: row.r2Key,
     sha256: row.sha256,
+    content_format: row.contentFormat as NonNullable<StoredFile["content_format"]>,
     storage_kind: (row.storageKind ?? "revision") as StoredFileStorageKind,
     uploaded_at: row.uploadedAt.toISOString(),
   };

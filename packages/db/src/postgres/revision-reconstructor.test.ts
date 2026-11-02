@@ -80,6 +80,26 @@ describe("revisionReconstructorFromEnv", () => {
     expect(r2.store.has(file?.r2Key ?? "")).toBe(true);
   });
 
+  it("rejects a reconstructed result above its single-object limit before writing bytes", async () => {
+    const { r2, baseSha, diffObjectKey } = await seedPatch({
+      base: "x\n",
+      diff: "@@ -1 +1 @@\n-x\n+longer\n",
+      path: "f.txt",
+    });
+    const reconstructor = revisionReconstructorFromEnv({ ...testArtifactBytesEncryptionEnv, ARTIFACTS: r2 });
+    const resultSha = await sha256Hex("longer\n");
+    const before = r2.store.size;
+    await expect(
+      reconstructor?.reconstruct({
+        workspaceId: WS,
+        maxResultBytes: 4,
+        files: [{ path: "f.txt", diffObjectKey, baseSha256: baseSha, resultSha256: resultSha }],
+      }),
+    ).rejects.toMatchObject({ kind: "file_size_cap_exceeded" });
+    expect(r2.store.size).toBe(before);
+    expect(r2.store.has(workspaceBlobObjectKeyFor({ workspaceId: WS, sha256: resultSha }))).toBe(false);
+  });
+
   it("throws an agent-visible conflict when the result hash does not match", async () => {
     const base = "a\nb\n";
     const diff = "@@ -1,2 +1,2 @@\n a\n-b\n+B\n";

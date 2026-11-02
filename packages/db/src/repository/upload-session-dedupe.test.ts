@@ -109,9 +109,15 @@ describe("workspace content blob dedupe", () => {
   it("reuses an existing workspace blob and keeps the reuse workspace-scoped", async () => {
     const { repo, actor } = await localRepoWithActor("reuse@example.com", "reuse");
     const objectKey = workspaceBlobObjectKeyFor({ workspaceId: actor.workspace_id, sha256 });
+    const seed = await repo.createUploadSession({
+      actor,
+      idempotencyKey: "seed",
+      request: { title: "seed", entrypoint: "seed.txt", files: [{ path: "seed.txt", size_bytes: 7, sha256 }] },
+      now,
+    });
     await repo.recordUploadedFile({
       workspaceId: actor.workspace_id,
-      sessionId: "upl_preseeded",
+      sessionId: seed.session_id,
       path: "seed.txt",
       objectKey,
       sizeBytes: 7,
