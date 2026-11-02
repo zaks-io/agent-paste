@@ -64,7 +64,7 @@ describe("createLocalMvpSqlExecutor", () => {
     const executor = createLocalMvpSqlExecutor(state);
 
     const revision = await executor.query(
-      `select r.status, a.status as artifact_status, r.bundle_status
+      `select r.status, a.status as artifact_status, r.bundle_status, r.size_bytes::float8 as size_bytes
        from revisions r
        inner join artifacts a on a.id = r.artifact_id
        where r.workspace_id = $1 and r.id = $2`,
@@ -74,6 +74,7 @@ describe("createLocalMvpSqlExecutor", () => {
       status: "published",
       artifact_status: "active",
       bundle_status: "pending",
+      size_bytes: 12,
     });
 
     const files = await executor.query(
@@ -90,6 +91,19 @@ describe("createLocalMvpSqlExecutor", () => {
         served_content_type: "text/html",
       },
     ]);
+  });
+
+  it("disables oversized bundles without marking them ready", async () => {
+    const state = createLocalState();
+    seedPublishedRevision(state);
+    const executor = createLocalMvpSqlExecutor(state);
+    await executor.query(
+      `update revisions
+       set bundle_status = 'disabled', bundle_status_updated_at = now(), bundle_size_bytes = null
+       where workspace_id = $1 and id = $2 and bundle_status = 'pending'`,
+      [workspaceId, revisionId],
+    );
+    expect(state.revisions.get(revisionId)).toMatchObject({ bundle_status: "disabled", bundle_size_bytes: null });
   });
 
   it("marks bundle ready and records idempotency completions", async () => {

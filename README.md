@@ -122,9 +122,11 @@ a website, and images, audio, video, and text open in the browser's built-in
 viewer. Markdown is served as its raw source, not converted to HTML. PDFs and
 unrecognized file types download instead of opening.
 
-Each published revision is also packaged as a zip bundle. Save it with
+Published revisions with at most 16 MiB of input files are eligible for a zip
+bundle, subject to the workspace bundle limit. Save an available bundle with
 `agent-paste download <artifact-id>`. Hosted agents get its download link from
-the MCP `read_artifact` tool.
+the MCP `read_artifact` tool. Larger revisions report bundle status `disabled`
+to keep archive generation within Worker memory limits.
 
 For the full list of shipped features, see [features](./docs/specs/features.md).
 For automation details, see the [CLI contract](./docs/specs/cli.md). For content

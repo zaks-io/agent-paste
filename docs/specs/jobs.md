@@ -72,6 +72,10 @@ Handler behavior:
   [R2 object key layout](./data-model.md#r2-object-key-layout).
 - Deflate entries with text-like served types (HTML, CSS, JavaScript, JSON,
   SVG, Markdown, plain text); store every other entry as-is.
+- Before reading any file bytes, disable bundle generation when the Revision's
+  plaintext size exceeds the smaller of 16 MiB and the Bundle Size Cap. The
+  16 MiB input bound reserves memory for buffered ZIP output and encryption
+  copies. Set `bundle_status='disabled'` and acknowledge the job without R2 reads.
 - Enforce Bundle Size Cap against the finished zip size during generation.
 - On success, set `bundle_status='ready'`, `bundle_size_bytes`, and `bundle_status_updated_at`.
 - On permanent generation error after queue retries, DLQ consumer sets `bundle_status='failed'`.
