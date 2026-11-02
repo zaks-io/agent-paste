@@ -44,9 +44,6 @@ export const SECONDS_PER_DAY = 24 * 60 * 60;
 /** Shortest auto-deletion window for unclaimed ephemeral workspaces (ADR 0056 row 20). */
 export const EPHEMERAL_AUTO_DELETION_DAYS = 1;
 
-/** Platform cap for pinned artifacts per workspace (ADR 0048 / 0056). */
-export const PINNED_ARTIFACT_CAP = 50;
-
 /** Daily new-Artifact write allowance for unclaimed ephemeral workspaces (ADR 0056 row 16). */
 export const DAILY_NEW_ARTIFACT_ALLOWANCE_EPHEMERAL = 20;
 

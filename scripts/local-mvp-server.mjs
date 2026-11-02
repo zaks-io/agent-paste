@@ -298,6 +298,7 @@ const apiEnv = {
   STREAM_INTERNAL_SECRET: streamInternalSecret,
   API_BASE_URL: apiBaseUrl,
   CONTENT_BASE_URL: contentBaseUrl,
+  CONTENT_CAPABILITY_DOMAIN: process.env.AGENT_PASTE_LOCAL_CAPABILITY_DOMAIN,
   CONTENT_SIGNING_SECRET: contentSecret,
   API_KEY_PEPPER_V1: apiKeyPepper,
   ARTIFACT_BYTES_ENCRYPTION_KEY: artifactBytesEncryptionKey,
@@ -336,16 +337,19 @@ const uploadEnv = {
   ARTIFACTS: artifacts,
   API_BASE_URL: apiBaseUrl,
   CONTENT_BASE_URL: contentBaseUrl,
+  CONTENT_CAPABILITY_DOMAIN: process.env.AGENT_PASTE_LOCAL_CAPABILITY_DOMAIN,
   CONTENT_SIGNING_SECRET: contentSecret,
   API_KEY_PEPPER_V1: apiKeyPepper,
   UPLOAD_SIGNING_SECRET: uploadSecret,
   ARTIFACT_BYTES_ENCRYPTION_KEY: artifactBytesEncryptionKey,
   UPLOAD_BASE_URL: uploadBaseUrl,
-  UPLOAD_URL_TTL_SECONDS: "900",
+  UPLOAD_URL_TTL_SECONDS: process.env.AGENT_PASTE_LOCAL_UPLOAD_URL_TTL_SECONDS ?? "900",
   ACTOR_RATE_LIMIT: alwaysAllowRateLimit,
   WORKSPACE_BURST_CAP: alwaysAllowRateLimit,
 };
 const contentEnv = {
+  CONTENT_BASE_URL: contentBaseUrl,
+  CONTENT_CAPABILITY_DOMAIN: process.env.AGENT_PASTE_LOCAL_CAPABILITY_DOMAIN,
   ARTIFACTS: artifacts,
   DENYLIST: denylist,
   ARTIFACT_RATE_LIMIT: alwaysAllowRateLimit,
@@ -495,3 +499,6 @@ async function seedProofArtifacts(repo, bucket) {
     });
   }
 }
+
+// Local drivers use these owned fixtures without adding operator HTTP routes.
+export const localHarness = { services, artifacts, servers, uploadEnv };

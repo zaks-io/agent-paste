@@ -6,8 +6,8 @@ import type {
   UploadSessionFileInput,
 } from "@agent-paste/contracts/upload-sessions";
 import { isExpiredTarget, uploadTargets } from "./chunked-upload.js";
-import type { LocalSource, PublishOutcome, PublishTransport, UploadStats } from "./publish.js";
 import type { PublishPlan, PublishPlanInput } from "./publish-plan.js";
+import type { LocalSource, PublishOutcome, PublishTransport, UploadStats } from "./publish-types.js";
 import { digestBytes, operationKey, transferRetry } from "./transfer-retry.js";
 export function fileEntry(source: LocalSource): UploadSessionFileInput {
   return {

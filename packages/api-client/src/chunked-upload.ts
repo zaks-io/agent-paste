@@ -1,7 +1,7 @@
 import { chunkSize, requiresChunking } from "@agent-paste/contracts/file-transfer";
 import type { FilePath, UploadSessionId } from "@agent-paste/contracts/primitives";
 import type { SignedUploadTarget } from "@agent-paste/contracts/upload-sessions";
-import type { LocalSource, PublishTransport, UploadStats } from "./publish.js";
+import type { LocalSource, PublishTransport, UploadStats } from "./publish-types.js";
 import { digestBytes, errorFields, operationKey, runConcurrent, transferRetry } from "./transfer-retry.js";
 
 const CHUNK_BYTES = 4 * 1024 * 1024;

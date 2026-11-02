@@ -943,9 +943,16 @@ automatically.
 2. For each file: skip it if the local file exists with matching sha256. If it
    exists and differs, record a conflict and stop before writing unless
    `overwrite`.
-3. Download to `${target}.agent-paste-partial`, resuming with `Range` from the
-   partial file's length and `If-Range` set to the ETag.
-4. Verify size and sha256, then atomically rename.
+3. Download into an exclusively owned private transfer directory below the CLI
+   config directory. Resume the owned partial with `Range` from its length and
+   `If-Range` set to the ETag. Remote filenames never name transfer-state files
+   in the output tree.
+4. Verify size and sha256 before installation. Without `--overwrite`, create
+   the destination exclusively and copy through its pinned fs-safe handle,
+   preserving a destination that appears concurrently. With `--overwrite`, use
+   fs-safe's atomic replacement. Interrupted exclusive-copy installation can
+   leave a differing destination, requiring explicit `--overwrite` on rerun.
+   See [the CLI pull contract](../specs/cli.md#file-wise-pull).
 5. Refresh the grant for the same `revision_id` on 401/403/404 after expiry, and
    honor 429 `Retry-After`.
 6. Use six files in flight.

@@ -179,6 +179,7 @@ const run = async (command, { interrupt, allowFailure = false } = {}) => {
   clearTimeout(timer);
   const record = { command: command[0], code, interrupted: Boolean(interrupt), peak_rss_kib: peakRssKiB, evidence };
   runs.push(record);
+  assert(peakRssKiB > 0, "No owned child RSS sample was recorded");
   assert(peakRssKiB <= 400 * 1024, `CLI exceeded 400 MiB: ${peakRssKiB} KiB`);
   if (interrupt) {
     assert(evidence.checkpoint, "No transfer checkpoint observed before exit/timeout");
@@ -200,6 +201,7 @@ const run = async (command, { interrupt, allowFailure = false } = {}) => {
       JSON.stringify({ exit_code: code, error_code: errorCode }),
       { mode: 0o600 },
     );
+    await writeFile(path.join(output, `private-cli-${runs.length}.log`), `${stderr}\n${stdout}`, { mode: 0o600 });
     throw new Error(`CLI ${command[0]} exited ${code}; sanitized failure evidence recorded`);
   }
   return { ...JSON.parse(stdout), transfer_evidence: evidence };
@@ -266,12 +268,18 @@ try {
   });
   assert.equal(range.status, 206);
   assert.equal((await range.arrayBuffer()).byteLength, 32);
+  const served = await fetch(new URL("large.bin", published.url), { headers: { "Accept-Encoding": "identity" } });
+  assert.equal(served.status, 200);
+  const servedHash = createHash("sha256");
+  for await (const bytes of served.body) servedHash.update(bytes);
+  assert.equal(servedHash.digest("hex"), await digest(path.join(large, "large.bin")));
   const pulled = path.join(output, "pulled-large");
   await run(["pull", published.artifact_id, "--output", pulled]);
   await compareTrees(large, pulled);
   check("250 MiB publish, Range and verified pull; oversize client rejection");
   const unchanged = await run(["publish", large, "--artifact-id", published.artifact_id]);
   assert(unchanged.no_change);
+  assert.equal(unchanged.transfer_evidence.uploads.length, 0);
   assert.equal(unchanged.revision_id, published.revision_id);
   check("No-op sends no bytes and preserves revision");
   // Unique bytes prevent the earlier publish from making this a dedup-only run.
@@ -448,12 +456,22 @@ try {
   );
   assert(!("retention" in oldResult));
   check("Legacy protocol and strict publish response remain supported");
+  const concurrentSources = [];
+  for (let n = 0; n < Number(flag("concurrent", "3")); n++) {
+    const source = path.join(output, `concurrent-source-${n}`);
+    await randomFile(path.join(source, "large.bin"), 262_144_000);
+    concurrentSources.push(source);
+  }
   await Promise.all(
-    Array.from({ length: Number(flag("concurrent", "3")) }, async (_, n) => {
-      const result = await run(["publish", large, "--title", `Concurrent transfer ${n}`]);
+    concurrentSources.map(async (source, n) => {
+      const result = await run(["publish", source, "--title", `Concurrent transfer ${n}`]);
+      assert.equal(
+        result.transfer_evidence.uploads.reduce((sum, chunk) => sum + chunk.bytes, 0),
+        262_144_000,
+      );
       const target = path.join(output, `concurrent-${n}`);
       await run(["pull", result.artifact_id, "--output", target]);
-      await compareTrees(large, target);
+      await compareTrees(source, target);
     }),
   );
   check("Concurrent 250 MiB publishes/pulls stay within sampled CLI RSS cap");

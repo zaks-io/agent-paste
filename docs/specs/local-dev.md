@@ -71,7 +71,7 @@ The complete local CLI smoke test is:
 pnpm smoke:local
 ```
 
-It starts the local harness, signs the CLI in through the mock WorkOS flow, runs
+It starts the local harness, provisions a workspace and API key internally, runs
 `agent-paste whoami`, publishes `examples/local-harness/site`, verifies the
 returned `url`, deletes the Artifact and verifies purge, then publishes
 `examples/local-harness/ephemeral-site` with `agent-paste publish --ephemeral`,

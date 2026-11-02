@@ -93,6 +93,30 @@ describe("createLocalMvpSqlExecutor", () => {
     ]);
   });
 
+  it("preserves chunked format in the safety scanner file projection", async () => {
+    const state = createLocalState();
+    seedPublishedRevision(state);
+    const file = [...state.artifactFiles.values()][0]!;
+    state.artifactFiles.set(`${artifactId}:${revisionId}:video.bin`, {
+      ...file,
+      path: "video.bin",
+      content_type: "application/octet-stream",
+      content_format: "chunked-v1",
+      r2_key: "virtual-chunked-key",
+    });
+    const executor = createLocalMvpSqlExecutor(state);
+    const result = await executor.query(
+      "select path, r2_key, served_content_type, content_format from artifact_files where artifact_id = $1 and revision_id = $2 order by path asc",
+      [artifactId, revisionId],
+    );
+    expect(result.rows).toContainEqual({
+      path: "video.bin",
+      r2_key: "virtual-chunked-key",
+      served_content_type: "application/octet-stream",
+      content_format: "chunked-v1",
+    });
+  });
+
   it("disables oversized bundles without marking them ready", async () => {
     const state = createLocalState();
     seedPublishedRevision(state);

@@ -12,7 +12,7 @@ import type {
   UploadDeletion,
   UploadPrefixDeletion,
 } from "@agent-paste/contracts/upload-sessions";
-import type { LocalSource, PublishTransport } from "./publish.js";
+import type { LocalSource, PublishTransport } from "./publish-types.js";
 import { transferRetry } from "./transfer-retry.js";
 export type PublishMode = { kind: "tree" } | { kind: "paths" } | { kind: "mirror_prefix"; prefix: string };
 export type PublishPlanInput = {

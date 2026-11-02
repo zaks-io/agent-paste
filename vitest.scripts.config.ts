@@ -10,6 +10,7 @@ export default defineConfig({
     include: ["scripts/**/*.test.mjs"],
     exclude: buildTestExcludes(),
     testTimeout: 20_000,
+    maxWorkers: 2,
     coverage: {
       // The `scripts/lib/` extraction tier holds the decision logic that deserves
       // unit coverage. The top-level orchestrators and `smoke-*` scripts shell out

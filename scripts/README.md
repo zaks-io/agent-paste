@@ -176,6 +176,39 @@ The wrapper applies committed migrations once with the owner URL, sets an
 exercises the local CLI publish/delete/expiry/ephemeral path against real
 Postgres roles and RLS without creating a Neon branch or Hyperdrive config.
 
+### `smoke-local-transfers.mjs`
+
+After building the API, Upload, Content, Jobs, Stream and CLI packages, run:
+
+```sh
+node scripts/smoke-local-transfers.mjs
+```
+
+The driver allocates five `transfer-*` ports with `sbx-runtime`, starts isolated
+in-memory services, provisions a test workspace internally, and passes its key
+only through the child environment. It runs `transfer-soak.mjs` with 250 MiB
+files, both 1 GiB trees, acknowledged upload and persisted pull interruption,
+150 updates, guarded partial sync, and three independent concurrent transfers.
+Every downloaded file must match its source hash. CLI peak RSS must stay at or
+below 400 MiB.
+
+Additional HTTP fixtures verify pin/unpin, service after former expiry,
+manifest expiry, cache revalidation, signed upload URL renewal, and competing
+1 GiB reservations against a 1.5 GiB budget. `--fixtures-only` runs these smaller
+fixtures without the large soak. The local capability proxy preserves the
+published hostname when forwarding to Content, so the stable URL assertion
+exercises real capability manifests rather than revision URLs.
+
+Fixtures and private diagnostics stay in the allocated worktree state directory
+on disk. Do not use RAM-backed `/tmp` for multi-gigabyte transfer output. The
+driver stops its servers and leaves evidence for inspection. Never paste raw
+CLI diagnostics or capability URLs into reports. Use the sanitized JSON summary.
+
+These Node services use in-memory R2, database and always-allow rate-limit
+bindings. They do not establish native Worker memory/CPU behavior, managed
+gateway access, production rate limits, or preview browser acceptance. See
+[validation evidence](../docs/ops/status/persistent-hosting-validation.md).
+
 ### Deploy build + ordering
 
 `scripts/deploy.mjs` (above) migrates, provisions secrets, ensures shared Cloudflare

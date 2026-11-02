@@ -2,8 +2,8 @@ import type { ArtifactFileListItem } from "@agent-paste/contracts/artifact-files
 import { isUnderPrefix } from "@agent-paste/contracts/file-transfer";
 import { FilePath } from "@agent-paste/contracts/primitives";
 import type { RevisionReadGrant } from "@agent-paste/contracts/read-grants";
-import type { PublishTransport } from "./publish.js";
 import { listRevisionFiles } from "./publish-plan.js";
+import type { PublishTransport } from "./publish-types.js";
 import { transferRetry } from "./transfer-retry.js";
 export type PullTransport = Pick<PublishTransport, "listFiles"> & {
   readGrant(artifactId: string, revisionId?: string): Promise<RevisionReadGrant>;
