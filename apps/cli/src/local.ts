@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { Mebibytes } from "@agent-paste/contracts/common";
 import type { UsagePolicy } from "@agent-paste/contracts/workspace";
 import { contentTypeForPath } from "@agent-paste/storage";
 import { FsSafeError } from "@openclaw/fs-safe";
@@ -11,11 +10,11 @@ import { root as openSafeRoot, type Root } from "@openclaw/fs-safe/root";
 // (UploadSessionFileInput.size_bytes) so no tier can ever accept a larger file.
 // Checked from `stat` before the file is read, so an oversized file fails fast
 // instead of being buffered into memory just to be rejected after the fact.
-const MAX_FILE_BYTES = Mebibytes.twentyFive;
+export const MAX_FILE_BYTES = 262_144_000;
 
 export type LocalFile = {
   absolutePath: string;
-  safeRoot: Pick<Root, "read" | "rootReal">;
+  safeRoot: Pick<Root, "read" | "open" | "rootReal">;
   rootRelativePath: string;
   enforceExclusions: boolean;
   path: string;
@@ -49,7 +48,7 @@ export async function walkLocalPath(inputPath: string): Promise<LocalFile[]> {
 
 export function inferPublishOptions(
   inputPath: string,
-  files: LocalFile[],
+  files: { path: string }[],
   overrides: Partial<PublishInference> = {},
 ): PublishInference {
   const title = overrides.title ?? path.basename(path.resolve(inputPath));
@@ -57,7 +56,10 @@ export function inferPublishOptions(
   return { title, entrypoint };
 }
 
-export function validateFilesAgainstUsagePolicy(files: LocalFile[], policy: UsagePolicy) {
+export function validateFilesAgainstUsagePolicy<T extends { path: string; sizeBytes: number }>(
+  files: T[],
+  policy: UsagePolicy,
+) {
   if (files.length > policy.file_count_cap) {
     throw new Error(`File count ${files.length} exceeds cap ${policy.file_count_cap}`);
   }
@@ -75,7 +77,7 @@ export function contentTypeForLocalPath(filePath: string): string {
   return contentTypeForPath(filePath);
 }
 
-function inferEntrypoint(files: LocalFile[]) {
+function inferEntrypoint(files: { path: string }[]) {
   for (const candidate of entrypointCandidates) {
     if (files.some((file) => file.path === candidate)) {
       return candidate;
@@ -164,7 +166,7 @@ function isWithinRoot(target: string, realRoot: string): boolean {
 
 // True when the resolved in-root target passes through any excluded segment, so
 // an alias to `.env`, `.git/…`, `node_modules/…`, etc. cannot bypass exclusion.
-function resolvesToExcluded(real: string, realRoot: string): boolean {
+export function resolvesToExcluded(real: string, realRoot: string): boolean {
   const relative = path.relative(realRoot, real);
   return relative.split(path.sep).some((segment) => segment.length > 0 && isExcluded(segment));
 }
@@ -204,7 +206,7 @@ export type ReadLocalFile = {
 export async function readAndHashLocalFile(file: LocalFile): Promise<ReadLocalFile> {
   let result: Awaited<ReturnType<Root["read"]>>;
   try {
-    result = await file.safeRoot.read(file.rootRelativePath);
+    result = await file.safeRoot.read(file.rootRelativePath, { maxBytes: 10 * 1024 * 1024 });
   } catch (error) {
     if (isPostValidationPathChange(error)) {
       throw new Error(`File ${file.path} changed after validation; retry the publish`, { cause: error });

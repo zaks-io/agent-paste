@@ -1,5 +1,6 @@
 import {
   AgentView,
+  ArtifactRetention,
   DeleteArtifactResponse,
   DisplayMetadata,
   type McpAddRevisionInput,
@@ -11,6 +12,7 @@ import {
   type McpListRevisionsInput,
   McpListRevisionsOutput,
   type McpMultiEditInput,
+  type McpPinArtifactInput,
   type McpPublishArtifactInput,
   type McpReadArtifactInput,
   type McpReadFileInput,
@@ -75,6 +77,9 @@ export async function callMcpTool(
       return callAddRevision(inputParsed.data as McpAddRevisionInput, auth, deps);
     case "multi_edit":
       return callMultiEdit(inputParsed.data as McpMultiEditInput, auth, deps);
+    case "pin_artifact":
+    case "unpin_artifact":
+      return callRetention(inputParsed.data as McpPinArtifactInput, parsed.data.name === "pin_artifact", auth, deps);
     case "list_artifacts":
       return callListArtifacts(inputParsed.data as McpListArtifactsInput, deps);
     case "read_artifact":
@@ -261,4 +266,22 @@ function parseBody<T>(
     return { ok: false, error: mapMcpProtocolError("internal_error", "internal_error") };
   }
   return { ok: true, data: parsed.data };
+}
+
+async function callRetention(
+  input: McpPinArtifactInput,
+  pinned: boolean,
+  auth: McpAuthContext,
+  deps: McpToolDeps,
+): Promise<McpToolResult> {
+  const tool = pinned ? "pin_artifact" : "unpin_artifact";
+  const routeId = pinned ? "artifacts.pin" : "artifacts.unpin";
+  const forwarded = await forwardToApiRoute({
+    api: deps.api,
+    routeId,
+    params: { artifact_id: input.artifact_id },
+    tokenSub: deps.tokenSub,
+    idempotencyKey: resolveIdempotencyKey(tool, input, auth, deps),
+  });
+  return parseForwardResult(forwarded, ArtifactRetention, routeId);
 }

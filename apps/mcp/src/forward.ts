@@ -43,6 +43,8 @@ export type ForwardToApiSuccess = {
 export type ForwardToApiFailure = {
   ok: false;
   error: McpMappedToolError;
+  status?: number;
+  retryAfterSeconds?: number;
 };
 
 export type ForwardToApiResult = ForwardToApiSuccess | ForwardToApiFailure;
@@ -172,13 +174,20 @@ export async function putSignedUploadFile(input: {
     return {
       ok: false,
       error: mapApiErrorToMcp({ code: "upload_incomplete", message: "upload_incomplete" }),
+      ...retryMetadata(response),
     };
   }
 
   return { ok: true, status: response.status, body: null };
 }
 
-type ApiErrorEnvelope = { code?: string; message?: string; request_id?: string; docs?: string };
+type ApiErrorEnvelope = {
+  code?: string;
+  message?: string;
+  request_id?: string;
+  docs?: string;
+  details?: Record<string, unknown>;
+};
 
 export const MAX_MCP_FORWARDED_RESPONSE_BYTES = 512 * 1024;
 export const MAX_MCP_FILE_CONTENT_RESPONSE_BYTES = Mebibytes.ten * 6 + MAX_MCP_FORWARDED_RESPONSE_BYTES;
@@ -211,6 +220,7 @@ function mappedToolError(envelope: ApiErrorEnvelope): McpMappedToolError {
     code: envelope.code as ErrorCode,
     message: envelope.message as string,
     ...(envelope.request_id ? { requestId: envelope.request_id } : {}),
+    ...(envelope.details ? { details: envelope.details } : {}),
     ...(envelope.docs ? { docs: envelope.docs } : {}),
   });
 }
@@ -245,7 +255,17 @@ async function mapForwardResponse(response: Response, routeId: RouteId): Promise
   }
   const { body } = parsed;
   if (!response.ok) {
-    return mapForwardFailure(response, body);
+    return { ...mapForwardFailure(response, body), ...retryMetadata(response) };
   }
   return { ok: true, status: response.status, body };
+}
+
+function retryMetadata(response: Response): { status: number; retryAfterSeconds?: number } {
+  const header = response.headers.get("retry-after");
+  if (!header) return { status: response.status };
+  const seconds = /^\d+$/.test(header) ? Number(header) : (Date.parse(header) - Date.now()) / 1000;
+  return {
+    status: response.status,
+    ...(Number.isFinite(seconds) ? { retryAfterSeconds: Math.max(0, seconds) } : {}),
+  };
 }

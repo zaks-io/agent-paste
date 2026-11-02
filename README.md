@@ -80,6 +80,32 @@ Expected output:
 Use the artifact ID with `--artifact-id` to update the same website.
 Full URLs also work. Updates require Workspace access.
 
+Claimed publishing supports individual files up to 250 MiB and trees up to
+10,000 files / 2 GiB, subject to Workspace storage usage. Use `--pin` for an
+indefinitely retained link. Unpinning starts a fresh default retention window.
+
+```sh
+agent-paste publish ./site --pin --json
+agent-paste publish ./logo.png --artifact-id <ref> --to assets/logo.png --json
+agent-paste publish ./assets --artifact-id <ref> --to assets --mirror --dry-run --json
+agent-paste publish --artifact-id <ref> --delete old-assets --json
+agent-paste pull <ref> assets --output ./downloaded
+agent-paste list --json
+agent-paste usage --json
+agent-paste pin <ref> --json
+agent-paste unpin <ref> --json
+agent-paste delete <ref> --yes --json
+```
+
+A publish with `--artifact-id` mirrors the whole selected tree. `--to` preserves
+omitted remote paths; `--mirror` deletes remote-only paths inside its prefix.
+Use `--dry-run` before a mirror and repeat `--exclude <glob>` to filter local
+files. Unchanged uploads create no Revision. Transfers resume when rerun with
+the same inputs. `pull --output` downloads files or prefixes with hash checking
+and range resume; differing local files require `--overwrite`. Large Revisions
+use file-wise pull when ZIP bundles are unavailable. Explicit `edit` keeps its
+text-patch workflow.
+
 The same ID works with `pull` to read one stored file, `edit` to apply literal
 find-and-replace edits as a new revision, and `download` to save a revision as a
 zip. See the

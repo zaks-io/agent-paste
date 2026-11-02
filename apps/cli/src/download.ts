@@ -67,7 +67,11 @@ async function waitForBundle(client: ApiClient, initial: AgentView, clock: Downl
           `The bundle for revision ${view.revision_id} failed to generate. Use pull to read files one at a time.`,
         );
       case "disabled":
-        throw new Error(`Bundles are disabled for revision ${view.revision_id}.`);
+        throw new Error(
+          bundle.reason === "revision_too_large"
+            ? "This Revision is too large for a bundle. Use pull --output <directory>."
+            : `Bundles are disabled for revision ${view.revision_id}.`,
+        );
       case "pending": {
         const waitMs = bundle.retry_after_seconds * 1000;
         if (clock.now() + waitMs > deadline) {

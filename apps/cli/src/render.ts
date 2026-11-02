@@ -177,12 +177,18 @@ function resolveErrorMessage(error: unknown): string {
 }
 
 export function formatError(mode: OutputMode, error: unknown): string {
-  const code = error instanceof AgentPasteError ? error.code : isReviseError(error) ? "invalid_edit" : "cli_error";
+  const code =
+    error instanceof AgentPasteError
+      ? error.code
+      : isReviseError(error)
+        ? "invalid_edit"
+        : ((error as { code?: string })?.code ?? "cli_error");
   const docs = error instanceof AgentPasteError ? error.docs : undefined;
   const retryAfterSeconds = error instanceof AgentPasteError ? error.retryAfterSeconds : undefined;
+  const details = (error as { details?: Record<string, unknown> })?.details;
   const message = resolveErrorMessage(error);
   if (mode === "json") {
-    return `${JSON.stringify({ error: { code, message, ...(docs ? { docs } : {}), ...(retryAfterSeconds !== undefined ? { retry_after_seconds: retryAfterSeconds } : {}) } })}\n`;
+    return `${JSON.stringify({ error: { code, message, ...(details ? { details } : {}), ...(docs ? { docs } : {}), ...(retryAfterSeconds !== undefined ? { retry_after_seconds: retryAfterSeconds } : {}) } })}\n`;
   }
   const lines = [
     `${paint(mode, "red", "✗")} ${paint(mode, "bold", terminalSafeText(code))} — ${terminalSafeText(message)}`,

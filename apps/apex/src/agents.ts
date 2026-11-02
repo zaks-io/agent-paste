@@ -48,11 +48,35 @@ npx @zaks-io/agent-paste publish ./path --json
 
 Return \`url\` to the user.
 
-Revise at the same URL:
+Mirror the complete tree at the same URL:
 
 \`\`\`sh
 npx @zaks-io/agent-paste publish ./path --artifact-id 01234-56789-abcde-fghjd --json
 \`\`\`
+
+Partial sync uses \`publish <file> --artifact-id <ref> --to <remote-path>\`, or
+\`publish <directory> --artifact-id <ref> --to <prefix>\`. Omitted paths stay.
+Add \`--mirror\` to remove remote-only files inside that prefix. Repeat
+\`--delete <remote-path>\` for explicit file or prefix deletions. Preview with
+\`--dry-run\`. Repeat \`--exclude <glob>\` to filter local paths. Whole-tree
+publish with \`--artifact-id\` removes remote-only files across the whole tree.
+Concurrent overlapping edits return \`commit_conflict\`; re-read before retrying.
+A partial legacy update can require an explicit full-tree mirror and never
+silently uploads a broader selection.
+
+Claimed limits are 250 MiB per file, 10,000 files and 2 GiB per Revision,
+subject to Workspace storage usage. Free storage defaults to 5 GiB and Pro to
+50 GiB. Chunk uploads and file-wise downloads resume on rerun. Unchanged
+publishes create no Revision. Use \`publish --pin\` or \`pin <ref>\` for no
+scheduled expiry; deletion and platform policy still apply. \`unpin <ref>\`
+starts a fresh default retention window. \`list\` shows retention, \`usage\`
+shows storage and pin limits, and \`delete <ref> --yes\` deletes an Artifact.
+
+Download a tree or selection with \`pull <ref> [remote-path...] --output <dir>\`.
+Differing local files require \`--overwrite\`; unrelated local files stay.
+Downloads verify full-file hashes and resume partial files with Range.
+\`pull <ref> <path>\` still prints text or JSON, and \`edit\` keeps explicit
+text patches. Large Revisions can lack a ZIP bundle; use \`pull --output\`.
 
 The artifact ID is the first label of the URL hostname. \`--artifact-id\`,
 \`pull\`, and \`edit\` accept that ID, the \`art_...\` \`artifact_id\` from JSON
@@ -102,9 +126,9 @@ Connect to \`${MCP_BASE_URL}\` with OAuth and call \`whoami\`. MCP cannot use
 - Create: \`publish_artifact\`
 - Revise: \`add_revision\` (whole file) or \`multi_edit\` (literal find/replace)
 - Read: \`list_artifacts\`, \`read_artifact\`, \`read_file\`, \`list_revisions\`
-- Manage: \`delete_artifact\`, \`update_display_metadata\`
+- Manage: \`pin_artifact\`, \`unpin_artifact\`, \`delete_artifact\`, \`update_display_metadata\`
 
-MCP publishes text only; folders and binary files need the CLI. \`artifact_id\`
+MCP text payloads stay at 10 MiB. Pin/unpin require publish authority. MCP publishes text only; folders and binary files need the CLI. \`artifact_id\`
 accepts the ID or the full URL.
 
 ## Reading this site

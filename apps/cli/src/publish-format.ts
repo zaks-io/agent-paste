@@ -7,6 +7,8 @@ export type PublishResultShape = {
   title: string;
   url: string;
   expires_at: string;
+  retention?: string | undefined;
+  effective_expires_at?: string | null | undefined;
   upload_stats?: {
     total_files: number;
     total_bytes: number;
@@ -43,7 +45,7 @@ export function formatPublishResult(mode: OutputMode, result: PublishResultShape
     `${paint(mode, "green", "✓")} Published ${paint(mode, "bold", `"${result.title}"`)}`,
     "",
     `  ${label("View")}      ${hyperlink(mode, result.url)}`,
-    `  ${label("Expires")}   ${formatExpiry(result.expires_at)}`,
+    `  ${label("Expires")}   ${result.retention === "pinned" ? "Pinned indefinitely" : formatExpiry(result.effective_expires_at ?? result.expires_at)}`,
     ...(result.upload_stats ? [uploadStatsLine(mode, result.upload_stats)] : []),
     "",
     `  ${label("Update")}    ${updateCommand}`,
@@ -66,7 +68,7 @@ export function formatEphemeralPublishResult(mode: OutputMode, result: PublishRe
     "",
     paint(mode, "dim", "Hand this link to anyone. No login, expires soon:"),
     `  ${label("Link")}     ${hyperlink(mode, result.url)}`,
-    `  ${label("Expires")}   ${formatExpiry(result.expires_at)}`,
+    `  ${label("Expires")}   ${result.retention === "pinned" ? "Pinned indefinitely" : formatExpiry(result.effective_expires_at ?? result.expires_at)}`,
     ...(result.upload_stats ? [uploadStatsLine(mode, result.upload_stats)] : []),
     "",
     paint(mode, "dim", "Log in and open this to keep and own it:"),

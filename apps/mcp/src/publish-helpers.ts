@@ -1,6 +1,7 @@
 import { type PublishFile, type PublishInput, type PublishOutcome, runPublish } from "@agent-paste/api-client/publish";
 import {
   deriveMcpIdempotencyKey,
+  EMPTY_TREE_SNAPSHOT_SHA256,
   type IdempotencyKey,
   McpPublishArtifactOutput,
   type McpPublishRenderMode,
@@ -123,7 +124,7 @@ export function noopPublishOutput(base: {
  * last-resort fallback only when there is neither an explicit title nor a base.
  */
 export async function textPublishInput(
-  input: { title?: string; body: string; render_mode: McpPublishRenderMode },
+  input: { title?: string; body: string; render_mode: McpPublishRenderMode; pin?: boolean | undefined },
   idempotencyKey: IdempotencyKey,
   baseTitle?: string,
 ): Promise<PublishInput> {
@@ -140,6 +141,11 @@ export async function textPublishInput(
   const title = ("title" in input && input.title ? input.title : (baseTitle ?? "Revision")) as PublishInput["title"];
   return {
     files: [file],
+    commit: {
+      guard: "snapshot",
+      snapshot: { prefix: null, sha256: EMPTY_TREE_SNAPSHOT_SHA256 },
+      ...(input.pin !== undefined ? { pin: input.pin } : {}),
+    },
     title,
     entrypoint,
     idempotencyKey,

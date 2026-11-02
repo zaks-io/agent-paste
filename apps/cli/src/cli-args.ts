@@ -9,12 +9,14 @@ export type Parsed = {
   command: string[];
   positionals: string[];
   flags: Map<string, string | boolean>;
+  repeated?: Map<string, string[]>;
   global: GlobalFlags;
 };
 
 export function parseArgs(argv: string[]): Parsed {
   const flags = new Map<string, string | boolean>();
   const positionals: string[] = [];
+  const repeated = new Map<string, string[]>();
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index] ?? "";
     if (arg === "--") {
@@ -37,6 +39,7 @@ export function parseArgs(argv: string[]): Parsed {
       }
       if (inlineValue !== undefined) {
         flags.set(name, inlineValue);
+        appendFlag(repeated, name, inlineValue);
       } else if (takesValue(name)) {
         index += 1;
         const value = argv[index];
@@ -44,6 +47,7 @@ export function parseArgs(argv: string[]): Parsed {
           throw new Error(`Missing value for --${name}`);
         }
         flags.set(name, value);
+        appendFlag(repeated, name, value);
       } else {
         flags.set(name, true);
       }
@@ -54,6 +58,7 @@ export function parseArgs(argv: string[]): Parsed {
   const command = commandParts(positionals);
   return {
     command,
+    repeated,
     positionals: positionals.slice(command.length),
     flags,
     global: {
@@ -70,9 +75,20 @@ function commandParts(positionals: string[]) {
 }
 
 function takesValue(name: string) {
-  return new Set(["claim-code", "artifact-id", "title", "entrypoint", "name", "revision-id", "edits", "output"]).has(
-    name,
-  );
+  return new Set([
+    "claim-code",
+    "artifact-id",
+    "title",
+    "entrypoint",
+    "name",
+    "revision-id",
+    "edits",
+    "output",
+    "to",
+    "delete",
+    "exclude",
+    "cursor",
+  ]).has(name);
 }
 
 export function requiredArg(parsed: Parsed, index: number, label: string) {
@@ -152,4 +168,12 @@ export function writeStdout(value: string) {
 export function shellQuote(value: string) {
   if (/^[A-Za-z0-9_./-]+$/.test(value)) return value;
   return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+export function repeatedFlag(parsed: Parsed, name: string): string[] {
+  return parsed.repeated?.get(name) ?? (stringFlag(parsed, name) !== undefined ? [stringFlag(parsed, name)!] : []);
+}
+
+function appendFlag(flags: Map<string, string[]>, name: string, value: string) {
+  flags.set(name, [...(flags.get(name) ?? []), value]);
 }

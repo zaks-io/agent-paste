@@ -1,15 +1,10 @@
+import type { LocalSource } from "@agent-paste/api-client";
 import { AgentPasteError } from "@agent-paste/api-client";
 import { type ArtifactId, ArtifactReference, FilePath, PlainTextTitle } from "@agent-paste/contracts/primitives";
 import type { UsagePolicy } from "@agent-paste/contracts/workspace";
 import { type Parsed, requiredArg, stringFlag } from "./cli-args.js";
-import {
-  inferPublishOptions,
-  type LocalFile,
-  readAndHashLocalFile,
-  validateFilesAgainstUsagePolicy,
-  walkLocalPath,
-} from "./local.js";
-import type { LocalFileWithDigest } from "./revise.js";
+import { inferPublishOptions, type LocalFile, validateFilesAgainstUsagePolicy, walkLocalPath } from "./local.js";
+import { scanFile } from "./local-scan.js";
 
 export type PublishPreflight = {
   inputPath: string;
@@ -19,7 +14,7 @@ export type PublishPreflight = {
   usagePolicy: UsagePolicy;
 };
 
-export type PreparedPublish = Omit<PublishPreflight, "files"> & { files: LocalFileWithDigest[] };
+export type PreparedPublish = Omit<PublishPreflight, "files"> & { files: LocalSource[] };
 
 type PreparePublishOptions = {
   allowArtifactId: boolean;
@@ -88,16 +83,12 @@ export async function preparePublish(parsed: Parsed, options: PreparePublishOpti
 }
 
 export async function digestPublish(preflight: PublishPreflight): Promise<PreparedPublish> {
-  const files = await Promise.all(
-    preflight.files.map(async (file): Promise<LocalFileWithDigest> => {
-      const read = await readAndHashLocalFile(file);
-      return { ...file, ...read };
-    }),
-  );
+  const files: LocalSource[] = [];
+  for (const file of preflight.files) files.push(await scanFile(file));
   return { ...preflight, files };
 }
 
-export function validatePublishUsage(files: LocalFile[], policy: UsagePolicy): void {
+export function validatePublishUsage(files: { path: string; sizeBytes: number }[], policy: UsagePolicy): void {
   try {
     validateFilesAgainstUsagePolicy(files, policy);
   } catch (error) {

@@ -424,6 +424,7 @@ function provisionedCredentialsBase() {
 }
 
 function fakePublishClient() {
+  let uploaded = false;
   const create = vi.fn().mockResolvedValue({
     upload_session_id: uploadSessionId,
     artifact_id: artifactId,
@@ -460,8 +461,18 @@ function fakePublishClient() {
   return {
     whoami: vi.fn(),
     usagePolicy: vi.fn().mockResolvedValue(usagePolicy),
-    putFile: vi.fn().mockResolvedValue(undefined),
-    uploadSessions: { create, finalize },
+    putFile: vi.fn(async () => {
+      uploaded = true;
+    }),
+    uploadSessions: {
+      create,
+      finalize,
+      targets: vi.fn(async () => ({
+        status: "pending",
+        targets: uploaded ? [] : (await create.mock.results[0]!.value).files,
+        page_info: { has_more: false, next_cursor: null },
+      })),
+    },
     revisions: { publish },
     apiKeys: { revokeCurrent: vi.fn() },
   } as unknown as import("@agent-paste/api-client").ApiClient;

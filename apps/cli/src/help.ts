@@ -9,8 +9,14 @@ Usage:
   agent-paste feedback [<body>] [--json]
   agent-paste publish <path> [--artifact-id <artifact-id>] [--title <text>] [--entrypoint <path>] [--ephemeral] [--claim-code <clm_...>] [--json]
   agent-paste pull <artifact-id> <remote-path> [--revision-id <id>] [--json]
+  agent-paste pull <artifact-id> [<remote-path>...] --output <dir> [--overwrite] [--dry-run] [--json]
   agent-paste edit <artifact-id> <path> [--edits <file>] [--json]
   agent-paste download <artifact-id> [--revision-id <id>] [--output <path>] [--json]
+  agent-paste pin <artifact-id> [--json]
+  agent-paste unpin <artifact-id> [--json]
+  agent-paste list [--cursor <cursor>] [--json]
+  agent-paste usage [--json]
+  agent-paste delete <artifact-id> --yes [--json]
   agent-paste version [--json]
   agent-paste upgrade [<tag>]
 
@@ -45,6 +51,10 @@ Output:
 `;
 
 export const PULL_HELP_TEXT = `agent-paste pull help
+
+Use --output <dir> to download a whole tree, files or prefixes with hash checking
+and resumable partial files. Differing local files require --overwrite.
+--dry-run lists files and conflicts without writing. Unselected local paths stay.
 
 Read one file stored in an Artifact. <remote-path> is relative to the Artifact
 root. Plain mode writes the text body to stdout. --json writes metadata and a
@@ -82,10 +92,18 @@ What to hand back:
 JSON fields:
   publish --json returns:
     { schema_version, artifact_id, revision_id, title, url, expires_at,
-      upload_stats }
+      mode, no_change, retention, effective_expires_at, changes, upload_stats }
 
   publish --ephemeral --json also returns:
     { claim_token, claim_url, workspace_id, api_key_id, claim_token_id }
+
+Limits and sync:
+  Claimed: 250 MiB per file, 10,000 files / 2 GiB per Revision, subject to storage budget.
+  Ephemeral: 10 MiB per file, 100 files / 25 MiB per Revision.
+  Full publish with --artifact-id mirrors the tree and removes remote-only paths.
+  --to preserves omitted paths; --mirror scopes deletions to its prefix.
+  Rerun interrupted commands to resume. Conflicts require re-reading the head.
+  Unchanged publishes create no Revision. Use pin/unpin/list/usage to manage hosting.
 
 Path behavior:
   <path> may be a file or directory. Directory publish keeps relative paths and
@@ -95,6 +113,13 @@ Path behavior:
   multi-file directory needs --entrypoint <path>.
 
 Flags:
+  --to          Upsert a remote file or directory prefix, preserving omitted files.
+  --mirror      With --to, remove remote-only files inside the directory prefix.
+  --delete      Delete an explicit remote file or prefix. Repeatable; requires --artifact-id.
+                With a local path, also pass --to.
+  --exclude     Exclude a local relative path glob. Repeatable. Mirrors delete excluded paths.
+  --pin         Pin with publish. No scheduled expiry, subject to deletion and policy.
+  --dry-run     Show changes, guards, byte maximum, limits and usage without uploading.
   --artifact-id Revise an existing Artifact. Accepts the ID or the full URL.
   --title       Set the Artifact title.
   --entrypoint  Entrypoint file within <path>.
