@@ -4,9 +4,11 @@
 // / decrypt-by-sha dance; these helpers are the shared ends so neither re-derives the
 // blob AAD context or the object key by hand.
 
+import { LEGACY_SINGLE_PUT_MAX_BYTES } from "@agent-paste/config";
 import {
   type ArtifactBytesKeyRing,
-  bytesFromReadableBody,
+  bytesFromReadableBodyCapped,
+  ciphertextByteLengthForPlaintext,
   decryptArtifactBytesWithKeyRing,
   encryptArtifactBytes,
   isArtifactBytesEncryptionMetadata,
@@ -16,6 +18,7 @@ import {
 
 export type R2GetObjectBody = {
   body: ReadableStream | ArrayBuffer | Uint8Array | string | null | undefined;
+  size?: number;
   customMetadata?: Record<string, string>;
 };
 
@@ -63,6 +66,8 @@ export async function readWorkspaceBlobBytes(input: {
   workspaceId: string;
   sha256: string;
   ring: ArtifactBytesKeyRing;
+  maxPlaintextBytes?: number;
+  expectedPlaintextBytes?: number;
 }): Promise<Uint8Array> {
   const key = workspaceBlobObjectKeyFor({ workspaceId: input.workspaceId, sha256: input.sha256 });
   const object = await input.r2.get(key);
@@ -72,7 +77,7 @@ export async function readWorkspaceBlobBytes(input: {
   if (!isArtifactBytesEncryptionMetadata(object.customMetadata)) {
     throw new WorkspaceBlobMetadataError();
   }
-  const ciphertext = await bytesFromReadableBody(object.body);
+  const ciphertext = await readCappedCiphertext(object, input);
   return decryptArtifactBytesWithKeyRing({
     ciphertext,
     ring: input.ring,
@@ -92,6 +97,8 @@ export async function readRevisionFileObjectBytes(input: {
   objectKey: string;
   workspaceId: string;
   ring: ArtifactBytesKeyRing;
+  maxPlaintextBytes?: number;
+  expectedPlaintextBytes?: number;
 }): Promise<Uint8Array> {
   const parts = parseRevisionFileObjectKey(input.objectKey);
   if (!parts) {
@@ -104,7 +111,7 @@ export async function readRevisionFileObjectBytes(input: {
   if (!isArtifactBytesEncryptionMetadata(object.customMetadata)) {
     throw new WorkspaceBlobMetadataError();
   }
-  const ciphertext = await bytesFromReadableBody(object.body);
+  const ciphertext = await readCappedCiphertext(object, input);
   return decryptArtifactBytesWithKeyRing({
     ciphertext,
     ring: input.ring,
@@ -146,4 +153,40 @@ export async function writeWorkspaceBlob(input: {
     customMetadata: encrypted.customMetadata,
   });
   return { key, written: true };
+}
+
+async function readCappedCiphertext(
+  object: R2GetObjectBody,
+  input: { maxPlaintextBytes?: number; expectedPlaintextBytes?: number },
+): Promise<Uint8Array> {
+  const cap = input.maxPlaintextBytes ?? LEGACY_SINGLE_PUT_MAX_BYTES;
+  const expected = input.expectedPlaintextBytes;
+  if (
+    !Number.isSafeInteger(cap) ||
+    cap < 0 ||
+    (expected !== undefined && (!Number.isSafeInteger(expected) || expected < 0 || expected > cap))
+  ) {
+    throw new Error("invalid_workspace_blob_size");
+  }
+  const maxCiphertext = ciphertextByteLengthForPlaintext(cap);
+  const expectedCiphertext = expected === undefined ? undefined : ciphertextByteLengthForPlaintext(expected);
+  if (
+    object.size !== undefined &&
+    (!Number.isSafeInteger(object.size) ||
+      object.size < ciphertextByteLengthForPlaintext(0) ||
+      object.size > maxCiphertext ||
+      (expectedCiphertext !== undefined && object.size !== expectedCiphertext))
+  ) {
+    if (object.body instanceof ReadableStream) await object.body.cancel().catch(() => undefined);
+    throw new Error("workspace_blob_size_mismatch");
+  }
+  const body = object.body instanceof ReadableStream ? object.body : new Response(object.body as BodyInit | null).body;
+  const ciphertext = await bytesFromReadableBodyCapped(body, expectedCiphertext ?? maxCiphertext);
+  if (
+    (expectedCiphertext !== undefined && ciphertext.byteLength !== expectedCiphertext) ||
+    (object.size !== undefined && ciphertext.byteLength !== object.size)
+  ) {
+    throw new Error("workspace_blob_size_mismatch");
+  }
+  return ciphertext;
 }

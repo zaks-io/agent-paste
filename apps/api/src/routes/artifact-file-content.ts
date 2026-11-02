@@ -1,29 +1,21 @@
 import { Mebibytes } from "@agent-paste/contracts";
 import type { ApiActor, Repository } from "@agent-paste/db";
 import { artifactBytesEncryptionRingFromEnv } from "@agent-paste/rotation";
-import { decodeUtf8Strict, readWorkspaceBlobBytes } from "@agent-paste/storage";
+import { decodeUtf8Strict, readStoredFilePrefix, workspaceBlobObjectKeyFor } from "@agent-paste/storage";
 import type { Principal } from "@agent-paste/worker-runtime";
 import { getBoundResponders } from "@agent-paste/worker-runtime";
 import { resolveArtifactReference } from "../artifact-reference.js";
 import type { AppContext } from "../env.js";
 import { workspaceApiActor } from "../principals.js";
+import { executeRepositoryRoute, RepositoryRouteError } from "../responses.js";
 import { contentBaseUrl } from "../runtime.js";
+import { inspectMappedFile } from "../stored-file-target.js";
 
 type FileContentParams = { artifactId: string; path: string; revisionId?: string };
 
-// Reads one stored file's decrypted plaintext for the owning Workspace Member so
-// an agent can diff against it and revise with a unified-diff patch (ADR 0090).
-// The agent already owns the artifact and can fetch the same bytes via
-// the signed content url, so returning plaintext here adds no confidentiality
-// exposure; it just gives an agent without the working dir a base to diff.
-//
-// `getAgentView` resolves the artifact + revision + file set under the actor's
-// workspace scope (RLS), so a cross-tenant read returns not_found. The blob key is
-// DERIVED from the validated row's plaintext sha256 + the actor's workspace id,
-// never from client input, and the encryption AAD binds both — a substituted key
-// cannot decrypt. is_binary is byte-derived (true binary only). A file over the
-// inline cap is returned as metadata with no body WITHOUT reading R2, so a single
-// request never buffers a multi-megabyte decrypt (ADR 0063 intent).
+// File maps authorize paths independently of the bounded agent view. Large
+// chunked files return byte-inspected metadata while the edit workflow keeps
+// inline UTF-8 bodies for small files.
 export async function readArtifactFileContent(
   context: AppContext,
   principal: Principal,
@@ -45,10 +37,35 @@ export async function readArtifactFileContent(
     return responders.respondError("not_found");
   }
 
+  return executeRepositoryRoute(context, async () => {
+    const mapped = await inspectMappedFile({
+      env,
+      db,
+      actor,
+      artifactId,
+      path: params.path,
+      ...(params.revisionId ? { revisionId: params.revisionId } : {}),
+    });
+    if (mapped !== undefined) {
+      if (mapped === null) throw new RepositoryRouteError("not_found");
+      return mapped;
+    }
+    return readLegacyFileContentData(context, db, actor, { ...params, artifactId });
+  });
+}
+
+async function readLegacyFileContentData(
+  context: AppContext,
+  db: Repository,
+  actor: ApiActor,
+  params: FileContentParams,
+): Promise<Record<string, unknown>> {
+  const env = context.env;
+  const artifactId = params.artifactId;
   const view = await db.getAgentView(buildViewInput(actor, { ...params, artifactId }, contentBaseUrl(env)));
   const file = view?.files.find((entry) => entry.path === params.path);
   if (!file?.sha256) {
-    return responders.respondError("not_found");
+    throw new RepositoryRouteError("not_found");
   }
 
   // Oversize files are not inlined: return metadata only and skip the R2 read so a
@@ -58,47 +75,54 @@ export async function readArtifactFileContent(
   // fetch via url / upload whole, so the flag is advisory on this branch.
   if (file.size_bytes > Mebibytes.ten) {
     const isBinaryByType = typeof file.content_type === "string" ? !file.content_type.startsWith("text/") : true;
-    return responders.respondJson({
+    return {
       path: file.path,
       sha256: file.sha256,
       size_bytes: file.size_bytes,
       content_type: file.content_type,
       is_binary: isBinaryByType,
-    });
+    };
   }
 
   const ring = artifactBytesEncryptionRingFromEnv(env);
   if (!ring || !env.ARTIFACTS) {
-    return responders.respondError("storage_unavailable");
+    throw new RepositoryRouteError("storage_unavailable");
   }
 
   let bytes: Uint8Array;
   try {
-    bytes = await readWorkspaceBlobBytes({
-      r2: env.ARTIFACTS,
-      workspaceId: actor.workspace_id,
-      sha256: file.sha256,
-      ring,
-    });
+    bytes = await readStoredFilePrefix(
+      {
+        r2: env.ARTIFACTS,
+        workspaceId: actor.workspace_id,
+        ring,
+        file: {
+          format: "single",
+          objectKey: workspaceBlobObjectKeyFor({ workspaceId: actor.workspace_id, sha256: file.sha256 }),
+          sizeBytes: file.size_bytes,
+        },
+      },
+      file.size_bytes,
+    );
   } catch {
     // readWorkspaceBlobBytes has exactly one success path (a clean decrypt of a
     // present, well-formed blob). Every throw — missing object, bad/absent metadata,
     // an unknown kid or AAD/auth-tag rejection from the ring — is an operational or
     // crypto condition on a row we already validated, not a client error. All map to
     // storage_unavailable (503, retryable), never a 500 (ADR 0090).
-    return responders.respondError("storage_unavailable");
+    throw new RepositoryRouteError("storage_unavailable");
   }
 
   const decoded = decodeUtf8Strict(bytes);
   const isBinary = decoded === null;
-  return responders.respondJson({
+  return {
     path: file.path,
     sha256: file.sha256,
     size_bytes: file.size_bytes,
     content_type: file.content_type,
     is_binary: isBinary,
     ...(isBinary ? {} : { body: decoded }),
-  });
+  };
 }
 
 function buildViewInput(actor: ApiActor, params: FileContentParams, contentBase: string) {

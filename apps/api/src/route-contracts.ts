@@ -1,4 +1,4 @@
-import { routeContractById, type RouteContractById, type RouteId } from "@agent-paste/contracts";
+import { type RouteContractById, type RouteId, routeContractById } from "@agent-paste/contracts";
 import type { GuardState } from "@agent-paste/worker-runtime";
 
 export type RouteParams = Record<string, string>;

@@ -2,12 +2,13 @@ import type { PaginationInput } from "./env.js";
 
 export function parsePagination(
   request: Request,
+  maxLimit = 100,
 ): { ok: true; value: PaginationInput } | { ok: false; code: "invalid_cursor" | "invalid_request" } {
   const url = new URL(request.url);
   const cursor = url.searchParams.get("cursor") ?? undefined;
   const limitParam = url.searchParams.get("limit");
   const limit = limitParam === null ? 50 : Number(limitParam);
-  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+  if (!Number.isInteger(limit) || limit < 1 || limit > maxLimit) {
     return { ok: false, code: "invalid_request" };
   }
   if (cursor !== undefined && (cursor.length < 1 || cursor.length > 500)) {

@@ -7,7 +7,7 @@ import { signAgentViewContentUrls } from "../agent-view.js";
 import type { AppContext, PaginationInput } from "../env.js";
 import { parsePagination } from "../pagination.js";
 import { webMemberActor } from "../principals.js";
-import { executeRepositoryRoute, runIdempotent } from "../responses.js";
+import { executeRepositoryRoute, RepositoryRouteError, runIdempotent } from "../responses.js";
 import type { GuardFor, RouteParams } from "../route-contracts.js";
 import { CLI_API_KEY_TTL_SECONDS } from "./account.js";
 
@@ -149,7 +149,11 @@ export async function webPinArtifact(
     const idempotencyKey = guard.idempotencyKey;
     return runIdempotent(context, async () => {
       const detail = await pinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" });
-      return signedWebArtifactDetail(context, actor, detail);
+      try {
+        return await signedWebArtifactDetail(context, actor, detail);
+      } catch (error) {
+        throw new RepositoryRouteError("storage_unavailable", undefined, { cause: error });
+      }
     });
   });
 }
@@ -169,7 +173,11 @@ export async function webUnpinArtifact(
     const idempotencyKey = guard.idempotencyKey;
     return runIdempotent(context, async () => {
       const detail = await unpinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" });
-      return signedWebArtifactDetail(context, actor, detail);
+      try {
+        return await signedWebArtifactDetail(context, actor, detail);
+      } catch (error) {
+        throw new RepositoryRouteError("storage_unavailable", undefined, { cause: error });
+      }
     });
   });
 }

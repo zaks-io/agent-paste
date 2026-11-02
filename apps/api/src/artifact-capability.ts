@@ -15,6 +15,7 @@ export async function refreshClaimedArtifactCapabilities(
   env: Env,
   actor: ApiActor,
   artifactIds: string[],
+  options?: { requirePublishedView?: boolean },
 ): Promise<void> {
   const results = await Promise.allSettled(
     artifactIds.map(async (artifactId) => {
@@ -23,6 +24,7 @@ export async function refreshClaimedArtifactCapabilities(
         throw new Error(`Claimed Artifact ${artifactId} could not be loaded for capability refresh.`);
       }
       if (!detail.capability_view) {
+        if (options?.requirePublishedView) throw new Error("Artifact capability view is unavailable.");
         return;
       }
       await signAgentViewContentUrls(detail.capability_view, env, {

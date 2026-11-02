@@ -245,3 +245,4 @@ export {
   type RevisionFileMapV1,
   serializeRevisionFileMap,
 } from "./revision-file-map.js";
+export { readStoredFilePrefix, type StoredFileRef, streamStoredFile } from "./stored-file-reader.js";

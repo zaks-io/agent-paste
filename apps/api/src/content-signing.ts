@@ -16,6 +16,7 @@ export type ContentSigningOptions = {
   paths?: string[] | null;
   objectKey?: string;
   objectKeys?: Record<string, string>;
+  fileMap?: { sha256: string; size_bytes: number };
 };
 
 export function contentSigningSecret(env: Env): string | undefined {
@@ -67,7 +68,7 @@ export async function signedContentUrl(
     secret: signingSecret,
     payload: contentTokenPayload(artifactId, revisionId, expiresAt, auth, {
       ...options,
-      paths: options?.paths === null ? null : (options?.paths ?? [path]),
+      paths: options?.fileMap ? null : options?.paths === null ? null : (options?.paths ?? [path]),
     }),
     path,
   });
@@ -135,6 +136,7 @@ function contentTokenPayload(
     ...(Array.isArray(options.paths) ? { paths: options.paths } : {}),
     ...(options.objectKey ? { object_key: options.objectKey } : {}),
     ...(options.objectKeys ? { object_keys: options.objectKeys } : {}),
+    ...(options.fileMap ? { file_map: options.fileMap } : {}),
     exp: contentTokenExpiration(expiresAt),
   };
 }

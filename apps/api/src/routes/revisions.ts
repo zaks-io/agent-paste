@@ -112,6 +112,7 @@ export async function publishRevision(
         artifactId,
         revisionId: params.revisionId ?? "",
         claimCode: claimCodeFromHeader(context.req.raw.headers),
+        ...(guard.body.include_retention ? { includeRetention: true } : {}),
       }),
     { respondError: guard.respondError as ContractRespondError },
   );
