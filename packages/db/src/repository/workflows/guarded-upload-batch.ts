@@ -6,7 +6,7 @@ import { repositoryError } from "../../repository-error.js";
 import type { ContentBlob, StoredFile, UploadSession, UploadSessionChunk, UploadSessionDeletion } from "../../types.js";
 import { contentTypeForPath, objectKeyFor, validateUpload } from "../../validation.js";
 import type { Entities } from "../ports.js";
-import type { CreateUploadSessionRequest } from "../upload-session-lifecycle.js";
+import type { CreateUploadSessionRequest } from "../upload-session-types.js";
 
 type Batch = Pick<CreateUploadSessionRequest, "files" | "deletions" | "prefix_deletions">;
 type FileInput = Batch["files"][number];

@@ -135,12 +135,24 @@ async function probeSelfTest() {
   }
 }
 const runs = [];
+const activeChildren = new Set();
+for (const [signal, exitCode] of [
+  ["SIGINT", 130],
+  ["SIGTERM", 143],
+]) {
+  process.on(signal, () => {
+    for (const child of activeChildren) child.kill("SIGTERM");
+    process.exit(exitCode);
+  });
+}
 const run = async (command, { interrupt, allowFailure = false } = {}) => {
   const probe = `data:text/javascript,${encodeURIComponent(probeSource(interrupt))}`;
   const child = spawn(process.execPath, ["--import", probe, cli, ...command, "--json"], {
     env,
     stdio: ["ignore", "pipe", "pipe", "ipc"],
   });
+  activeChildren.add(child);
+  child.once("close", () => activeChildren.delete(child));
   const evidence = { uploads: [], ranges: [], partial_bytes: 0, checkpoint: false };
   child.on("message", (event) => {
     if (event.type === "upload") evidence.uploads.push({ bytes: event.bytes, sha256: event.sha256 });

@@ -1,10 +1,3 @@
-import type {
-  CommitSpec,
-  PathExpectation,
-  UploadDeletion,
-  UploadPrefixDeletion,
-  UploadSessionChunks,
-} from "@agent-paste/contracts";
 import { workspaceBlobObjectKeyFor } from "@agent-paste/storage";
 import { buildFinalizeResult } from "../agent-view.js";
 import { createdByFromActor, operationActorFromApiActor } from "../created-by.js";
@@ -29,41 +22,16 @@ import type {
 } from "../types.js";
 import { contentTypeForPath, normalizeStoragePath, objectKeyFor, validateUpload } from "../validation.js";
 import type { Entities } from "./ports.js";
+import type { CreateUploadSessionRequest, ObservedUploadFile } from "./upload-session-types.js";
 import { finalizeGuardedSession } from "./workflows/guarded-finalize-workflow.js";
 import { createGuardedSession, sessionRecord } from "./workflows/guarded-session-workflow.js";
 import { reconstructPatchedFiles } from "./workflows/upload-patch-workflow.js";
 
-// ADR 0089: a unified-diff descriptor for a single changed file. The uploaded
-// bytes are the diff; jobs reconstructs the whole result blob in Stage 4.
-export type UploadSessionFilePatchInput = {
-  base_sha256: string;
-  format: "unified";
-  result_sha256: string;
-};
-
-export type CreateUploadSessionRequest = {
-  artifact_id?: string;
-  // Base Revision to inherit unchanged files from (ADR 0089 tree inheritance).
-  base_revision_id?: string;
-  title?: string;
-  entrypoint?: string;
-  // Paths present in the base Revision that this publish drops (base-only).
-  deleted_paths?: string[];
-  commit?: CommitSpec;
-  deletions?: UploadDeletion[] | undefined;
-  prefix_deletions?: UploadPrefixDeletion[] | undefined;
-  more_files?: boolean;
-  files: Array<{
-    path: string;
-    size_bytes: number;
-    sha256?: string | undefined;
-    patch?: UploadSessionFilePatchInput | undefined;
-    chunks?: UploadSessionChunks | undefined;
-    expect?: PathExpectation | undefined;
-  }>;
-};
-
-export type ObservedUploadFile = { path: string; objectKey: string; sizeBytes: number };
+export type {
+  CreateUploadSessionRequest,
+  ObservedUploadFile,
+  UploadSessionFilePatchInput,
+} from "./upload-session-types.js";
 
 export async function createUploadSessionInEntities(
   entities: Entities,

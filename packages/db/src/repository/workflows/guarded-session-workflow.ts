@@ -14,7 +14,7 @@ import type { RepositoryCoreContext } from "../core-context.js";
 import { workspaceCommandActor, workspaceScope } from "../core-helpers.js";
 import type { PersistentHostingRepository } from "../persistent-hosting-repository.js";
 import type { Entities } from "../ports.js";
-import type { CreateUploadSessionRequest } from "../upload-session-lifecycle.js";
+import type { CreateUploadSessionRequest } from "../upload-session-types.js";
 import { insertGuardedBatch } from "./guarded-upload-batch.js";
 import { checkStorageGrowth, storageUsageInEntities } from "./storage-usage-workflow.js";
 

@@ -1,5 +1,5 @@
 import { ciphertextByteLengthForPlaintext, workspaceBlobObjectKeyFor } from "@agent-paste/storage";
-import type { ObservedUploadFile } from "./repository/upload-session-lifecycle.js";
+import type { ObservedUploadFile } from "./repository/upload-session-types.js";
 import type { toUploadSessionRecord } from "./transforms.js";
 import { objectKeyFor } from "./validation.js";
 

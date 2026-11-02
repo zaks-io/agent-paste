@@ -33,6 +33,8 @@ const evidence = {
   head: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(),
   checks: [],
 };
+let soakChild;
+for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => soakChild?.kill("SIGTERM"));
 try {
   await waitForHealthz(urls.api, { timeoutMs: 10000, sleepMs: 100 });
   const provisioned = await provisionSmokeWorkspace(urls.api, {
@@ -54,6 +56,7 @@ try {
       ["scripts/transfer-soak.mjs", "--api", urls.api, "--upload", urls.upload, "--output", output],
       { cwd: root, env, stdio: ["ignore", "pipe", "pipe"] },
     );
+    soakChild = child;
     let stderr = "";
     child.stdout.on("data", (chunk) => process.stdout.write(chunk));
     child.stderr.on("data", (chunk) => {

@@ -28,6 +28,8 @@ await run(
     "src/postgres/upload-session-file-count-migration.test.ts",
     "src/repository/persistent-commit.test.ts",
     "src/repository/persistent-lifecycle.test.ts",
+    "src/repository/staging-usage.test.ts",
+    "src/repository/content-blob-gc.test.ts",
     "--maxWorkers=2",
   ],
   { AGENT_PASTE_POSTGRES_TEST_URL: runtimeUrl, AGENT_PASTE_POSTGRES_MIGRATION_TEST_URL: migrationUrl },
