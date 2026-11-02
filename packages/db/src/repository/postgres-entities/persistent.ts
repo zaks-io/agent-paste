@@ -13,6 +13,13 @@ import type { PostgresContext } from "./context.js";
 
 export function postgresPersistent({ sql, drizzle: db }: PostgresContext): PersistentEntities {
   return {
+    async lockLiveContentBlob(ws, sha, size) {
+      const rows = await sql.query(
+        "select sha256 from content_blobs where workspace_id=$1 and sha256=$2 and size_bytes=$3 and gc_state='live' for share",
+        [ws, sha, size],
+      );
+      return rows.rows.length > 0;
+    },
     async lockWorkspace(id) {
       await sql.query("select id from workspaces where id = $1 for update", [id]);
     },

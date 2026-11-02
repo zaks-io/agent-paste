@@ -13,6 +13,7 @@ export type StorageBreakdown = {
   file_entry_bytes: number;
 };
 export type PersistentEntities = {
+  lockLiveContentBlob(workspaceId: string, sha256: string, sizeBytes: number): Promise<boolean>;
   lockWorkspace(id: string): Promise<void>;
   lockArtifact(id: string, workspaceId: string): Promise<void>;
   updateSession(session: UploadSession): Promise<void>;

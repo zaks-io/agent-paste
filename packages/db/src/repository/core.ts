@@ -23,6 +23,7 @@ import { type SubmitFeedbackInput, submitFeedback } from "./workflows/feedback-w
 import * as guardedSessions from "./workflows/guarded-session-workflow.js";
 import * as lockdownWorkflow from "./workflows/lockdown-workflow.js";
 import * as memberArtifactsWorkflow from "./workflows/member-artifacts-workflow.js";
+import { ensureRevisionFileMap } from "./workflows/revision-file-map.js";
 import * as storageWorkflow from "./workflows/storage-usage-workflow.js";
 import * as uploadPublishWorkflow from "./workflows/upload-publish-workflow.js";
 import * as targetWorkflow from "./workflows/upload-targets-workflow.js";
@@ -79,6 +80,10 @@ export class RepositoryCore implements Repository {
     input: Parameters<Repository["setArtifactRetention"]>[0],
   ): ReturnType<Repository["setArtifactRetention"]> {
     return retentionWorkflow.setArtifactRetention(this.ctx, input);
+  }
+
+  async ensureRevisionFileMap(input: Parameters<Repository["ensureRevisionFileMap"]>[0]) {
+    return ensureRevisionFileMap(this.ctx, input);
   }
 
   async listArtifactFiles(

@@ -88,9 +88,12 @@ async function publishBlobArtifact(input: {
 describe("claimEphemeralWorkspace", () => {
   it("reparents ephemeral artifacts into the member workspace and marks the token redeemed", async () => {
     const maps: Parameters<typeof fakeFileMapStore.write>[0][] = [];
+    let unavailable = false;
     const { repo } = createLocalServices({
       fileMapStore: {
+        exists: fakeFileMapStore.exists,
         async write(map) {
+          if (unavailable) throw new Error("map storage unavailable");
           maps.push(map);
           return fakeFileMapStore.write(map);
         },
@@ -156,7 +159,19 @@ describe("claimEphemeralWorkspace", () => {
     expect(claimed.source_workspace_id).toBe(provisioned.workspace.id);
     expect(claimed.destination_workspace_id).toBe(member.workspace.id);
     expect(claimed.artifact_ids).toEqual([session.artifact_id]);
-    expect(maps.map((map) => map.workspace_id)).toEqual([provisioned.workspace.id, member.workspace.id]);
+    expect(maps).toHaveLength(0);
+    unavailable = true;
+    await expect(
+      repo.ensureRevisionFileMap({ workspaceId: member.workspace.id, revisionId: session.revision_id }),
+    ).rejects.toThrow("map storage unavailable");
+    const laterRead = await repo.getRevisionReadTarget({ actor: memberActor, artifactId: session.artifact_id });
+    expect(laterRead?.workspaceId).toBe(member.workspace.id);
+    expect(laterRead?.fileMap).toBeTruthy();
+    unavailable = false;
+    await expect(
+      repo.ensureRevisionFileMap({ workspaceId: member.workspace.id, revisionId: session.revision_id }),
+    ).resolves.toBe("written");
+    expect(maps.map((map) => map.workspace_id)).toEqual([member.workspace.id]);
     const remapped = maps.at(-1);
     if (!remapped) throw new Error("missing remapped file map");
     expect(remapped).toMatchObject({

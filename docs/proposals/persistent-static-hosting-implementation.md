@@ -22,7 +22,7 @@ and new billing tiers.
 | File cap           | 250 MiB = 262,144,000 bytes per file (claimed workspaces).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Revision caps      | 10,000 files and 2 GiB (2,147,483,648 bytes) per Revision for claimed workspaces. Ephemeral workspaces keep 100 files, 10 MiB per file, 25 MiB per Revision and the 100-Revision ceiling.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | File map           | Every Revision published after this change gets one immutable JSON file map, stored as a workspace blob keyed by its own SHA-256 through `writeWorkspaceBlob`. It contains workspace, artifact and Revision IDs, so each Revision has its own map. `revisions.file_map_sha256/size_bytes` reference it. Content tokens carry `file_map: {sha256, size_bytes}` instead of `object_keys`. Revisions published before this change keep their current tokens. No sharding.                                                                                                                                                                                                                                                      |
-| Commit model       | New clients use **guarded commits**. Finalize (upload Worker) marks a session `ready` without creating a Revision row. `revisions.publish` (API) then locks the Artifact row, evaluates guards against the **current head**, merges the delta, writes the file map, inserts a `published` Revision, moves the head and applies pin intent, all in one Postgres transaction. The capability manifest is written after commit, as it is today. Drafts are not used in this flow, so concurrent disjoint sessions don't block each other.                                                                                                                                                                                      |
+| Commit model       | New clients use **guarded commits**. Finalize (upload Worker) marks a session `ready` without creating a Revision row. `revisions.publish` (API) then locks the Artifact row, evaluates guards against the **current head**, merges the delta, registers the file map in SQL, inserts a `published` Revision, moves the head and applies pin intent, all in one Postgres transaction. The map object is materialized and the capability manifest is written after commit. Drafts are not used in this flow, so concurrent disjoint sessions don't block each other.                                                                                                                                                         |
 | Guards             | `paths`: every upserted or deleted path carries an expectation (`{sha256,size_bytes}` or `{absent:true}`), and each prefix deletion carries a prefix snapshot digest. `snapshot`: one prefix snapshot (or whole-tree snapshot) must match head. A new Artifact is a snapshot commit against the empty tree.                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | Legacy flow        | Sessions without `commit` keep the current draft flow. One safety change: legacy publish of a draft whose `parent_revision_id` is not the current head fails with `commit_conflict` (kind `head`) instead of silently dropping the intervening Revision. Full-tree legacy drafts with no parent keep last-writer-wins.                                                                                                                                                                                                                                                                                                                                                                                                      |
 | No-op              | If the merged tree, entrypoint, title and pin state equal head, publish returns the head Revision with `no_change: true` and creates no Revision. The CLI also skips session creation when its plan is empty.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -722,9 +722,10 @@ map bytes` exceeds the budget **and** exceeds current used.
    1,000), and set the bundle status. Bundle status is `disabled` when any file
    is chunked or total plaintext exceeds the parent's bundle input cap;
    otherwise it follows existing policy.
-9. Build and write the file map through the new port `ctx.options.fileMapStore.write(map) →
-{sha256, size_bytes, r2_key}` (implemented in API with `writeWorkspaceBlob`).
-   Upsert its `content_blobs` row, set `revisions.file_map_*`, and update the
+9. Build the deterministic file map with `buildRevisionFileMap`, then register
+   its digest and exact serialized size with SQL-only `registerRevisionFileMap`.
+   Upsert its live `content_blobs` row, rejecting a deleting row, set
+   `revisions.file_map_*`, and update the
    artifact head (`updatePublished`, with `expiresAt` per existing rules).
 10. If `pin_on_commit` is set, call `tryPinUnderCap`. `pinned_artifact_cap_exceeded`
     rolls back the whole commit.
@@ -734,9 +735,22 @@ map bytes` exceeds the budget **and** exceeds current used.
     `file_object_keys` for this Revision), `changes`, `no_change`, and
     retention.
 
-Legacy `publishRevision` (draft path) also builds and writes a file map for
-every newly published Revision, applies the step 7 quota check, and adds the
-head check from §1. The API signer
+After SQL commits, `ensureRevisionFileMap({workspaceId, revisionId})` opens a
+workspace read transaction, loads a live draft/published Revision and active
+Artifact, and locks its live blob registry row `FOR SHARE`. It checks R2 HEAD
+against the expected encrypted size. An absent map is rebuilt from committed
+files and chunk rows, verified against the Revision digest and size, then written
+through `fileMapStore.write`. The lock prevents GC tombstoning until the write
+finishes. No map object is written by a transaction that can roll back map
+registration, quota validation or pin intent.
+
+Legacy `publishRevision` (draft path) and ephemeral claim also build and register
+maps SQL-only. All API map signing and materialization paths ensure them after
+commit, including publish replay, claimed capability refresh, Revision reads and
+read grants. A storage failure returns 503 without refunding a committed
+command's allowance. A retry with the same key replays SQL and recovers the map
+before advancing the capability manifest. Legacy publish applies the step 7 quota
+check and the head check from §1. The API signer
 (`signPublishResult`, `signAgentViewContentUrls`) mints `file_map` tokens when
 the Revision has a map and keeps today's `object_keys`/`object_key` tokens for
 older Revisions.
@@ -1023,8 +1037,12 @@ recordChunkedFileVerified(input: { actor; sessionId; path; now }): Promise<void>
 setArtifactRetention(input: { actor; idempotencyKey; artifactId; pinned: boolean; operation: "artifact.pin" | "artifact.unpin" | "web.artifact.pin" | "web.artifact.unpin"; now: string }): Promise<RetentionView>;
 listArtifactFiles(input: { actor; artifactId; revisionId?: string; prefix?: string; cursor?: string; limit: number }): Promise<ArtifactFileListPage | null>;
 getRevisionReadTarget(input: { actor; artifactId; revisionId?: string }): Promise<{ artifactId; revisionId; workspaceId; fileMap: { sha256; size_bytes } | null; objectKeys: Record<string, string> | null; fileCount; sizeBytes; ephemeralTier: boolean } | null>;
+ensureRevisionFileMap(input: { workspaceId: string; revisionId: string }): Promise<"present" | "written" | "not_live">;
 getStorageUsage(input: { actor; now }): Promise<StorageUsage>;
-// RepositoryOptions gains fileMapStore?: { write(map: RevisionFileMapV1): Promise<{ sha256: string; size_bytes: number; r2_key: string }> }
+// RepositoryOptions gains fileMapStore?: {
+//   exists(input: { workspaceId: string; sha256: string; sizeBytes: number }): Promise<boolean>;
+//   write(map: RevisionFileMapV1): Promise<{ sha256: string; size_bytes: number; r2_key: string }>;
+// }
 ```
 
 ### W1: server write path and lifecycle (GPT-6.1 Sol, xhigh)

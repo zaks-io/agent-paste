@@ -9,7 +9,7 @@ import type { RepositoryCoreContext } from "../core-context.js";
 import type { Entities } from "../ports.js";
 import { insertArtifactAuditEvent, nextArtifactUpdatedAt } from "./artifact-workflow-helpers.js";
 import { assertCommitGuards, mergeCommitFiles } from "./commit-guards.js";
-import { bundleStatusFor, fileChanges, writeRevisionFileMap } from "./revision-file-map.js";
+import { buildRevisionFileMap, bundleStatusFor, fileChanges, registerRevisionFileMap } from "./revision-file-map.js";
 import { checkStorageGrowth, storageUsageInEntities } from "./storage-usage-workflow.js";
 
 type CommitInput = { actor: ApiActor; artifactId: string; revisionId: string; now: string };
@@ -59,7 +59,7 @@ export async function publishGuardedCommit(ctx: RepositoryCoreContext, e: Entiti
     a = artifactForSession(s, i.now);
     await e.artifacts.insert(a);
   }
-  const r = await writePublishedRevision(ctx, e, s, a, merged, number, policy.bundles_enabled, i.now);
+  const r = await writePublishedRevision(e, s, a, merged, number, policy.bundles_enabled, i.now);
   a = await updateArtifactHead(e, ws, a, r, s.title, i.now);
   if (s.pin_on_commit) a = await applyPinIntent(e, i, a, policy.live_artifacts_cap);
   await e.uploadSessions.markFinalized(s.id, i.now);
@@ -113,7 +113,6 @@ function artifactForSession(s: UploadSession, now: string): Artifact {
   };
 }
 async function writePublishedRevision(
-  ctx: RepositoryCoreContext,
   e: Entities,
   s: UploadSession,
   a: Artifact,
@@ -144,14 +143,14 @@ async function writePublishedRevision(
   await e.revisions.insert(r);
   for (let n = 0; n < files.length; n += 1000)
     await e.artifactFiles.insertMany(a.id, r.id, files.slice(n, n + 1000), now);
-  const map = await writeRevisionFileMap(ctx, e, {
+  const map = await buildRevisionFileMap(e, {
     workspaceId: s.workspace_id,
     artifactId: a.id,
     revisionId: r.id,
     entrypoint: r.entrypoint,
     files,
-    now,
   });
+  await registerRevisionFileMap(e, { workspaceId: s.workspace_id, revisionId: r.id, ...map, now });
   return { ...r, file_map_sha256: map.sha256, file_map_size_bytes: map.size_bytes };
 }
 async function updateArtifactHead(

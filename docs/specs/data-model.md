@@ -136,7 +136,11 @@ At most one `draft` row per Artifact (`revisions_one_draft_per_artifact`). Compo
 Every newly published Revision stores `file_map_sha256 TEXT NULL` and
 `file_map_size_bytes BIGINT NULL`. Its immutable workspace blob records the
 sorted full file tree, types and single-object keys or ordered chunk digests.
-Content/read tokens reference the map digest and size. Claiming an ephemeral
+The map's blob row and Revision reference commit together before any map object
+is written externally. The blob row accounts for its exact serialized plaintext
+size even while materialization is pending. Content/read tokens reference the map
+digest and size. API recovers a missing map from committed files under a shared
+lock on its live blob row before signing or reading it. Claiming an ephemeral
 workspace rebuilds mapped Revisions with the destination workspace ID and remapped
 blob keys, preserving the source bytes and historical Revision identities. Older published Revisions
 without maps retain their existing object-key tokens. Claimed workspaces allow

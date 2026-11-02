@@ -14,7 +14,7 @@ export const sha = (n: number) => n.toString(16).padStart(64, "0");
 export const key = () => crypto.randomUUID();
 export async function hostingFixture(
   kind: "local" | "database",
-  options: Pick<RepositoryOptions, "revisionReconstructor"> = {},
+  options: Pick<RepositoryOptions, "revisionReconstructor" | "fileMapStore"> = {},
 ) {
   let repo: Repository;
   let local: LocalRepository | undefined;
@@ -70,7 +70,11 @@ export async function hostingFixture(
       actor,
       idempotencyKey: key(),
       sessionId: session.session_id,
-      observedFiles: [],
+      observedFiles: session.files.map((file) => ({
+        path: file.path,
+        objectKey: file.object_key,
+        sizeBytes: file.size_bytes,
+      })),
       now: now(),
     });
     return { session, ready };

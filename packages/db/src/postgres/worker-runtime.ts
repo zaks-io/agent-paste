@@ -36,7 +36,9 @@ export type CreatePostgresRuntimeOptions<TEnv extends WorkerPostgresEnv> = {
   pickDb: (services: ReturnType<typeof createPostgresServices>) => Repository;
   executorOptions?: PostgresExecutorOptions;
   instrumentQuery?: SqlQueryInstrumentation;
-  resolveServiceUrls?: (env: TEnv) => Pick<RepositoryOptions, "apiBaseUrl" | "contentBaseUrl" | "webBaseUrl">;
+  resolveServiceUrls?: (
+    env: TEnv,
+  ) => Pick<RepositoryOptions, "apiBaseUrl" | "contentBaseUrl" | "webBaseUrl" | "fileMapStore">;
 };
 
 export function createPostgresRuntime<TEnv extends WorkerPostgresEnv>(

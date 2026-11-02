@@ -1,5 +1,6 @@
 import { EMPTY_TREE_SNAPSHOT_SHA256, FilePath, treeSnapshotDigest } from "@agent-paste/contracts";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { fakeFileMapStore } from "../test-helpers/file-map-store.js";
 import { type HostingFixture, hostingFixture, key, sha } from "../test-helpers/persistent-hosting.js";
 import { workspaceExecutor } from "../test-helpers/pglite.js";
 
@@ -9,7 +10,12 @@ for (const adapter of ["local", "database"] as const)
     afterEach(async () => {
       await f?.close();
     });
-    const fixture = async () => (f = await hostingFixture(adapter));
+    const store = { exists: vi.fn(fakeFileMapStore.exists), write: vi.fn(fakeFileMapStore.write) };
+    const fixture = async () => {
+      store.write.mockClear();
+      f = await hostingFixture(adapter, { fileMapStore: store });
+      return f;
+    };
     const files = (artifactId: string) => f.repo.listArtifactFiles({ actor: f.actor, artifactId, limit: 1000 });
     const change = (artifactId: string, path: string, old: number, next: number) =>
       f.stage({
@@ -185,7 +191,10 @@ for (const adapter of ["local", "database"] as const)
         commit: { guard: "paths", pin: true },
         files: [{ path: "docs/a.txt", size_bytes: 4, sha256: sha(99), expect: { sha256: sha(2), size_bytes: 4 } }],
       });
+      const usageBefore = await f.repo.getStorageUsage({ actor: f.actor, now: f.now() });
       await expect(f.publish(staged.session)).rejects.toMatchObject({ kind: "pinned_artifact_cap_exceeded" });
+      expect(store.write).not.toHaveBeenCalled();
+      expect((await f.repo.getStorageUsage({ actor: f.actor, now: f.now() })).used_bytes).toBe(usageBefore.used_bytes);
       expect((await files(base.artifact_id))?.revision_id).toBe(base.revision_id);
       expect((await f.repo.listRevisions({ actor: f.actor, artifactId: base.artifact_id }))?.items).toHaveLength(1);
     }, 60_000);

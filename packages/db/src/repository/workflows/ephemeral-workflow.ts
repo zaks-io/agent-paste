@@ -18,7 +18,7 @@ import {
 } from "../core-helpers.js";
 import type { Entities } from "../ports.js";
 import { buildApiKey } from "../shared.js";
-import { writeRevisionFileMap } from "./revision-file-map.js";
+import { buildRevisionFileMap, registerRevisionFileMap } from "./revision-file-map.js";
 import { checkStorageGrowth, storageUsageInEntities } from "./storage-usage-workflow.js";
 
 /** Default claim-token lifetime for a freshly provisioned ephemeral workspace. */
@@ -270,12 +270,17 @@ export async function claimResolvedEphemeralWorkspaceWithReplayState(
         for (const revision of await entities.revisions.listForArtifact(artifactId)) {
           if (!revision.file_map_sha256) continue;
           const files = await entities.artifactFiles.listForArtifact(artifactId, revision.id);
-          await writeRevisionFileMap(ctx, entities, {
+          const map = await buildRevisionFileMap(entities, {
             workspaceId: destinationWorkspace.id,
             artifactId,
             revisionId: revision.id,
             entrypoint: revision.entrypoint,
             files,
+          });
+          await registerRevisionFileMap(entities, {
+            workspaceId: destinationWorkspace.id,
+            revisionId: revision.id,
+            ...map,
             now,
           });
         }

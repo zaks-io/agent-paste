@@ -35,6 +35,7 @@ function fixture(overrides: Partial<Repository> = {}) {
   const writes = vi.fn();
   let failWrite = false;
   const db = {
+    ensureRevisionFileMap: vi.fn(async () => "present" as const),
     async getWhoami() {
       return {};
     },
@@ -77,7 +78,12 @@ function fixture(overrides: Partial<Repository> = {}) {
           : null;
       },
       async head(key) {
-        return objects.has(key) ? {} : null;
+        const object = objects.get(key);
+        return object
+          ? {
+              size: typeof object.body === "string" ? new TextEncoder().encode(object.body).length : object.body.length,
+            }
+          : null;
       },
       async put(key, value, options) {
         if (failWrite) throw new Error("R2 unavailable");
@@ -469,7 +475,12 @@ describe("persistent hosting API", () => {
         },
       ],
     };
-    const first = await fileMapStore(f.env).write(map);
+    const store = fileMapStore(f.env);
+    const first = await store.write(map);
+    const ref = { workspaceId, sha256: first.sha256, sizeBytes: first.size_bytes };
+    await expect(store.exists(ref)).resolves.toBe(true);
+    await expect(store.exists({ ...ref, sizeBytes: first.size_bytes + 1 })).resolves.toBe(false);
+    await expect(store.exists({ ...ref, sha256: "c".repeat(64) })).resolves.toBe(false);
     const second = await fileMapStore(f.env).write(map);
     expect(second).toEqual(first);
     expect(f.writes).toHaveBeenCalledTimes(1);
@@ -482,5 +493,10 @@ describe("persistent hosting API", () => {
     });
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(first.sha256);
     expect(JSON.parse(new TextDecoder().decode(bytes))).toEqual(map);
+    f.objects.set(first.r2_key, { body: new Uint8Array(1) });
+    await expect(store.exists(ref)).resolves.toBe(false);
+    await store.write(map);
+    await expect(store.exists(ref)).resolves.toBe(true);
+    expect(f.writes).toHaveBeenCalledTimes(2);
   });
 });

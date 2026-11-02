@@ -46,6 +46,7 @@ export async function setArtifactRetention(
         pin_allowance: result.pin_allowance,
       };
     } catch (error) {
+      if (error instanceof RepositoryRouteError) throw error;
       throw new RepositoryRouteError("storage_unavailable", undefined, { cause: error });
     }
   });

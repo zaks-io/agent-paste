@@ -52,6 +52,7 @@ describe("chunked file-content inspection", () => {
       return object ? { ...object, size: object.body.length } : null;
     });
     const db = {
+      ensureRevisionFileMap: vi.fn(async () => "present" as const),
       async getRevisionReadTarget() {
         return {
           artifactId,
@@ -90,6 +91,7 @@ describe("chunked file-content inspection", () => {
       content_type: "text/plain",
       is_binary: kind === "binary",
     });
+    expect(db.ensureRevisionFileMap).toHaveBeenCalledExactlyOnceWith({ workspaceId, revisionId });
     expect(get).toHaveBeenCalledTimes(2);
     expect(db.getAgentView).not.toHaveBeenCalled();
   });

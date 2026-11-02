@@ -2,6 +2,7 @@ import type { ArtifactFileListItem, StorageUsage, UploadSessionTargetsResponse }
 import type { RevisionFileMapV1 } from "@agent-paste/storage";
 
 export type FileMapStore = {
+  exists(input: { workspaceId: string; sha256: string; sizeBytes: number }): Promise<boolean>;
   write(map: RevisionFileMapV1): Promise<{ sha256: string; size_bytes: number; r2_key: string }>;
 };
 export type UploadTarget =

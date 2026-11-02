@@ -10,6 +10,7 @@ import {
   readWorkspaceBlobBytes,
 } from "@agent-paste/storage";
 import type { Env } from "./env.js";
+import { requireFileMap } from "./require-file-map.js";
 import { RepositoryRouteError } from "./responses.js";
 
 export async function inspectMappedFile(input: {
@@ -29,6 +30,7 @@ export async function inspectMappedFile(input: {
   });
   if (!target?.fileMap) return undefined;
   if (target.workspaceId !== actor.workspace_id) return null;
+  await requireFileMap(db, { workspaceId: target.workspaceId, revisionId: target.revisionId });
   const ring = artifactBytesEncryptionRingFromEnv(env);
   if (!ring || !env.ARTIFACTS) throw new RepositoryRouteError("storage_unavailable");
   try {

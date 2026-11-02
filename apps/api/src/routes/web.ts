@@ -7,6 +7,7 @@ import { signAgentViewContentUrls } from "../agent-view.js";
 import type { AppContext, PaginationInput } from "../env.js";
 import { parsePagination } from "../pagination.js";
 import { webMemberActor } from "../principals.js";
+import { requireViewFileMap } from "../require-file-map.js";
 import { executeRepositoryRoute, RepositoryRouteError, runIdempotent } from "../responses.js";
 import type { GuardFor, RouteParams } from "../route-contracts.js";
 import { CLI_API_KEY_TTL_SECONDS } from "./account.js";
@@ -106,12 +107,13 @@ export async function webArtifactDetail(
     if (!detail) {
       return respondError("not_found");
     }
-    return respondJson(await signedWebArtifactDetail(context, actor, detail));
+    return respondJson(await signedWebArtifactDetail(context, db, actor, detail));
   });
 }
 
 async function signedWebArtifactDetail(
   context: AppContext,
+  db: Repository,
   actor: ApiActor,
   detail: Awaited<ReturnType<Repository["getWebArtifact"]>>,
 ) {
@@ -122,6 +124,7 @@ async function signedWebArtifactDetail(
   if (!capabilityView) {
     return { ...publicDetail, url: null };
   }
+  await requireViewFileMap(db, capabilityView, actor.workspace_id);
   const signed = (await signAgentViewContentUrls(capabilityView, context.env, {
     workspaceId: actor.workspace_id,
     refreshCapabilityManifest: true,
@@ -150,8 +153,9 @@ export async function webPinArtifact(
     return runIdempotent(context, async () => {
       const detail = await pinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" });
       try {
-        return await signedWebArtifactDetail(context, actor, detail);
+        return await signedWebArtifactDetail(context, db, actor, detail);
       } catch (error) {
+        if (error instanceof RepositoryRouteError) throw error;
         throw new RepositoryRouteError("storage_unavailable", undefined, { cause: error });
       }
     });
@@ -174,8 +178,9 @@ export async function webUnpinArtifact(
     return runIdempotent(context, async () => {
       const detail = await unpinWebArtifact({ actor, idempotencyKey, artifactId: params.artifactId ?? "" });
       try {
-        return await signedWebArtifactDetail(context, actor, detail);
+        return await signedWebArtifactDetail(context, db, actor, detail);
       } catch (error) {
+        if (error instanceof RepositoryRouteError) throw error;
         throw new RepositoryRouteError("storage_unavailable", undefined, { cause: error });
       }
     });

@@ -2,6 +2,8 @@ import type { ApiActor, Repository } from "@agent-paste/db";
 import { captureWorkerError } from "@agent-paste/worker-runtime/logging";
 import { signAgentViewContentUrls } from "./agent-view.js";
 import type { Env } from "./env.js";
+import { requireViewFileMap } from "./require-file-map.js";
+import { RepositoryRouteError } from "./responses.js";
 
 export class ClaimedArtifactCapabilityRefreshError extends AggregateError {
   constructor(errors: unknown[]) {
@@ -27,6 +29,7 @@ export async function refreshClaimedArtifactCapabilities(
         if (options?.requirePublishedView) throw new Error("Artifact capability view is unavailable.");
         return;
       }
+      await requireViewFileMap(db, detail.capability_view, actor.workspace_id);
       await signAgentViewContentUrls(detail.capability_view, env, {
         workspaceId: actor.workspace_id,
         refreshCapabilityManifest: true,
@@ -51,6 +54,10 @@ export async function refreshClaimedArtifactCapabilities(
   }
   const failures = results.filter((result) => result.status === "rejected");
   if (failures.length > 0) {
+    if (
+      failures.every((failure) => failure.reason instanceof RepositoryRouteError && failure.reason.code === "not_found")
+    )
+      throw new RepositoryRouteError("not_found");
     throw new ClaimedArtifactCapabilityRefreshError(failures.map((failure) => failure.reason));
   }
 }

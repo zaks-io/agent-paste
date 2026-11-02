@@ -121,7 +121,18 @@ reading and decrypting a file. Authorization failures return the generic
 ## File maps, streams and ranges
 
 Newly published Revisions have one immutable JSON file map encrypted through the
-existing workspace AES-256-GCM blob path. A signed content token carries only
+existing workspace AES-256-GCM blob path. Publish and claim build its deterministic
+bytes and register its digest, size and live `content_blobs` row in SQL, including
+the full map size in storage usage. These transactions never write map objects.
+After commit, API ensures the map exists before signing a token, refreshing a
+capability manifest or reading a mapped file. Missing maps rebuild from committed
+file rows and chunk digests; the digest and size must match the Revision before
+any R2 write. A shared lock on the live blob row prevents GC tombstoning during
+materialization. A missing or deleting registry row fails with
+`storage_unavailable` (503). A post-commit storage failure preserves the command
+and its write allowance; retrying the same idempotency key materializes the map
+before updating the capability manifest. The previous manifest remains unchanged
+until map materialization succeeds. A signed content token carries only
 `file_map: { sha256, size_bytes }` and the Workspace, Artifact and Revision
 identity. Content reads at most the declared map length, verifies its plaintext
 SHA-256, and strictly parses it against those identities before authorizing any

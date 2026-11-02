@@ -45,7 +45,9 @@ export class LocalUnitOfWork implements UnitOfWork {
   }
 
   async read<T>(scope: RunScope, run: (entities: ReturnType<typeof localEntities>) => Promise<T>): Promise<T> {
-    return run(this.scopedEntities(scope));
+    // Scoped reads can hold a blob share lock across an external map write.
+    // Serialize them with commands so local GC cannot invalidate that lock.
+    return this.runSerializedCommand(() => run(this.scopedEntities(scope)));
   }
 
   async command<T>(

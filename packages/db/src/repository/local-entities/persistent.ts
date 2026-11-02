@@ -4,6 +4,10 @@ import type { PersistentEntities } from "../persistent-ports.js";
 
 export function localPersistent(s: LocalState): PersistentEntities {
   return {
+    async lockLiveContentBlob(ws, sha, size) {
+      const blob = s.contentBlobs.get(`${ws}:${sha}:${size}`);
+      return !!blob && blob.gc_state !== "deleting";
+    },
     async lockWorkspace() {},
     async lockArtifact() {},
     async updateSession(row) {

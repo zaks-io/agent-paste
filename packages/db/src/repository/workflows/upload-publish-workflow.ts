@@ -18,7 +18,7 @@ import {
 } from "../upload-session-lifecycle.js";
 import { nextArtifactUpdatedAt } from "./artifact-workflow-helpers.js";
 import { publishGuardedCommit } from "./commit-workflow.js";
-import { bundleStatusFor, fileChanges, writeRevisionFileMap } from "./revision-file-map.js";
+import { buildRevisionFileMap, bundleStatusFor, fileChanges, registerRevisionFileMap } from "./revision-file-map.js";
 import { checkStorageGrowth, storageUsageInEntities } from "./storage-usage-workflow.js";
 
 export async function createUploadSession(
@@ -431,12 +431,17 @@ export async function publishRevision(
       const oldFiles = artifact.revision_id
         ? await entities.artifactFiles.listForArtifact(artifact.id, artifact.revision_id)
         : [];
-      const fileMap = await writeRevisionFileMap(ctx, entities, {
+      const fileMap = await buildRevisionFileMap(entities, {
         workspaceId: artifact.workspace_id,
         artifactId: artifact.id,
         revisionId: revision.id,
         entrypoint: revision.entrypoint,
         files: revisionFiles,
+      });
+      await registerRevisionFileMap(entities, {
+        workspaceId: artifact.workspace_id,
+        revisionId: revision.id,
+        ...fileMap,
         now: input.now,
       });
       revision.file_map_sha256 = fileMap.sha256;

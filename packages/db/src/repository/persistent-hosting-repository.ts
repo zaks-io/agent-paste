@@ -12,6 +12,10 @@ import type {
 } from "./persistent-hosting-types.js";
 
 export type PersistentHostingRepository = {
+  ensureRevisionFileMap(input: {
+    workspaceId: string;
+    revisionId: string;
+  }): Promise<"present" | "written" | "not_live">;
   appendUploadFiles(input: {
     actor: ApiActor;
     idempotencyKey: string;

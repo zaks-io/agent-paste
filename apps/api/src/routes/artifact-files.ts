@@ -8,6 +8,7 @@ import { resolveArtifactReference } from "../artifact-reference.js";
 import type { AppContext } from "../env.js";
 import { parsePagination } from "../pagination.js";
 import { workspaceApiActor } from "../principals.js";
+import { requireFileMap } from "../require-file-map.js";
 import { executeRepositoryRoute, RepositoryRouteError } from "../responses.js";
 import { contentBaseUrl } from "../runtime.js";
 
@@ -52,6 +53,7 @@ export async function revisionReadGrant(context: AppContext, principal: Principa
     const target = await db.getRevisionReadTarget({ actor, artifactId, ...(revisionId ? { revisionId } : {}) });
     if (!target) throw new RepositoryRouteError("artifact_not_found");
     if (target.workspaceId !== actor.workspace_id) throw new RepositoryRouteError("artifact_not_found");
+    if (target.fileMap) await requireFileMap(db, { workspaceId: target.workspaceId, revisionId: target.revisionId });
     const signer = resolveContentTokenSigner(context.env);
     if (!signer || (!target.fileMap && !target.objectKeys)) throw new RepositoryRouteError("storage_unavailable");
     const exp = Math.floor(Date.now() / 1000) + READ_GRANT_TTL_SECONDS;

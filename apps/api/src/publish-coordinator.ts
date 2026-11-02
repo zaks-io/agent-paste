@@ -4,6 +4,7 @@ import { writeArtifactEvent, writeFunnelEvent } from "@agent-paste/worker-runtim
 import { signPublishResult } from "./agent-view.js";
 import type { Env } from "./env.js";
 import { enqueuePostPublishJobs } from "./post-publish.js";
+import { requireViewFileMap } from "./require-file-map.js";
 import { RepositoryRouteError } from "./responses.js";
 import { enforceNewArtifactWriteAllowance, releaseNewArtifactWriteAllowance } from "./write-allowance.js";
 
@@ -153,6 +154,7 @@ async function signResult(
   result: PublishResult,
   ephemeralTier: boolean,
 ): Promise<unknown> {
+  await requireViewFileMap(deps.db, result, input.actor.workspace_id);
   try {
     return await signPublishResult(result, deps.env, {
       workspaceId: input.actor.workspace_id,
