@@ -102,7 +102,8 @@ Limits and sync:
   Ephemeral: 10 MiB per file, 100 files / 25 MiB per Revision.
   Full publish with --artifact-id mirrors the tree and removes remote-only paths.
   --to preserves omitted paths; --mirror scopes deletions to its prefix.
-  Rerun interrupted commands to resume. Conflicts require re-reading the head.
+  Rerun interrupted commands to resume the original guards and metadata.
+  Use --restart after inspecting the head to intentionally discard a saved plan.
   Unchanged publishes create no Revision. Use pin/unpin/list/usage to manage hosting.
 
 Path behavior:
@@ -120,6 +121,7 @@ Flags:
   --exclude     Exclude a local relative path glob. Repeatable. Mirrors delete excluded paths.
   --pin         Pin with publish. No scheduled expiry, subject to deletion and policy.
   --dry-run     Show changes, guards, byte maximum, limits and usage without uploading.
+  --restart     Discard this invocation's saved plan and read fresh head guards.
   --artifact-id Revise an existing Artifact. Accepts the ID or the full URL.
   --title       Set the Artifact title.
   --entrypoint  Entrypoint file within <path>.

@@ -299,10 +299,15 @@ never API keys, file bodies or signed URLs. Rerun the same command with the same
 local bytes to resume. Target listing skips uploaded chunks and renews signed
 URLs. Network and server failures use up to five attempts with backoff;
 rate limits honor `Retry-After`. Other 4xx failures, including quota failures
-without `Retry-After`, are not retried. Expired sessions require a fresh
-transfer. Remove that transfer's local state file to explicitly discard its
-saved plan. In-progress transfers retain their original guards across a head
-change.
+without `Retry-After`, are not retried. The state lookup uses the invocation's
+server, Workspace, actor, source path, target and explicit selection flags.
+Source hashes and resolved remote metadata do not change that identity. Resume
+validates the entire original local selection and retains its saved title,
+entrypoint and guards across a head change. Changed local bytes fail with
+`local_file_changed`; conflicts leave the saved plan intact. After inspecting
+the current head, rerun with `--restart` to intentionally discard that plan and
+start against fresh guards. Expired sessions also require `--restart`.
+`--restart` cannot be combined with `--dry-run`.
 
 ## Retention and management
 
@@ -330,10 +335,20 @@ A pull uses one bounded Revision read grant and paginated listings for that
 exact Revision, followed by content requests. Concurrent publication never
 mixes revisions. Expired grants are renewed for the original Revision. Writes
 use root-bounded `openWritable` handles and reject traversal, symlinks and
-hardlinks. Bodies stream into `<target>.agent-paste-partial` with a metadata
-sidecar. Reruns resume using `Range` and strong `If-Range`; a 200 response
-restarts the partial. Size and SHA-256 must match before atomic rename. Corrupt
-partials are removed. Legacy files without a known full-file digest fail
+hardlinks. Bodies stream into an exclusively owned private directory below
+the CLI configuration directory's `pulls/` folder. Ownership metadata includes
+the destination and partial file identity. Transfer state never uses remote
+filenames in the output tree; names ending in `.agent-paste-partial` or
+`.agent-paste-partial.json` are ordinary user files. Output directories cannot
+contain the CLI configuration directory.
+
+Reruns resume using `Range` and strong `If-Range`; a 200 response restarts the
+owned partial. Size and SHA-256 must match before installation. Without
+`--overwrite`, fs-safe creates the destination exclusively and copies through
+the pinned handle, so a file created concurrently is preserved. With
+`--overwrite`, installation uses fs-safe's atomic replacement. Interrupted
+local installation can leave a differing destination, which requires explicit
+`--overwrite` on rerun. Corrupt owned partials are removed. Legacy files without a known full-file digest fail
 verification explicitly. Six files transfer concurrently.
 
 Without `--output`, the existing single-file text/JSON `pull` behavior remains.

@@ -101,7 +101,8 @@ A publish with `--artifact-id` mirrors the whole selected tree. `--to` preserves
 omitted remote paths; `--mirror` deletes remote-only paths inside its prefix.
 Use `--dry-run` before a mirror and repeat `--exclude <glob>` to filter local
 files. Unchanged uploads create no Revision. Transfers resume when rerun with
-the same inputs. `pull --output` downloads files or prefixes with hash checking
+the same inputs and original guards. Changed inputs require an intentional
+`--restart` after inspecting the current head. `pull --output` downloads files or prefixes with hash checking
 and range resume; differing local files require `--overwrite`. Large Revisions
 use file-wise pull when ZIP bundles are unavailable. Explicit `edit` keeps its
 text-patch workflow.

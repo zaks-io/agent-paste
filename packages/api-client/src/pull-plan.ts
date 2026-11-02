@@ -47,18 +47,13 @@ export async function pullPlan(t: PullTransport, store: PullStore, input: PullIn
   const selected = listing.files.filter(
     (f) => !selections.length || selections.some((p) => f.path === p || isUnderPrefix(f.path, p)),
   );
-  // A remote file cannot also be an ancestor of another selected file or collide
-  // with a transfer sidecar. Reject before any local writes.
+  // A remote file cannot also be an ancestor of another selected file.
   const names = new Set<string>(selected.map((f) => f.path));
-  const sidecars = new Set(
-    selected.flatMap((f) => [`${f.path}.agent-paste-partial`, `${f.path}.agent-paste-partial.json`]),
-  );
   for (const file of selected) {
     const parts = file.path.split("/");
     for (let n = 1; n <= parts.length; n++) {
       const ancestor = parts.slice(0, n).join("/");
       if (n < parts.length && names.has(ancestor)) throw new Error("remote_path_collision");
-      if (sidecars.has(ancestor)) throw new Error("remote_partial_path_collision");
     }
   }
   const files: ArtifactFileListItem[] = [];

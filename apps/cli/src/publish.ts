@@ -1,4 +1,3 @@
-import path from "node:path";
 import {
   AgentPasteError,
   type ApiClient,
@@ -14,14 +13,15 @@ import { prepareGuardedPublish } from "./publish-input.js";
 import type { PreparedPublish } from "./publish-preflight.js";
 import { apiClientTransport } from "./publish-transport.js";
 import { createProgress, type OutputMode } from "./render.js";
-import { publishState, restorePlan, type SavedPublish, serializePlan } from "./transfer-state.js";
+import { publishStateFor, restorePlan, type SavedPublish, serializePlan } from "./transfer-state.js";
 import { commandInvocation, detectChannel } from "./update-check.js";
 
 export async function publish(parsed: Parsed, client: ApiClient): Promise<void> {
-  const { inputPath, input, policy, base } = await prepareGuardedPublish(parsed, client);
-  const { sources, title, entrypoint, artifactId, mode, pin, deletePaths: deletions } = input;
+  const { input, policy, base } = await prepareGuardedPublish(parsed, client);
+  const { sources, mode } = input;
   const transport = apiClientTransport(client);
   const dryRun = booleanFlag(parsed, "dry-run", false);
+  if (dryRun && booleanFlag(parsed, "restart", false)) throw invalid("--restart cannot be combined with --dry-run");
   const fresh = await planPublish(transport, input);
   if (dryRun)
     return output(
@@ -36,22 +36,14 @@ export async function publish(parsed: Parsed, client: ApiClient): Promise<void> 
       },
       parsed.global,
     );
-  const who = await client.whoami();
-  const state = await publishState({
-    server: client.apiBaseUrl,
-    actor: who.actor.id,
-    workspace: who.workspace.id,
-    inputPath: inputPath ? path.resolve(inputPath) : null,
-    artifactId,
-    title,
-    entrypoint,
-    mode,
-    pin,
-    deletions,
-    files: sources.map(({ readRange: _readRange, ...source }) => source),
-  });
+  const state = await publishStateFor(parsed, client, input);
+  if (booleanFlag(parsed, "restart", false)) await state.remove();
   const loaded = await state.load();
-  let plan = loaded ? restorePlan(loaded.plan, sources) : fresh;
+  let plan = loaded ? restorePlan(loaded, sources) : fresh;
+  if (loaded) {
+    input.title = loaded.title;
+    input.entrypoint = loaded.entrypoint;
+  }
   if (!loaded && fresh.noChange && base) {
     const current =
       base.revision_id === fresh.headRevisionId
@@ -63,7 +55,14 @@ export async function publish(parsed: Parsed, client: ApiClient): Promise<void> 
       `${current.url}\nNo changes.`,
     );
   }
-  let saved: SavedPublish = loaded ?? { key: input.idempotencyKey, plan: serializePlan(plan) };
+  const newSaved = (key: string): SavedPublish => ({
+    key,
+    title: input.title,
+    entrypoint: input.entrypoint,
+    sources: sources.map(({ readRange: _readRange, ...source }) => source),
+    plan: serializePlan(plan),
+  });
+  let saved: SavedPublish = loaded ?? newSaved(input.idempotencyKey);
   await state.save(saved);
   const progress = createProgress(outputModeFor(parsed.global));
   const run = async () =>
@@ -83,7 +82,6 @@ export async function publish(parsed: Parsed, client: ApiClient): Promise<void> 
     outcome = await run();
   } catch (error) {
     if (!isLegacyInheritance(error) || mode.kind !== "tree") {
-      if (error instanceof AgentPasteError && error.code === "commit_conflict") await state.remove();
       if (isLegacyInheritance(error))
         throw invalid(
           "Selected paths cannot inherit this legacy Revision. Run an explicit full-tree mirror from a complete local tree.",
@@ -92,8 +90,8 @@ export async function publish(parsed: Parsed, client: ApiClient): Promise<void> 
     }
     // A whole-tree invocation already authorizes this exact scope. Re-send local
     // unchanged entries so no legacy revision-scoped row needs to be inherited.
-    plan = { ...fresh, upserts: sources, bytesToSendMax: sources.reduce((n, f) => n + f.sizeBytes, 0) };
-    saved = { key: createIdempotencyKey("cli_mirror"), plan: serializePlan(plan) };
+    plan = { ...plan, upserts: sources, bytesToSendMax: sources.reduce((n, f) => n + f.sizeBytes, 0) };
+    saved = newSaved(createIdempotencyKey("cli_mirror"));
     await state.save(saved);
     outcome = await run();
   } finally {

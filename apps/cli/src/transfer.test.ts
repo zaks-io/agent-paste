@@ -45,9 +45,12 @@ function fakeEndpoint() {
   let pending: { path: string; size_bytes: number; sha256: string }[] = [];
   let fail = false;
   let puts = 0;
+  let title = "Site";
+  const staged = new Map<string, Uint8Array>();
   const result = { artifact_id: aid, revision_id: rid, title: "Site", url: "https://site.test/", expires_at: date };
   const view = () => ({
     ...result,
+    title,
     created_at: date,
     entrypoint: "index.html",
     retention: "temporary",
@@ -111,6 +114,20 @@ function fakeEndpoint() {
           scopes: ["read", "publish"],
           usage_policy: mvpUsagePolicy,
         });
+      if (u.pathname.endsWith("/read-grant"))
+        return Response.json({
+          artifact_id: aid,
+          revision_id: rid,
+          content_base_url: "https://content.test/v/grant/",
+          expires_at: date,
+          file_count: remote.size,
+          size_bytes: [...remote.values()].reduce((n, bytes) => n + bytes.length, 0),
+        });
+      if (u.hostname === "content.test") {
+        const file = decodeURIComponent(u.pathname.slice("/v/grant/".length));
+        const bytes = remote.get(file)!;
+        return new Response(Uint8Array.from(bytes), { headers: { etag: `"${hash(bytes)}"` } });
+      }
       if (u.pathname.endsWith("/agent-view")) return Response.json(view());
       if (u.pathname.endsWith("/files"))
         return Response.json({
@@ -119,7 +136,7 @@ function fakeEndpoint() {
           file_count: remote.size,
           size_bytes: [...remote.values()].reduce((n, b) => n + b.length, 0),
           entrypoint: "index.html",
-          title: "Site",
+          title,
           items: [...remote].map(([path, b]) => ({
             path,
             sha256: hash(b),
@@ -158,7 +175,7 @@ function fakeEndpoint() {
       if (u.pathname.startsWith("/put/")) {
         if (fail) throw new Error("simulated process interruption");
         const path = decodeURIComponent(u.pathname.slice(5));
-        remote.set(path, new Uint8Array(init?.body as Uint8Array));
+        staged.set(path, new Uint8Array(init?.body as Uint8Array));
         pending = pending.filter((f) => f.path !== path);
         puts++;
         return new Response(null, { status: 204 });
@@ -173,6 +190,26 @@ function fakeEndpoint() {
           deletion_count: 0,
         });
       if (u.pathname.endsWith("/publish")) {
+        const files = session?.files as { path: string; expect?: { sha256?: string; absent?: boolean } }[];
+        if (
+          session?.commit &&
+          files.some(
+            (file) =>
+              file.expect &&
+              (file.expect.absent ? remote.has(file.path) : hash(remote.get(file.path) ?? "") !== file.expect.sha256),
+          )
+        )
+          return Response.json(
+            {
+              error: {
+                code: "commit_conflict",
+                message: "changed",
+                details: { kind: "paths", conflicts: [{ path: "index.html" }] },
+              },
+            },
+            { status: 409 },
+          );
+        for (const [path, bytes] of staged) remote.set(path, bytes);
         for (const d of (session?.deletions ?? []) as { path: string }[]) remote.delete(d.path);
         return Response.json({
           ...result,
@@ -192,6 +229,9 @@ function fakeEndpoint() {
     remote,
     events,
     getSession: () => session,
+    rename: (value: string) => {
+      title = value;
+    },
     getPuts: () => puts,
     interrupt: (value: boolean) => {
       fail = value;
@@ -217,6 +257,61 @@ describe("CLI transfers through the HTTP client", () => {
     });
     expect(fixture.remote.get("keep.bin")).toEqual(new Uint8Array([1, 2, 3]));
     expect(fixture.getPuts()).toBe(1);
+  });
+  it("rejects changed local bytes after interruption until explicit restart", async () => {
+    const fixture = fakeEndpoint();
+    const filename = path.join(directory, "changed.html");
+    const args = ["publish", filename, "--artifact-id", aid, "--to", "index.html", "--json"];
+    await fs.writeFile(filename, "first content");
+    fixture.interrupt(true);
+    await expect(main(args, fixture.client)).rejects.toThrow("simulated");
+    const posts = fixture.events.filter((event) => event.startsWith("POST")).length;
+    fixture.interrupt(false);
+    await fs.writeFile(filename, "changed content");
+    await expect(main(args, fixture.client)).rejects.toMatchObject({ code: "local_file_changed" });
+    expect(fixture.events.filter((event) => event.startsWith("POST"))).toHaveLength(posts);
+    expect(new TextDecoder().decode(fixture.remote.get("index.html"))).toBe("old");
+    await main([...args, "--restart"], fixture.client);
+    expect(new TextDecoder().decode(fixture.remote.get("index.html"))).toBe("changed content");
+  });
+  it("keeps saved metadata and guards after a concurrent rename and target edit", async () => {
+    const fixture = fakeEndpoint();
+    const filename = path.join(directory, "changed.html");
+    const args = ["publish", filename, "--artifact-id", aid, "--to", "index.html", "--json"];
+    await fs.writeFile(filename, "first content");
+    fixture.interrupt(true);
+    await expect(main(args, fixture.client)).rejects.toThrow("simulated");
+    const original = fixture.getSession();
+    fixture.rename("Renamed remotely");
+    fixture.remote.set("index.html", new TextEncoder().encode("concurrent edit"));
+    fixture.interrupt(false);
+    await expect(main(args, fixture.client)).rejects.toMatchObject({ code: "commit_conflict" });
+    expect(fixture.getSession()).toEqual(original);
+    expect(fixture.getSession()).toMatchObject({
+      title: "Site",
+      entrypoint: "index.html",
+      files: [{ expect: { sha256: hash("old") } }],
+    });
+    expect(new TextDecoder().decode(fixture.remote.get("index.html"))).toBe("concurrent edit");
+    // Repeating the command still requires an intentional restart after conflict.
+    await expect(main(args, fixture.client)).rejects.toMatchObject({ code: "commit_conflict" });
+  });
+  it("pulls through the HTTP client without touching existing suffix files", async () => {
+    const f = fakeEndpoint();
+    f.remote.set("report.txt", new TextEncoder().encode("report"));
+    f.remote.set("legitimate.agent-paste-partial", new TextEncoder().encode("ordinary remote file"));
+    const output = path.join(directory, "pull");
+    await fs.mkdir(output);
+    await fs.writeFile(path.join(output, "report.txt.agent-paste-partial"), "user partial suffix");
+    await fs.writeFile(path.join(output, "report.txt.agent-paste-partial.json"), "user metadata suffix");
+    await main(["pull", aid, "--output", output, "--json"], f.client);
+    expect(await fs.readFile(path.join(output, "report.txt"), "utf8")).toBe("report");
+    expect(await fs.readFile(path.join(output, "report.txt.agent-paste-partial"), "utf8")).toBe("user partial suffix");
+    expect(await fs.readFile(path.join(output, "report.txt.agent-paste-partial.json"), "utf8")).toBe(
+      "user metadata suffix",
+    );
+    expect(await fs.readFile(path.join(output, "legitimate.agent-paste-partial"), "utf8")).toBe("ordinary remote file");
+    expect(f.events.filter((event) => event.includes("/read-grant"))).toHaveLength(1);
   });
   it("dry-run and no-op create no upload session", async () => {
     const f = fakeEndpoint();
@@ -276,7 +371,10 @@ describe("bounded local disk transfer", () => {
     await fs.writeFile(path.join(output, "keep"), "keep");
     await fs.symlink(directory, path.join(output, "escape"));
     const store = diskPullStore(await safeRoot(output, { symlinks: "reject", hardlinks: "reject" }));
-    await expect(store.begin("escape/stolen", { etag: '"x"', revisionId: "r", sha256: "a" }, false)).rejects.toThrow();
+    const writer = await store.begin("escape/stolen", { etag: '"x"', revisionId: "r", sha256: "a" }, false);
+    await writer.write(new Uint8Array([1]));
+    await writer.close();
+    await expect(store.commit("escape/stolen", false)).rejects.toThrow();
     expect(await fs.readFile(path.join(output, "keep"), "utf8")).toBe("keep");
   });
 });

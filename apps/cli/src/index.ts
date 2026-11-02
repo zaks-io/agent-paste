@@ -138,6 +138,7 @@ const COMMAND_FLAG_NAMES: Record<string, readonly string[]> = {
     "delete",
     "pin",
     "dry-run",
+    "restart",
     "exclude",
   ],
   pull: ["revision-id", "output", "overwrite", "dry-run"],
@@ -258,7 +259,7 @@ export type EphemeralPublishDeps = {
 };
 
 export async function publishEphemeral(parsed: Parsed, deps: EphemeralPublishDeps = {}) {
-  for (const flag of ["to", "mirror", "delete", "pin", "dry-run", "exclude"]) {
+  for (const flag of ["to", "mirror", "delete", "pin", "dry-run", "restart", "exclude"]) {
     if (parsed.flags.has(flag))
       throw new AgentPasteError({
         code: "invalid_request",
@@ -347,7 +348,7 @@ async function pull(parsed: Parsed, client: ApiClient) {
     : await client.artifacts.getAgentView(artifactReference);
   const artifactId = view.artifact_id;
   const remoteFile = view.files.find((candidate) => candidate.path === filePath);
-  if (!remoteFile) {
+  if (!remoteFile && !view.files_truncated) {
     throw new AgentPasteError({
       code: "not_found",
       message: `${filePath} is not present in Revision ${view.revision_id}`,
@@ -357,6 +358,10 @@ async function pull(parsed: Parsed, client: ApiClient) {
   const file = await client.artifacts.readFile(artifactId, filePath, view.revision_id);
 
   if (parsed.global.json) {
+    const grant = !remoteFile ? await client.artifacts.readGrant(artifactId, view.revision_id) : undefined;
+    if (grant && (grant.revision_id !== view.revision_id || grant.artifact_id !== artifactId))
+      throw new Error("revision_changed_in_read_grant");
+    const url = remoteFile?.url ?? `${grant!.content_base_url}${filePath.split("/").map(encodeURIComponent).join("/")}`;
     return output(
       {
         path: file.path,
@@ -364,7 +369,7 @@ async function pull(parsed: Parsed, client: ApiClient) {
         size_bytes: file.size_bytes,
         content_type: file.content_type,
         is_binary: file.is_binary,
-        url: remoteFile.url,
+        url,
         ...(file.body !== undefined ? { body: file.body } : {}),
       },
       parsed.global,

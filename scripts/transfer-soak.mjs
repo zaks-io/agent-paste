@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { mkdir, mkdtemp, open, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, open, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,8 +17,12 @@ const flag = (name, fallback) => {
 };
 if (args.includes("--help")) {
   console.log(
-    "node scripts/transfer-soak.mjs --api <local-or-preview-url> --upload <url> [--output <directory>] [--updates 150] [--interrupt-ms 1500] [--concurrent 3]",
+    "node scripts/transfer-soak.mjs --api <local-or-preview-url> --upload <url> [--output <directory>] [--updates 150] [--checkpoint-timeout-ms 60000] [--concurrent 3]",
   );
+  process.exit(0);
+}
+if (args.includes("--probe-self-test")) {
+  await probeSelfTest();
   process.exit(0);
 }
 const apiUrl = flag("api");
@@ -41,9 +45,112 @@ const env = {
   AGENT_PASTE_UPLOAD_URL: uploadUrl,
   XDG_CONFIG_HOME: path.join(output, "config"),
 };
+// This preload observes only the owned child. IPC contains byte counts and
+// plaintext digests, never request URLs, headers, bodies or credentials.
+function probeSource(interrupt) {
+  return `
+    import { promises as fs } from "node:fs";
+    import { createHash } from "node:crypto";
+    const interrupt = ${JSON.stringify(interrupt)};
+    const send = (event) => process.send?.(event);
+    const pause = async (kind) => {
+      if (interrupt !== kind) return;
+      send({ type: "checkpoint", kind });
+      await new Promise(() => { setInterval(() => {}, 1000); });
+    };
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url, init) => {
+      const response = await originalFetch(url, init);
+      if (init?.method === "PUT" && response.ok && init.body instanceof Uint8Array) {
+        send({ type: "upload", bytes: init.body.byteLength, sha256: createHash("sha256").update(init.body).digest("hex") });
+        await pause("upload");
+      }
+      const range = new Headers(init?.headers).get("Range");
+      if (range) send({ type: "range", start: Number(range.match(/^bytes=(\\d+)-$/)?.[1]), status: response.status });
+      return response;
+    };
+    const originalOpen = fs.open.bind(fs);
+    fs.open = async (filename, ...args) => {
+      const handle = await originalOpen(filename, ...args);
+      if (String(filename).endsWith(".data")) {
+        const originalWrite = handle.write.bind(handle);
+        let bytes = 0;
+        handle.write = async (...args) => {
+          const result = await originalWrite(...args);
+          bytes += result.bytesWritten;
+          send({ type: "partial", bytes });
+          if (bytes >= 1024 * 1024) await pause("download");
+          return result;
+        };
+      }
+      return handle;
+    };
+  `;
+}
+async function probeSelfTest() {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "transfer-probe-"));
+  const moduleUrl = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
+  try {
+    for (const kind of ["upload", "download", undefined]) {
+      const messages = [];
+      const code =
+        kind === "download"
+          ? `import { promises as fs } from "node:fs"; const handle = await fs.open(${JSON.stringify(path.join(directory, "owned.data"))}, "w"); await handle.write(new Uint8Array(1048576)); await handle.close();`
+          : `await fetch("https://probe.invalid/", { method: "PUT", body: new Uint8Array([1, 2, 3]) }); await fetch("https://probe.invalid/", { headers: { Range: "bytes=123-" } });`;
+      const fake = `globalThis.fetch = async (_url, init) => new Response(null, { status: new Headers(init?.headers).has("Range") ? 206 : 200 });`;
+      const child = spawn(
+        process.execPath,
+        ["--import", moduleUrl(fake), "--import", moduleUrl(probeSource(kind)), "--input-type=module", "-e", code],
+        { stdio: ["ignore", "ignore", "inherit", "ipc"] },
+      );
+      child.on("message", (event) => {
+        messages.push(event);
+        if (event.type === "checkpoint") child.kill("SIGKILL");
+      });
+      const timeout = setTimeout(() => child.kill("SIGKILL"), 10000);
+      const result = await new Promise((resolve, reject) => {
+        child.once("error", reject);
+        child.once("close", (code, signal) => resolve({ code, signal }));
+      });
+      clearTimeout(timeout);
+      if (kind) {
+        assert.equal(result.signal, "SIGKILL");
+        assert(messages.some((event) => event.type === "checkpoint" && event.kind === kind));
+        assert(
+          messages.some((event) =>
+            kind === "upload"
+              ? event.type === "upload" && event.bytes === 3
+              : event.type === "partial" && event.bytes === 1048576,
+          ),
+        );
+      } else {
+        assert.equal(result.code, 0);
+        assert(messages.some((event) => event.type === "range" && event.start === 123 && event.status === 206));
+      }
+      assert(!JSON.stringify(messages).includes("https:"), "Probe evidence must not contain URLs");
+    }
+    console.log("Transfer probe passed: acknowledged PUT, persisted partial checkpoint, Range/206 and sanitized IPC");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
 const runs = [];
-const run = async (command, { interrupt = false, allowFailure = false } = {}) => {
-  const child = spawn(process.execPath, [cli, ...command, "--json"], { env, stdio: ["ignore", "pipe", "pipe"] });
+const run = async (command, { interrupt, allowFailure = false } = {}) => {
+  const probe = `data:text/javascript,${encodeURIComponent(probeSource(interrupt))}`;
+  const child = spawn(process.execPath, ["--import", probe, cli, ...command, "--json"], {
+    env,
+    stdio: ["ignore", "pipe", "pipe", "ipc"],
+  });
+  const evidence = { uploads: [], ranges: [], partial_bytes: 0, checkpoint: false };
+  child.on("message", (event) => {
+    if (event.type === "upload") evidence.uploads.push({ bytes: event.bytes, sha256: event.sha256 });
+    if (event.type === "range") evidence.ranges.push({ start: event.start, status: event.status });
+    if (event.type === "partial") evidence.partial_bytes = Math.max(evidence.partial_bytes, event.bytes);
+    if (event.type === "checkpoint" && event.kind === interrupt) {
+      evidence.checkpoint = true;
+      child.kill("SIGKILL");
+    }
+  });
   let stdout = "";
   let stderr = "";
   let peakRssKiB = 0;
@@ -61,27 +168,41 @@ const run = async (command, { interrupt = false, allowFailure = false } = {}) =>
       /* The owned child may exit between sampling and reading. */
     }
   }, 20);
-  const timer = interrupt ? setTimeout(() => child.kill("SIGKILL"), Number(flag("interrupt-ms", "1500"))) : undefined;
+  const timer = interrupt
+    ? setTimeout(() => child.kill("SIGKILL"), Number(flag("checkpoint-timeout-ms", "60000")))
+    : undefined;
   const { code, signal } = await new Promise((resolve, reject) => {
     child.once("error", reject);
     child.once("close", (code, signal) => resolve({ code, signal }));
   });
   clearInterval(monitor);
   clearTimeout(timer);
-  const record = { command: command[0], code, interrupted: interrupt, peak_rss_kib: peakRssKiB };
+  const record = { command: command[0], code, interrupted: Boolean(interrupt), peak_rss_kib: peakRssKiB, evidence };
   runs.push(record);
   assert(peakRssKiB <= 400 * 1024, `CLI exceeded 400 MiB: ${peakRssKiB} KiB`);
   if (interrupt) {
-    assert.equal(signal, "SIGKILL", "Transfer finished before interruption; lower --interrupt-ms and retry");
+    assert(evidence.checkpoint, "No transfer checkpoint observed before exit/timeout");
+    assert.equal(signal, "SIGKILL");
     return record;
   }
   if (code !== 0) {
     if (allowFailure) return { failed: true, code };
-    // Child errors may contain signed URLs; keep raw stderr in private evidence.
-    await writeFile(path.join(output, `failure-${runs.length}.log`), stderr, { mode: 0o600 });
-    throw new Error(`CLI ${command[0]} exited ${code}; private failure log recorded`);
+    // Do not persist raw diagnostics: they can contain signed content URLs.
+    let errorCode = "unknown";
+    try {
+      const candidate = JSON.parse(stderr).error?.code;
+      if (typeof candidate === "string" && /^[a-z0-9_]{1,100}$/.test(candidate)) errorCode = candidate;
+    } catch {
+      /* A non-JSON diagnostic is deliberately omitted. */
+    }
+    await writeFile(
+      path.join(output, `failure-${runs.length}.json`),
+      JSON.stringify({ exit_code: code, error_code: errorCode }),
+      { mode: 0o600 },
+    );
+    throw new Error(`CLI ${command[0]} exited ${code}; sanitized failure evidence recorded`);
   }
-  return JSON.parse(stdout);
+  return { ...JSON.parse(stdout), transfer_evidence: evidence };
 };
 async function randomFile(filename, size) {
   await mkdir(path.dirname(filename), { recursive: true });
@@ -153,12 +274,30 @@ try {
   assert(unchanged.no_change);
   assert.equal(unchanged.revision_id, published.revision_id);
   check("No-op sends no bytes and preserves revision");
-  await run(["publish", large], { interrupt: true });
-  const resumed = await run(["publish", large]);
-  await run(["pull", resumed.artifact_id, "--output", path.join(output, "resume-pull")], { interrupt: true });
-  await run(["pull", resumed.artifact_id, "--output", path.join(output, "resume-pull")]);
-  await compareTrees(large, path.join(output, "resume-pull"));
-  check("Interrupted upload and pull rerun successfully; inspect upload_stats/server logs for reuse");
+  // Unique bytes prevent the earlier publish from making this a dedup-only run.
+  const resumeSource = path.join(output, "resume-source");
+  await mkdir(resumeSource);
+  await randomFile(path.join(resumeSource, "large.bin"), 262_144_000);
+  const interrupted = await run(["publish", resumeSource], { interrupt: "upload" });
+  assert(interrupted.evidence.uploads.length > 0, "Must acknowledge at least one uploaded chunk before kill");
+  const resumed = await run(["publish", resumeSource]);
+  const acknowledged = new Set(interrupted.evidence.uploads.map((chunk) => chunk.sha256));
+  assert(
+    resumed.transfer_evidence.uploads.every((chunk) => !acknowledged.has(chunk.sha256)),
+    "Resume resent an acknowledged chunk",
+  );
+  assert(resumed.upload_stats.uploaded_bytes < 262_144_000, "Resume must skip already stored bytes");
+  const interruptedPull = await run(["pull", resumed.artifact_id, "--output", path.join(output, "resume-pull")], {
+    interrupt: "download",
+  });
+  assert(interruptedPull.evidence.partial_bytes >= 1024 * 1024, "Must persist partial bytes before kill");
+  const pulledAgain = await run(["pull", resumed.artifact_id, "--output", path.join(output, "resume-pull")]);
+  assert(
+    pulledAgain.transfer_evidence.ranges.some((range) => range.start > 0 && range.status === 206),
+    "Resume must receive a nonzero Range response",
+  );
+  await compareTrees(resumeSource, path.join(output, "resume-pull"));
+  check("Acknowledged upload chunks are not resent; persisted pull resumes with nonzero Range/206 and matches hashes");
   for (const kind of ["small", "mixed"]) {
     const tree = path.join(output, kind);
     await mkdir(tree);

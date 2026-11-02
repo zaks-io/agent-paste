@@ -6,6 +6,7 @@ import { ArtifactReference } from "@agent-paste/contracts/primitives";
 import { type Root, root } from "@openclaw/fs-safe/root";
 import { booleanFlag, output, type Parsed, requiredArg, stringFlag } from "./cli-args.js";
 import { MAX_FILE_BYTES } from "./local.js";
+import { pullCache, pullCacheKey } from "./pull-cache.js";
 export async function pullDirectory(parsed: Parsed, client: ApiClient): Promise<void> {
   const artifactId = ArtifactReference.parse(requiredArg(parsed, 0, "artifact-id"));
   const directory = path.resolve(stringFlag(parsed, "output")!);
@@ -45,64 +46,77 @@ export async function pullDirectory(parsed: Parsed, client: ApiClient): Promise<
   return output(await pullFiles(transport, store, plan, input), parsed.global);
 }
 export function diskPullStore(safe: Root): PullStore {
-  const partialName = (p: string) => `${p}.agent-paste-partial`;
-  const metaName = (p: string) => `${partialName(p)}.json`;
-  async function inspect(p: string) {
-    let opened: Awaited<ReturnType<Root["open"]>>;
-    try {
-      opened = await safe.open(p);
-    } catch (error) {
-      if ((error as { code?: string }).code === "not-found") return null;
-      throw error;
+  let cachePromise: Promise<Root> | undefined;
+  const cache = () => (cachePromise ??= pullCache(safe));
+  const partialName = (p: string) => `${pullCacheKey(p)}.data`;
+  const metaName = (p: string) => `${pullCacheKey(p)}.json`;
+  async function metadata(p: string) {
+    const state = await cache();
+    if (!(await state.exists(metaName(p)))) {
+      if (await state.exists(partialName(p))) throw new Error("unowned_pull_cache_file");
+      return null;
     }
-    try {
-      const hash = createHash("sha256");
-      const bytes = new Uint8Array(4 * 1024 * 1024);
-      let offset = 0;
-      while (true) {
-        const { bytesRead } = await opened.handle.read(bytes, 0, bytes.length, offset);
-        if (!bytesRead) break;
-        hash.update(bytes.subarray(0, bytesRead));
-        offset += bytesRead;
-      }
-      return { sha256: hash.digest("hex"), sizeBytes: offset };
-    } finally {
-      await opened.handle.close();
+    const meta = await state.readJson<{
+      path: string;
+      etag: string;
+      revisionId: string;
+      sha256: string;
+      dev: number;
+      ino: number;
+    }>(metaName(p), { maxBytes: 4096 });
+    if (
+      meta.path !== p ||
+      typeof meta.etag !== "string" ||
+      typeof meta.revisionId !== "string" ||
+      typeof meta.sha256 !== "string"
+    )
+      throw new Error("invalid_pull_cache_metadata");
+    if (await state.exists(partialName(p))) {
+      const stat = await state.stat(partialName(p));
+      if (stat.dev !== meta.dev || stat.ino !== meta.ino) throw new Error("unowned_pull_cache_file");
     }
+    return meta;
   }
   async function remove(p: string) {
+    if (!(await metadata(p))) return;
+    const state = await cache();
     for (const name of [partialName(p), metaName(p)]) {
       try {
-        await safe.remove(name);
+        await state.remove(name);
       } catch (error) {
         if ((error as { code?: string }).code !== "not-found") throw error;
       }
     }
   }
   return {
-    inspect,
+    inspect: (p) => inspectFile(safe, p),
     partial: async (p) => {
-      if (!(await safe.exists(partialName(p)))) return null;
-      if (!(await safe.exists(metaName(p)))) {
-        await remove(p);
-        return null;
-      }
-      const meta = await safe.readJson<{ etag: string; revisionId: string; sha256: string | null }>(metaName(p), {
-        maxBytes: 4096,
-      });
-      if (typeof meta.etag !== "string" || typeof meta.revisionId !== "string" || typeof meta.sha256 !== "string") {
-        await remove(p);
-        return null;
-      }
-      return { ...meta, sizeBytes: (await safe.stat(partialName(p))).size };
+      const meta = await metadata(p);
+      const state = await cache();
+      if (!meta || !(await state.exists(partialName(p)))) return null;
+      return { ...meta, sizeBytes: (await state.stat(partialName(p))).size };
     },
     begin: async (p, meta, resume) => {
-      const opened = await safe.openWritable(partialName(p), { writeMode: resume ? "append" : "replace", mode: 0o600 });
-      try {
-        await safe.writeJson(metaName(p), meta, { mode: 0o600 });
-      } catch (error) {
+      const state = await cache();
+      if (!resume) {
+        await remove(p);
+        const created = await state.openWritable(partialName(p), { writeMode: "update", mode: 0o600 });
+        try {
+          if (!created.createdForWrite) throw new Error("unowned_pull_cache_file");
+          await state.createJson(
+            metaName(p),
+            { ...meta, path: p, dev: created.stat.dev, ino: created.stat.ino },
+            { mode: 0o600 },
+          );
+        } finally {
+          await created.handle.close();
+        }
+      } else if (!(await metadata(p))) throw new Error("missing_pull_cache_metadata");
+      const owner = await metadata(p);
+      const opened = await state.openWritable(partialName(p), { writeMode: "append", mode: 0o600 });
+      if (!owner || opened.stat.dev !== owner.dev || opened.stat.ino !== owner.ino) {
         await opened.handle.close();
-        throw error;
+        throw new Error("unowned_pull_cache_file");
       }
       return {
         write: async (bytes) => {
@@ -123,16 +137,82 @@ export function diskPullStore(safe: Root): PullStore {
       };
     },
     verifyPartial: async (p) => {
-      const result = await inspect(partialName(p));
+      const result = await inspectFile(await cache(), partialName(p));
       if (!result) throw new Error("missing_partial_file");
       return result;
     },
     commit: async (p, overwrite) => {
-      await safe.move(partialName(p), p, { overwrite });
-      await safe.remove(metaName(p));
+      const state = await cache();
+      if (!(await metadata(p))) throw new Error("missing_pull_cache_metadata");
+      const source = await state.open(partialName(p));
+      try {
+        await installFile(safe, source, p, overwrite);
+      } finally {
+        await source.handle.close();
+      }
+      await remove(p);
     },
     removePartial: remove,
   };
+}
+async function inspectFile(source: Root, p: string) {
+  let opened: Awaited<ReturnType<Root["open"]>>;
+  try {
+    opened = await source.open(p);
+  } catch (error) {
+    if ((error as { code?: string }).code === "not-found") return null;
+    throw error;
+  }
+  try {
+    const hash = createHash("sha256");
+    const bytes = new Uint8Array(4 * 1024 * 1024);
+    let offset = 0;
+    while (true) {
+      const { bytesRead } = await opened.handle.read(bytes, 0, bytes.length, offset);
+      if (!bytesRead) break;
+      hash.update(bytes.subarray(0, bytesRead));
+      offset += bytesRead;
+    }
+    return { sha256: hash.digest("hex"), sizeBytes: offset };
+  } finally {
+    await opened.handle.close();
+  }
+}
+async function installFile(safe: Root, source: Awaited<ReturnType<Root["open"]>>, p: string, overwrite: boolean) {
+  if (overwrite) {
+    await safe.copyIn(p, source.realPath, { maxBytes: MAX_FILE_BYTES, sourceHardlinks: "reject" });
+  } else {
+    // update never truncates an existing file. createdForWrite proves that
+    // fs-safe used O_EXCL; all writes then target that pinned descriptor.
+    const target = await safe.openWritable(p, { writeMode: "update", mode: 0o600 });
+    try {
+      if (!target.createdForWrite)
+        throw Object.assign(new Error(`Local file appeared: ${p}`), { code: "local_conflict" });
+      const bytes = new Uint8Array(4 * 1024 * 1024);
+      let position = 0;
+      while (true) {
+        const { bytesRead } = await source.handle.read(bytes, 0, bytes.length, position);
+        if (!bytesRead) break;
+        let offset = 0;
+        while (offset < bytesRead) {
+          const { bytesWritten } = await target.handle.write(bytes, offset, bytesRead - offset);
+          if (!bytesWritten) throw new Error("short_local_write");
+          offset += bytesWritten;
+        }
+        position += bytesRead;
+      }
+      await target.handle.sync();
+      const current = await safe.open(p);
+      try {
+        if (current.stat.dev !== target.stat.dev || current.stat.ino !== target.stat.ino)
+          throw Object.assign(new Error(`Local file changed during installation: ${p}`), { code: "local_conflict" });
+      } finally {
+        await current.handle.close();
+      }
+    } finally {
+      await target.handle.close();
+    }
+  }
 }
 function emptyPullStore(): PullStore {
   const fail = async (): Promise<never> => {

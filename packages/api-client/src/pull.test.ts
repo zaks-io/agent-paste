@@ -86,7 +86,7 @@ describe("file-wise pull", () => {
     "docs/a.bin.agent-paste-partial",
     "docs/a.bin.agent-paste-partial/child",
     "docs/a.bin.agent-paste-partial.json/child",
-  ])("rejects remote paths colliding with transfer sidecars: %s", async (collision) => {
+  ])("allows legitimate filenames resembling old transfer sidecars: %s", async (collision) => {
     const f = await fixture();
     f.grant.file_count = 2;
     f.grant.size_bytes *= 2;
@@ -100,10 +100,8 @@ describe("file-wise pull", () => {
           page_info: { has_more: false, next_cursor: null },
         }) as never,
     );
-    await expect(pullPlan(f.transport, f.store, { artifactId: "artifact" })).rejects.toThrow(
-      "remote_partial_path_collision",
-    );
-    expect(f.store.inspect).not.toHaveBeenCalled();
+    const plan = await pullPlan(f.transport, f.store, { artifactId: "artifact" });
+    expect(plan.files.map((file) => file.path)).toContain(collision);
   });
   it("uses one grant, pins listing to its revision and does not fetch content for dry runs", async () => {
     const f = await fixture();

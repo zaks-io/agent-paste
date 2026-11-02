@@ -436,6 +436,41 @@ describe("cli command dispatch", () => {
     quietStdout.mockRestore();
   });
 
+  it("pull reads a file omitted from a truncated Agent View at the same Revision", async () => {
+    const view = {
+      ...pullView("index.html", "https://content.example.test/v/demo/index.html"),
+      files_truncated: true,
+      file_count: 101,
+    };
+    const readFile = vi.fn().mockResolvedValue({
+      path: "later/notes.md",
+      sha256: "b".repeat(64),
+      size_bytes: 7,
+      content_type: "text/markdown",
+      is_binary: false,
+      body: "content",
+    });
+    const readGrant = vi.fn().mockResolvedValue({
+      artifact_id: artifactId,
+      revision_id: revisionId,
+      content_base_url: "https://content.example.test/v/grant/",
+      expires_at: "2026-12-01T00:00:00.000Z",
+      file_count: 101,
+      size_bytes: 1000,
+    });
+    const client = fakeClient({ artifacts: { getAgentView: vi.fn().mockResolvedValue(view), readFile, readGrant } });
+    const stdout = mockStdout();
+    await main(["pull", artifactId, "later/notes.md"], client);
+    expect(stdoutValues(stdout).join("")).toBe("content");
+    expect(readFile).toHaveBeenCalledWith(artifactId, "later/notes.md", revisionId);
+    expect(readGrant).not.toHaveBeenCalled();
+    stdout.mockRestore();
+    const json = mockStdout();
+    await main(["pull", artifactId, "later/notes.md", "--json"], client);
+    expect(JSON.parse(stdoutValues(json).join("")).url).toBe("https://content.example.test/v/grant/later/notes.md");
+    expect(readGrant).toHaveBeenCalledWith(artifactId, revisionId);
+    json.mockRestore();
+  });
   it("pull rejects a local destination where a remote Artifact path is required", async () => {
     const readFile = vi.fn();
     const client = fakeClient({ artifacts: { readFile } });
