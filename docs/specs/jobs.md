@@ -39,7 +39,11 @@ does not change the versioned job payload schemas.
 Upload Cleanup expires both `pending` and `ready` sessions. It wins the guarded
 state transition before enqueueing any legacy Revision-prefix purge. Workspace
 blobs and chunks are never included in prefix purge messages; shared committed
-bytes remain reusable and only blob GC can reclaim them.
+bytes remain reusable and only blob GC can reclaim them. Expired sessions with
+Revision-scoped staging rows remain discoverable if enqueue or purge fails.
+The purge consumer removes those staging rows only after their R2 prefixes
+have been deleted. Uploaded staging bytes remain reserved until that confirmation;
+expiration alone cannot release quota.
 
 Content Blob GC uses the shared database collector. References include live
 Artifact Revision files and maps, unexpired pending/ready session files and

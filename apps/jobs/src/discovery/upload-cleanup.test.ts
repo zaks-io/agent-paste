@@ -1,6 +1,7 @@
 import { workspaceBlobObjectKeyFor } from "@agent-paste/storage";
 import { PGlite } from "@electric-sql/pglite";
 import { expect, it, vi } from "vitest";
+import { handleBytePurgeBatch } from "../handlers/byte-purge.js";
 import {
   applyMigrations,
   executorForPglite,
@@ -61,6 +62,37 @@ it("expires pending and ready sessions and purges only legacy session prefixes",
         (v) => v.status,
       ),
     ).toEqual(["expired", "expired", "finalized", "ready"]);
+    // A failed queue delivery must remain discoverable, and bytes count until deletion succeeds.
+    send.mockRejectedValueOnce(new Error("queue unavailable"));
+    expect(await runUploadCleanupDiscovery(executor, { send }, new Date().toISOString())).toMatchObject({
+      discovered: 1,
+      enqueued: 0,
+    });
+    const body = send.mock.calls[0]?.[0];
+    const ack = vi.fn();
+    const retry = vi.fn();
+    const remove = vi.fn().mockRejectedValueOnce(new Error("R2 unavailable")).mockResolvedValue(undefined);
+    const env = {
+      DB: executor,
+      ARTIFACTS: {
+        list: async () => ({ objects: [{ key: legacyKey }], truncated: false }),
+        delete: remove,
+      },
+    };
+    await handleBytePurgeBatch([{ body, ack, retry }], env);
+    expect(retry).toHaveBeenCalledOnce();
+    expect(ack).not.toHaveBeenCalled();
+    expect(
+      (await tenant.query("select * from upload_session_files where upload_session_id=$1", [sessions[0]?.id])).rows,
+    ).toHaveLength(1);
+    await handleBytePurgeBatch([{ body, ack, retry }], env);
+    expect(ack).toHaveBeenCalledOnce();
+    expect(
+      (await tenant.query("select * from upload_session_files where upload_session_id=$1", [sessions[0]?.id])).rows,
+    ).toHaveLength(0);
+    expect(await runUploadCleanupDiscovery(executor, { send }, new Date().toISOString())).toMatchObject({
+      discovered: 0,
+    });
     expect((await tenant.query("select * from content_blobs")).rows).toHaveLength(1);
   } finally {
     await client.close();

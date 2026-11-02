@@ -33,7 +33,10 @@ Free and Pro defaults are 5 GiB and 50 GiB; unclaimed workspaces have 100 MiB.
 Storage accounting and all upload reservations take the workspace row lock.
 Usage includes physical single-format blob rows, live legacy Revision files,
 ready bundles and 1 KiB per live Revision file entry. Reservations include
-unuploaded single files and chunks in unexpired pending/ready sessions.
+unuploaded single files and chunks in unexpired pending/ready sessions, plus
+uploaded Revision-scoped staging files until finalize transfers them into
+Revision accounting or confirmed byte purge removes their staging rows. Expiry
+alone does not release uploaded staging bytes.
 Unreferenced blobs count until GC removes them, up to the 24-hour floor plus
 one hourly sweep. A quota check rejects growth beyond budget; it does not reject
 an operation whose total usage plus reservations stays equal or decreases.

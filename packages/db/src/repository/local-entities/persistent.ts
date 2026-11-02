@@ -75,8 +75,11 @@ function reservedBytes(s: LocalState, ws: string, now: string) {
   };
   let reserved_bytes = 0;
   for (const f of s.uploadSessionFiles.values())
-    if (f.workspace_id === ws && f.content_format !== "chunked-v1" && !f.uploaded_at && active(f.upload_session_id))
-      reserved_bytes += f.size_bytes;
+    if (f.workspace_id === ws && f.content_format !== "chunked-v1") {
+      const session = f.upload_session_id ? s.uploadSessions.get(f.upload_session_id) : null;
+      const staged = session && session.status !== "finalized" && f.storage_kind !== "blob" && f.uploaded_at;
+      if (staged || (!f.uploaded_at && active(f.upload_session_id))) reserved_bytes += f.size_bytes;
+    }
   for (const c of s.uploadSessionChunks.values())
     if (c.workspace_id === ws && !c.uploaded_at && active(c.upload_session_id)) reserved_bytes += c.size_bytes;
   return reserved_bytes;
