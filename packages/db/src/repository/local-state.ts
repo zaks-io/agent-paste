@@ -8,6 +8,7 @@ import type {
   Artifact,
   ClaimToken,
   ContentBlob,
+  ContentBlobChunk,
   Feedback,
   OperationEvent,
   PlatformLockdown,
@@ -15,6 +16,8 @@ import type {
   SafetyWarning,
   StoredFile,
   UploadSession,
+  UploadSessionChunk,
+  UploadSessionDeletion,
   Workspace,
   WorkspaceMember,
 } from "../types.js";
@@ -22,6 +25,9 @@ import type {
 // The in-memory tables backing the local repository. They stay plain public Maps so
 // tests and the local MVP server can seed and inspect rows directly.
 export type LocalState = {
+  uploadSessionChunks: Map<string, UploadSessionChunk>;
+  uploadSessionDeletions: Map<string, UploadSessionDeletion>;
+  contentBlobChunks: Map<string, ContentBlobChunk>;
   feedback: Map<string, Feedback>;
   workspaces: Map<string, Workspace>;
   workspaceMembers: Map<string, WorkspaceMember>;
@@ -45,6 +51,9 @@ export type LocalState = {
 
 export function createLocalState(): LocalState {
   return {
+    uploadSessionChunks: new Map(),
+    uploadSessionDeletions: new Map(),
+    contentBlobChunks: new Map(),
     feedback: new Map(),
     workspaces: new Map(),
     workspaceMembers: new Map(),

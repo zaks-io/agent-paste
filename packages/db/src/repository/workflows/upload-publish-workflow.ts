@@ -3,7 +3,7 @@ import { mintContentCapabilityId } from "@agent-paste/tokens/content-capability"
 import { buildAgentView, buildPublishResult } from "../../agent-view.js";
 import { isArtifactExpired } from "../../artifact-expiry.js";
 import { operationActorFromApiActor } from "../../created-by.js";
-import { artifactExpiresAtFromWorkspace, isEphemeralWorkspace } from "../../policy.js";
+import { artifactExpiresAtFromWorkspace, isEphemeralWorkspace, usagePolicyForLegacyUpload } from "../../policy.js";
 import { toRevisionSummary } from "../../queries/revisions.js";
 import { repositoryError } from "../../repository-error.js";
 import type { ApiActor, Artifact, PublishBundleStatus, Revision, Workspace } from "../../types.js";
@@ -43,7 +43,7 @@ export async function createUploadSession(
         actor: input.actor,
         request: input.request,
         now: input.now,
-        usagePolicy: ctx.usagePolicyFor(workspace),
+        usagePolicy: usagePolicyForLegacyUpload(workspace, ctx.billingEnabled()),
         workspace,
       });
     },
@@ -112,7 +112,8 @@ export async function finalizeUploadSession(
         // Resolved lazily and only for a base-Revision merge, so a missing/cross
         // workspace still collapses to upload_session_not_found (non-enumerable)
         // via the workspace-scoped session lookup rather than workspace_not_found.
-        resolveUsagePolicy: async () => ctx.usagePolicyFor(await ctx.mustWorkspace(entities, input.actor.workspace_id)),
+        resolveUsagePolicy: async () =>
+          usagePolicyForLegacyUpload(await ctx.mustWorkspace(entities, input.actor.workspace_id), ctx.billingEnabled()),
         ...(ctx.options.revisionReconstructor ? { revisionReconstructor: ctx.options.revisionReconstructor } : {}),
       }),
   );

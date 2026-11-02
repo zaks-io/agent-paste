@@ -1,3 +1,33 @@
+export const MiB = 1024 * 1024;
+export const GiB = 1024 * MiB;
+export const MAX_FILE_BYTES = 262_144_000;
+export const SINGLE_PUT_MAX_BYTES = 10 * MiB;
+export const LEGACY_SINGLE_PUT_MAX_BYTES = 25 * MiB;
+export const CHUNK_BYTES = 4 * MiB;
+export const MAX_CHUNKS_PER_FILE = Math.ceil(MAX_FILE_BYTES / CHUNK_BYTES);
+export const MAX_REVISION_FILES = 10_000;
+export const MAX_REVISION_BYTES = 2 * GiB;
+export const MAX_FILE_MAP_BYTES = 8 * MiB;
+export const UPLOAD_BATCH_MAX_FILES = 1_000;
+export const UPLOAD_BATCH_MAX_DELETIONS = 1_000;
+export const UPLOAD_TARGETS_PAGE_MAX = 1_000;
+export const FILE_LIST_PAGE_MAX = 1_000;
+/** @alias MAX_FILE_BYTES. Completion batches share the per-file verification bound. */
+export const FILE_COMPLETION_BATCH_MAX_BYTES = MAX_FILE_BYTES;
+export const READ_GRANT_TTL_SECONDS = 3_600;
+export const REVISION_FILE_ENTRY_BYTES = 1_024;
+export const STORAGE_BUDGET_BYTES_FREE = 5 * GiB;
+export const STORAGE_BUDGET_BYTES_PRO = 50 * GiB;
+export const REVISION_NUMBER_MAX = 2_147_483_647;
+
+export const EPHEMERAL_POLICY_OVERRIDES = {
+  file_size_cap_bytes: 10 * MiB,
+  artifact_size_cap_bytes: 25 * MiB,
+  file_count_cap: 100,
+  lifetime_revision_ceiling: 100,
+  storage_budget_bytes: 100 * MiB,
+} as const;
+
 export const LOCAL_DATA_DIR = ".agent-paste";
 export const MAX_ARTIFACT_BYTES = 25 * 1024 * 1024;
 export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
@@ -26,8 +56,8 @@ export const DAILY_NEW_ARTIFACT_ALLOWANCE_FREE = 100;
 /** Daily new-Artifact write allowance for `pro` workspaces (ADR 0056 row 18). */
 export const DAILY_NEW_ARTIFACT_ALLOWANCE_PRO = 2000;
 
-/** Per-Artifact lifetime published Revision ceiling (ADR 0056 row 19). */
-export const LIFETIME_REVISION_CEILING = 100;
+/** @alias REVISION_NUMBER_MAX. Existing policy consumers retain this public name. */
+export const LIFETIME_REVISION_CEILING = REVISION_NUMBER_MAX;
 
 export type WorkspacePlan = "free" | "pro";
 export type WriteAllowanceTier = "ephemeral" | "free" | "pro";
@@ -52,17 +82,21 @@ const MB = 1024 * 1024;
 /** Shared caps that do not vary by Plan (rate limits are abuse ceilings, not Plan levers). */
 const SHARED_USAGE_POLICY = {
   bundles_enabled: true,
-  file_count_cap: 100,
+  file_count_cap: MAX_REVISION_FILES,
   actor_rate_limit_per_minute: 60,
   workspace_burst_cap_per_minute: 300,
   upload_session_ttl_seconds: DEFAULT_UPLOAD_SESSION_TTL_MS / 1000,
   min_ttl_seconds: SECONDS_PER_DAY,
-  lifetime_revision_ceiling: LIFETIME_REVISION_CEILING,
+  lifetime_revision_ceiling: REVISION_NUMBER_MAX,
+  single_put_max_bytes: SINGLE_PUT_MAX_BYTES,
+  chunk_bytes: CHUNK_BYTES,
+  revision_file_entry_bytes: REVISION_FILE_ENTRY_BYTES,
 } as const;
 
 const FREE_PLAN_OVERRIDES = {
-  file_size_cap_bytes: 10 * MB,
-  artifact_size_cap_bytes: 25 * MB,
+  file_size_cap_bytes: MAX_FILE_BYTES,
+  artifact_size_cap_bytes: MAX_REVISION_BYTES,
+  storage_budget_bytes: STORAGE_BUDGET_BYTES_FREE,
   bundle_size_cap_bytes: 25 * MB,
   default_ttl_seconds: 3 * SECONDS_PER_DAY,
   max_ttl_seconds: 7 * SECONDS_PER_DAY,
@@ -71,8 +105,9 @@ const FREE_PLAN_OVERRIDES = {
 } as const;
 
 const PRO_PLAN_OVERRIDES = {
-  file_size_cap_bytes: 25 * MB,
-  artifact_size_cap_bytes: 100 * MB,
+  file_size_cap_bytes: MAX_FILE_BYTES,
+  artifact_size_cap_bytes: MAX_REVISION_BYTES,
+  storage_budget_bytes: STORAGE_BUDGET_BYTES_PRO,
   bundle_size_cap_bytes: 100 * MB,
   default_ttl_seconds: 30 * SECONDS_PER_DAY,
   max_ttl_seconds: 90 * SECONDS_PER_DAY,
@@ -124,7 +159,11 @@ export function resolveDailyNewArtifactAllowance(input: {
  * Runtime enforcement and `GET /v1/usage-policy` use {@link resolveUsagePolicy} instead.
  */
 export const USAGE_POLICY = buildPlanUsagePolicy("free");
-export type UsagePolicyConfig = ReturnType<typeof buildPlanUsagePolicy>;
+export type UsagePolicyConfig = {
+  [K in keyof ReturnType<typeof buildPlanUsagePolicy>]: ReturnType<typeof buildPlanUsagePolicy>[K] extends number
+    ? number
+    : boolean;
+};
 
 export function isBillingEnabled(value?: string | boolean | null): boolean {
   if (typeof value === "boolean") {

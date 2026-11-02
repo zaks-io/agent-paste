@@ -2,6 +2,7 @@ import * as z from "zod";
 import { Mebibytes, PageInfo } from "./common.js";
 import { ArtifactStatus } from "./enums.js";
 import { ArtifactId, FilePath, IsoDateTime, PlainTextTitle, RevisionId, Sha256Hex } from "./primitives.js";
+import { Retention } from "./retention.js";
 
 export const ArtifactSummary = z.object({
   id: ArtifactId,
@@ -15,6 +16,9 @@ export const ArtifactSummary = z.object({
   file_count: z.number().int().nonnegative(),
   size_bytes: z.number().int().nonnegative(),
   expires_at: IsoDateTime,
+  pinned_at: IsoDateTime.nullable().optional(),
+  retention: Retention.optional(),
+  effective_expires_at: IsoDateTime.nullable().optional(),
   created_at: IsoDateTime,
   updated_at: IsoDateTime,
   deleted_at: IsoDateTime.nullable(),

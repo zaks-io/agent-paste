@@ -105,6 +105,16 @@ export function registerArtifactPaths(registry: OpenAPIRegistry, helpers: ApiPat
       headers: [idempotencyKeyHeader, requestIdHeader],
       body: { required: false, content: { "application/json": { schema: schemaRef("PublishRevisionRequest") } } },
     },
-    responses: standardJsonResponses(schemaRef("PublishResult")),
+    responses: {
+      ...standardJsonResponses(schemaRef("PublishRevisionResponse")),
+      "422": {
+        description: "Invalid entrypoint or patch",
+        content: { "application/json": { schema: schemaRef("ErrorEnvelope") } },
+      },
+      "429": {
+        description: "Quota or rate limit exceeded. Storage quota failures have no Retry-After.",
+        content: { "application/json": { schema: schemaRef("ErrorEnvelope") } },
+      },
+    },
   });
 }

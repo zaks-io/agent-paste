@@ -77,6 +77,18 @@ export {
 } from "./postgres/worker-runtime.js";
 export { EPHEMERAL_PROVISION_SYSTEM_ACTOR } from "./repository/core-helpers.js";
 export type { Repository } from "./repository/interface.js";
+export type { PersistentHostingRepository } from "./repository/persistent-hosting-repository.js";
+export type {
+  ArtifactFileListPage,
+  ChunkedFileForCompletion,
+  FileMapStore,
+  RetentionOperation,
+  RetentionView,
+  RevisionReadTarget,
+  StorageUsage,
+  UploadTarget,
+  UploadTargetsPage,
+} from "./repository/persistent-hosting-types.js";
 export {
   isRepositoryError,
   RepositoryError,
@@ -110,6 +122,7 @@ export type {
   Artifact,
   ClaimToken,
   ContentBlob,
+  ContentBlobChunk,
   Feedback,
   HyperdriveBinding,
   OperationEvent,
@@ -132,6 +145,8 @@ export type {
   StripeWebhookEvent,
   SubscriptionStatus,
   UploadSession,
+  UploadSessionChunk,
+  UploadSessionDeletion,
   Workspace,
   WorkspaceBilling,
   WorkspaceMember,

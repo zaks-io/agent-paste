@@ -77,37 +77,9 @@ describe("publish write gate", () => {
       now: "2026-06-01T00:00:02.000Z",
     });
 
-    for (let index = 2; index <= LIFETIME_REVISION_CEILING; index += 1) {
-      const now = new Date(Date.parse("2026-06-01T00:00:02.000Z") + index * 1000).toISOString();
-      const session = await repo.createUploadSession({
-        actor,
-        idempotencyKey: `idem-fixture-upload-ceiling-${index}`,
-        request: {
-          artifact_id: firstSession.artifact_id,
-          entrypoint: "index.html",
-          files: [{ path: "index.html", size_bytes: 12 }],
-        },
-        now,
-      });
-      const uploadedFile = session.files[0];
-      if (!uploadedFile) {
-        throw new Error("expected upload file");
-      }
-      await repo.finalizeUploadSession({
-        actor,
-        idempotencyKey: `idem-fixture-finalize-ceiling-${index}`,
-        sessionId: session.upload_session_id,
-        observedFiles: [{ path: "index.html", objectKey: uploadedFile.object_key, sizeBytes: 12 }],
-        now,
-      });
-      await repo.publishRevision({
-        actor,
-        idempotencyKey: `idem-fixture-publish-ceiling-${index}`,
-        artifactId: firstSession.artifact_id,
-        revisionId: session.revision_id,
-        now,
-      });
-    }
+    const head = repo.revisions.get(firstSession.revision_id);
+    if (!head) throw new Error("expected published revision");
+    head.revision_number = LIFETIME_REVISION_CEILING;
 
     const blockedSession = await repo.createUploadSession({
       actor,

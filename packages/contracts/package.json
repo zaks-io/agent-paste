@@ -84,6 +84,31 @@
       "source": "./src/feedback.ts",
       "types": "./src/feedback.ts",
       "import": "./dist/feedback.js"
+    },
+    "./file-transfer": {
+      "source": "./src/file-transfer.ts",
+      "types": "./src/file-transfer.ts",
+      "import": "./dist/file-transfer.js"
+    },
+    "./retention": {
+      "source": "./src/retention.ts",
+      "types": "./src/retention.ts",
+      "import": "./dist/retention.js"
+    },
+    "./artifact-files": {
+      "source": "./src/artifactFiles.ts",
+      "types": "./src/artifactFiles.ts",
+      "import": "./dist/artifactFiles.js"
+    },
+    "./read-grants": {
+      "source": "./src/readGrants.ts",
+      "types": "./src/readGrants.ts",
+      "import": "./dist/readGrants.js"
+    },
+    "./storage-usage": {
+      "source": "./src/storageUsage.ts",
+      "types": "./src/storageUsage.ts",
+      "import": "./dist/storageUsage.js"
     }
   },
   "scripts": {

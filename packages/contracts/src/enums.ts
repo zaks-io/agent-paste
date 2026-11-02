@@ -16,7 +16,7 @@ export type ActorType = z.infer<typeof ActorType>;
 export const ArtifactStatus = z.enum(["active", "deleted", "expired"]);
 export type ArtifactStatus = z.infer<typeof ArtifactStatus>;
 
-export const UploadSessionStatus = z.enum(["pending", "finalized", "expired", "failed"]);
+export const UploadSessionStatus = z.enum(["pending", "ready", "finalized", "expired", "failed"]);
 export type UploadSessionStatus = z.infer<typeof UploadSessionStatus>;
 
 export const OperationEventAction = z.enum([

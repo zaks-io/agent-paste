@@ -29,6 +29,7 @@ export const BundleAvailabilityFailed = z
 export const BundleAvailabilityDisabled = z
   .object({
     status: z.literal("disabled"),
+    reason: z.enum(["disabled_by_policy", "revision_too_large"]).optional(),
   })
   .strict();
 

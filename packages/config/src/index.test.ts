@@ -38,8 +38,9 @@ describe("config helpers", () => {
 
 describe("resolveUsagePolicy", () => {
   const pro = {
-    file_size_cap_bytes: 25 * 1024 * 1024,
-    artifact_size_cap_bytes: 100 * 1024 * 1024,
+    file_size_cap_bytes: 262_144_000,
+    artifact_size_cap_bytes: 2_147_483_648,
+    storage_budget_bytes: 50 * 1024 ** 3,
     default_ttl_seconds: 30 * 24 * 60 * 60,
     max_ttl_seconds: 90 * 24 * 60 * 60,
     live_artifacts_cap: 1_000,
@@ -47,8 +48,9 @@ describe("resolveUsagePolicy", () => {
   };
 
   const free = {
-    file_size_cap_bytes: 10 * 1024 * 1024,
-    artifact_size_cap_bytes: 25 * 1024 * 1024,
+    file_size_cap_bytes: 262_144_000,
+    artifact_size_cap_bytes: 2_147_483_648,
+    storage_budget_bytes: 5 * 1024 ** 3,
     daily_new_artifact_allowance: 100,
     default_ttl_seconds: 3 * 24 * 60 * 60,
     max_ttl_seconds: 7 * 24 * 60 * 60,
@@ -76,7 +78,9 @@ describe("resolveUsagePolicy", () => {
     ]) {
       expect(policy.actor_rate_limit_per_minute).toBe(60);
       expect(policy.workspace_burst_cap_per_minute).toBe(300);
-      expect(policy.lifetime_revision_ceiling).toBe(100);
+      expect(policy.lifetime_revision_ceiling).toBe(2_147_483_647);
+      expect(policy.single_put_max_bytes).toBe(10 * 1024 * 1024);
+      expect(policy.chunk_bytes).toBe(4 * 1024 * 1024);
     }
   });
 

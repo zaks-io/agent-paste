@@ -34,6 +34,61 @@ export class RepositoryCore implements Repository {
     this.ctx = new RepositoryCoreContext(uow, options);
   }
 
+  // Phase 0 integration seams. W1 replaces every throwing method below.
+  async appendUploadFiles(
+    _input: Parameters<Repository["appendUploadFiles"]>[0],
+  ): ReturnType<Repository["appendUploadFiles"]> {
+    throw new Error("not_implemented");
+  }
+
+  async listUploadTargets(
+    _input: Parameters<Repository["listUploadTargets"]>[0],
+  ): ReturnType<Repository["listUploadTargets"]> {
+    throw new Error("not_implemented");
+  }
+
+  async recordUploadedChunk(
+    _input: Parameters<Repository["recordUploadedChunk"]>[0],
+  ): ReturnType<Repository["recordUploadedChunk"]> {
+    throw new Error("not_implemented");
+  }
+
+  async getChunkedFileForCompletion(
+    _input: Parameters<Repository["getChunkedFileForCompletion"]>[0],
+  ): ReturnType<Repository["getChunkedFileForCompletion"]> {
+    throw new Error("not_implemented");
+  }
+
+  async recordChunkedFileVerified(
+    _input: Parameters<Repository["recordChunkedFileVerified"]>[0],
+  ): ReturnType<Repository["recordChunkedFileVerified"]> {
+    throw new Error("not_implemented");
+  }
+
+  async setArtifactRetention(
+    _input: Parameters<Repository["setArtifactRetention"]>[0],
+  ): ReturnType<Repository["setArtifactRetention"]> {
+    throw new Error("not_implemented");
+  }
+
+  async listArtifactFiles(
+    _input: Parameters<Repository["listArtifactFiles"]>[0],
+  ): ReturnType<Repository["listArtifactFiles"]> {
+    throw new Error("not_implemented");
+  }
+
+  async getRevisionReadTarget(
+    _input: Parameters<Repository["getRevisionReadTarget"]>[0],
+  ): ReturnType<Repository["getRevisionReadTarget"]> {
+    throw new Error("not_implemented");
+  }
+
+  async getStorageUsage(
+    _input: Parameters<Repository["getStorageUsage"]>[0],
+  ): ReturnType<Repository["getStorageUsage"]> {
+    throw new Error("not_implemented");
+  }
+
   async submitFeedback(input: SubmitFeedbackInput) {
     return submitFeedback(this.ctx, input);
   }

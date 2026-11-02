@@ -324,3 +324,5 @@ export type UnitOfWork = {
     scope: RunScope;
   }): Promise<PeekReplayResult<T>>;
 };
+
+export type { FileMapStore } from "./persistent-hosting-types.js";

@@ -1,3 +1,4 @@
+import { CHUNK_BYTES, MAX_CHUNKS_PER_FILE } from "@agent-paste/config";
 import type { Clock } from "./clock.js";
 import { sign, verify } from "./codec.js";
 import { encodePath } from "./url.js";
@@ -9,6 +10,7 @@ export type SignedUploadPayload = {
   key: string;
   size: number;
   sha256?: string;
+  ci?: number;
   exp: number;
 };
 
@@ -32,6 +34,14 @@ export function isValidUploadPayload(value: unknown): value is SignedUploadPaylo
     Number.isSafeInteger(payload.size) &&
     payload.size >= 0 &&
     (payload.sha256 === undefined || (typeof payload.sha256 === "string" && sha256Pattern.test(payload.sha256))) &&
+    (payload.ci === undefined ||
+      (Number.isInteger(payload.ci) &&
+        payload.ci >= 0 &&
+        payload.ci < MAX_CHUNKS_PER_FILE &&
+        typeof payload.sha256 === "string" &&
+        payload.size > 0 &&
+        payload.size <= CHUNK_BYTES &&
+        payload.key === `workspaces/${payload.wid}/blobs/sha256/${payload.sha256.slice(0, 2)}/${payload.sha256}`)) &&
     typeof payload.exp === "number" &&
     Number.isInteger(payload.exp)
   );

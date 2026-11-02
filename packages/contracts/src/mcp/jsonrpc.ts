@@ -34,6 +34,7 @@ export const McpJsonRpcErrorData = z
     message: z.string(),
     request_id: z.string().min(1).optional(),
     docs: z.string().url().optional(),
+    details: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
 export type McpJsonRpcErrorData = z.infer<typeof McpJsonRpcErrorData>;
@@ -54,4 +55,5 @@ export type McpMappedToolError = {
   httpStatus: number;
   requestId?: string;
   docs?: string;
+  details?: Record<string, unknown>;
 };

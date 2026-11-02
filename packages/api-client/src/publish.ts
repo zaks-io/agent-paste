@@ -139,6 +139,7 @@ export async function runPublish(transport: PublishTransport, input: PublishInpu
     if (!file) {
       throw new Error(`Upload session returned an unknown file: ${target.path}`);
     }
+    if (target.status !== "upload_required") throw new Error("unexpected_upload_target");
     await transport.putFile(target.put_url, await asBytes(file.read()), {
       "content-type": file.contentType,
       ...target.required_headers,

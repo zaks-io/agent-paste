@@ -4,7 +4,11 @@ import { type AppErrorCode, type ErrorResponseOptions, errorResponse, jsonRespon
 export const BOUND_RESPONDERS_KEY = "boundResponders";
 
 export type BoundResponders = {
-  respondError: (code: AppErrorCode, messageOrOptions?: string | ErrorResponseOptions) => Response;
+  respondError: (
+    code: AppErrorCode,
+    messageOrOptions?: string | ErrorResponseOptions,
+    options?: ErrorResponseOptions,
+  ) => Response;
   respondJson: (body: unknown, status?: number, extraHeaders?: Record<string, string>) => Response;
 };
 
@@ -38,13 +42,14 @@ export function createBoundResponders(
   options: { docsBaseUrl?: string; defaultHeaders?: Record<string, string> } = {},
 ): BoundResponders {
   return {
-    respondError(code, messageOrOptions) {
+    respondError(code, messageOrOptions, extraOptions) {
       const responseOptions: ErrorResponseOptions =
         typeof messageOrOptions === "string" ? { message: messageOrOptions } : (messageOrOptions ?? {});
       return errorResponse(context, code, {
         docsBaseUrl: options.docsBaseUrl,
         defaultHeaders: options.defaultHeaders,
         ...responseOptions,
+        ...extraOptions,
       });
     },
     respondJson(body, status = 200, extraHeaders = {}) {

@@ -263,21 +263,9 @@ describe("publishRevision characterization", () => {
       now: "2026-06-01T00:00:02.000Z",
     });
 
-    for (let index = 2; index <= LIFETIME_REVISION_CEILING; index += 1) {
-      const now = new Date(Date.parse("2026-06-01T00:00:02.000Z") + index * 1000).toISOString();
-      const draft = await finalizedDraft(repo, actor, {
-        prefix: `ceiling-${index}`,
-        artifactId: first.finalized.artifact_id,
-        now,
-      });
-      await repo.publishRevision({
-        actor,
-        idempotencyKey: `ceiling-publish-${index}`,
-        artifactId: first.finalized.artifact_id,
-        revisionId: draft.finalized.revision_id,
-        now,
-      });
-    }
+    const head = repo.revisions.get(first.finalized.revision_id);
+    if (!head) throw new Error("expected published revision");
+    head.revision_number = LIFETIME_REVISION_CEILING;
 
     const blocked = await finalizedDraft(repo, actor, {
       prefix: "ceiling-blocked",

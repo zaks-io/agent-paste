@@ -414,6 +414,7 @@ export type RevisionReconstructor = {
 };
 
 export type RepositoryOptions = {
+  fileMapStore?: import("./repository/persistent-hosting-types.js").FileMapStore;
   apiKeyPepper: string;
   /** When set, verification and minting use multi-pepper overlap from ADR 0045. */
   pepperRing?: PepperRing;
@@ -421,10 +422,38 @@ export type RepositoryOptions = {
   apiBaseUrl?: string;
   contentBaseUrl?: string;
   webBaseUrl?: string;
-  /** When false (default), `workspaces.plan` is ignored and caps default to `pro`. */
+  /** When false (default), `workspaces.plan` is ignored and caps default to `free`. */
   billingEnabled?: boolean;
   /** Copies workspace blob bytes into the destination tenant before claim reparent commits. */
   reparentBlobMigrator?: ReparentBlobMigrator;
   /** Applies intra-file unified-diff patches to base blobs before a partial-manifest finalize commits (ADR 0089). */
   revisionReconstructor?: RevisionReconstructor;
+};
+
+export type UploadSessionChunk = {
+  workspace_id: string;
+  upload_session_id: string;
+  path: string;
+  chunk_index: number;
+  sha256: string;
+  size_bytes: number;
+  uploaded_at: string | null;
+};
+export type UploadSessionDeletion = {
+  workspace_id: string;
+  upload_session_id: string;
+  kind: "path" | "prefix";
+  path: string;
+  expect_sha256: string | null;
+  expect_size_bytes: number | null;
+  expect_snapshot_sha256: string | null;
+  batch_index: number;
+};
+export type ContentBlobChunk = {
+  workspace_id: string;
+  sha256: string;
+  size_bytes: number;
+  chunk_index: number;
+  chunk_sha256: string;
+  chunk_size_bytes: number;
 };

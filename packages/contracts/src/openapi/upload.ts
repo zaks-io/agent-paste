@@ -1,6 +1,8 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from "@asteasolutions/zod-to-openapi";
 import "../zod-openapi.js";
-import { CreateUploadSessionRequest } from "../uploadSessions.js";
+import { UPLOAD_TARGETS_PAGE_MAX } from "@agent-paste/config";
+import { Cursor } from "../primitives.js";
+import { AppendUploadFilesRequest, CompleteUploadFilesRequest, CreateUploadSessionRequest } from "../uploadSessions.js";
 import { z } from "../zod-openapi.js";
 import { emptyOkResponse, errorResponse, rateLimitResponse, schemaRef, standardJsonResponses } from "./responses.js";
 import { idempotencyKeyHeader, registerUploadSchemas, requestIdHeader, securitySchemes } from "./shared.js";
@@ -20,6 +22,7 @@ export function buildUploadOpenApiDocument(options: UploadOpenApiOptions = {}): 
 
   registry.registerComponent("securitySchemes", "ApiKeyBearer", securitySchemes.ApiKeyBearer);
   registry.registerComponent("securitySchemes", "SignedUploadToken", securitySchemes.SignedUploadToken);
+  registry.registerComponent("securitySchemes", "McpOAuthBearer", securitySchemes.McpOAuthBearer);
 
   const params = (paramSchemas: Record<string, ReturnType<typeof pathStringParam>>) => z.object(paramSchemas);
   const uploadTokenQueryParam = z
@@ -39,12 +42,12 @@ export function buildUploadOpenApiDocument(options: UploadOpenApiOptions = {}): 
     path: "/v1/upload-sessions",
     operationId: "uploadSessions.create",
     summary: "Create an upload session and mint signed PUT targets.",
-    security: [{ ApiKeyBearer: [] }],
+    security: [{ ApiKeyBearer: [] }, { McpOAuthBearer: [] }],
     request: {
       headers: [idempotencyKeyHeader, requestIdHeader],
       body: { required: true, content: { "application/json": { schema: CreateUploadSessionRequest } } },
     },
-    responses: standardJsonResponses(schemaRef("CreateUploadSessionResponse")),
+    responses: { ...standardJsonResponses(schemaRef("CreateUploadSessionResponse")), "429": errorResponse },
   });
 
   registry.registerPath({
@@ -68,6 +71,7 @@ export function buildUploadOpenApiDocument(options: UploadOpenApiOptions = {}): 
       "404": errorResponse,
       "409": errorResponse,
       "429": rateLimitResponse,
+      "503": errorResponse,
     },
   });
 
@@ -76,18 +80,55 @@ export function buildUploadOpenApiDocument(options: UploadOpenApiOptions = {}): 
     path: "/v1/upload-sessions/{upload_session_id}/finalize",
     operationId: "uploadSessions.finalize",
     summary: "Finalize an upload session and create a draft revision.",
-    security: [{ ApiKeyBearer: [] }],
+    security: [{ ApiKeyBearer: [] }, { McpOAuthBearer: [] }],
     request: {
       params: params({
         upload_session_id: pathStringParam("upload_session_id", "Upload session id."),
       }),
       headers: [idempotencyKeyHeader, requestIdHeader],
     },
-    responses: standardJsonResponses(schemaRef("FinalizeUploadSessionResponse")),
+    responses: { ...standardJsonResponses(schemaRef("FinalizeUploadSessionResponse")), "429": errorResponse },
   });
 
-  const generator = new OpenApiGeneratorV31(registry.definitions);
-  const document = generator.generateDocument({
+  const sessionParams = params({ upload_session_id: pathStringParam("upload_session_id", "Upload session id.") });
+  for (const [operation, suffix, schema, response] of [
+    ["appendFiles", "file-batches", AppendUploadFilesRequest, "AppendUploadFilesResponse"],
+    ["completeFiles", "file-completions", CompleteUploadFilesRequest, "CompleteUploadFilesResponse"],
+  ] as const)
+    registry.registerPath({
+      method: "post",
+      path: `/v1/upload-sessions/{upload_session_id}/${suffix}`,
+      operationId: `uploadSessions.${operation}`,
+      summary:
+        operation === "appendFiles"
+          ? "Append and optionally seal a guarded session batch."
+          : "Verify chunked whole-file digests.",
+      security: [{ ApiKeyBearer: [] }, { McpOAuthBearer: [] }],
+      request: {
+        params: sessionParams,
+        headers: [idempotencyKeyHeader, requestIdHeader],
+        body: { required: true, content: { "application/json": { schema } } },
+      },
+      responses: { ...standardJsonResponses(schemaRef(response)), "422": errorResponse, "429": errorResponse },
+    });
+  registry.registerPath({
+    method: "get",
+    path: "/v1/upload-sessions/{upload_session_id}/targets",
+    operationId: "uploadSessions.targets",
+    summary: "Page fresh upload targets for resume.",
+    security: [{ ApiKeyBearer: [] }, { McpOAuthBearer: [] }],
+    request: {
+      params: sessionParams,
+      headers: [requestIdHeader],
+      query: z.object({
+        cursor: Cursor.optional(),
+        limit: z.number().int().min(1).max(UPLOAD_TARGETS_PAGE_MAX).optional(),
+      }),
+    },
+    responses: standardJsonResponses(schemaRef("UploadSessionTargetsResponse")),
+  });
+
+  const document = new OpenApiGeneratorV31(registry.definitions).generateDocument({
     openapi: "3.1.0",
     info: {
       title: "Agent Paste Upload API",

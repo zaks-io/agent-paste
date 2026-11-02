@@ -11,6 +11,10 @@ export const RepositoryErrorCode = {
   access_link_share_cannot_pin_revision: "access_link_share_cannot_pin_revision",
   api_key_not_found: "api_key_not_found",
   artifact_not_found: "artifact_not_found",
+  commit_conflict: "commit_conflict",
+  storage_quota_exceeded: "storage_quota_exceeded",
+  file_digest_mismatch: "file_digest_mismatch",
+  blob_cleanup_in_progress: "blob_cleanup_in_progress",
   base_revision_artifact_mismatch: "base_revision_artifact_mismatch",
   base_revision_not_found: "base_revision_not_found",
   base_revision_not_publishable: "base_revision_not_publishable",
@@ -53,12 +57,14 @@ export type RepositoryErrorCode = (typeof RepositoryErrorCode)[keyof typeof Repo
 
 export class RepositoryError extends Error {
   readonly name = "RepositoryError";
+  readonly details: Record<string, unknown> | undefined;
 
   constructor(
     readonly kind: RepositoryErrorCode,
-    options?: ErrorOptions,
+    options?: ErrorOptions & { details?: Record<string, unknown> },
   ) {
     super(kind, options);
+    this.details = options?.details;
   }
 }
 
@@ -66,7 +72,10 @@ export function isRepositoryError(error: unknown): error is RepositoryError {
   return error instanceof RepositoryError;
 }
 
-export function repositoryError(kind: RepositoryErrorCode, options?: ErrorOptions): never {
+export function repositoryError(
+  kind: RepositoryErrorCode,
+  options?: ErrorOptions & { details?: Record<string, unknown> },
+): never {
   throw new RepositoryError(kind, options);
 }
 
@@ -82,6 +91,10 @@ const repositoryErrorToAppErrorMap: Record<RepositoryErrorCode, ErrorCodeValue |
   access_link_share_cannot_pin_revision: "invalid_request",
   api_key_not_found: "api_key_not_found",
   artifact_not_found: "artifact_not_found",
+  commit_conflict: "commit_conflict",
+  storage_quota_exceeded: "storage_quota_exceeded",
+  file_digest_mismatch: "file_digest_mismatch",
+  blob_cleanup_in_progress: "storage_unavailable",
   base_revision_artifact_mismatch: "invalid_request",
   base_revision_not_found: "invalid_request",
   base_revision_not_publishable: "invalid_request",

@@ -1,3 +1,10 @@
+import type {
+  CommitSpec,
+  PathExpectation,
+  UploadDeletion,
+  UploadPrefixDeletion,
+  UploadSessionChunks,
+} from "@agent-paste/contracts";
 import { workspaceBlobObjectKeyFor } from "@agent-paste/storage";
 import { buildFinalizeResult } from "../agent-view.js";
 import { createdByFromActor, operationActorFromApiActor } from "../created-by.js";
@@ -40,7 +47,18 @@ export type CreateUploadSessionRequest = {
   entrypoint?: string;
   // Paths present in the base Revision that this publish drops (base-only).
   deleted_paths?: string[];
-  files: Array<{ path: string; size_bytes: number; sha256?: string; patch?: UploadSessionFilePatchInput }>;
+  commit?: CommitSpec;
+  deletions?: UploadDeletion[];
+  prefix_deletions?: UploadPrefixDeletion[];
+  more_files?: boolean;
+  files: Array<{
+    path: string;
+    size_bytes: number;
+    sha256?: string;
+    patch?: UploadSessionFilePatchInput;
+    chunks?: UploadSessionChunks;
+    expect?: PathExpectation;
+  }>;
 };
 
 export type ObservedUploadFile = { path: string; objectKey: string; sizeBytes: number };
@@ -55,6 +73,8 @@ export async function createUploadSessionInEntities(
     workspace: Pick<Workspace, "claimed_at">;
   },
 ) {
+  // W1 replaces this seam with the guarded create workflow.
+  if (input.request.commit) throw new Error("not_implemented");
   const files = input.request.files.map((file) => ({ ...file, path: normalizeStoragePath(file.path) }));
   const isUpdate = Boolean(input.request.artifact_id);
   let baseArtifact: Artifact | null = null;

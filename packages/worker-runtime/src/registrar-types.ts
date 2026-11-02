@@ -23,7 +23,11 @@ export type HeaderGuardState<Contract extends Pick<RouteContract, "idempotency">
 export type GuardState<Contract extends RouteContract = RouteContract> = HeaderGuardState<Contract> & {
   body: RequestBodyFor<Contract>;
   params: Record<string, string>;
-  respondError: (code: Contract["errors"][number], messageOrOptions?: string | ErrorResponseOptions) => Response;
+  respondError: (
+    code: Contract["errors"][number],
+    messageOrOptions?: string | ErrorResponseOptions,
+    options?: ErrorResponseOptions,
+  ) => Response;
   respondJson: (body: unknown, status?: number, extraHeaders?: Record<string, string>) => Response;
 };
 

@@ -14,6 +14,12 @@ import { CreateUploadSessionRequest } from "./uploadSessions.js";
 // capSize, so an oversized list costs one issue instead of one parse per item.
 // Every array reachable from an external request therefore needs a finite, small maximum.
 const MAX_REQUEST_ARRAY_ITEMS = 100;
+const UPLOAD_BATCH_ARRAY_ITEMS = 1000;
+function allowedMaximum(path: string): number {
+  return /^api\.(?:CreateUploadSessionRequest|AppendUploadFilesRequest)\.(?:files|deletions)$/.test(path)
+    ? UPLOAD_BATCH_ARRAY_ITEMS
+    : MAX_REQUEST_ARRAY_ITEMS;
+}
 
 const externalRequestSchemas: Record<string, z.ZodType> = {
   ...Object.fromEntries(Object.entries(requestSchemas).map(([name, schema]) => [`api.${name}`, schema])),
@@ -134,17 +140,20 @@ function multiEditRequest(edits: unknown[]) {
   return { artifact_id: artifactId, path: "index.html", edits };
 }
 
-function expectSingleTooBig(result: z.ZodSafeParseResult<unknown>, path: PropertyKey[]) {
+function expectSingleTooBig(
+  result: z.ZodSafeParseResult<unknown>,
+  path: PropertyKey[],
+  maximum = MAX_REQUEST_ARRAY_ITEMS,
+) {
   expect(result.success).toBe(false);
-  expect(result.error?.issues).toEqual([
-    expect.objectContaining({ code: "too_big", origin: "array", maximum: MAX_REQUEST_ARRAY_ITEMS, path }),
-  ]);
+  expect(result.error?.issues).toEqual([expect.objectContaining({ code: "too_big", origin: "array", maximum, path })]);
 }
 
 describe("external request array bounds", () => {
   it.each(Object.entries(externalRequestSchemas))("%s caps every array", (_name, schema) => {
     const unbounded = collectArrayBounds(schema, "$").filter(
-      ({ maximum }) => typeof maximum !== "number" || !Number.isFinite(maximum) || maximum > MAX_REQUEST_ARRAY_ITEMS,
+      ({ path, maximum }) =>
+        typeof maximum !== "number" || !Number.isFinite(maximum) || maximum > allowedMaximum(_name + path.slice(1)),
     );
     expect(unbounded).toEqual([]);
   });
@@ -215,9 +224,13 @@ describe("external request array bounds", () => {
 });
 
 describe("oversized request arrays stop before item validation", () => {
-  it("rejects 1000 invalid files with one too_big issue", () => {
-    const files = Array.from({ length: 1000 }, () => ({}));
-    expectSingleTooBig(CreateUploadSessionRequest.safeParse(uploadRequest({ files })), ["files"]);
+  it("rejects an oversized file batch with one too_big issue", () => {
+    const files = Array.from({ length: UPLOAD_BATCH_ARRAY_ITEMS + 1 }, () => ({}));
+    expectSingleTooBig(
+      CreateUploadSessionRequest.safeParse(uploadRequest({ files })),
+      ["files"],
+      UPLOAD_BATCH_ARRAY_ITEMS,
+    );
   });
 
   it("rejects 1000 invalid deleted_paths with one too_big issue", () => {
@@ -234,12 +247,20 @@ describe("oversized request arrays stop before item validation", () => {
   });
 
   it("rejects one entry over the cap even when every entry is valid", () => {
-    expectSingleTooBig(CreateUploadSessionRequest.safeParse(uploadRequest({ files: uploadFiles(101) })), ["files"]);
+    expectSingleTooBig(
+      CreateUploadSessionRequest.safeParse(uploadRequest({ files: uploadFiles(UPLOAD_BATCH_ARRAY_ITEMS + 1) })),
+      ["files"],
+      UPLOAD_BATCH_ARRAY_ITEMS,
+    );
   });
 
   it("returns the same single issue from async parsing", async () => {
-    const files = Array.from({ length: 1000 }, () => ({}));
-    expectSingleTooBig(await CreateUploadSessionRequest.safeParseAsync(uploadRequest({ files })), ["files"]);
+    const files = Array.from({ length: UPLOAD_BATCH_ARRAY_ITEMS + 1 }, () => ({}));
+    expectSingleTooBig(
+      await CreateUploadSessionRequest.safeParseAsync(uploadRequest({ files })),
+      ["files"],
+      UPLOAD_BATCH_ARRAY_ITEMS,
+    );
   });
 
   it("never runs async item checks for an oversized array", async () => {

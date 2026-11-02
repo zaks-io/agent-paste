@@ -191,7 +191,12 @@ async function upsertContentBlobs(db: DrizzleDb, blobs: ContentBlob[]) {
     });
 }
 
-function mapContentBlob(row: typeof contentBlobs.$inferSelect): ContentBlob {
+function mapContentBlob(
+  row: Pick<
+    typeof contentBlobs.$inferSelect,
+    "workspaceId" | "sha256" | "sizeBytes" | "r2Key" | "createdAt" | "updatedAt"
+  >,
+): ContentBlob {
   return {
     workspace_id: row.workspaceId,
     sha256: row.sha256,

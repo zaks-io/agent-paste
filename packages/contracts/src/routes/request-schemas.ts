@@ -1,15 +1,19 @@
 import { UpdateDisplayMetadataRequest } from "../accessLinks.js";
 import { CreateApiKeyRequest } from "../apiKeys.js";
 import { CreateCheckoutSessionRequest, SetWorkspacePlanRequest } from "../billing.js";
+import { EmptyObject } from "../common.js";
 import { EphemeralClaimRequest, EphemeralProvisionRequest } from "../ephemeral.js";
 import { CreateFeedbackRequest } from "../feedback.js";
 import { SetLockdownRequest } from "../lockdown.js";
 import { PublishRevisionRequest } from "../revisions.js";
-import { CreateUploadSessionRequest } from "../uploadSessions.js";
+import { AppendUploadFilesRequest, CompleteUploadFilesRequest, CreateUploadSessionRequest } from "../uploadSessions.js";
 import { UpdateWebSettingsRequest } from "../web.js";
 import type { RouteContract } from "./types.js";
 
 export const requestSchemas = {
+  EmptyObject,
+  AppendUploadFilesRequest,
+  CompleteUploadFilesRequest,
   CreateFeedbackRequest,
   CreateApiKeyRequest,
   CreateCheckoutSessionRequest,

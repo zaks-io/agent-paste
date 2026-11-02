@@ -9,6 +9,19 @@ const { apiKeyRead: apiKeyReadErrors, apiKeyActorRead: apiKeyActorReadErrors } =
  */
 export const actorRouteContracts = [
   {
+    id: "usage.get",
+    app: "api",
+    method: "GET",
+    path: "/v1/usage",
+    auth: "api_key_or_mcp_oauth",
+    scopes: ["read"],
+    idempotency: "none",
+    rateLimit: "actor",
+    responseSchema: "StorageUsage",
+    errors: [...apiKeyActorReadErrors, "forbidden"],
+  },
+
+  {
     id: "feedback.create",
     app: "api",
     method: "POST",

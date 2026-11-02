@@ -24,8 +24,6 @@ export const RevisionListResponse = z.object({
 });
 export type RevisionListResponse = z.infer<typeof RevisionListResponse>;
 
-// Publishing a Revision carries CONTENT ONLY — no visibility input. An Artifact
-// is private by default; unlisted sharing is a separate, explicit visibility
-// step that mints a revocable Share Link. The body is empty and optional.
-export const PublishRevisionRequest = z.object({}).strict();
+// Retention fields are returned only when explicitly requested, so strict legacy clients keep parsing.
+export const PublishRevisionRequest = z.object({ include_retention: z.literal(true).optional() }).strict();
 export type PublishRevisionRequest = z.infer<typeof PublishRevisionRequest>;

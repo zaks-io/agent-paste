@@ -1,6 +1,11 @@
+import {
+  MAX_CHUNKS_PER_FILE,
+  UPLOAD_BATCH_MAX_DELETIONS,
+  UPLOAD_BATCH_MAX_FILES,
+  UPLOAD_TARGETS_PAGE_MAX,
+} from "@agent-paste/config";
 import * as z from "zod";
-import { Mebibytes } from "./common.js";
-import { UploadSessionStatus } from "./enums.js";
+import { PageInfo } from "./common.js";
 import {
   ArtifactId,
   ArtifactReference,
@@ -12,42 +17,21 @@ import {
   UploadSessionId,
   UrlString,
 } from "./primitives.js";
+import { Retention } from "./retention.js";
+import { refineLegacyCreate, refineUploadBatch } from "./upload-guards.js";
+import { CommitSpec, UploadDeletion, UploadPrefixDeletion, UploadSessionFileInput } from "./upload-session-inputs.js";
 
-// Re-exported from primitives so existing importers (@agent-paste/contracts
-// Sha256Hex) keep working; agentView.ts and artifacts.ts also need it.
 export { Sha256Hex } from "./primitives.js";
 
-// A changed file may arrive as a patch against a base Revision's file (ADR 0089)
-// instead of whole bytes. When present, the bytes uploaded for this file entry are
-// the diff (so the entry's size_bytes/sha256 describe the diff), base_sha256 is the
-// digest of the file in the base Revision the diff applies to, and result_sha256 is
-// the digest of the whole reconstructed file the server must produce and verify.
-// Only the unified-diff text format is supported; binary changes upload whole bytes.
-export const UploadSessionFilePatch = z.object({
-  base_sha256: Sha256Hex,
-  format: z.literal("unified"),
-  result_sha256: Sha256Hex,
-});
-export type UploadSessionFilePatch = z.infer<typeof UploadSessionFilePatch>;
+export * from "./upload-session-inputs.js";
 
-export const UploadSessionFileInput = z.object({
-  path: FilePath,
-  size_bytes: z.number().int().nonnegative().max(Mebibytes.twentyFive),
-  sha256: Sha256Hex.optional(),
-  patch: UploadSessionFilePatch.optional(),
-});
-export type UploadSessionFileInput = z.infer<typeof UploadSessionFileInput>;
+const batchFields = {
+  files: z.array(UploadSessionFileInput).max(UPLOAD_BATCH_MAX_FILES),
+  deletions: z.array(UploadDeletion).max(UPLOAD_BATCH_MAX_DELETIONS).optional(),
+  prefix_deletions: z.array(UploadPrefixDeletion).max(100).optional(),
+};
 
-// TTL is a server-side policy decision derived from the workspace tier, never a
-// client input. Clients (CLI, MCP) cannot request or influence artifact lifetime.
-// CLI 0.2.4 and older may still send render_mode; the non-strict object strips it.
-// base_revision_id turns this into a partial-manifest publish (ADR 0089): files
-// lists only changed/added paths, deleted_paths drops paths, and every other path
-// inherits from the base Revision by reference. deleted_paths and per-file patches
-// are only meaningful against a base. Structural checks live here; the stateful
-// checks and the tree-inheritance merge (base is a published Revision in the same
-// workspace/artifact, only blob-backed paths inherit, deleted path exists in the
-// base, patch base_sha256 matches the base file) run server-side at finalize.
+// Preserve stripping of old render_mode inputs on the existing request.
 export const CreateUploadSessionRequest = z
   .object({
     artifact_id: ArtifactReference.optional(),
@@ -55,82 +39,39 @@ export const CreateUploadSessionRequest = z
     title: PlainTextTitle,
     entrypoint: FilePath,
     deleted_paths: z.array(FilePath).max(100).optional(),
-    // A whole publish needs at least one file; a partial-manifest delta against a base
-    // may send zero files (a delete-only revise inherits the rest), so the min(1) check
-    // is conditional and lives in the superRefine below, not on the array.
-    files: z.array(UploadSessionFileInput).max(100),
+    ...batchFields,
+    commit: CommitSpec.optional(),
+    more_files: z.boolean().optional(),
   })
   .superRefine((request, ctx) => {
-    if (request.base_revision_id === undefined) {
-      if (request.files.length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["files"],
-          message: "files must contain at least one entry without base_revision_id",
-        });
-      }
-      if (request.deleted_paths !== undefined) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["deleted_paths"],
-          message: "deleted_paths requires base_revision_id",
-        });
-      }
-      const patchedIndex = request.files.findIndex((file) => file.patch !== undefined);
-      if (patchedIndex !== -1) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["files", patchedIndex, "patch"],
-          message: "patch requires base_revision_id",
-        });
-      }
-    } else if (request.files.length === 0 && (request.deleted_paths?.length ?? 0) === 0) {
-      // A partial-manifest delta must change something: zero files AND zero deletions
-      // would commit a Revision identical to its base, which is a client mistake.
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["files"],
-        message: "a base_revision_id delta needs at least one changed file or deleted path",
-      });
+    const issue = (path: string[], message: string) => ctx.addIssue({ code: "custom", path, message });
+    refineUploadBatch(request, ctx, request.commit, !request.commit);
+    if (request.commit) {
+      if (request.base_revision_id !== undefined || request.deleted_paths !== undefined)
+        issue(["commit"], "commit excludes base_revision_id and deleted_paths");
+      if (request.commit.guard === "paths" && !request.artifact_id)
+        issue(["artifact_id"], "paths guard requires artifact_id");
+      if (!request.artifact_id && (request.commit.guard !== "snapshot" || request.commit.snapshot?.prefix !== null))
+        issue(["commit"], "new artifacts require a whole-tree snapshot");
+      if (
+        request.files.length + (request.deletions?.length ?? 0) + (request.prefix_deletions?.length ?? 0) === 0 &&
+        request.more_files !== true
+      )
+        issue(["files"], "an empty first batch requires more_files");
+    } else {
+      refineLegacyCreate(request, ctx);
     }
-    const deleted = new Set(request.deleted_paths ?? []);
-    if (deleted.size !== (request.deleted_paths?.length ?? 0)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["deleted_paths"],
-        message: "deleted_paths must be unique",
-      });
-    }
-    const uploaded = new Set<string>();
-    request.files.forEach((file, index) => {
-      if (uploaded.has(file.path)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["files", index, "path"],
-          message: "file paths must be unique",
-        });
-      }
-      uploaded.add(file.path);
-      if (deleted.has(file.path)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["files", index, "path"],
-          message: "a path cannot be both uploaded and deleted",
-        });
-      }
-      // A patch carries the diff's own digest; a whole-file sha256 on the same
-      // entry is contradictory (the bytes are a diff, not the content-addressed
-      // file), so reject it rather than silently dropping one.
-      if (file.patch !== undefined && file.sha256 !== undefined) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["files", index, "sha256"],
-          message: "a patched file cannot also declare a whole-file sha256",
-        });
-      }
-    });
   });
 export type CreateUploadSessionRequest = z.infer<typeof CreateUploadSessionRequest>;
+export const AppendUploadFilesRequest = z
+  .object({
+    batch_index: z.number().int().min(1),
+    ...batchFields,
+    more_files: z.boolean(),
+  })
+  .strict()
+  .superRefine((batch, ctx) => refineUploadBatch(batch, ctx));
+export type AppendUploadFilesRequest = z.infer<typeof AppendUploadFilesRequest>;
 
 export const UploadRequiredTarget = z.object({
   status: z.literal("upload_required"),
@@ -140,25 +81,87 @@ export const UploadRequiredTarget = z.object({
   expires_at: IsoDateTime,
 });
 export type UploadRequiredTarget = z.infer<typeof UploadRequiredTarget>;
-
-export const ReusedUploadTarget = z.object({
-  status: z.literal("reused"),
-  path: FilePath,
-});
+export const ReusedUploadTarget = z.object({ status: z.literal("reused"), path: FilePath });
 export type ReusedUploadTarget = z.infer<typeof ReusedUploadTarget>;
-
-export const SignedUploadTarget = z.discriminatedUnion("status", [UploadRequiredTarget, ReusedUploadTarget]);
+export const ChunkUploadTarget = UploadRequiredTarget.extend({
+  status: z.literal("chunk_upload_required"),
+  chunk_index: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(MAX_CHUNKS_PER_FILE - 1),
+}).strict();
+export type ChunkUploadTarget = z.infer<typeof ChunkUploadTarget>;
+export const VerifyRequiredTarget = z.object({ status: z.literal("verify_required"), path: FilePath }).strict();
+export type VerifyRequiredTarget = z.infer<typeof VerifyRequiredTarget>;
+export const SignedUploadTarget = z.discriminatedUnion("status", [
+  UploadRequiredTarget,
+  ReusedUploadTarget,
+  ChunkUploadTarget,
+  VerifyRequiredTarget,
+]);
 export type SignedUploadTarget = z.infer<typeof SignedUploadTarget>;
-
 export const CreateUploadSessionResponse = z.object({
   upload_session_id: UploadSessionId,
   artifact_id: ArtifactId,
   revision_id: RevisionId,
-  status: z.literal(UploadSessionStatus.enum.pending),
+  status: z.literal("pending"),
   expires_at: IsoDateTime,
-  files: z.array(SignedUploadTarget).max(100),
+  files: z.array(SignedUploadTarget).max(2000),
+  sealed: z.boolean().optional(),
+  next_batch_index: z.number().int().min(1).optional(),
 });
 export type CreateUploadSessionResponse = z.infer<typeof CreateUploadSessionResponse>;
+export const AppendUploadFilesResponse = z
+  .object({
+    upload_session_id: UploadSessionId,
+    sealed: z.boolean(),
+    next_batch_index: z.number().int().min(1),
+    files: z.array(SignedUploadTarget).max(2000),
+  })
+  .strict();
+export type AppendUploadFilesResponse = z.infer<typeof AppendUploadFilesResponse>;
+export const UploadSessionTargetsResponse = z
+  .object({
+    upload_session_id: UploadSessionId,
+    status: z.enum(["pending", "ready", "finalized", "expired"]),
+    sealed: z.boolean(),
+    expires_at: IsoDateTime,
+    remaining: z
+      .object({
+        files: z.number().int().nonnegative(),
+        chunks: z.number().int().nonnegative(),
+        bytes: z.number().int().nonnegative(),
+        unverified_files: z.number().int().nonnegative(),
+      })
+      .strict(),
+    targets: z
+      .array(z.union([UploadRequiredTarget, ChunkUploadTarget, VerifyRequiredTarget]))
+      .max(UPLOAD_TARGETS_PAGE_MAX),
+    page_info: PageInfo,
+  })
+  .strict();
+export type UploadSessionTargetsResponse = z.infer<typeof UploadSessionTargetsResponse>;
+export const CompleteUploadFilesRequest = z.object({ paths: z.array(FilePath).min(1).max(64) }).strict();
+export type CompleteUploadFilesRequest = z.infer<typeof CompleteUploadFilesRequest>;
+export const CompleteUploadFilesResponse = z
+  .object({
+    upload_session_id: UploadSessionId,
+    files: z
+      .array(
+        z
+          .object({
+            path: FilePath,
+            status: z.literal("verified"),
+            sha256: Sha256Hex,
+            size_bytes: z.number().int().nonnegative(),
+          })
+          .strict(),
+      )
+      .max(64),
+  })
+  .strict();
+export type CompleteUploadFilesResponse = z.infer<typeof CompleteUploadFilesResponse>;
 
 export const PublishResult = z
   .object({
@@ -170,8 +173,24 @@ export const PublishResult = z
   })
   .strict();
 export type PublishResult = z.infer<typeof PublishResult>;
-
-export const FinalizeUploadSessionResponse = z.object({
+export const PublishResultV2 = PublishResult.extend({
+  revision_number: z.number().int().positive(),
+  retention: Retention,
+  pinned_at: IsoDateTime.nullable(),
+  effective_expires_at: IsoDateTime.nullable(),
+  no_change: z.boolean(),
+  changes: z
+    .object({
+      added: z.number().int().nonnegative(),
+      changed: z.number().int().nonnegative(),
+      removed: z.number().int().nonnegative(),
+    })
+    .strict(),
+}).strict();
+export type PublishResultV2 = z.infer<typeof PublishResultV2>;
+export const PublishRevisionResponse = z.union([PublishResult, PublishResultV2]);
+export type PublishRevisionResponse = z.infer<typeof PublishRevisionResponse>;
+export const DraftUploadSessionResponse = z.object({
   upload_session_id: UploadSessionId,
   artifact_id: ArtifactId,
   revision_id: RevisionId,
@@ -181,4 +200,18 @@ export const FinalizeUploadSessionResponse = z.object({
   file_count: z.number().int().min(1),
   size_bytes: z.number().int().nonnegative(),
 });
+export const ReadyUploadSessionResponse = z
+  .object({
+    status: z.literal("ready"),
+    upload_session_id: UploadSessionId,
+    artifact_id: ArtifactId,
+    revision_id: RevisionId,
+    file_count: z.number().int().nonnegative(),
+    deletion_count: z.number().int().nonnegative(),
+  })
+  .strict();
+export const FinalizeUploadSessionResponse = z.discriminatedUnion("status", [
+  DraftUploadSessionResponse,
+  ReadyUploadSessionResponse,
+]);
 export type FinalizeUploadSessionResponse = z.infer<typeof FinalizeUploadSessionResponse>;

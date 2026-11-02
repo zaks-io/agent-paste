@@ -7,6 +7,27 @@ import { RepositoryError, repositoryErrorToAppError } from "@agent-paste/db";
  * Kept alongside route contracts so CI can assert per-route `contract.errors` coverage (AP-131).
  */
 export const routeRepositorySurfaces = {
+  "usage.get": [],
+  "artifacts.pin": ["artifact_not_found", "pinned_artifact_cap_exceeded"],
+  "artifacts.unpin": ["artifact_not_found"],
+  "artifactFiles.list": ["invalid_cursor", "invalid_pagination_limit"],
+  "artifacts.readGrant": [],
+  "uploadSessions.appendFiles": [
+    "invalid_request",
+    "file_count_cap_exceeded",
+    "file_size_cap_exceeded",
+    "storage_quota_exceeded",
+    "blob_cleanup_in_progress",
+    "upload_session_expired",
+    "upload_session_not_found",
+  ],
+  "uploadSessions.targets": ["invalid_cursor", "upload_session_expired", "upload_session_not_found"],
+  "uploadSessions.completeFiles": [
+    "file_digest_mismatch",
+    "upload_incomplete",
+    "upload_session_expired",
+    "upload_session_not_found",
+  ],
   "whoami.get": [],
   "mcp.whoami": [],
   "usagePolicy.get": [],
@@ -24,6 +45,9 @@ export const routeRepositorySurfaces = {
   "artifacts.fileContent": [],
   "revisions.list": [],
   "revisions.publish": [
+    "commit_conflict",
+    "storage_quota_exceeded",
+    "pinned_artifact_cap_exceeded",
     "artifact_not_found",
     "draft_revision_conflict",
     "entrypoint_not_in_revision",
@@ -62,7 +86,7 @@ export const routeRepositorySurfaces = {
     "file_size_cap_exceeded",
     "revision_size_cap_exceeded",
   ],
-  "uploadSessions.putFile": [],
+  "uploadSessions.putFile": ["blob_cleanup_in_progress"],
   "uploadSessions.finalize": [
     // The five base-* kinds collapse to invalid_request on the wire; declared here so
     // this surface reflects what finalizeUploadSession can actually throw (ADR 0090).

@@ -12,6 +12,7 @@ export function mapApiErrorToMcp(error: {
   message: string;
   requestId?: string;
   docs?: string;
+  details?: Record<string, unknown>;
 }): McpMappedToolError {
   return {
     code: error.code,
@@ -20,6 +21,7 @@ export function mapApiErrorToMcp(error: {
     httpStatus: MCP_API_ERROR_HTTP_STATUS[error.code] ?? 500,
     ...(error.requestId ? { requestId: error.requestId } : {}),
     ...(error.docs ? { docs: error.docs } : {}),
+    ...(error.details !== undefined ? { details: error.details } : {}),
   };
 }
 
@@ -58,6 +60,7 @@ export function toMcpJsonRpcError(error: McpMappedToolError): McpJsonRpcError {
       message: error.message,
       ...(error.requestId ? { request_id: error.requestId } : {}),
       ...(error.docs ? { docs: error.docs } : {}),
+      ...(error.details !== undefined ? { details: error.details } : {}),
     },
   };
 }

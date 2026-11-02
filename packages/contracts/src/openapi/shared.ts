@@ -2,6 +2,7 @@ import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { RevokeApiKeyResponse } from "../admin.js";
 import { AgentView, PublicAgentView } from "../agentView.js";
 import { ApiKeySummary, CreateApiKeyRequest, CreateApiKeyResponse } from "../apiKeys.js";
+import { ArtifactFileListItem, ArtifactFileListResponse } from "../artifactFiles.js";
 import {
   ArtifactDetail,
   ArtifactFileContent,
@@ -36,12 +37,22 @@ import {
 import { CreateFeedbackRequest, CreateFeedbackResponse } from "../feedback.js";
 import { LockdownDetail, LockdownListResponse, SetLockdownRequest } from "../lockdown.js";
 import { McpWhoamiResponse } from "../mcp.js";
+import { RevisionReadGrant } from "../readGrants.js";
+import { ArtifactRetention } from "../retention.js";
 import { PublishRevisionRequest, RevisionListResponse, RevisionSummary } from "../revisions.js";
+import { StorageUsage } from "../storageUsage.js";
 import {
+  AppendUploadFilesRequest,
+  AppendUploadFilesResponse,
+  CompleteUploadFilesRequest,
+  CompleteUploadFilesResponse,
   CreateUploadSessionRequest,
   CreateUploadSessionResponse,
   FinalizeUploadSessionResponse,
   PublishResult,
+  PublishResultV2,
+  PublishRevisionResponse,
+  UploadSessionTargetsResponse,
 } from "../uploadSessions.js";
 import {
   UpdateWebSettingsRequest,
@@ -85,6 +96,11 @@ export function registerApiSchemas(registry: OpenAPIRegistry, options: RegisterA
   registry.register("WhoamiResponse", WhoamiResponse);
   registry.register("McpWhoamiResponse", McpWhoamiResponse);
   registry.register("UsagePolicy", UsagePolicy);
+  registry.register("ArtifactFileListItem", ArtifactFileListItem);
+  registry.register("ArtifactFileListResponse", ArtifactFileListResponse);
+  registry.register("ArtifactRetention", ArtifactRetention);
+  registry.register("RevisionReadGrant", RevisionReadGrant);
+  registry.register("StorageUsage", StorageUsage);
   registry.register("CliVersionResponse", CliVersionResponse);
   registry.register("PublicAgentView", PublicAgentView);
   registry.register("AgentView", AgentView);
@@ -102,6 +118,8 @@ export function registerApiSchemas(registry: OpenAPIRegistry, options: RegisterA
   registry.register("ArtifactListResponse", ArtifactListResponse);
   registry.register("DeleteArtifactResponse", DeleteArtifactResponse);
   registry.register("PublishResult", PublishResult);
+  registry.register("PublishResultV2", PublishResultV2);
+  registry.register("PublishRevisionResponse", PublishRevisionResponse);
   registry.register("WorkspaceMemberSummary", WorkspaceMemberSummary);
   registry.register("WebAuthCallbackResponse", WebAuthCallbackResponse);
   registry.register("WebWorkspaceResponse", WebWorkspaceResponse);
@@ -135,10 +153,17 @@ export function registerApiSchemas(registry: OpenAPIRegistry, options: RegisterA
 export function registerUploadSchemas(registry: OpenAPIRegistry): void {
   registerSharedSchemas(registry);
   registerBundleAvailabilitySchemas(registry);
+  registry.register("AppendUploadFilesRequest", AppendUploadFilesRequest);
+  registry.register("AppendUploadFilesResponse", AppendUploadFilesResponse);
+  registry.register("CompleteUploadFilesRequest", CompleteUploadFilesRequest);
+  registry.register("CompleteUploadFilesResponse", CompleteUploadFilesResponse);
+  registry.register("UploadSessionTargetsResponse", UploadSessionTargetsResponse);
   registry.register("CreateUploadSessionRequest", CreateUploadSessionRequest);
   registry.register("CreateUploadSessionResponse", CreateUploadSessionResponse);
   registry.register("FinalizeUploadSessionResponse", FinalizeUploadSessionResponse);
   registry.register("PublishResult", PublishResult);
+  registry.register("PublishResultV2", PublishResultV2);
+  registry.register("PublishRevisionResponse", PublishRevisionResponse);
   registry.register("RevisionSummary", RevisionSummary);
   registry.register("RevisionListResponse", RevisionListResponse);
   registry.register("EmptyObject", EmptyObject);

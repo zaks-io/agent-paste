@@ -128,12 +128,16 @@ export function createContractErrorResponder<Contract extends RouteContract>(
     docsBaseUrl?: string | undefined;
     defaultHeaders?: Record<string, string> | undefined;
   } = {},
-): (code: Contract["errors"][number], messageOrOptions?: string | ErrorResponseOptions) => Response {
-  return (code, messageOrOptions) => {
+): (
+  code: Contract["errors"][number],
+  messageOrOptions?: string | ErrorResponseOptions,
+  extraOptions?: ErrorResponseOptions,
+) => Response {
+  return (code, messageOrOptions, extraOptions) => {
     const responseOptions: ErrorResponseOptions =
       typeof messageOrOptions === "string"
         ? { ...options, message: messageOrOptions }
         : { ...options, ...messageOrOptions };
-    return contractErrorResponse(context, contract, code, responseOptions);
+    return contractErrorResponse(context, contract, code, { ...responseOptions, ...extraOptions });
   };
 }

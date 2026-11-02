@@ -4,6 +4,10 @@ import { ActorType, Scope } from "./enums.js";
 import { ApiKeyId, IsoDateTime, WorkspaceId } from "./primitives.js";
 
 export const UsagePolicy = z.object({
+  storage_budget_bytes: z.number().int().positive().optional(),
+  single_put_max_bytes: z.number().int().positive().optional(),
+  chunk_bytes: z.number().int().positive().optional(),
+  revision_file_entry_bytes: z.number().int().positive().optional(),
   file_size_cap_bytes: z.number().int().positive(),
   artifact_size_cap_bytes: z.number().int().positive(),
   bundle_size_cap_bytes: z.number().int().positive(),

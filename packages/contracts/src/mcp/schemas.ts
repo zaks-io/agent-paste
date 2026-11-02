@@ -14,6 +14,7 @@ import {
   RevisionId,
   UrlString,
 } from "../primitives.js";
+import { ArtifactRetention } from "../retention.js";
 import { RevisionListResponse } from "../revisions.js";
 import { WorkspaceMemberId } from "../web.js";
 import { WorkspaceSummary } from "../workspace.js";
@@ -51,6 +52,7 @@ export const McpPublishArtifactInput = z
     title: PlainTextTitle,
     body: mcpTextBody,
     render_mode: McpPublishRenderMode,
+    pin: z.boolean().optional(),
     idempotency_key: IdempotencyKey.optional(),
   })
   .strict();
@@ -63,6 +65,7 @@ export const McpAddRevisionInput = z
     ),
     body: mcpTextBody,
     render_mode: McpPublishRenderMode,
+    pin: z.boolean().optional(),
     idempotency_key: IdempotencyKey.optional(),
   })
   .strict();
@@ -104,6 +107,18 @@ export const McpListRevisionsInput = z
   })
   .strict();
 export type McpListRevisionsInput = z.infer<typeof McpListRevisionsInput>;
+
+export const McpPinArtifactInput = z
+  .object({ artifact_id: ArtifactReference, idempotency_key: IdempotencyKey.optional() })
+  .strict();
+export type McpPinArtifactInput = z.infer<typeof McpPinArtifactInput>;
+/** @alias McpPinArtifactInput. Both retention tools accept the same reference and replay key. */
+export const McpUnpinArtifactInput = McpPinArtifactInput;
+export type McpUnpinArtifactInput = z.infer<typeof McpUnpinArtifactInput>;
+export const McpPinArtifactOutput = ArtifactRetention;
+export type McpPinArtifactOutput = z.infer<typeof McpPinArtifactOutput>;
+export const McpUnpinArtifactOutput = ArtifactRetention;
+export type McpUnpinArtifactOutput = z.infer<typeof McpUnpinArtifactOutput>;
 
 export const McpDeleteArtifactInput = z.object({ artifact_id: ArtifactReference }).strict();
 export type McpDeleteArtifactInput = z.infer<typeof McpDeleteArtifactInput>;
@@ -189,6 +204,8 @@ export const McpToolName = z.enum([
   "read_file",
   "list_revisions",
   "delete_artifact",
+  "pin_artifact",
+  "unpin_artifact",
   "update_display_metadata",
   "whoami",
   "feedback",

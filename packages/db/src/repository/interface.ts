@@ -17,6 +17,7 @@ import type {
   Workspace,
 } from "../types.js";
 import type { OperatorEventFilters } from "./operator-event-filters.js";
+import type { PersistentHostingRepository } from "./persistent-hosting-repository.js";
 import type { CreateUploadSessionRequest } from "./upload-session-lifecycle.js";
 import type { toWebArtifactRow, toWebAuditRow, toWebOperatorEventRow } from "./web-transforms.js";
 import type {
@@ -151,7 +152,7 @@ type LockdownDetail = {
 // Single backend-agnostic contract. Both the Postgres and local repositories
 // implement this exactly; the api and upload workers consume it directly.
 /** Domain failures throw {@link RepositoryError}; map with {@link repositoryErrorToAppError}. */
-export type Repository = {
+export type Repository = PersistentHostingRepository & {
   submitFeedback(input: SubmitFeedbackInput): Promise<{ feedback_id: string }>;
   resolveArtifactReference(input: {
     actor: ApiActor;

@@ -1,12 +1,15 @@
 import {
   DEFAULT_UPLOAD_SESSION_TTL_MS,
   EPHEMERAL_AUTO_DELETION_DAYS,
+  EPHEMERAL_POLICY_OVERRIDES,
   isBillingEnabled,
+  LEGACY_SINGLE_PUT_MAX_BYTES,
   MAX_ARTIFACT_BYTES,
   PINNED_ARTIFACT_CAP,
   resolveDailyNewArtifactAllowance,
   resolveUsagePolicy,
   SECONDS_PER_DAY,
+  SINGLE_PUT_MAX_BYTES,
   USAGE_POLICY,
   type UsagePolicyConfig,
   type WorkspacePlan,
@@ -48,6 +51,7 @@ export function usagePolicyForWorkspace(
   const base = resolveUsagePolicy({ plan: workspace.plan, billingEnabled });
   return {
     ...base,
+    ...(isEphemeralWorkspace(workspace) ? EPHEMERAL_POLICY_OVERRIDES : {}),
     daily_new_artifact_allowance: resolveDailyNewArtifactAllowance({
       claimed: workspace.claimed_at != null,
       plan: workspace.plan,
@@ -78,4 +82,19 @@ export function defaultAutoDeletionDaysForWorkspace(
 // clients cannot request or influence it.
 export function artifactTtlSecondsForUpload(policy: Pick<UsagePolicyConfig, "default_ttl_seconds">): number {
   return policy.default_ttl_seconds;
+}
+
+// The guarded policy's larger cap must never widen legacy single-object reads or patches.
+export function usagePolicyForLegacyUpload(
+  workspace: Pick<Workspace, "plan" | "claimed_at">,
+  billingEnabled: boolean,
+): UsagePolicyConfig {
+  const policy = usagePolicyForWorkspace(workspace, billingEnabled);
+  return {
+    ...policy,
+    file_size_cap_bytes: Math.min(
+      policy.file_size_cap_bytes,
+      billingEnabled && workspace.plan === "pro" ? LEGACY_SINGLE_PUT_MAX_BYTES : SINGLE_PUT_MAX_BYTES,
+    ),
+  };
 }

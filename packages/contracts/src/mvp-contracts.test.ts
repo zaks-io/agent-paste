@@ -57,6 +57,7 @@ describe("MVP route registry", () => {
 
   it("exposes the CLI-first MVP routes plus web dashboard reads", () => {
     expect(routeContracts.map((route) => route.id)).toEqual([
+      "usage.get",
       "feedback.create",
       "whoami.get",
       "mcp.whoami",
@@ -66,6 +67,10 @@ describe("MVP route registry", () => {
       "cli.version",
       "ephemeral.provision",
       "ephemeral.claim",
+      "artifacts.pin",
+      "artifacts.unpin",
+      "artifactFiles.list",
+      "artifacts.readGrant",
       "artifacts.list",
       "artifacts.delete",
       "artifacts.updateDisplayMetadata",
@@ -98,6 +103,9 @@ describe("MVP route registry", () => {
       "billing.portal.create",
       "billing.webhook",
       "billing.admin.setPlan",
+      "uploadSessions.appendFiles",
+      "uploadSessions.targets",
+      "uploadSessions.completeFiles",
       "uploadSessions.create",
       "uploadSessions.putFile",
       "uploadSessions.finalize",
@@ -122,6 +130,14 @@ describe("MVP route registry", () => {
         "agentView.getLatest",
         "agentView.getRevision",
         "apiKeys.revokeCurrent",
+        "usage.get",
+        "artifacts.pin",
+        "artifacts.unpin",
+        "artifactFiles.list",
+        "artifacts.readGrant",
+        "uploadSessions.appendFiles",
+        "uploadSessions.targets",
+        "uploadSessions.completeFiles",
         "artifacts.fileContent",
         "revisions.list",
         "revisions.publish",
@@ -297,15 +313,15 @@ describe("MVP route registry", () => {
 });
 
 describe("MVP schemas", () => {
-  it("keeps upload-session caps at the documented MVP values", () => {
+  it("declares claimed hosting caps while retaining legacy single-PUT ceilings", () => {
     expect(mvpUsagePolicy).toMatchObject({
-      file_size_cap_bytes: 10 * 1024 * 1024,
-      artifact_size_cap_bytes: 25 * 1024 * 1024,
+      file_size_cap_bytes: 262_144_000,
+      artifact_size_cap_bytes: 2_147_483_648,
       bundle_size_cap_bytes: 25 * 1024 * 1024,
       bundles_enabled: true,
-      file_count_cap: 100,
+      file_count_cap: 10_000,
       daily_new_artifact_allowance: 100,
-      lifetime_revision_ceiling: 100,
+      lifetime_revision_ceiling: 2_147_483_647,
     });
 
     expect(
