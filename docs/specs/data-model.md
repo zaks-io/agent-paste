@@ -360,12 +360,25 @@ capability-manifest prefix. See [`jobs.md`](./jobs.md#byte-purge).
 
 ## KV Denylist
 
-The content Worker has no database binding. Admin deletes and retention cleanup write denylist keys to KV so signed content URLs stop working before their token expiration.
+The content Worker has no database binding. Deletion, retention cleanup, and
+Platform Lockdown write denylist keys to KV so Content rejects reads
+independently of byte purge. Current
+capability manifests may carry non-expiring tokens, so Artifact deletion
+(`ad:`), Revision retention (`rd:`), and platform Artifact/Workspace lockdown
+(`ad:`/`wsd:`) entries have no KV expiration. Platform Lockdown entries remain
+until an explicit lift clears them, subject to the existing shared-key retention
+guards for deleted, missing, or otherwise locked Artifacts and active lockdowns.
+Dormant legacy Access Link revocation and lockdown writes keep their existing
+bounded token TTL; they do not become a current authority.
 
 Required key shapes can be implementation-defined, but must cover:
 
 - Artifact id.
 - Revision id.
+
+Hourly Jobs discovery rewrites every effective persisted Platform Lockdown as a
+non-expiring marker, including markers created before durable persistence and
+missing markers after a failed write. See [Jobs recovery](./jobs.md#post-commit-sequencing).
 
 KV values do not contain token material.
 

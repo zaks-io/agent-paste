@@ -1,9 +1,7 @@
-import { resolveUsagePolicy } from "@agent-paste/config";
 import { BytePurgeMessage, type BytePurgeMessage as BytePurgePayload } from "@agent-paste/contracts";
 import { withSqlQuerySource } from "./postgres/query-source.js";
 import type { SqlExecutor } from "./types.js";
 
-const DENYLIST_EXPIRATION_TTL_SECONDS = resolveUsagePolicy({ billingEnabled: false }).max_ttl_seconds;
 const MAX_DENYLIST_ATTEMPTS = 3;
 
 export type DenylistBinding = {
@@ -28,7 +26,13 @@ export type ArtifactBytePurgeHooks = {
 
 // Writes a denylist entry with bounded exponential-backoff retries. Callers
 // supply the fully-qualified KV key (e.g. `ad:<id>` / `rd:<id>`) and reason.
-export async function writeDenylistKey(env: ArtifactInvalidationEnv, key: string, reason: string): Promise<boolean> {
+// Current capabilities can be non-expiring, so their denials must be durable.
+export async function writeDenylistKey(
+  env: ArtifactInvalidationEnv,
+  key: string,
+  reason: string,
+  options: { expirationTtl?: number } = {},
+): Promise<boolean> {
   if (!env.DENYLIST) {
     return false;
   }
@@ -36,7 +40,7 @@ export async function writeDenylistKey(env: ArtifactInvalidationEnv, key: string
   const value = JSON.stringify({ reason, at: new Date().toISOString() });
   for (let attempt = 1; attempt <= MAX_DENYLIST_ATTEMPTS; attempt += 1) {
     try {
-      await env.DENYLIST.put(key, value, { expirationTtl: DENYLIST_EXPIRATION_TTL_SECONDS });
+      await env.DENYLIST.put(key, value, options);
       return true;
     } catch {
       if (attempt === MAX_DENYLIST_ATTEMPTS) {

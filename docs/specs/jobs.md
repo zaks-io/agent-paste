@@ -29,6 +29,7 @@ does not change the versioned job payload schemas.
 | ----------------- | ----------------: | --------------------: | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Upload Cleanup    |  every 15 minutes |                   200 | Expire stale Upload Sessions and enqueue orphan-byte purge. Also runs first in the hourly sweep so environments without the 15-minute cron stay covered. |
 | Auto Deletion     |            hourly |                   200 | Expire unpinned published Artifacts past `auto_deletion_days`, then write denylist and enqueue byte purge.                                               |
+| Lockdown Recovery |            hourly |          200 per page | Rewrite every effective persisted Platform Lockdown as a non-expiring denylist marker; no byte purge.                                                    |
 | Purge Recovery    |            hourly |                   200 | Rediscover deleted or expired Artifacts whose current Revision lacks `bytes_purge_enqueued_at`; write denylist and enqueue byte purge.                   |
 | Retention         |            hourly |                   500 | Mark non-current Revisions retained when `revision_retention_days` is set.                                                                               |
 | Content Blob GC   |            hourly |                   500 | Delete unreferenced `content_blobs` rows after active Artifact and live pending upload-session checks; v1 leaves deterministic R2 blob bytes in place.   |
@@ -157,6 +158,21 @@ no current route invokes them.
 3. Enqueue byte purge when bytes must be removed.
 
 If KV denylist writes fail, do not enqueue purge. The next cron rediscovery is the recovery path.
+
+Lockdown Recovery runs on the hourly discovery path independently of the byte
+purge queue. It scans all effective `platform_lockdowns` in ID-ordered pages of
+200, including preexisting records whose markers have expired or still have a
+TTL. Each marker is rewritten without KV expiration. There is no first-page
+only sweep cap because recovered lockdowns remain effective and would otherwise
+starve later pages. Recovery rechecks `lifted_at is null` under a row lock held
+through the KV write, serializing with lift so it cannot restore a marker after
+that lift removes it. Failed writes leave the DB lockdown intact, log the
+failure, and retry on the next hourly sweep. Recovery never removes markers,
+changes lockdown state, or enqueues byte deletion.
+
+New Artifact deletion and Revision retention markers also have no expiration,
+so a failed or delayed purge cannot reopen a non-expiring capability. Existing
+lift retention guards continue to protect shared Artifact denylist keys.
 
 **Retention is the exception**: it runs the denylist write and purge enqueue
 _before_ committing the `retained` status flip, and skips the commit when

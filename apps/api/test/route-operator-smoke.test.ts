@@ -97,11 +97,7 @@ describe("AP-91 operator route modules", () => {
       guardFor({ scope: "artifact", target_id: "art_1", reason_code: "abuse" }),
     );
     expect(artifact.status).toBe(201);
-    expect(put).toHaveBeenCalledWith(
-      "ad:art_1",
-      expect.stringContaining("platform_lockdown_artifact"),
-      expect.objectContaining({ expirationTtl: expect.any(Number) }),
-    );
+    expect(put).toHaveBeenCalledWith("ad:art_1", expect.stringContaining("platform_lockdown_artifact"), {});
 
     const workspace = await webAdminSetLockdown(
       contextFor({ env: { DENYLIST: { put, delete: deleteKey } } }),
@@ -110,11 +106,7 @@ describe("AP-91 operator route modules", () => {
       guardFor({ scope: "workspace", target_id: workspaceId, reason_code: "abuse" }),
     );
     expect(workspace.status).toBe(201);
-    expect(put).toHaveBeenCalledWith(
-      `wsd:${workspaceId}`,
-      expect.stringContaining("platform_lockdown_workspace"),
-      expect.objectContaining({ expirationTtl: expect.any(Number) }),
-    );
+    expect(put).toHaveBeenCalledWith(`wsd:${workspaceId}`, expect.stringContaining("platform_lockdown_workspace"), {});
 
     const invalidScope = await webAdminLiftLockdown(contextFor(), operatorPrincipal(), db as never, guardFor(), {
       scope: "bad",

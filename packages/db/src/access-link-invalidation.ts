@@ -1,3 +1,4 @@
+import { resolveUsagePolicy } from "@agent-paste/config";
 import type { LockdownScope } from "@agent-paste/contracts";
 import { isArtifactAccessLinkLocked } from "./access-links.js";
 import { type ArtifactInvalidationEnv, deleteDenylistKey, writeDenylistKey } from "./byte-purge-shared.js";
@@ -70,14 +71,18 @@ export function writeAccessLinkRevocationDenylist(
   if (!accessLinkId) {
     return Promise.resolve(false);
   }
-  return writeDenylistKey(env, `ald:${accessLinkId}`, "revocation");
+  return writeDenylistKey(env, `ald:${accessLinkId}`, "revocation", {
+    expirationTtl: resolveUsagePolicy({ billingEnabled: false }).max_ttl_seconds,
+  });
 }
 
 export function writeAccessLinkLockdownDenylist(env: ArtifactInvalidationEnv, artifactId: string): Promise<boolean> {
   if (!artifactId) {
     return Promise.resolve(false);
   }
-  return writeDenylistKey(env, `ad:${artifactId}`, "access_link_lockdown");
+  return writeDenylistKey(env, `ad:${artifactId}`, "access_link_lockdown", {
+    expirationTtl: resolveUsagePolicy({ billingEnabled: false }).max_ttl_seconds,
+  });
 }
 
 export function deleteAccessLinkLockdownDenylist(env: ArtifactInvalidationEnv, artifactId: string): Promise<boolean> {
