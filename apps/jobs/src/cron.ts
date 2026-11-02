@@ -64,7 +64,7 @@ async function runHourlyDiscovery(executor: SqlExecutor, env: Env, now: string):
     { name: "lockdown_recovery", run: () => runLockdownRecoveryDiscovery(executor, env) },
     { name: "purge_recovery", run: () => runPurgeRecoveryDiscovery(executor, env) },
     { name: "retention", run: () => runRetentionDiscovery(executor, env, now) },
-    { name: "content_blob_gc", run: () => runContentBlobGc(executor, now) },
+    { name: "content_blob_gc", run: () => runContentBlobGc(executor, now, env.ARTIFACTS) },
     { name: "maintenance_gc", run: () => runMaintenanceGc(executor, now, env.ARTIFACTS) },
   ];
 

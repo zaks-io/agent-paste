@@ -169,6 +169,7 @@ function createApiDatabase(repo) {
     listArtifactFiles: repo.listArtifactFiles.bind(repo),
     getRevisionReadTarget: repo.getRevisionReadTarget.bind(repo),
     getStorageUsage: repo.getStorageUsage.bind(repo),
+    completeUploadFiles: repo.completeUploadFiles.bind(repo),
     pinWebArtifact: repo.pinWebArtifact.bind(repo),
     unpinWebArtifact: repo.unpinWebArtifact.bind(repo),
     submitFeedback: repo.submitFeedback.bind(repo),

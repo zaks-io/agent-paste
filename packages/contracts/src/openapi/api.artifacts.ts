@@ -1,7 +1,7 @@
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { z } from "../zod-openapi.js";
 import type { ApiPathHelpers } from "./api.helpers.js";
-import { schemaRef, standardJsonResponses } from "./responses.js";
+import { rateLimitOrQuotaResponse, schemaRef, standardJsonResponses } from "./responses.js";
 
 /**
  * Artifact, revision, and agent-view API OpenAPI paths, split out of `api.ts` to keep
@@ -111,10 +111,7 @@ export function registerArtifactPaths(registry: OpenAPIRegistry, helpers: ApiPat
         description: "Invalid entrypoint or patch",
         content: { "application/json": { schema: schemaRef("ErrorEnvelope") } },
       },
-      "429": {
-        description: "Quota or rate limit exceeded. Storage quota failures have no Retry-After.",
-        content: { "application/json": { schema: schemaRef("ErrorEnvelope") } },
-      },
+      "429": rateLimitOrQuotaResponse,
     },
   });
 }

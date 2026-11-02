@@ -2531,7 +2531,17 @@
             }
           },
           "429": {
-            "description": "Error envelope",
+            "description": "Actor or workspace rate limit, or storage quota exceeded. Storage quota failures have no Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying."
+                },
+                "required": false,
+                "description": "Seconds to wait before retrying."
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -3654,7 +3664,17 @@
             }
           },
           "429": {
-            "description": "Error envelope",
+            "description": "Actor or workspace rate limit, or storage quota exceeded. Storage quota failures have no Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying."
+                },
+                "required": false,
+                "description": "Seconds to wait before retrying."
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -4568,7 +4588,17 @@
             }
           },
           "429": {
-            "description": "Error envelope",
+            "description": "Actor or workspace rate limit, or storage quota exceeded. Storage quota failures have no Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying."
+                },
+                "required": false,
+                "description": "Seconds to wait before retrying."
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -5311,7 +5341,17 @@
             }
           },
           "429": {
-            "description": "Error envelope",
+            "description": "Actor or workspace rate limit, or storage quota exceeded. Storage quota failures have no Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying."
+                },
+                "required": false,
+                "description": "Seconds to wait before retrying."
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {

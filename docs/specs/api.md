@@ -479,7 +479,10 @@ Storage usage reports physical blob bytes, legacy file bytes, ready bundle
 bytes, live file-entry bytes and pending reservations against the Workspace
 budget. Default claimed budgets are 5 GiB Free and 50 GiB Pro. Unreferenced
 blobs continue to count until garbage collection, up to the 24-hour minimum age
-plus one sweep. Existing over-budget Workspaces may shrink. A quota failure is
+plus one sweep. Over-budget Workspaces may perform operations that do not
+increase total stored usage and reservations. Publishing a smaller tree can
+still add retained history, file-entry, and file-map bytes, so it may require
+budget headroom. Existing history is preserved; no automatic pruning occurs. A quota failure is
 `storage_quota_exceeded` with budget/used/reserved/required details and no
 `Retry-After`. Commit conflicts return HTTP 409 with guard details. These
 failures preserve the current head and existing bytes.

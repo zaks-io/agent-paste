@@ -4,7 +4,14 @@ import { UPLOAD_TARGETS_PAGE_MAX } from "@agent-paste/config";
 import { Cursor } from "../primitives.js";
 import { AppendUploadFilesRequest, CompleteUploadFilesRequest, CreateUploadSessionRequest } from "../uploadSessions.js";
 import { z } from "../zod-openapi.js";
-import { emptyOkResponse, errorResponse, rateLimitResponse, schemaRef, standardJsonResponses } from "./responses.js";
+import {
+  emptyOkResponse,
+  errorResponse,
+  rateLimitOrQuotaResponse,
+  rateLimitResponse,
+  schemaRef,
+  standardJsonResponses,
+} from "./responses.js";
 import { idempotencyKeyHeader, registerUploadSchemas, requestIdHeader, securitySchemes } from "./shared.js";
 
 const pathStringParam = (name: string, description: string) =>
@@ -47,7 +54,7 @@ export function buildUploadOpenApiDocument(options: UploadOpenApiOptions = {}): 
       headers: [idempotencyKeyHeader, requestIdHeader],
       body: { required: true, content: { "application/json": { schema: CreateUploadSessionRequest } } },
     },
-    responses: { ...standardJsonResponses(schemaRef("CreateUploadSessionResponse")), "429": errorResponse },
+    responses: { ...standardJsonResponses(schemaRef("CreateUploadSessionResponse")), "429": rateLimitOrQuotaResponse },
   });
 
   registry.registerPath({
@@ -87,10 +94,29 @@ export function buildUploadOpenApiDocument(options: UploadOpenApiOptions = {}): 
       }),
       headers: [idempotencyKeyHeader, requestIdHeader],
     },
-    responses: { ...standardJsonResponses(schemaRef("FinalizeUploadSessionResponse")), "429": errorResponse },
+    responses: {
+      ...standardJsonResponses(schemaRef("FinalizeUploadSessionResponse")),
+      "429": rateLimitOrQuotaResponse,
+    },
   });
 
-  const sessionParams = params({ upload_session_id: pathStringParam("upload_session_id", "Upload session id.") });
+  registerGuardedSessionPaths(registry);
+
+  const document = new OpenApiGeneratorV31(registry.definitions).generateDocument({
+    openapi: "3.1.0",
+    info: {
+      title: "Agent Paste Upload API",
+      version: "0.1.0",
+      description: "Signed-URL upload session lifecycle for Agent Paste artifacts.",
+    },
+    servers: [{ url: options.serverUrl ?? "https://upload.agent-paste.sh" }],
+    security: [{ ApiKeyBearer: [] }, { SignedUploadToken: [] }],
+  });
+  return document as unknown as Record<string, unknown>;
+}
+
+function registerGuardedSessionPaths(registry: OpenAPIRegistry): void {
+  const sessionParams = z.object({ upload_session_id: pathStringParam("upload_session_id", "Upload session id.") });
   for (const [operation, suffix, schema, response] of [
     ["appendFiles", "file-batches", AppendUploadFilesRequest, "AppendUploadFilesResponse"],
     ["completeFiles", "file-completions", CompleteUploadFilesRequest, "CompleteUploadFilesResponse"],
@@ -109,7 +135,11 @@ export function buildUploadOpenApiDocument(options: UploadOpenApiOptions = {}): 
         headers: [idempotencyKeyHeader, requestIdHeader],
         body: { required: true, content: { "application/json": { schema } } },
       },
-      responses: { ...standardJsonResponses(schemaRef(response)), "422": errorResponse, "429": errorResponse },
+      responses: {
+        ...standardJsonResponses(schemaRef(response)),
+        "422": errorResponse,
+        "429": rateLimitOrQuotaResponse,
+      },
     });
   registry.registerPath({
     method: "get",
@@ -127,16 +157,4 @@ export function buildUploadOpenApiDocument(options: UploadOpenApiOptions = {}): 
     },
     responses: standardJsonResponses(schemaRef("UploadSessionTargetsResponse")),
   });
-
-  const document = new OpenApiGeneratorV31(registry.definitions).generateDocument({
-    openapi: "3.1.0",
-    info: {
-      title: "Agent Paste Upload API",
-      version: "0.1.0",
-      description: "Signed-URL upload session lifecycle for Agent Paste artifacts.",
-    },
-    servers: [{ url: options.serverUrl ?? "https://upload.agent-paste.sh" }],
-    security: [{ ApiKeyBearer: [] }, { SignedUploadToken: [] }],
-  });
-  return document as unknown as Record<string, unknown>;
 }
