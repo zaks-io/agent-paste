@@ -326,6 +326,11 @@ pnpm lighthouse:dashboard-a11y
 
 The script builds on the same local harness pattern as `smoke-web-api.mjs`: mock WorkOS JWKS, the local MVP API/upload/content stack, and a built `@agent-paste/web` Worker via `wrangler dev`. It seals an AuthKit session cookie for a returning member with no published artifacts, asserts `/dashboard` renders authenticated chrome plus an empty overview, then runs Lighthouse with `onlyCategories: ['accessibility']`. The process exits non-zero when the score is below `95` (override with `AGENT_PASTE_LIGHTHOUSE_A11Y_MIN_SCORE`).
 
+Run this gate before deploying TanStack dependency updates. Unit tests and
+typechecks do not exercise the built dashboard's query hydration. Router,
+SSR query adapter and Query versions must be compatible; incompatible versions
+can build successfully but return HTTP 500 for authenticated pages.
+
 PR preview runs this step after Worker readiness. It does not depend on the
 per-PR web deploy and therefore still runs when `WORKOS_PREVIEW_API_KEY` is
 unset and web preview is skipped. The full hosted PR smoke is not part of the

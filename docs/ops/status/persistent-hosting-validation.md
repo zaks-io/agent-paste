@@ -192,3 +192,24 @@ intentional adapter/Postgres skips. It approves that delta, not deployment or
 the separate hosted acceptance checks above.
 
 Tracking: [AP-490](https://linear.app/zaks-io/issue/AP-490).
+
+## PR preview dashboard gate repair
+
+PR #686 preview run [41565007603](https://github.com/zaks-io/agent-paste/actions/runs/41565007603)
+deployed the preview and passed its hosted publish and patch smokes, then failed
+the local Lighthouse dashboard gate. The authenticated dashboard returned 500
+with `t.serverSsr?.isDehydrated is not a function`. The same failure reproduced
+locally at `4fd9bfe8`.
+
+The installed SSR query adapter called a method removed from the installed
+router. Updating `@tanstack/react-router-ssr-query` to 1.167.3 and
+`@tanstack/react-query` to 5.105.0 resolves the mismatch and satisfies the
+adapter's Query peer requirement with one query-core version. Router and Start
+versions are unchanged.
+
+Validation on 2026-11-03 passed the 14-task web dependency build, all 305 web
+tests, web typecheck, and `pnpm lighthouse:dashboard-a11y`. The rebuilt
+authenticated dashboard rendered successfully and scored 95, meeting the
+unchanged accessibility threshold. Lighthouse still reports contrast and
+visible-label/name findings. This local result does not establish hosted
+large-transfer acceptance; the preview workflow must run again after the fix.
