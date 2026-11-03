@@ -175,5 +175,20 @@ reservation admitted under a 1.5 GiB workspace budget.
 - Confirm preview storage usage falls after Artifact deletion and delayed GC.
   Local quota races and actual Postgres GC tests passed, but hosted cleanup
   acceptance remains separate.
-- Parent must finish the fresh independent quota re-review. Production
-  migration, deployment and old-data removal remain outside this task.
+- Parent must finish independent review of the final QA changes and CodeRabbit
+  review on the PR. Production migration, deployment and old-data removal remain
+  outside this task.
+
+## Parent integration and review
+
+Parent integrated all six QA commits at `73a9d96c`. Its Git tree is identical to
+`d2cbeaee` (`4e9d3fd66df7abf04ba335a8b8f8b91fe239aa4a`), so the validation
+above applies to the integrated application and test sources.
+
+Fresh GPT-6 Astra reviews confirmed that both original quota bypasses were fixed
+at `ba592866`, then approved the map-deduplication follow-up at `4aecec3f` with
+no findings. That final focused review ran 50 passing tests and reported three
+intentional adapter/Postgres skips. It approves that delta, not deployment or
+the separate hosted acceptance checks above.
+
+Tracking: [AP-490](https://linear.app/zaks-io/issue/AP-490).

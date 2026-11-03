@@ -16,9 +16,12 @@ system reached that behavior.
 The `t3/407885af` branch implements persistent static hosting with 250 MiB
 files, resumable selected-path transfers, agent pin/unpin, and guarded sync.
 It is not deployed. The [implementation contract](../proposals/persistent-static-hosting-implementation.md)
-defines the acceptance checks. Integration, large-transfer validation, and
-independent review remain in progress. Existing production release evidence
-below is unchanged.
+defines the acceptance checks. Local integration and large-transfer validation
+passed, including two 1 GiB trees, 250 MiB files, interrupted transfer recovery
+and 150 updates on a stable URL. See the [validation evidence](./status/persistent-hosting-validation.md).
+The quota fixes have independent review approval; review of the final QA changes
+and hosted preview checks remain. Work is tracked in [AP-490](https://linear.app/zaks-io/issue/AP-490).
+Existing production release evidence below is unchanged.
 
 The gateway route request is recorded as exposure-ledger host change **51**.
 Sandbox gateway verification must accompany preview acceptance. Production
