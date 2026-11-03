@@ -4,11 +4,12 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { mkdir, mkdtemp, open, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, open, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ApiClient, createIdempotencyKey, executePublish, planPublish } from "../packages/api-client/dist/src/index.js";
+import { transferEndpoints } from "./lib/transfer-endpoints.mjs";
 
 const args = process.argv.slice(2);
 const flag = (name, fallback) => {
@@ -25,17 +26,7 @@ if (args.includes("--probe-self-test")) {
   await probeSelfTest();
   process.exit(0);
 }
-const apiUrl = flag("api");
-const uploadUrl = flag("upload");
-for (const value of [apiUrl, uploadUrl]) {
-  assert(value, "Explicit --api and --upload are required");
-  const url = new URL(value);
-  assert(
-    ["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname) || /preview/i.test(url.hostname),
-    "Only local or preview endpoints are permitted",
-  );
-  assert(["http:", "https:"].includes(url.protocol), "Expected HTTP endpoint");
-}
+const { api: apiUrl, upload: uploadUrl } = transferEndpoints(flag("api"), flag("upload"));
 const output = flag("output") ?? (await mkdtemp(path.join(os.tmpdir(), "agent-paste-transfer-soak-")));
 await mkdir(output, { recursive: true, mode: 0o700 });
 const cli = fileURLToPath(new URL("../apps/cli/dist/index.js", import.meta.url));
@@ -153,8 +144,21 @@ const run = async (command, { interrupt, allowFailure = false } = {}) => {
   });
   activeChildren.add(child);
   child.once("close", () => activeChildren.delete(child));
-  const evidence = { uploads: [], ranges: [], partial_bytes: 0, checkpoint: false };
+  const evidence = {
+    uploads: [],
+    ranges: [],
+    partial_bytes: 0,
+    checkpoint: false,
+    hosted_requests: 0,
+    hosted_retries: 0,
+    hosted_wait_ms: 0,
+  };
   child.on("message", (event) => {
+    if (event.type === "hosted_request") evidence.hosted_requests++;
+    if (event.type === "hosted_retry") {
+      evidence.hosted_retries++;
+      evidence.hosted_wait_ms += event.wait_ms;
+    }
     if (event.type === "upload") evidence.uploads.push({ bytes: event.bytes, sha256: event.sha256 });
     if (event.type === "range") evidence.ranges.push({ start: event.start, status: event.status });
     if (event.type === "partial") evidence.partial_bytes = Math.max(evidence.partial_bytes, event.bytes);
@@ -239,17 +243,31 @@ async function digest(filename) {
   return hash.digest("hex");
 }
 async function compareTrees(source, target) {
-  for (const entry of await readdir(source, { withFileTypes: true })) {
+  const entries = await readdir(source, { withFileTypes: true });
+  assert.deepEqual((await readdir(target)).sort(), entries.map((entry) => entry.name).sort());
+  const totals = { files: 0, bytes: 0 };
+  for (const entry of entries) {
     const from = path.join(source, entry.name);
     const to = path.join(target, entry.name);
-    if (entry.isDirectory()) await compareTrees(from, to);
-    else assert.equal(await digest(from), await digest(to), `Round-trip mismatch: ${entry.name}`);
+    if (entry.isDirectory()) {
+      const nested = await compareTrees(from, to);
+      totals.files += nested.files;
+      totals.bytes += nested.bytes;
+    } else {
+      assert.equal(await digest(from), await digest(to), `Round-trip mismatch: ${entry.name}`);
+      totals.files++;
+      totals.bytes += (await stat(from)).size;
+    }
   }
+  return totals;
 }
 const report = {
+  status: "failed",
   output,
   runs,
   checks: [],
+  fixtures: [],
+  parameters: { updates: Number(flag("updates", "150")), concurrent: Number(flag("concurrent", "3")) },
   manual_checks: [
     "Preview Worker analytics show no exceededMemory/exceededCpu",
     "Retained link after former expiry requires the parent-controlled preview clock/expiry fixture",
@@ -287,7 +305,7 @@ try {
   assert.equal(servedHash.digest("hex"), await digest(path.join(large, "large.bin")));
   const pulled = path.join(output, "pulled-large");
   await run(["pull", published.artifact_id, "--output", pulled]);
-  await compareTrees(large, pulled);
+  report.fixtures.push({ kind: "large", ...(await compareTrees(large, pulled)) });
   check("250 MiB publish, Range and verified pull; oversize client rejection");
   const unchanged = await run(["publish", large, "--artifact-id", published.artifact_id]);
   assert(unchanged.no_change);
@@ -332,7 +350,10 @@ try {
     const result = await run(["publish", tree]);
     const target = path.join(output, `${kind}-pull`);
     await run(["pull", result.artifact_id, "--output", target]);
-    await compareTrees(tree, target);
+    const totals = await compareTrees(tree, target);
+    assert(totals.bytes >= 2 ** 30, "Aggregate fixtures must each contain at least 1 GiB");
+    assert.equal(totals.files, kind === "small" ? 8001 : 205);
+    report.fixtures.push({ kind, ...totals });
     const selection = kind === "small" ? "file-0.bin" : "small-0.bin";
     await run(["pull", result.artifact_id, selection, "--output", path.join(output, `selected-${kind}-pull`)]);
     check(`${kind}: >=1 GiB round trip`);
@@ -342,7 +363,12 @@ try {
   await run(["publish", selected, "--artifact-id", published.artifact_id, "--to", "docs/selected.txt"]);
   await run(["pull", published.artifact_id, "docs", "--output", path.join(output, "partial")]);
   assert.equal(await digest(selected), await digest(path.join(output, "partial/docs/selected.txt")));
-  const api = new ApiClient({ apiBaseUrl: apiUrl, uploadBaseUrl: uploadUrl });
+  assert(env.AGENT_PASTE_API_KEY, "A provisioned workspace key is required for direct API acceptance calls");
+  const api = new ApiClient({
+    apiBaseUrl: apiUrl,
+    uploadBaseUrl: uploadUrl,
+    auth: { type: "api_key", apiKey: env.AGENT_PASTE_API_KEY },
+  });
   const t = {
     createUploadSession: api.uploadSessions.create,
     appendFiles: api.uploadSessions.appendFiles,
@@ -487,6 +513,7 @@ try {
     }),
   );
   check("Concurrent 250 MiB publishes/pulls stay within sampled CLI RSS cap");
+  report.status = "passed";
 } finally {
   await writeFile(path.join(output, "report.json"), JSON.stringify(report, null, 2), { mode: 0o600 });
   console.log(`Evidence: ${path.join(output, "report.json")}`);

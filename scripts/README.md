@@ -210,6 +210,56 @@ bindings. They do not establish native Worker memory/CPU behavior, managed
 gateway access, production rate limits, or preview browser acceptance. See
 [validation evidence](../docs/ops/status/persistent-hosting-validation.md).
 
+### `smoke-hosted-transfers.mjs`
+
+The **PR Preview** workflow runs large hosted acceptance only when a
+same-repository PR has both `full-pr-preview` and `large-transfer-preview`.
+After integrating and pushing the change, add the second label to trigger the
+normal preview deployment, database reset and acceptance run. Removing the label
+skips large acceptance on subsequent runs. The ordinary workflow retains its
+25-minute job deadline; opt-in runs allow 135 minutes overall and 110 minutes
+for the transfer step, with a 105-minute soak subprocess deadline.
+
+The existing deploy step supplies the masked scoped smoke secret within its
+job. No secret is added to job outputs or artifacts. The driver provisions a
+fresh owned workspace through `/__test__/provision-smoke`, verifies the key's
+workspace, and passes that key to CLI and direct API calls. It runs the existing
+soak with both full 1 GiB trees, 250 MiB files, upload/pull interruption,
+150 updates and three concurrent transfers. It does not delete hosted fixtures.
+Cleanup stays with the approved normal PR preview lifecycle.
+
+All endpoints must be HTTPS PR Workers for the same PR and Workers account.
+Signed reads must target that Content Worker; capability reads must use
+`{capability}-pr-{number}.agent-paste.link`. The deployment routes that suffix
+to this PR's Content Worker. The test refuses other origins, production hosts,
+redirects and mismatched credentials. A scoped fetch preload reaches both the
+soak and its CLI children. It honors native `Retry-After` responses for up to
+four retries per request, at most 120 seconds per wait and five minutes per
+request including waits. Missing, excessive or exhausted retry instructions
+fail acceptance. Server limits are unchanged.
+
+CI invokes the built driver directly:
+
+```sh
+node scripts/smoke-hosted-transfers.mjs
+```
+
+Required environment variables are `PR_NUMBER`, `AGENT_PASTE_PR_API_URL`,
+`AGENT_PASTE_PR_UPLOAD_URL`, `AGENT_PASTE_PR_CONTENT_URL`,
+`AGENT_PASTE_PR_SMOKE_HARNESS_SECRET`, and a disk-backed
+`AGENT_PASTE_TRANSFER_OUTPUT_DIR`. The workflow also records `PR_HEAD_SHA` and
+`GITHUB_SHA`. Do not extract the scoped secret to run from a sandbox; use the
+workflow's existing secret delivery.
+
+Only `hosted-transfer-evidence.json` is uploaded, with a seven-day retention.
+It contains SHA/PR metadata, fixed outcome fields, fixture counts/bytes,
+sanitized transfer/RSS counters, PUT content digests, Range checkpoints and retry counts. Child
+stdout/stderr, raw soak reports, credentials and capability URLs remain in the
+private runner directory. A failed driver publishes only its sanitized failure
+stage. Hosted success must be established by the actual CI run. Worker
+telemetry, managed gateway, browser, expiry/renewal and quota/GC acceptance
+remain separate checks listed in the report.
+
 ### Deploy build + ordering
 
 `scripts/deploy.mjs` (above) migrates, provisions secrets, ensures shared Cloudflare

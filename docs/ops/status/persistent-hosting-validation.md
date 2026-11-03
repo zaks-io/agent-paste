@@ -193,6 +193,58 @@ the separate hosted acceptance checks above.
 
 Tracking: [AP-490](https://linear.app/zaks-io/issue/AP-490).
 
+## Opt-in hosted transfer acceptance wiring
+
+The scoped wiring change starts at parent
+`cff776802c57a3919bae7c38f892f267b8a713e4` for
+[PR #686](https://github.com/zaks-io/agent-paste/pull/686). The existing preview
+passed at that head. Large hosted acceptance remains **pending**; wiring and
+local driver tests do not establish a hosted pass.
+
+After parent review, integration and push, add `large-transfer-preview` while
+retaining `full-pr-preview`. The normal same-repository **PR Preview** workflow
+deploys the PR and runs the full transfer soak using its masked provisioner
+secret. The new step has a 110-minute deadline and uploads only
+`hosted-transfer-evidence-pr-686`, containing `hosted-transfer-evidence.json`.
+Default runs keep their existing scope and 25-minute deadline. The opted-in
+job permits 135 minutes for deployment plus acceptance.
+
+The driver verifies all Worker URLs belong to the same PR and account. Both
+capability reads at `*-pr-686.agent-paste.link` and signed `/v/` reads must target
+this PR's Content Worker. Redirects and production origins are rejected before
+fetching. Bounded native `Retry-After` handling applies to the soak and CLI
+children; server rate limits are unchanged. The soak retains both 1 GiB trees,
+the 8,000-file fixture, 250 MiB files, resumability assertions, 150 updates and
+three concurrent transfers. Actual source/destination file sets, hashes, counts
+and byte totals must match. No permanent fixture deletion is added.
+
+The sanitized report records PR/head/checkout metadata, full-size fixture
+counts, CLI RSS, acknowledged PUT byte counts and content digests, persisted partial checkpoints,
+Range/206 evidence and native retry counts. Raw output and errors stay private
+on the runner and are excluded from the sole artifact path. The report retains
+explicit pending checks for Worker telemetry, gateway access, browser assets,
+expiry/renewal, retention past former expiry and quota/GC. Production mutation
+is outside this wiring and remains forbidden.
+
+Commands and environment contracts are in
+[`scripts/README.md`](../../../scripts/README.md#smoke-hosted-transfersmjs).
+
+Local wiring validation passed on 2026-11-03:
+
+- `pnpm verify`: 113 workspace tasks and 651 script tests across 55 files.
+- `pnpm typecheck:scripts`: includes the driver, preload and URL/retry helpers.
+- `pnpm test:scripts --coverage`: statements 90.22%, branches 84.66%,
+  functions 89.92%, lines 90.44%; unchanged coverage floors passed.
+- 73 new focused tests cover host/credential isolation, opt-in workflow guards,
+  provisioning ownership, bounded retries, sanitized evidence, and native Node
+  preload inheritance into child processes.
+- `node scripts/transfer-soak.mjs --probe-self-test`: acknowledged PUT,
+  persisted partial checkpoint, nonzero Range/206 and sanitized IPC passed.
+
+The full local soak evidence above remains the prior completed run. This wiring
+change did not run a new full local or hosted soak, push, deploy or production
+request.
+
 ## PR preview dashboard gate repair
 
 PR #686 preview run [41565007603](https://github.com/zaks-io/agent-paste/actions/runs/41565007603)
