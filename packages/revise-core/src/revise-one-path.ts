@@ -1,7 +1,7 @@
 import type { PublishFile, PublishInput, PublishOutcome, PublishTransport } from "@agent-paste/api-client/publish";
 import type { AgentView } from "@agent-paste/contracts/agent-view";
 import type { ArtifactFileContent } from "@agent-paste/contracts/artifacts";
-import type { ArtifactId, IdempotencyKey, RevisionId, Sha256Hex } from "@agent-paste/contracts/primitives";
+import type { ArtifactId, IdempotencyKey, Sha256Hex } from "@agent-paste/contracts/primitives";
 import { contentTypeForPath } from "@agent-paste/storage";
 import { type ApplyEditsFailure, applyEdits, type Edit } from "./apply-edits.js";
 import { diffWithSelfCheck } from "./unified-diff-gen.js";
@@ -150,7 +150,7 @@ async function reviseAttempt(
 ): Promise<ReviseResult> {
   const base = await deps.reader.readArtifact(artifactId);
   const canonicalArtifactId = base.artifact_id;
-  if (!base.files.some((file) => file.path === path)) {
+  if (!base.files_truncated && !base.files.some((file) => file.path === path)) {
     throw new ReviseError("path_not_in_base", `${path}: not in the base revision`);
   }
 
@@ -223,11 +223,11 @@ async function buildPublishInput(input: {
       };
 
   return {
-    files: [entry],
+    files: [{ ...entry, expect: { sha256: file.sha256, size_bytes: file.size_bytes } }],
+    commit: { guard: "paths" },
     title: base.title,
     entrypoint: base.entrypoint,
     artifactId: input.artifactId as ArtifactId,
-    baseRevisionId: base.revision_id as RevisionId,
     idempotencyKey: input.idempotencyKey,
   };
 }

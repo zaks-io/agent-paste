@@ -3,6 +3,7 @@ import { encryptArtifactBytes, workspaceBlobObjectKeyFor } from "@agent-paste/st
 import { describe, expect, it } from "vitest";
 import { createLocalServices, type LocalRepository } from "../../local-repository.js";
 import { reparentBlobMigratorFromEnv } from "../../postgres/reparent-blob-migrator.js";
+import { fakeFileMapStore } from "../../test-helpers/file-map-store.js";
 
 const ROOT_SECRET = "test-artifact-bytes-root-secret-32chars";
 const HELLO_SHA256 = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
@@ -86,7 +87,19 @@ async function publishBlobArtifact(input: {
 
 describe("claimEphemeralWorkspace", () => {
   it("reparents ephemeral artifacts into the member workspace and marks the token redeemed", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const maps: Parameters<typeof fakeFileMapStore.write>[0][] = [];
+    let unavailable = false;
+    const { repo } = createLocalServices({
+      fileMapStore: {
+        exists: fakeFileMapStore.exists,
+        async write(map) {
+          if (unavailable) throw new Error("map storage unavailable");
+          maps.push(map);
+          return fakeFileMapStore.write(map);
+        },
+      },
+      apiKeyPepper: "test-pepper",
+    });
     const provisioned = await repo.createEphemeralWorkspace({
       idempotencyKey: "ephemeral-claim",
       now: new Date("2099-06-01T00:00:00.000Z"),
@@ -146,6 +159,29 @@ describe("claimEphemeralWorkspace", () => {
     expect(claimed.source_workspace_id).toBe(provisioned.workspace.id);
     expect(claimed.destination_workspace_id).toBe(member.workspace.id);
     expect(claimed.artifact_ids).toEqual([session.artifact_id]);
+    expect(maps).toHaveLength(0);
+    unavailable = true;
+    await expect(
+      repo.ensureRevisionFileMap({ workspaceId: member.workspace.id, revisionId: session.revision_id }),
+    ).rejects.toThrow("map storage unavailable");
+    const laterRead = await repo.getRevisionReadTarget({ actor: memberActor, artifactId: session.artifact_id });
+    expect(laterRead?.workspaceId).toBe(member.workspace.id);
+    expect(laterRead?.fileMap).toBeTruthy();
+    unavailable = false;
+    await expect(
+      repo.ensureRevisionFileMap({ workspaceId: member.workspace.id, revisionId: session.revision_id }),
+    ).resolves.toBe("written");
+    expect(maps.map((map) => map.workspace_id)).toEqual([member.workspace.id]);
+    const remapped = maps.at(-1);
+    if (!remapped) throw new Error("missing remapped file map");
+    expect(remapped).toMatchObject({
+      artifact_id: session.artifact_id,
+      revision_id: session.revision_id,
+      workspace_id: member.workspace.id,
+    });
+    expect(repo.revisions.get(session.revision_id)?.file_map_sha256).toBe(
+      (await fakeFileMapStore.write(remapped)).sha256,
+    );
 
     const localRepo = repo as LocalRepository;
     expect(localRepo.workspaces.get(provisioned.workspace.id)?.claimed_at).toBe("2099-06-01T14:00:00.000Z");
@@ -199,7 +235,11 @@ describe("claimEphemeralWorkspace", () => {
       ARTIFACTS: artifacts,
       ARTIFACT_BYTES_ENCRYPTION_KEY: ROOT_SECRET,
     });
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper", reparentBlobMigrator });
+    const { repo } = createLocalServices({
+      fileMapStore: fakeFileMapStore,
+      apiKeyPepper: "test-pepper",
+      reparentBlobMigrator,
+    });
     const provisioned = await repo.createEphemeralWorkspace({
       idempotencyKey: "ephemeral-claim-blobs",
       now: new Date("2099-06-01T00:00:00.000Z"),
@@ -278,7 +318,11 @@ describe("claimEphemeralWorkspace", () => {
       ARTIFACTS: artifacts,
       ARTIFACT_BYTES_ENCRYPTION_KEY: ROOT_SECRET,
     });
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper", reparentBlobMigrator });
+    const { repo } = createLocalServices({
+      fileMapStore: fakeFileMapStore,
+      apiKeyPepper: "test-pepper",
+      reparentBlobMigrator,
+    });
     const provisioned = await repo.createEphemeralWorkspace({
       idempotencyKey: "ephemeral-claim-abandoned-session",
       now: new Date("2099-06-01T00:00:00.000Z"),
@@ -338,7 +382,11 @@ describe("claimEphemeralWorkspace", () => {
       ARTIFACTS: artifacts,
       ARTIFACT_BYTES_ENCRYPTION_KEY: ROOT_SECRET,
     });
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper", reparentBlobMigrator });
+    const { repo } = createLocalServices({
+      fileMapStore: fakeFileMapStore,
+      apiKeyPepper: "test-pepper",
+      reparentBlobMigrator,
+    });
     const provisioned = await repo.createEphemeralWorkspace({
       idempotencyKey: "ephemeral-claim-gc-blob",
       now: new Date("2099-06-01T00:00:00.000Z"),
@@ -410,7 +458,7 @@ describe("claimEphemeralWorkspace", () => {
   });
 
   it("replays a successful claim command by idempotency key", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const { repo } = createLocalServices({ fileMapStore: fakeFileMapStore, apiKeyPepper: "test-pepper" });
     const provisioned = await repo.createEphemeralWorkspace({
       idempotencyKey: "ephemeral-replay",
       now: new Date("2099-06-01T00:00:00.000Z"),
@@ -458,7 +506,7 @@ describe("claimEphemeralWorkspace", () => {
   });
 
   it("rejects invalid claim tokens as not_found", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const { repo } = createLocalServices({ fileMapStore: fakeFileMapStore, apiKeyPepper: "test-pepper" });
     const member = await repo.resolveWebMember({
       workosUserId: "user_claim_invalid",
       email: "user_claim_invalid@example.test",
@@ -483,7 +531,7 @@ describe("claimEphemeralWorkspace", () => {
 
   it("fails closed when blobs need migration but no reparent migrator is configured", async () => {
     const artifacts = memoryArtifactsBucket();
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const { repo } = createLocalServices({ fileMapStore: fakeFileMapStore, apiKeyPepper: "test-pepper" });
     const provisioned = await repo.createEphemeralWorkspace({
       idempotencyKey: "ephemeral-missing-migrator",
       now: new Date("2099-06-01T00:00:00.000Z"),
@@ -534,7 +582,11 @@ describe("claimEphemeralWorkspace", () => {
       },
     };
     const artifacts = memoryArtifactsBucket();
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper", reparentBlobMigrator });
+    const { repo } = createLocalServices({
+      fileMapStore: fakeFileMapStore,
+      apiKeyPepper: "test-pepper",
+      reparentBlobMigrator,
+    });
     const now = new Date("2099-06-01T00:00:00.000Z");
     const provisioned = await repo.createEphemeralWorkspace({
       idempotencyKey: "ephemeral-expired-no-migrate",
@@ -588,7 +640,11 @@ describe("claimEphemeralWorkspace", () => {
       },
     };
     const artifacts = memoryArtifactsBucket();
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper", reparentBlobMigrator });
+    const { repo } = createLocalServices({
+      fileMapStore: fakeFileMapStore,
+      apiKeyPepper: "test-pepper",
+      reparentBlobMigrator,
+    });
     const provisioned = await repo.createEphemeralWorkspace({
       idempotencyKey: "ephemeral-redeemed-no-migrate",
       now: new Date("2099-06-01T00:00:00.000Z"),
@@ -641,7 +697,7 @@ describe("claimEphemeralWorkspace", () => {
   });
 
   it("rejects expired claim tokens as not_found", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const { repo } = createLocalServices({ fileMapStore: fakeFileMapStore, apiKeyPepper: "test-pepper" });
     const now = new Date("2099-06-01T00:00:00.000Z");
     const provisioned = await repo.createEphemeralWorkspace({
       idempotencyKey: "ephemeral-expired-claim",
@@ -673,7 +729,7 @@ describe("claimEphemeralWorkspace", () => {
   });
 
   it("extends artifact expiry to the destination free tier minimum", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const { repo } = createLocalServices({ fileMapStore: fakeFileMapStore, apiKeyPepper: "test-pepper" });
     const provisioned = await repo.createEphemeralWorkspace({
       idempotencyKey: "ephemeral-expiry-claim",
       now: new Date("2099-06-01T00:00:00.000Z"),
@@ -741,7 +797,7 @@ describe("claimEphemeralWorkspace", () => {
   });
 
   it("rejects non-member actors", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const { repo } = createLocalServices({ fileMapStore: fakeFileMapStore, apiKeyPepper: "test-pepper" });
     const provisioned = await repo.createEphemeralWorkspace({
       idempotencyKey: "ephemeral-forbidden",
       now: new Date("2099-06-01T00:00:00.000Z"),
@@ -762,7 +818,7 @@ describe("claimEphemeralWorkspace", () => {
   });
 
   it("rejects claim tokens with the wrong secret as not_found", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const { repo } = createLocalServices({ fileMapStore: fakeFileMapStore, apiKeyPepper: "test-pepper" });
     const provisioned = await repo.createEphemeralWorkspace({
       idempotencyKey: "ephemeral-wrong-secret",
       now: new Date("2099-06-01T00:00:00.000Z"),
@@ -790,7 +846,7 @@ describe("claimEphemeralWorkspace", () => {
   });
 
   it("rejects claim tokens with forged claim-code attribution", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const { repo } = createLocalServices({ fileMapStore: fakeFileMapStore, apiKeyPepper: "test-pepper" });
     const provisioned = await repo.createEphemeralWorkspace({
       idempotencyKey: "ephemeral-forged-claim-code",
       claimCode: CLAIM_CODE,
@@ -819,7 +875,7 @@ describe("claimEphemeralWorkspace", () => {
   });
 
   it("rejects legacy claim tokens without a stored public_id", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const { repo } = createLocalServices({ fileMapStore: fakeFileMapStore, apiKeyPepper: "test-pepper" });
     const provisioned = await repo.createEphemeralWorkspace({
       idempotencyKey: "ephemeral-legacy-token",
       now: new Date("2099-06-01T00:00:00.000Z"),
@@ -852,7 +908,7 @@ describe("claimEphemeralWorkspace", () => {
   });
 
   it("preserves an earlier revoked_at when revoking ephemeral workspace keys", async () => {
-    const { repo } = createLocalServices({ apiKeyPepper: "test-pepper" });
+    const { repo } = createLocalServices({ fileMapStore: fakeFileMapStore, apiKeyPepper: "test-pepper" });
     const provisioned = await repo.createEphemeralWorkspace({
       idempotencyKey: "ephemeral-prior-revoke",
       now: new Date("2099-06-01T00:00:00.000Z"),

@@ -1,6 +1,6 @@
 # Data Model Spec
 
-This is the schema target for the CLI-first MVP. Drizzle definitions should live in `packages/db`. The database is Postgres reached from Workers through Cloudflare Hyperdrive.
+This spec describes the current persistent hosting schema. Drizzle definitions should live in `packages/db`. The database is Postgres reached from Workers through Cloudflare Hyperdrive.
 
 ## Global Rules
 
@@ -27,6 +27,19 @@ This is the schema target for the CLI-first MVP. Drizzle definitions should live
 | `updated_at`    | `TIMESTAMPTZ NOT NULL` |                                                                                                                                                                                                                                                                     |
 
 A `workspaces` row with `claimed_at IS NULL` is an **Ephemeral Workspace**: a real RLS-scoped tenant owned by a reserved system actor with no **Workspace Member**, provisioned by the ephemeral-publish flow ([0075](../adr/0075-agent-first-ephemeral-publish-and-write-gated-monetization.md)).
+
+`storage_budget_bytes BIGINT NULL` overrides the plan budget when set. Claimed
+Free and Pro defaults are 5 GiB and 50 GiB; unclaimed workspaces have 100 MiB.
+Storage accounting and all upload reservations take the workspace row lock.
+Usage includes physical single-format blob rows, live legacy Revision files,
+ready bundles and 1 KiB per live Revision file entry. Reservations include
+unuploaded single files and chunks in unexpired pending/ready sessions, plus
+uploaded Revision-scoped staging files until finalize transfers them into
+Revision accounting or confirmed byte purge removes their staging rows. Expiry
+alone does not release uploaded staging bytes.
+Unreferenced blobs count until GC removes them, up to the 24-hour floor plus
+one hourly sweep. A quota check rejects growth beyond budget; it does not reject
+an operation whose total usage plus reservations stays equal or decreases.
 
 ### `claim_tokens`
 
@@ -89,12 +102,13 @@ stored `expires_at` is retained but not enforced: the Auto Deletion sweep skips
 the Artifact and capability-manifest reads do not treat it as expired even when
 `expires_at` is in the past. Its durable
 capability manifest carries a signed token with explicit `exp: null`.
-Unpinning re-arms the stored `expires_at` as-is and rewrites the same manifest
-with that finite expiration.
+Unpinning sets `expires_at = now + default_ttl_seconds` for the workspace policy
+and rewrites the same manifest with that fresh finite expiration. Publish-scoped
+agents and dashboard members share this workflow. Unclaimed workspaces cannot pin.
 
 ### `revisions`
 
-First-class revision rows for multi-revision Artifacts ([0009](../../packages/db/migrations/0009_revisions.sql)). Upload finalize creates a `draft`; publish assigns `revision_number`, sets `published_at`, and updates `artifacts.revision_id`.
+First-class revision rows for multi-revision Artifacts ([0009](../../packages/db/migrations/0009_revisions.sql)). Legacy upload finalize creates a `draft`; publish assigns `revision_number`, sets `published_at`, and updates `artifacts.revision_id`. Guarded sessions become `ready` without a Revision row; publish inserts the published Revision and moves the head atomically.
 
 | Column                     | Type                                                         | Notes                                                                                                                                                                                                                                                                                                  |
 | -------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -118,6 +132,21 @@ First-class revision rows for multi-revision Artifacts ([0009](../../packages/db
 | `published_at`             | `TIMESTAMPTZ NULL`                                           | Set when `status` becomes `published`.                                                                                                                                                                                                                                                                 |
 
 At most one `draft` row per Artifact (`revisions_one_draft_per_artifact`). Composite unique `(workspace_id, artifact_id, id)` supports tenant-safe foreign keys from `access_links`, `safety_warnings`, and the `parent_revision_id` self-reference (which structurally pins a parent to the same Workspace and Artifact).
+
+Every newly published Revision stores `file_map_sha256 TEXT NULL` and
+`file_map_size_bytes BIGINT NULL`. Its immutable workspace blob records the
+sorted full file tree, types and single-object keys or ordered chunk digests.
+The map's blob row and Revision reference commit together before any map object
+is written externally. The blob row accounts for its exact serialized plaintext
+size even while materialization is pending. Content/read tokens reference the map
+digest and size. API recovers a missing map from committed files under a shared
+lock on its live blob row before signing or reading it. Claiming an ephemeral
+workspace rebuilds mapped Revisions with the destination workspace ID and remapped
+blob keys, preserving the source bytes and historical Revision identities. Older published Revisions
+without maps retain their existing object-key tokens. Claimed workspaces allow
+250 MiB per file, 10,000 files and 2 GiB per Revision, with a lifetime number
+ceiling of 2,147,483,647. History remains intact. Any chunked file or more than
+16 MiB of bundle input disables ZIP generation.
 
 ### `artifact_files`
 
@@ -147,25 +176,53 @@ so a one-file change yields a full file tree but only one new blob. Only
 blob-backed base paths can inherit: a legacy `storage_kind = 'revision'` path is
 not refcount-protected and must be re-uploaded rather than inherited.
 
+`artifact_files.content_format TEXT NOT NULL DEFAULT 'single'` records the
+representation of each whole file, either `single` or `chunked-v1`.
+
 ### `content_blobs`
 
-| Column         | Type                                      | Notes                                                   |
-| -------------- | ----------------------------------------- | ------------------------------------------------------- |
-| `workspace_id` | `UUID NOT NULL REFERENCES workspaces(id)` | Deduplication scope.                                    |
-| `sha256`       | `TEXT NOT NULL`                           | Lowercase hex SHA-256.                                  |
-| `size_bytes`   | `BIGINT NOT NULL`                         | Plaintext file size.                                    |
-| `r2_key`       | `TEXT NOT NULL UNIQUE`                    | Shared blob object key.                                 |
-| `created_at`   | `TIMESTAMPTZ NOT NULL`                    | First verified upload time.                             |
-| `updated_at`   | `TIMESTAMPTZ NOT NULL`                    | Last successful upsert for the verified blob reference. |
+| Column         | Type                                      | Notes                                       |
+| -------------- | ----------------------------------------- | ------------------------------------------- |
+| `workspace_id` | `UUID NOT NULL REFERENCES workspaces(id)` | Deduplication scope.                        |
+| `sha256`       | `TEXT NOT NULL`                           | Lowercase hex SHA-256.                      |
+| `size_bytes`   | `BIGINT NOT NULL`                         | Plaintext file size.                        |
+| `r2_key`       | `TEXT NOT NULL UNIQUE`                    | Shared blob object key.                     |
+| `created_at`   | `TIMESTAMPTZ NOT NULL`                    | First blob registration time.               |
+| `updated_at`   | `TIMESTAMPTZ NOT NULL`                    | Last successful blob registration or reuse. |
 
-Primary key `(workspace_id, sha256, size_bytes)`. Identical bytes dedupe only
-inside the owning Workspace. v1 does not backfill historical revision-key
-objects; rows are created only after a hash-aware upload PUT verifies the
-plaintext digest. Jobs-owned blob GC deletes unreferenced `content_blobs` rows
-after active Artifact and live pending upload-session checks. In v1 it does not
-delete the deterministic shared R2 object key, so a concurrent verified upload
-cannot be de-indexed and then have its newly written bytes removed by a delayed
-GC delete.
+Primary key `(workspace_id, sha256, size_bytes)`. The digest always identifies
+full plaintext bytes. Deduplication is scoped to the owning Workspace. Legacy
+revision-key objects are not backfilled. Revision file-map digests are excluded
+from upload deduplication, including maps for retained or inactive Revisions:
+their registry rows can exist before R2 materialization. Uploading those exact
+bytes as a normal file requires a verified PUT. Additional columns:
+
+| Column                | Type                             | Meaning                                                                      |
+| --------------------- | -------------------------------- | ---------------------------------------------------------------------------- |
+| `content_format`      | `TEXT NOT NULL DEFAULT 'single'` | `single` physical object or `chunked-v1` logical file.                       |
+| `gc_state`            | `TEXT NOT NULL DEFAULT 'live'`   | `live` or `deleting`. Reuse cannot revive a tombstone.                       |
+| `gc_marked_at`        | `TIMESTAMPTZ NULL`               | Start of an interrupted or current deletion.                                 |
+| `r2_cleanup_eligible` | `BOOLEAN NOT NULL DEFAULT true`  | Migration 0033 sets existing rows false; their R2 bytes must survive row GC. |
+
+Guarded files above 10 MiB use fixed 4 MiB chunks. Each chunk is an ordinary
+workspace blob encrypted through the existing AES-GCM path. A logical
+`chunked-v1` row has a virtual whole-file key, with no physical object at that
+key. Legacy single uploads retain Free's 10 MiB and Pro's 25 MiB limits.
+
+### `content_blob_chunks`
+
+Primary key `(workspace_id, sha256, size_bytes, chunk_index)`. The first three
+columns reference the logical `content_blobs` parent with cascading deletion.
+`chunk_sha256 TEXT` and `chunk_size_bytes BIGINT` identify each physical chunk.
+Order and sizes are immutable after the Worker verifies the full file digest
+and length. The same chunk can appear at multiple positions and in many files.
+
+GC protects active draft/published file references, unexpired pending/ready
+session files and chunks, chunks of live logical parents, and live Revision
+maps. It marks only rows last touched more than 24 hours ago. Physical deletion
+requires an eligible single-format tombstone. Historical ineligible rows get
+row-only GC. A PUT that finds existing R2 bytes but no index registers those
+bytes as ineligible too. Failed deletion leaves the tombstone for retry.
 
 ### `safety_warnings`
 
@@ -196,7 +253,7 @@ exposing scanner internals.
 | `workspace_id`        | `UUID NOT NULL REFERENCES workspaces(id)` |                                                                                                                                                                                                                                                    |
 | `artifact_id`         | `TEXT NOT NULL`                           | Reserved before active artifact creation.                                                                                                                                                                                                          |
 | `revision_id`         | `TEXT NOT NULL`                           | Reserved before active artifact creation.                                                                                                                                                                                                          |
-| `status`              | `TEXT NOT NULL`                           | `pending`, `finalized`, `expired`, or `failed`.                                                                                                                                                                                                    |
+| `status`              | `TEXT NOT NULL`                           | `pending`, `ready`, `finalized`, `expired`, or `failed`.                                                                                                                                                                                           |
 | `title`               | `TEXT NOT NULL`                           | Plain text.                                                                                                                                                                                                                                        |
 | `entrypoint`          | `TEXT NOT NULL`                           | Normalized file path.                                                                                                                                                                                                                              |
 | `render_mode`         | `TEXT NULL`                               | Unused since Render Mode was removed. Dropped by a follow-up migration.                                                                                                                                                                            |
@@ -210,6 +267,20 @@ exposing scanner internals.
 | `finalized_at`        | `TIMESTAMPTZ NULL`                        |                                                                                                                                                                                                                                                    |
 | `base_revision_id`    | `TEXT NULL`                               | Base Revision this publish inherits from ([0089](../adr/0089-revision-commit-chain-tree-inheritance-and-server-reconstructed-delta.md)). `NULL` is a full manifest. Copied to `revisions.parent_revision_id` when the tree merge runs at finalize. |
 | `deleted_paths`       | `JSONB NOT NULL DEFAULT '[]'`             | Base paths this publish drops. Lets finalize tell a deleted path apart from an inherited one (both are base paths absent from the file manifest).                                                                                                  |
+
+Guarded sessions add `commit_guard TEXT NULL`, `commit_snapshot_prefix TEXT
+NULL`, `commit_snapshot_sha256 TEXT NULL`, `pin_on_commit BOOLEAN NOT NULL`,
+`sealed_at TIMESTAMPTZ NULL` and `next_batch_index INTEGER NOT NULL DEFAULT 1`.
+Legacy sessions have no guard and are sealed. Guarded append batches must be
+sequential, unique across batches, unexpired and unsealed. Finalize requires a
+sealed manifest, uploaded single files and verified chunked files; it marks the
+session ready. Publish locks the workspace and Artifact, compares path or
+prefix-snapshot expectations with the current head, merges the tree, and writes
+the Revision, map reference, head and pin intent in one transaction. Disjoint
+path updates merge. Conflicting guards fail without moving the head. Identical
+trees, entrypoints, titles and satisfied pin intent return the existing head
+without another Revision. Legacy drafts with a non-current parent fail with a
+head conflict; full-tree legacy drafts with no parent retain their behavior.
 
 ### `upload_session_files`
 
@@ -235,6 +306,30 @@ Primary key `(upload_session_id, path)`.
 Hash-aware files use `storage_kind = 'blob'` and share a `r2_key` for identical
 `(workspace_id, sha256, size_bytes)` files. Same-session duplicate hashes mark
 all matching paths uploaded when the one required PUT succeeds.
+
+Guarded file rows add `content_format`, `verified_at`, `expect_absent`,
+`expect_sha256`, `expect_size_bytes` and `batch_index`. Explicit unified patches
+remain supported. Finalize reconstructs their result blobs, replaces the diff
+placeholders and preserves the base hash/size expectation used at commit.
+Guarded patch results must fit the 10 MiB single-object ceiling. Larger results
+require a whole-file chunked upload. Legacy patch results retain the 25 MiB
+absolute ceiling, with workspace file caps still enforced at finalize.
+
+### `upload_session_chunks`
+
+Primary key `(upload_session_id, path, chunk_index)`, with a composite foreign
+key to the session file. Rows carry `workspace_id`, `sha256`, `size_bytes` and
+nullable `uploaded_at`. Only verified PUTs or live chunk reuse set `uploaded_at`.
+Full-file completion streams bounded chunks, verifies the whole SHA-256 and
+length, then atomically registers the logical blob/chunk list and `verified_at`.
+
+### `upload_session_deletions`
+
+Primary key `(upload_session_id, kind, path)`. Tenant-scoped rows record `kind`
+(`path` or `prefix`), `expect_sha256`, `expect_size_bytes`,
+`expect_snapshot_sha256` and `batch_index`. Path guards require file expectations;
+prefix deletions require the directory snapshot digest. Snapshots sort paths
+with JavaScript's UTF-16 comparison before hashing canonical entry lines.
 
 ### `feedback`
 
@@ -360,12 +455,25 @@ capability-manifest prefix. See [`jobs.md`](./jobs.md#byte-purge).
 
 ## KV Denylist
 
-The content Worker has no database binding. Admin deletes and retention cleanup write denylist keys to KV so signed content URLs stop working before their token expiration.
+The content Worker has no database binding. Deletion, retention cleanup, and
+Platform Lockdown write denylist keys to KV so Content rejects reads
+independently of byte purge. Current
+capability manifests may carry non-expiring tokens, so Artifact deletion
+(`ad:`), Revision retention (`rd:`), and platform Artifact/Workspace lockdown
+(`ad:`/`wsd:`) entries have no KV expiration. Platform Lockdown entries remain
+until an explicit lift clears them, subject to the existing shared-key retention
+guards for deleted, missing, or otherwise locked Artifacts and active lockdowns.
+Dormant legacy Access Link revocation and lockdown writes keep their existing
+bounded token TTL; they do not become a current authority.
 
 Required key shapes can be implementation-defined, but must cover:
 
 - Artifact id.
 - Revision id.
+
+Hourly Jobs discovery rewrites every effective persisted Platform Lockdown as a
+non-expiring marker, including markers created before durable persistence and
+missing markers after a failed write. See [Jobs recovery](./jobs.md#post-commit-sequencing).
 
 KV values do not contain token material.
 

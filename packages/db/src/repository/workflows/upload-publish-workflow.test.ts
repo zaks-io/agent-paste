@@ -2,12 +2,17 @@ import { LIFETIME_REVISION_CEILING } from "@agent-paste/config";
 import { describe, expect, it } from "vitest";
 import { createLocalServices, type LocalRepository } from "../../local-repository.js";
 import { RepositoryError } from "../../repository-error.js";
+import { fakeFileMapStore } from "../../test-helpers/file-map-store.js";
 import type { ApiActor } from "../../types.js";
 
 const adminActor = { type: "admin" as const, id: "publish-characterization" };
 
 async function localRepoWithActor() {
-  const { repo } = createLocalServices({ apiKeyPepper: "pepper", billingEnabled: true });
+  const { repo } = createLocalServices({
+    fileMapStore: fakeFileMapStore,
+    apiKeyPepper: "pepper",
+    billingEnabled: true,
+  });
   const workspace = await repo.createWorkspace({
     actor: adminActor,
     idempotencyKey: "idem-ws",
@@ -263,21 +268,9 @@ describe("publishRevision characterization", () => {
       now: "2026-06-01T00:00:02.000Z",
     });
 
-    for (let index = 2; index <= LIFETIME_REVISION_CEILING; index += 1) {
-      const now = new Date(Date.parse("2026-06-01T00:00:02.000Z") + index * 1000).toISOString();
-      const draft = await finalizedDraft(repo, actor, {
-        prefix: `ceiling-${index}`,
-        artifactId: first.finalized.artifact_id,
-        now,
-      });
-      await repo.publishRevision({
-        actor,
-        idempotencyKey: `ceiling-publish-${index}`,
-        artifactId: first.finalized.artifact_id,
-        revisionId: draft.finalized.revision_id,
-        now,
-      });
-    }
+    const head = repo.revisions.get(first.finalized.revision_id);
+    if (!head) throw new Error("expected published revision");
+    head.revision_number = LIFETIME_REVISION_CEILING;
 
     const blocked = await finalizedDraft(repo, actor, {
       prefix: "ceiling-blocked",

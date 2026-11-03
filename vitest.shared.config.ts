@@ -110,6 +110,8 @@ export function defineAgentPasteVitestConfig(options: AgentPasteVitestOptions = 
     root,
     test: {
       environment: options.environment ?? "node",
+      // Turbo runs two workspaces at once; bound each runner on shared hosts.
+      maxWorkers: 2,
       exclude: buildTestExcludes(root),
       coverage: {
         provider: "v8",

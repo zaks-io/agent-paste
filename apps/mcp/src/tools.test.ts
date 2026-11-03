@@ -17,6 +17,16 @@ const ARTIFACT_URL = "https://0123456789abcdef0123456789abcdef.agent-paste.link/
 function uploadMockForPublish() {
   return {
     fetchMcp: vi.fn(async (request: Request) => {
+      if (new URL(request.url).pathname.endsWith("/targets"))
+        return Response.json({
+          upload_session_id: UPLOAD_SESSION_ID,
+          status: "pending",
+          sealed: true,
+          expires_at: "2026-12-01T00:00:00.000Z",
+          remaining: { files: 0, chunks: 0, bytes: 0, unverified_files: 0 },
+          targets: [],
+          page_info: { has_more: false, next_cursor: null },
+        });
       if (new URL(request.url).pathname.endsWith("/finalize")) {
         return Response.json({
           upload_session_id: UPLOAD_SESSION_ID,
@@ -61,6 +71,12 @@ function serverPublishResult() {
     title: "Note",
     url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
     expires_at: "2026-12-01T00:00:00.000Z",
+    revision_number: 2,
+    retention: "temporary",
+    pinned_at: null,
+    effective_expires_at: "2026-12-01T00:00:00.000Z",
+    no_change: false,
+    changes: { added: 0, changed: 1, removed: 0 },
   };
 }
 
@@ -76,7 +92,13 @@ function baseAgentView(over: Record<string, unknown> = {}) {
     url: "https://0123456789abcdef0123456789abcdef.agent-paste.link/",
     revision_content_url: "https://content.example/v/token/content.txt",
     files: [
-      { path: "content.txt", size_bytes: 4, content_type: "text/plain", url: "https://content.example/content.txt" },
+      {
+        path: "content.txt",
+        sha256: "b".repeat(64),
+        size_bytes: 4,
+        content_type: "text/plain",
+        url: "https://content.example/content.txt",
+      },
     ],
     safety_warnings: [],
     bundle: { status: "disabled" },
@@ -321,7 +343,7 @@ describe("callMcpTool", () => {
       expect(result.result).not.toHaveProperty("shared");
     }
     // Publish is content-only => the publish request body is empty (no Share Link minted).
-    expect(await routeCall(api, 0).text()).toBe("");
+    expect(await routeCall(api, 0).json()).toEqual({ include_retention: true });
   });
 
   it("rejects a share input on publish_artifact (no public concept in publish)", async () => {
@@ -408,6 +430,16 @@ describe("callMcpTool", () => {
     vi.stubGlobal("fetch", putFetch);
     const upload = {
       fetchMcp: vi.fn(async (request: Request) => {
+        if (new URL(request.url).pathname.endsWith("/targets"))
+          return Response.json({
+            upload_session_id: UPLOAD_SESSION_ID,
+            status: "pending",
+            sealed: true,
+            expires_at: "2026-12-01T00:00:00.000Z",
+            remaining: { files: 0, chunks: 0, bytes: 0, unverified_files: 0 },
+            targets: [],
+            page_info: { has_more: false, next_cursor: null },
+          });
         if (new URL(request.url).pathname.endsWith("/finalize")) {
           return Response.json({
             upload_session_id: UPLOAD_SESSION_ID,
@@ -467,12 +499,7 @@ describe("callMcpTool", () => {
       "fetch",
       vi.fn(async () => new Response(null, { status: 200 })),
     );
-    const api = apiMock(
-      ["publish", "read"],
-      Response.json(baseAgentView()),
-      Response.json(await baseFileContent("old body")),
-      Response.json(serverPublishResult()),
-    );
+    const api = apiMock(["publish", "read"], Response.json(baseAgentView()), Response.json(serverPublishResult()));
     const upload = uploadMockForPublish();
     const result = await callMcpTool(
       "add_revision",
@@ -489,7 +516,11 @@ describe("callMcpTool", () => {
     const createCall = upload.fetchMcp.mock.calls[0]?.[0] as Request;
     const createBody = (await createCall.json()) as { artifact_id: string; base_revision_id: string; title: string };
     expect(createBody.artifact_id).toBe(ARTIFACT_ID);
-    expect(createBody.base_revision_id).toBe(REVISION_ID);
+    expect(createBody).toMatchObject({
+      commit: { guard: "paths" },
+      files: [{ expect: { sha256: expect.any(String) } }],
+    });
+    expect(createBody.base_revision_id).toBeUndefined();
     expect(createBody.title).toBe("Original Title");
     expect(decodeURIComponent(new URL(routeCall(api, 0).url).pathname)).toContain(ARTIFACT_URL);
     expect(decodeURIComponent(new URL(routeCall(api, 1).url).pathname)).toContain(ARTIFACT_ID);
@@ -500,7 +531,19 @@ describe("callMcpTool", () => {
     vi.stubGlobal("fetch", publishPut);
     const api = apiMock(
       ["publish", "read"],
-      Response.json(baseAgentView()),
+      Response.json(
+        baseAgentView({
+          files: [
+            {
+              path: "content.txt",
+              sha256: await sha256HexOf("same body"),
+              size_bytes: 9,
+              content_type: "text/plain",
+              url: "https://content.example/content.txt",
+            },
+          ],
+        }),
+      ),
       Response.json(await baseFileContent("same body")),
     );
     const upload = uploadMockForPublish();
@@ -551,7 +594,11 @@ describe("callMcpTool", () => {
       title: string;
     };
     expect(createBody.artifact_id).toBe(ARTIFACT_ID);
-    expect(createBody.base_revision_id).toBe(REVISION_ID);
+    expect(createBody).toMatchObject({
+      commit: { guard: "paths" },
+      files: [{ expect: { sha256: expect.any(String) } }],
+    });
+    expect(createBody.base_revision_id).toBeUndefined();
     expect(createBody.title).toBe("Original Title");
   });
 
@@ -655,5 +702,60 @@ describe("callMcpTool", () => {
     if (!result.ok) {
       expect(result.error.code).toBe("internal_error");
     }
+  });
+});
+
+describe("guarded management tools", () => {
+  it.each(["pin_artifact", "unpin_artifact"])("forwards %s with publish authority and idempotency", async (tool) => {
+    const body = {
+      artifact_id: ARTIFACT_ID,
+      url: ARTIFACT_URL,
+      retention: "pinned",
+      pinned_at: "2026-01-01T00:00:00.000Z",
+      expires_at: "2026-12-01T00:00:00.000Z",
+      effective_expires_at: null,
+      pinned_count: 1,
+      pin_allowance: 3,
+    };
+    const api = apiMock(["publish"], Response.json(body));
+    const result = await callMcpTool(tool, { artifact_id: ARTIFACT_ID }, auth, {
+      api,
+      upload: { fetchMcp: vi.fn() },
+      tokenSub: auth.tokenSub,
+      jsonRpcId: 1,
+    });
+    expect(result).toEqual({ ok: true, result: body });
+    expect(routeCall(api, 0).headers.get("idempotency-key")).toBeTruthy();
+    expect(new URL(routeCall(api, 0).url).pathname).toMatch(/\/(unpin|pin)$/);
+  });
+  it("preserves guarded add_revision conflict details", async () => {
+    const api = apiMock(
+      ["publish", "read"],
+      Response.json(baseAgentView()),
+      Response.json(
+        {
+          error: {
+            code: "commit_conflict",
+            message: "changed",
+            details: { kind: "paths", conflicts: [{ path: "content.txt" }], head_revision_id: REVISION_ID },
+          },
+        },
+        { status: 409 },
+      ),
+    );
+    const result = await callMcpTool(
+      "add_revision",
+      { artifact_id: ARTIFACT_ID, body: "next", render_mode: "text" },
+      auth,
+      { api, upload: uploadMockForPublish(), tokenSub: auth.tokenSub, jsonRpcId: 2 },
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "commit_conflict",
+        httpStatus: 409,
+        details: { kind: "paths", conflicts: [{ path: "content.txt" }] },
+      },
+    });
   });
 });

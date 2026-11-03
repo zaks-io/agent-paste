@@ -29,11 +29,34 @@ does not change the versioned job payload schemas.
 | ----------------- | ----------------: | --------------------: | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Upload Cleanup    |  every 15 minutes |                   200 | Expire stale Upload Sessions and enqueue orphan-byte purge. Also runs first in the hourly sweep so environments without the 15-minute cron stay covered. |
 | Auto Deletion     |            hourly |                   200 | Expire unpinned published Artifacts past `auto_deletion_days`, then write denylist and enqueue byte purge.                                               |
+| Lockdown Recovery |            hourly |          200 per page | Rewrite every effective persisted Platform Lockdown as a non-expiring denylist marker; no byte purge.                                                    |
 | Purge Recovery    |            hourly |                   200 | Rediscover deleted or expired Artifacts whose current Revision lacks `bytes_purge_enqueued_at`; write denylist and enqueue byte purge.                   |
 | Retention         |            hourly |                   500 | Mark non-current Revisions retained when `revision_retention_days` is set.                                                                               |
-| Content Blob GC   |            hourly |                   500 | Delete unreferenced `content_blobs` rows after active Artifact and live pending upload-session checks; v1 leaves deterministic R2 blob bytes in place.   |
+| Content Blob GC   |            hourly |                   500 | Mark unreferenced blobs after a 24-hour age floor, delete eligible R2 bytes, then remove rows. Historical bytes remain.                                  |
 | Maintenance GC    |            hourly | 5000 idempotency rows | Delete old idempotency rows; archive audit events past Audit Retention to R2 (`audit/` NDJSON under `ARTIFACTS`), then delete from Postgres.             |
 | Billing Reconcile | daily (06:00 UTC) |                   500 | Reconcile Stripe subscription state into workspace plans (ADR 0074). No-op unless `BILLING_ENABLED` is `true` and Stripe secrets are present.            |
+
+Upload Cleanup expires both `pending` and `ready` sessions. It wins the guarded
+state transition before enqueueing any legacy Revision-prefix purge. Workspace
+blobs and chunks are never included in prefix purge messages; shared committed
+bytes remain reusable and only blob GC can reclaim them. Expired sessions with
+Revision-scoped staging rows remain discoverable if enqueue or purge fails.
+The purge consumer removes those staging rows only after their R2 prefixes
+have been deleted. Uploaded staging bytes remain reserved until that confirmation;
+expiration alone cannot release quota.
+
+Content Blob GC uses the shared database collector. References include live
+Artifact Revision files and maps, unexpired pending/ready session files and
+chunks, and physical chunks belonging to a live logical blob. Reuse touches
+rows under the same row lock as GC; deleting tombstones cannot be reused.
+Sweeps retry tombstones first, mark live unreferenced rows older than 24 hours,
+delete eligible single-format R2 objects in batches of at most 1,000, and then
+remove the rows. Logical parent deletion cascades to its chunk list; unreferenced
+physical chunks become collectible on a later sweep. Failed R2 deletion leaves
+tombstones for retry. Missing R2 access leaves eligible tombstones in place.
+Rows predating migration 0033 have `r2_cleanup_eligible=false` and receive row-only
+GC, preserving historical bytes. Unreferenced bytes continue to count toward
+storage usage until their rows are removed, up to the age floor plus one sweep.
 
 Retention is implemented from day one, but the default `revision_retention_days` is null, so it keeps all Revisions unless a policy value is later set.
 
@@ -71,10 +94,19 @@ Handler behavior:
   [R2 object key layout](./data-model.md#r2-object-key-layout).
 - Deflate entries with text-like served types (HTML, CSS, JavaScript, JSON,
   SVG, Markdown, plain text); store every other entry as-is.
+- Before reading any file bytes, disable bundle generation when the Revision's
+  plaintext size exceeds the smaller of 16 MiB and the Bundle Size Cap. The
+  16 MiB input bound reserves memory for buffered ZIP output and encryption
+  copies. Set `bundle_status='disabled'` and acknowledge the job without R2 reads.
 - Enforce Bundle Size Cap against the finished zip size during generation.
 - On success, set `bundle_status='ready'`, `bundle_size_bytes`, and `bundle_status_updated_at`.
 - On permanent generation error after queue retries, DLQ consumer sets `bundle_status='failed'`.
 - Bundle state changes do not create Audit Events.
+
+Disabled bundles report `revision_too_large` when any file is chunked or the
+Revision exceeds 16 MiB of plaintext input. Other disabled bundles report
+`disabled_by_policy`. Repository publish and Agent View metadata use the same
+reason mapping.
 
 ### `safety-scan`
 
@@ -97,9 +129,12 @@ trust boundary.
 Handler behavior:
 
 - Return idempotently if Revision is retained or Artifact is deleted.
-- Resolve `scanner_id` and run warning rules over `revision_files`.
+- Resolve `scanner_id` and run warning rules over `artifact_files`.
   `builtin_content` uses built-in text warning rules. `ephemeral_tier` adds
   dormant-script warnings and optional Llama Guard text moderation.
+- Skip `chunked-v1` files without fetching their virtual keys and log
+  `safety_scan.file_skipped` with reason `chunked_file`. Single files keep the
+  existing encrypted read and scanner workflow.
 - Replace all warnings in `(revision_id, scanner_id)` inside `runCommand`.
 - Include `scanner_version` in the idempotency key so rule changes can re-scan
   the same Revision.
@@ -157,6 +192,21 @@ no current route invokes them.
 3. Enqueue byte purge when bytes must be removed.
 
 If KV denylist writes fail, do not enqueue purge. The next cron rediscovery is the recovery path.
+
+Lockdown Recovery runs on the hourly discovery path independently of the byte
+purge queue. It scans all effective `platform_lockdowns` in ID-ordered pages of
+200, including preexisting records whose markers have expired or still have a
+TTL. Each marker is rewritten without KV expiration. There is no first-page
+only sweep cap because recovered lockdowns remain effective and would otherwise
+starve later pages. Recovery rechecks `lifted_at is null` under a row lock held
+through the KV write, serializing with lift so it cannot restore a marker after
+that lift removes it. Failed writes leave the DB lockdown intact, log the
+failure, and retry on the next hourly sweep. Recovery never removes markers,
+changes lockdown state, or enqueues byte deletion.
+
+New Artifact deletion and Revision retention markers also have no expiration,
+so a failed or delayed purge cannot reopen a non-expiring capability. Existing
+lift retention guards continue to protect shared Artifact denylist keys.
 
 **Retention is the exception**: it runs the denylist write and purge enqueue
 _before_ committing the `retained` status flip, and skips the commit when

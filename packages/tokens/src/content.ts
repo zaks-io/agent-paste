@@ -1,3 +1,4 @@
+import { MAX_FILE_MAP_BYTES } from "@agent-paste/config";
 import type { Clock } from "./clock.js";
 import { sign, verify } from "./codec.js";
 import { encodePath } from "./url.js";
@@ -11,6 +12,9 @@ export type ContentTokenPayload = {
   object_key?: string;
   object_keys?: Record<string, string>;
   paths?: string[];
+  file_map?: { sha256: string; size_bytes: number };
+  /** Read grants serve exact stored bytes as attachments, with identity encoding. */
+  original_bytes?: true;
   /** When true, content responses must not be indexed (ephemeral tier). */
   noindex?: boolean;
   /** False opts current direct content URLs into interactive HTML; omitted legacy tokens fail closed. */
@@ -40,9 +44,31 @@ export function isValidContentTokenPayload(value: unknown): value is ContentToke
         Object.entries(payload.object_keys).every(([path, objectKey]) => path.length > 0 && objectKey.length > 0))) &&
     (payload.paths === undefined ||
       (Array.isArray(payload.paths) && payload.paths.every((path) => typeof path === "string"))) &&
+    (payload.file_map === undefined ||
+      (isFileMapReference(payload.file_map) &&
+        typeof payload.workspace_id === "string" &&
+        payload.paths === undefined &&
+        payload.object_key === undefined &&
+        payload.object_keys === undefined &&
+        payload.key_prefix === undefined)) &&
+    (payload.original_bytes === undefined || payload.original_bytes === true) &&
     (payload.noindex === undefined || typeof payload.noindex === "boolean") &&
     (payload.script_disabled === undefined || typeof payload.script_disabled === "boolean") &&
     (payload.exp === null || (typeof payload.exp === "number" && Number.isInteger(payload.exp)))
+  );
+}
+
+function isFileMapReference(value: unknown): value is NonNullable<ContentTokenPayload["file_map"]> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  return (
+    "sha256" in value &&
+    typeof value.sha256 === "string" &&
+    /^[a-f0-9]{64}$/u.test(value.sha256) &&
+    "size_bytes" in value &&
+    typeof value.size_bytes === "number" &&
+    Number.isSafeInteger(value.size_bytes) &&
+    value.size_bytes > 0 &&
+    value.size_bytes <= MAX_FILE_MAP_BYTES
   );
 }
 

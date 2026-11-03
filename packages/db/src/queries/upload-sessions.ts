@@ -1,8 +1,9 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { DrizzleDb } from "../postgres/drizzle.js";
 import { defineSqlQuerySourceMap } from "../postgres/query-source.js";
 import { uploadSessionFiles, uploadSessions } from "../schema.js";
 import type { StoredFile, StoredFileStorageKind, UploadSession } from "../types.js";
+import { contentBlobQueries } from "./content-blobs.js";
 
 export const uploadSessionQueries = defineSqlQuerySourceMap(
   "packages/db/src/queries/upload-sessions.ts",
@@ -27,6 +28,12 @@ export const uploadSessionQueries = defineSqlQuerySourceMap(
         finalizedAt: row.finalized_at ? new Date(row.finalized_at) : null,
         baseRevisionId: row.base_revision_id ?? null,
         deletedPaths: row.deleted_paths ?? [],
+        commitGuard: row.commit_guard ?? null,
+        commitSnapshotPrefix: row.commit_snapshot_prefix ?? null,
+        commitSnapshotSha256: row.commit_snapshot_sha256 ?? null,
+        pinOnCommit: row.pin_on_commit ?? false,
+        sealedAt: row.sealed_at ? new Date(row.sealed_at) : row.commit_guard ? null : new Date(row.created_at),
+        nextBatchIndex: row.next_batch_index ?? 1,
       });
     },
 
@@ -82,6 +89,12 @@ export const uploadSessionFileQueries = defineSqlQuerySourceMap(
           uploadedAt: file.uploaded_at ? new Date(file.uploaded_at) : null,
           // putUrlExpiresAt is notNull in schema; fall back to "now" rather than producing an Invalid Date.
           putUrlExpiresAt: file.put_url_expires_at ? new Date(file.put_url_expires_at) : new Date(),
+          contentFormat: file.content_format ?? "single",
+          verifiedAt: file.verified_at ? new Date(file.verified_at) : null,
+          expectSha256: file.expect_sha256 ?? null,
+          expectSizeBytes: file.expect_size_bytes ?? null,
+          expectKind: file.expect_absent ? "absent" : file.expect_sha256 ? "sha256" : null,
+          batchIndex: file.batch_index ?? 0,
           patchBaseSha256: file.patch_base_sha256 ?? null,
           patchResultSha256: file.patch_result_sha256 ?? null,
         })),
@@ -106,32 +119,33 @@ export const uploadSessionFileQueries = defineSqlQuerySourceMap(
         objectKey?: string;
         sizeBytes?: number;
         sha256?: string;
+        r2CleanupEligible?: boolean;
         uploadedAt: string;
       },
     ) {
       if (input.workspaceId && input.sha256 && input.objectKey && typeof input.sizeBytes === "number") {
-        await db.execute(sql`
-          with registered_blob as (
-            insert into content_blobs (workspace_id, sha256, size_bytes, r2_key, created_at, updated_at)
-            values (
-              ${input.workspaceId},
-              ${input.sha256},
-              ${input.sizeBytes},
-              ${input.objectKey},
-              ${input.uploadedAt},
-              ${input.uploadedAt}
-            )
-            on conflict (workspace_id, sha256, size_bytes)
-            do update set r2_key = excluded.r2_key, updated_at = excluded.updated_at
-          )
-          update upload_session_files
-          set uploaded_at = ${input.uploadedAt}
-          where workspace_id = ${input.workspaceId}
-            and upload_session_id = ${input.sessionId}
-            and sha256 = ${input.sha256}
-            and r2_key = ${input.objectKey}
-            and size_bytes = ${input.sizeBytes}
-        `);
+        await contentBlobQueries.upsert(db, {
+          workspace_id: input.workspaceId,
+          sha256: input.sha256,
+          size_bytes: input.sizeBytes,
+          r2_key: input.objectKey,
+          r2_cleanup_eligible: input.r2CleanupEligible ?? true,
+          created_at: input.uploadedAt,
+          updated_at: input.uploadedAt,
+        });
+        await db
+          .update(uploadSessionFiles)
+          .set({ uploadedAt: new Date(input.uploadedAt) })
+          .where(
+            and(
+              eq(uploadSessionFiles.workspaceId, input.workspaceId),
+              eq(uploadSessionFiles.uploadSessionId, input.sessionId),
+              eq(uploadSessionFiles.sha256, input.sha256),
+              eq(uploadSessionFiles.r2Key, input.objectKey),
+              eq(uploadSessionFiles.sizeBytes, input.sizeBytes),
+            ),
+          );
+
         return;
       }
       const conditions = [eq(uploadSessionFiles.uploadSessionId, input.sessionId)];
@@ -173,6 +187,12 @@ function mapUploadSession(row: typeof uploadSessions.$inferSelect): UploadSessio
     finalized_at: row.finalizedAt ? row.finalizedAt.toISOString() : null,
     base_revision_id: row.baseRevisionId ?? null,
     deleted_paths: row.deletedPaths ?? [],
+    commit_guard: row.commitGuard as Exclude<UploadSession["commit_guard"], undefined>,
+    commit_snapshot_prefix: row.commitSnapshotPrefix,
+    commit_snapshot_sha256: row.commitSnapshotSha256,
+    pin_on_commit: row.pinOnCommit,
+    sealed_at: row.sealedAt?.toISOString() ?? null,
+    next_batch_index: row.nextBatchIndex,
   };
 }
 
@@ -188,6 +208,12 @@ function mapUploadSessionFile(row: typeof uploadSessionFiles.$inferSelect): Stor
     storage_kind: (row.storageKind ?? "revision") as StoredFileStorageKind,
     uploaded_at: row.uploadedAt ? row.uploadedAt.toISOString() : null,
     put_url_expires_at: row.putUrlExpiresAt.toISOString(),
+    content_format: row.contentFormat as NonNullable<StoredFile["content_format"]>,
+    verified_at: row.verifiedAt?.toISOString() ?? null,
+    expect_sha256: row.expectSha256,
+    expect_size_bytes: row.expectSizeBytes == null ? null : Number(row.expectSizeBytes),
+    expect_absent: row.expectKind === "absent",
+    batch_index: row.batchIndex,
     patch_base_sha256: row.patchBaseSha256 ?? null,
     patch_result_sha256: row.patchResultSha256 ?? null,
   };

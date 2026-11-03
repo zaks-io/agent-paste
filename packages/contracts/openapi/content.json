@@ -39,6 +39,9 @@
                   "artifact_not_found",
                   "database_unavailable",
                   "draft_revision_conflict",
+                  "commit_conflict",
+                  "storage_quota_exceeded",
+                  "file_digest_mismatch",
                   "entrypoint_not_in_revision",
                   "file_count_cap_exceeded",
                   "file_size_cap_exceeded",
@@ -73,6 +76,10 @@
               },
               "message": {
                 "type": "string"
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": {}
               },
               "docs": {
                 "type": "string",

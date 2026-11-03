@@ -8,6 +8,7 @@ import * as generateZip from "../bundle/generate-zip.js";
 import type { Env } from "../env.js";
 import { createMockSqlExecutor } from "../test-helpers/mock-sql-executor.js";
 import { handleBundleGenerateBatch, handleBundleGenerateDlqBatch } from "./bundle-generate.js";
+import { MAX_BUNDLE_INPUT_BYTES } from "./bundle-generate-orchestration.js";
 
 const artifactBytesEncryptionEnv = {
   ARTIFACT_BYTES_ENCRYPTION_KEY: "test-artifact-bytes-encryption-key",
@@ -53,7 +54,7 @@ const artifactId = "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 const revisionId = "rev_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9";
 
 function makeDb(overrides: {
-  revision?: { status: string; artifact_status: string; bundle_status: string } | null;
+  revision?: { status: string; artifact_status: string; bundle_status: string; size_bytes?: number } | null;
   files?: Array<{ path: string; r2_key: string }>;
   plan?: "free" | "pro";
   txQuery?: (sql: string) => Promise<{ rows: unknown[] }>;
@@ -63,7 +64,7 @@ function makeDb(overrides: {
       return { rows: [{ plan: overrides.plan ?? "free" }] };
     }
     if (sql.includes("from revisions r")) {
-      return { rows: overrides.revision ? [overrides.revision] : [] };
+      return { rows: overrides.revision ? [{ size_bytes: 3, ...overrides.revision }] : [] };
     }
     if (sql.includes("from artifact_files")) {
       return { rows: overrides.files ?? [] };
@@ -82,6 +83,52 @@ function makeDb(overrides: {
 }
 
 describe("handleBundleGenerateBatch integration", () => {
+  it.each([
+    MAX_BUNDLE_INPUT_BYTES + 1,
+    250 * 1024 * 1024,
+    1024 * 1024 * 1024,
+  ])("disables a %i-byte archive before reading any object", async (sizeBytes) => {
+    const get = vi.fn();
+    const put = vi.fn();
+    const ack = vi.fn();
+    const retry = vi.fn();
+    const updates: string[] = [];
+    await handleBundleGenerateBatch(
+      [
+        {
+          body: {
+            type: "bundle.generate.v1",
+            workspace_id: workspaceId,
+            artifact_id: artifactId,
+            revision_id: revisionId,
+            requested_at: "2026-05-20T00:00:00.000Z",
+            reason: "publish",
+          },
+          ack,
+          retry,
+        },
+      ],
+      {
+        ...artifactBytesEncryptionEnv,
+        AGENT_PASTE_ENV: "dev",
+        DB: makeDb({
+          revision: { status: "published", artifact_status: "active", bundle_status: "pending", size_bytes: sizeBytes },
+          txQuery: async (sql) => {
+            if (sql.includes("update revisions")) updates.push(sql);
+            return { rows: sql.includes("insert into idempotency_records") ? [{ workspace_id: workspaceId }] : [] };
+          },
+        }),
+        ARTIFACTS: { list: vi.fn(), delete: vi.fn(), get, put },
+      },
+    );
+    expect(ack).toHaveBeenCalledOnce();
+    expect(retry).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
+    expect(put).not.toHaveBeenCalled();
+    expect(updates).toHaveLength(1);
+    expect(updates[0]).toContain("bundle_status = 'disabled'");
+  });
+
   it("short-circuits when bundle status is already ready", async () => {
     const ack = vi.fn();
     const put = vi.fn();

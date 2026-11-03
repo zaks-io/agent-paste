@@ -636,6 +636,8 @@ describe("MCP streamable HTTP transport", () => {
     });
     const tools = (body as { result?: { tools?: Array<{ name: string }> } }).result?.tools ?? [];
     expect(tools.map((tool) => tool.name)).toEqual([
+      "pin_artifact",
+      "unpin_artifact",
       "publish_artifact",
       "add_revision",
       "multi_edit",

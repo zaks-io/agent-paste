@@ -1,6 +1,6 @@
 import { getRequestId, type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
 import { buildApiOpenApiDocument, type RouteId } from "@agent-paste/contracts";
-import { type Repository, repositoryErrorToAppError, type SqlExecutor } from "@agent-paste/db";
+import { type Repository, RepositoryError, repositoryErrorToAppError, type SqlExecutor } from "@agent-paste/db";
 import {
   type BoundRespondersVariables,
   boundRespondersMiddleware,
@@ -21,6 +21,8 @@ import { contractById } from "./route-contracts.js";
 import { getUsagePolicy, mcpWhoami, revokeCurrentApiKey, whoami } from "./routes/account.js";
 import { agentAuthWwwAuthenticateMiddleware, mountAgentAuthRoutes } from "./routes/agent-auth.js";
 import { readArtifactFileContent } from "./routes/artifact-file-content.js";
+import { listArtifactFiles, revisionReadGrant, storageUsage } from "./routes/artifact-files.js";
+import { setArtifactRetention } from "./routes/artifact-retention.js";
 import {
   billingCheckout,
   billingInvoices,
@@ -155,6 +157,21 @@ apiDbRegistrar.mount(contractById("whoami.get"), async (context, principal, db) 
 );
 apiDbRegistrar.mount(contractById("mcp.whoami"), async (context, principal, db) =>
   mcpWhoami(context as AppContext, principal, db),
+);
+apiDbRegistrar.mount(contractById("artifacts.pin"), async (context, principal, db, guard) =>
+  setArtifactRetention(context as AppContext, principal, db, guard, true),
+);
+apiDbRegistrar.mount(contractById("artifacts.unpin"), async (context, principal, db, guard) =>
+  setArtifactRetention(context as AppContext, principal, db, guard, false),
+);
+apiDbRegistrar.mount(contractById("artifactFiles.list"), async (context, principal, db) =>
+  listArtifactFiles(context as AppContext, principal, db),
+);
+apiDbRegistrar.mount(contractById("artifacts.readGrant"), async (context, principal, db) =>
+  revisionReadGrant(context as AppContext, principal, db),
+);
+apiDbRegistrar.mount(contractById("usage.get"), async (context, principal, db) =>
+  storageUsage(context as AppContext, principal, db),
 );
 apiDbRegistrar.mount(contractById("artifacts.list"), async (context, principal, db) =>
   listMemberArtifactsRoute(context as AppContext, principal, db),
@@ -306,11 +323,18 @@ app.notFound((context) => getBoundResponders(context).respondError("not_found"))
 app.onError((error, context) => {
   const { respondError } = getBoundResponders(context);
   if (error instanceof RepositoryRouteError) {
-    return respondError(error.code, error.message);
+    return respondError(error.code, {
+      message: error.message,
+      headers: error.headers,
+      ...(error.details ? { details: error.details } : {}),
+    });
   }
   const repositoryCode = repositoryErrorToAppError(error);
   if (repositoryCode) {
-    return respondError(repositoryCode);
+    return respondError(
+      repositoryCode,
+      error instanceof RepositoryError && error.details ? { details: error.details } : undefined,
+    );
   }
   captureWorkerError({
     component: "api",
@@ -341,6 +365,11 @@ const MCP_API_ROUTE_IDS = new Set<RouteId>([
   "feedback.create",
   "mcp.whoami",
   "artifacts.list",
+  "artifacts.pin",
+  "artifacts.unpin",
+  "artifactFiles.list",
+  "artifacts.readGrant",
+  "usage.get",
   "agentView.getLatest",
   "artifacts.fileContent",
   "revisions.list",

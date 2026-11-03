@@ -17,6 +17,9 @@ import {
 function unusedSafeRoot(rootReal: string): LocalFile["safeRoot"] {
   return {
     rootReal,
+    async open() {
+      throw new Error("unused");
+    },
     async read() {
       throw new Error("unused_test_reader");
     },
@@ -112,6 +115,9 @@ describe("local publish helpers", () => {
       absolutePath: "/publish/index.html",
       safeRoot: {
         rootReal: "/publish",
+        async open() {
+          throw new Error("unused");
+        },
         async read() {
           throw error;
         },
@@ -269,7 +275,7 @@ describe("local publish helpers", () => {
     // A sparse file: stat reports an oversized length but no real bytes are written
     // or read, so this proves the guard fires on `stat`, not after `readFile`.
     await fs.writeFile(big, "");
-    await fs.truncate(big, Mebibytes.twentyFive + 1);
+    await fs.truncate(big, 262_144_001);
 
     await expect(walkLocalPath(root)).rejects.toThrow(/per-file limit/);
   });

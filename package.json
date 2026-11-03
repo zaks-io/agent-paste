@@ -83,11 +83,13 @@
     "setup:codex": "node scripts/setup-worktree.mjs",
     "test": "turbo run test",
     "test:scripts": "vitest run --config vitest.scripts.config.ts",
-    "test:coverage": "node scripts/clean-coverage.mjs && turbo run test:coverage && node scripts/merge-coverage.mjs",
-    "test:coverage:strict": "node scripts/clean-coverage.mjs && turbo run test:coverage --force && node scripts/merge-coverage.mjs",
+    "test:coverage": "node scripts/clean-coverage.mjs && turbo run test:coverage --concurrency=2 && node scripts/merge-coverage.mjs",
+    "test:coverage:strict": "node scripts/clean-coverage.mjs && turbo run test:coverage --concurrency=2 --force && node scripts/merge-coverage.mjs",
     "typecheck": "turbo run typecheck",
     "typecheck:scripts": "tsc -p tsconfig.scripts.json",
-    "verify": "pnpm format:code:check && pnpm format:docs:check && pnpm knip && pnpm dupes && pnpm depcruise && turbo run lint typecheck test openapi:check db:check && pnpm typecheck:scripts && pnpm test:scripts"
+    "verify": "pnpm format:code:check && pnpm format:docs:check && pnpm knip && pnpm dupes && pnpm depcruise && turbo run lint typecheck test openapi:check db:check --concurrency=2 && pnpm typecheck:scripts && pnpm test:scripts",
+    "smoke:transfers": "node scripts/transfer-soak.mjs",
+    "smoke:local:transfers": "turbo run build --filter=@agent-paste/api --filter=@agent-paste/upload --filter=@agent-paste/content --filter=@agent-paste/jobs --filter=@agent-paste/stream --filter=@zaks-io/agent-paste --concurrency=2 && node scripts/smoke-local-transfers.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",

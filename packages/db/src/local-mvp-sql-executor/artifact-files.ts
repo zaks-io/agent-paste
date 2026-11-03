@@ -14,6 +14,11 @@ export function handleArtifactFilesSelect<Row>(
   const rows = [...context.state.artifactFiles.values()]
     .filter((file) => file.artifact_id === artifactId && file.revision_id === revisionId)
     .sort((left, right) => left.path.localeCompare(right.path))
-    .map((file) => ({ path: file.path, r2_key: file.r2_key, served_content_type: file.content_type }));
+    .map((file) => ({
+      path: file.path,
+      r2_key: file.r2_key,
+      served_content_type: file.content_type,
+      ...(normalized.includes("content_format") ? { content_format: file.content_format ?? "single" } : {}),
+    }));
   return { rows: rows as Row[] };
 }

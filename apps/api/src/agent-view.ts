@@ -1,3 +1,4 @@
+import { PublishResultV2 } from "@agent-paste/contracts";
 import { resolveAgentViewTokenSigner } from "@agent-paste/rotation";
 import type { AgentViewTokenPayload } from "@agent-paste/tokens/agent-view";
 import { contentCapabilityOrigin, contentCapabilityUrl } from "./content-capability.js";
@@ -16,6 +17,7 @@ export async function verifyAgentViewTokenForEnv(token: string, env: Env): Promi
 }
 
 type AgentViewRecord = {
+  file_map?: { sha256: string; size_bytes: number };
   workspace_id?: unknown;
   capability_id?: unknown;
   pinned_at?: unknown;
@@ -35,9 +37,16 @@ function stripInternalAgentViewFields(
   data: AgentViewRecord,
 ): Omit<
   AgentViewRecord,
-  "workspace_id" | "capability_id" | "pinned_at" | "artifact_updated_at" | "revision_number" | "revision_content_url"
+  | "file_map"
+  | "workspace_id"
+  | "capability_id"
+  | "pinned_at"
+  | "artifact_updated_at"
+  | "revision_number"
+  | "revision_content_url"
 > {
   const {
+    file_map: _internalFileMap,
     workspace_id: _internalWorkspaceId,
     capability_id: _internalCapabilityId,
     pinned_at: _internalPinnedAt,
@@ -84,6 +93,7 @@ async function signAgentViewFileEntries(
   files: AgentViewRecord["files"],
   expiresAt: string | undefined,
   contentAuth: ContentSigningAuth,
+  fileMap?: AgentViewRecord["file_map"],
 ): Promise<AgentViewRecord["files"]> {
   if (!Array.isArray(files)) {
     return files;
@@ -97,7 +107,7 @@ async function signAgentViewFileEntries(
       return {
         ...publicFile,
         url: await signedContentUrl(env, artifactId, revisionId, file.path, expiresAt, contentAuth, {
-          ...(typeof file.object_key === "string" ? { objectKey: file.object_key } : {}),
+          ...(fileMap ? { fileMap } : typeof file.object_key === "string" ? { objectKey: file.object_key } : {}),
         }),
       };
     }),
@@ -130,14 +140,14 @@ async function resolveRevisionContentUrl(
   storedRevisionContentUrl: unknown,
   expiresAt: string | undefined,
   contentAuth: ContentSigningAuth,
+  fileMap?: AgentViewRecord["file_map"],
 ): Promise<string | undefined> {
   const contentPath =
     entrypoint ??
     (typeof storedRevisionContentUrl === "string" ? entrypointPathFromContentUrl(storedRevisionContentUrl) : undefined);
   if (contentPath) {
     return signedContentUrl(env, artifactId, revisionId, contentPath, expiresAt, contentAuth, {
-      paths: revisionFilePaths(contentPath, files),
-      ...revisionFileObjectKeys(files),
+      ...(fileMap ? { fileMap } : { paths: revisionFilePaths(contentPath, files), ...revisionFileObjectKeys(files) }),
     });
   }
   return undefined;
@@ -193,8 +203,9 @@ async function refreshAgentViewCapability(input: {
     expiresAt,
     contentAuth,
     {
-      paths: revisionFilePaths(contentPath, data.files),
-      ...revisionFileObjectKeys(data.files),
+      ...(data.file_map
+        ? { fileMap: data.file_map }
+        : { paths: revisionFilePaths(contentPath, data.files), ...revisionFileObjectKeys(data.files) }),
     },
     typeof data.capability_id === "string" ? data.capability_id : undefined,
     typeof data.revision_number === "number" && typeof data.artifact_updated_at === "string"
@@ -205,6 +216,34 @@ async function refreshAgentViewCapability(input: {
         }
       : undefined,
   );
+}
+
+function compareViewFile(a: unknown, b: unknown, entrypoint: unknown): number {
+  if (typeof a !== "string") return typeof b === "string" ? 1 : 0;
+  if (typeof b !== "string") return -1;
+  if (a === b) return 0;
+  if (a === entrypoint) return -1;
+  if (b === entrypoint) return 1;
+  return a < b ? -1 : 1;
+}
+
+function boundedAgentView(original: AgentViewRecord): AgentViewRecord {
+  const sortedFiles = Array.isArray(original.files)
+    ? [...original.files].sort((a, b) => compareViewFile(a.path, b.path, original.entrypoint))
+    : original.files;
+  const data: AgentViewRecord = { ...original, ...(sortedFiles ? { files: sortedFiles.slice(0, 100) } : {}) };
+  const retention = typeof data.pinned_at === "string" ? "pinned" : "temporary";
+  Object.assign(data, {
+    retention,
+    effective_expires_at: retention === "pinned" ? null : data.expires_at,
+    ...(sortedFiles
+      ? {
+          file_count: (original as Record<string, unknown>).file_count ?? sortedFiles.length,
+          files_truncated: (original as Record<string, unknown>).files_truncated === true || sortedFiles.length > 100,
+        }
+      : {}),
+  });
+  return data;
 }
 
 export async function signAgentViewContentUrls(
@@ -221,7 +260,8 @@ export async function signAgentViewContentUrls(
     return view;
   }
 
-  const data = view as AgentViewRecord;
+  const original = view as AgentViewRecord;
+  const data = boundedAgentView(original);
   const publicFields = stripInternalAgentViewFields(data);
   const workspaceId = resolveSigningWorkspaceId(data.workspace_id, options);
   const artifactUrl = () =>
@@ -265,7 +305,7 @@ export async function signAgentViewContentUrls(
       ? entrypointPathFromContentUrl(data.revision_content_url)
       : undefined);
   await refreshAgentViewCapability({
-    data,
+    data: original,
     env,
     options,
     artifactId,
@@ -276,17 +316,18 @@ export async function signAgentViewContentUrls(
   });
 
   const [files, bundle, revisionContentUrl] = await Promise.all([
-    signAgentViewFileEntries(env, artifactId, revisionId, data.files, expiresAt, contentAuth),
+    signAgentViewFileEntries(env, artifactId, revisionId, data.files, expiresAt, contentAuth, data.file_map),
     signReadyAgentViewBundle(env, artifactId, revisionId, data.bundle, expiresAt, contentAuth),
     resolveRevisionContentUrl(
       env,
       artifactId,
       revisionId,
       entrypoint,
-      data.files,
+      original.files,
       data.revision_content_url,
       expiresAt,
       contentAuth,
+      data.file_map,
     ),
   ]);
 
@@ -304,7 +345,7 @@ export async function signAgentViewContentUrls(
 export async function signPublishResult(
   result: unknown,
   env: Env,
-  auth?: { workspaceId?: string; ephemeralTier?: boolean },
+  auth?: { workspaceId?: string; ephemeralTier?: boolean; includeRetention?: boolean },
 ): Promise<unknown> {
   if (!result || typeof result !== "object") {
     return result;
@@ -346,11 +387,14 @@ export async function signPublishResult(
         scriptDisabled: auth.ephemeralTier === true,
       }
     : undefined;
-  const contentOptions = fileObjectKeys
-    ? { paths: Object.keys(fileObjectKeys), objectKeys: fileObjectKeys }
-    : entrypointObjectKey
-      ? { paths: [entrypointPath], objectKey: entrypointObjectKey }
-      : { paths: null };
+  const fileMap = data.file_map as AgentViewRecord["file_map"];
+  const contentOptions = fileMap
+    ? { fileMap }
+    : fileObjectKeys
+      ? { paths: Object.keys(fileObjectKeys), objectKeys: fileObjectKeys }
+      : entrypointObjectKey
+        ? { paths: [entrypointPath], objectKey: entrypointObjectKey }
+        : { paths: null };
   const capabilityOrigin = await signedContentCapabilityOrigin(
     env,
     data.artifact_id,
@@ -382,13 +426,24 @@ export async function signPublishResult(
         contentAuth,
         contentOptions,
       );
-  return {
+  const legacy = {
     artifact_id: data.artifact_id,
     revision_id: data.revision_id,
     title: data.title,
     url: capabilityOrigin ?? revisionContentUrl,
     expires_at: data.expires_at,
   };
+  if (!auth?.includeRetention) return legacy;
+  const pinned = typeof data.pinned_at === "string";
+  return PublishResultV2.parse({
+    ...legacy,
+    revision_number: data.revision_number,
+    retention: pinned ? "pinned" : "temporary",
+    pinned_at: data.pinned_at,
+    effective_expires_at: pinned ? null : data.expires_at,
+    no_change: data.no_change,
+    changes: data.changes,
+  });
 }
 
 function normalizedFileObjectKeys(value: unknown): Record<string, string> | undefined {

@@ -7,6 +7,8 @@ import type { PublishBundleStatus, Revision } from "../types.js";
 export const revisionQueries = defineSqlQuerySourceMap("packages/db/src/queries/revisions.ts", "revisionQueries", {
   async insert(db: DrizzleDb, row: Revision) {
     await db.insert(revisions).values({
+      fileMapSha256: row.file_map_sha256 ?? null,
+      fileMapSizeBytes: row.file_map_size_bytes ?? null,
       id: row.id,
       workspaceId: row.workspace_id,
       artifactId: row.artifact_id,
@@ -109,6 +111,8 @@ export const revisionQueries = defineSqlQuerySourceMap("packages/db/src/queries/
 
 function mapRevision(row: typeof revisions.$inferSelect): Revision {
   return {
+    file_map_sha256: row.fileMapSha256,
+    file_map_size_bytes: row.fileMapSizeBytes,
     id: row.id,
     workspace_id: row.workspaceId,
     artifact_id: row.artifactId,

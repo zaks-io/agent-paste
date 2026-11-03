@@ -228,7 +228,7 @@ The `mcp` Worker validates the bearer, Origin, protocol version, and per-IP requ
 
 The authenticated member `AgentView` additionally carries `url`, the same stable top-level capability URL returned by publish. `PublicAgentView` remains an exact-Revision metadata contract and does not carry that moving Artifact URL.
 
-`file-content` reads one stored file's decrypted plaintext for the owning Workspace Member so an agent can diff against it and revise with a unified-diff patch ([ADR 0090](../adr/0090-agent-file-read-back-api-decrypts-member-plaintext.md)). Inputs: `?path=` (required; query, not a path segment, since a file path may contain `/`) and `?revision_id=` (optional; defaults to latest). The response `ArtifactFileContent` is `{ path, sha256, size_bytes, content_type, is_binary, body? }`: `body` is the decoded UTF-8 text and is present only when the file is text and `≤ 10 MiB`. `is_binary` is byte-derived (true binary only); a text file over the inline cap returns `is_binary: false` with `body` absent (the agent fetches it via the content URL or uploads a whole blob), and an oversize file is returned as metadata **without reading R2**. This is the only `api` route that decrypts artifact bytes; the blob key is derived from the RLS-scoped row's plaintext `sha256` plus the actor's workspace, never from client input, and a missing/undecryptable blob is `storage_unavailable` (503), never `not_found`. `AgentView` file entries also carry an optional plaintext `sha256` so an agent can detect what changed before reading a file back.
+`file-content` reads one stored file's decrypted plaintext for the owning Workspace Member so an agent can diff against it and revise with a unified-diff patch ([ADR 0090](../adr/0090-agent-file-read-back-api-decrypts-member-plaintext.md)). Inputs: `?path=` (required; query, not a path segment, since a file path may contain `/`) and `?revision_id=` (optional; defaults to latest). The response `ArtifactFileContent` is `{ path, sha256, size_bytes, content_type, is_binary, body? }`: `body` is the decoded UTF-8 text and is present only when the file is text and `≤ 10 MiB`. `is_binary` is byte-derived for inline files. Chunked files inspect at most the first 4 MiB through a streaming UTF-8 decoder and return metadata with no `body`; the decoder preserves an incomplete codepoint at the inspection boundary. This flag describes the inspected prefix. Legacy single files above the inline cap return metadata without reading their body and infer the flag from stored content type. Paths in a file map resolve independently of the bounded Agent View preview. This is the only `api` route that decrypts artifact bytes; the blob key is derived from the RLS-scoped row's plaintext `sha256` plus the actor's workspace, never from client input, and a missing/undecryptable blob is `storage_unavailable` (503), never `not_found`. `AgentView` file entries also carry an optional plaintext `sha256` so an agent can detect what changed before reading a file back.
 
 ## Feedback capture
 
@@ -310,13 +310,8 @@ Rules:
   the server drops the field and serves every file by its extension.
 - Paths are normalized POSIX paths.
 - Uploaded and deleted path lists must each contain unique paths.
-- File and total Revision size enforcement uses the caller's effective **Usage
-  Policy**. Current public tier values are Ephemeral/Free: `10 MB` per file and
-  `25 MB` per Revision; Pro: `25 MB` per file and `100 MB` per Revision.
-  Authenticated caps are exposed by `GET /v1/usage-policy`. The request schema
-  also has a `25 MB` per-file hard ceiling so no client can submit a larger
-  individual file entry.
-- Max file count is `100` per Revision.
+- Claimed workspaces allow 250 MiB per file, 10,000 files and 2 GiB per Revision. Ephemeral workspaces retain 10 MiB per file, 100 files and 25 MiB per Revision. Effective caps are exposed by `GET /v1/usage-policy`.
+- Legacy sessions without `commit` preserve the 10 MiB Free and 25 MiB Pro single-upload limits. Guarded sessions require fixed 4 MiB `chunked-v1` chunks above 10 MiB. `sha256` always means the full-file plaintext digest, including for chunked files.
 - `sha256` is optional for compatibility on whole-file entries. New CLI/MCP
   clients send lowercase hex SHA-256 for each whole-file entry; legacy clients
   that omit it keep the full-upload revision-object path and do not participate
@@ -417,14 +412,81 @@ Artifact state, signs the URLs, and returns `PublishResult`.
 
 `url` is the only recipient link. It opens without login as a top-level website,
 uses a durable per-Artifact capability hostname, and advances to the latest
-Published Revision when the same Artifact is revised. The `expires_at` field is
-the Artifact content lifetime. The dashboard-only Artifact Console at
+Published Revision when the same Artifact is revised. The `expires_at` field is the stored temporary retention deadline. Pinned Artifacts have no effective expiry; clients that opt into retention use `effective_expires_at`, which is null while pinned. The dashboard-only Artifact Console at
 `/artifacts/{artifact_id}` is never returned by publish.
 
 There is no visibility input, `shared` bit, private viewer URL, Access Link URL,
 or second sharing command. CLI, MCP, authenticated publish, and ephemeral
 publish all use this contract. Ephemeral provisioning may additionally return
 claim fields, but it does not replace or wrap `url`.
+
+## Persistent hosting and agent management
+
+The following routes accept API keys and verified MCP principals in their own
+Workspace. All use actor rate limits. Artifact references resolve under the
+same Workspace boundary as existing authenticated Artifact routes.
+
+| Method | Path                                     | Scope   | Idempotency | Response                   |
+| ------ | ---------------------------------------- | ------- | ----------- | -------------------------- |
+| POST   | `/v1/artifacts/{artifact_id}/pin`        | publish | required    | `ArtifactRetention`        |
+| POST   | `/v1/artifacts/{artifact_id}/unpin`      | publish | required    | `ArtifactRetention`        |
+| GET    | `/v1/artifacts/{artifact_id}/files`      | read    | none        | `ArtifactFileListResponse` |
+| GET    | `/v1/artifacts/{artifact_id}/read-grant` | read    | none        | `RevisionReadGrant`        |
+| GET    | `/v1/usage`                              | read    | none        | `StorageUsage`             |
+
+Pin and unpin reject ephemeral Workspaces. Pin removes the effective expiry.
+Unpin starts a fresh window of `default_ttl_seconds` from the operation time.
+Both return retention, `pinned_at`, stored `expires_at`,
+`effective_expires_at`, the Artifact URL, pinned count and pin allowance. Success
+requires the capability manifest write. A failed post-commit manifest write is
+`storage_unavailable`; retrying the same key replays the command and retries the
+manifest refresh. A pinned capability token has `exp: null`, so it remains
+servable after its former temporary deadline.
+
+The file listing accepts optional `revision_id`, `prefix`, `cursor` and `limit`
+with a maximum of 1,000 items. It returns the selected immutable Revision,
+entrypoint, title, total file count and size, plus path, full-file SHA-256 or
+null, size, content type and storage format for each item. Follow-up pages must
+keep the first page's `revision_id`. Agent View remains a preview of at most 100
+files, entrypoint first then sorted by path, with `file_count` and
+`files_truncated` describing the full tree.
+
+A read grant authorizes one Revision for one hour and returns
+`content_base_url`, `expires_at`, total file count and size. Append each encoded
+path to that base URL. The signed token carries `original_bytes: true`, so pulls
+receive exact original bytes as attachments, including HTML. Content retains
+CSP, noindex headers, denylist/lockdown checks and service-worker retirement,
+but applies neither HTML injection nor gzip. Identity ranges and full-file
+content-hash validators support download resume and digest verification.
+
+`POST .../publish` accepts `{ "include_retention": true }` to return
+`PublishResultV2` with `revision_number`, `retention`, `pinned_at`,
+`effective_expires_at`, `no_change`, and added/changed/removed counts. Empty or
+legacy requests retain the exact five-field `PublishResult`. A guarded no-op
+returns the current head without another Revision or post-publish jobs. Every
+newly published Revision, guarded or legacy, writes an immutable encrypted
+workspace file map. Signed content grants carry its digest and byte length;
+older Revisions retain legacy object-key tokens.
+
+Guarded upload sessions are sealed after their final file batch, upload and
+verify chunks, then finalize as `ready`. Publish evaluates path or snapshot
+guards against the current head and commits the merged tree and optional pin
+intent atomically. Legacy sessions continue to finalize as drafts. Publishing
+a legacy draft whose parent is no longer head returns `commit_conflict`.
+Explicit CLI edit/text-patch requests keep their reconstruction workflow.
+
+Storage usage reports physical blob bytes, legacy file bytes, ready bundle
+bytes, live file-entry bytes and upload reservations against the Workspace
+budget. Default claimed budgets are 5 GiB Free and 50 GiB Pro. Unreferenced
+blobs continue to count until garbage collection, up to the 24-hour minimum age
+plus one sweep. Over-budget Workspaces may perform operations that do not
+increase total stored usage and reservations. Publishing a smaller tree can
+still add retained history, file-entry, and file-map bytes, so it may require
+budget headroom. Uploaded Revision-scoped staging bytes remain reserved until
+finalize or confirmed purge, including after session expiry. Existing history is preserved; no automatic pruning occurs. A quota failure is
+`storage_quota_exceeded` with budget/used/reserved/required details and no
+`Retry-After`. Commit conflicts return HTTP 409 with guard details. These
+failures preserve the current head and existing bytes.
 
 ## Content Routes
 

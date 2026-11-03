@@ -106,8 +106,10 @@ CREATE TABLE "artifact_files" (
 	"r2_key" text NOT NULL,
 	"sha256" text,
 	"storage_kind" text DEFAULT 'revision' NOT NULL,
+	"content_format" text DEFAULT 'single' NOT NULL,
 	"uploaded_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "artifact_files_artifact_id_revision_id_path_pk" PRIMARY KEY("artifact_id","revision_id","path"),
+	CONSTRAINT "artifact_files_content_format_check" CHECK ("artifact_files"."content_format" in ('single', 'chunked-v1')),
 	CONSTRAINT "artifact_files_storage_kind_check" CHECK ("artifact_files"."storage_kind" in ('revision', 'blob')),
 	CONSTRAINT "artifact_files_sha256_check" CHECK ("artifact_files"."sha256" is null or "artifact_files"."sha256" ~ '^[a-f0-9]{64}$')
 );
@@ -147,14 +149,33 @@ CREATE TABLE "claim_tokens" (
 	CONSTRAINT "claim_tokens_id_format" CHECK ("claim_tokens"."id" ~ '^ct_[0-9A-HJKMNP-TV-Z]{26}$')
 );
 
+CREATE TABLE "content_blob_chunks" (
+	"workspace_id" uuid NOT NULL,
+	"sha256" text NOT NULL,
+	"size_bytes" bigint NOT NULL,
+	"chunk_index" integer NOT NULL,
+	"chunk_sha256" text NOT NULL,
+	"chunk_size_bytes" bigint NOT NULL,
+	CONSTRAINT "content_blob_chunks_workspace_id_sha256_size_bytes_chunk_index_pk" PRIMARY KEY("workspace_id","sha256","size_bytes","chunk_index"),
+	CONSTRAINT "content_blob_chunks_chunk_index_check" CHECK ("content_blob_chunks"."chunk_index" >= 0),
+	CONSTRAINT "content_blob_chunks_chunk_sha256_check" CHECK ("content_blob_chunks"."chunk_sha256" ~ '^[a-f0-9]{64}$'),
+	CONSTRAINT "content_blob_chunks_chunk_size_bytes_check" CHECK ("content_blob_chunks"."chunk_size_bytes" > 0)
+);
+
 CREATE TABLE "content_blobs" (
 	"workspace_id" uuid NOT NULL,
 	"sha256" text NOT NULL,
 	"size_bytes" bigint NOT NULL,
 	"r2_key" text NOT NULL,
+	"content_format" text DEFAULT 'single' NOT NULL,
+	"gc_state" text DEFAULT 'live' NOT NULL,
+	"gc_marked_at" timestamp with time zone,
+	"r2_cleanup_eligible" boolean DEFAULT true NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "content_blobs_workspace_id_sha256_size_bytes_pk" PRIMARY KEY("workspace_id","sha256","size_bytes"),
+	CONSTRAINT "content_blobs_content_format_check" CHECK ("content_blobs"."content_format" in ('single', 'chunked-v1')),
+	CONSTRAINT "content_blobs_gc_state_check" CHECK ("content_blobs"."gc_state" in ('live', 'deleting')),
 	CONSTRAINT "content_blobs_sha256_check" CHECK ("content_blobs"."sha256" ~ '^[a-f0-9]{64}$'),
 	CONSTRAINT "content_blobs_size_bytes_check" CHECK ("content_blobs"."size_bytes" >= 0)
 );
@@ -227,6 +248,8 @@ CREATE TABLE "revisions" (
 	"entrypoint" text NOT NULL,
 	"render_mode" text DEFAULT 'html' NOT NULL,
 	"file_count" integer NOT NULL,
+	"file_map_sha256" text,
+	"file_map_size_bytes" integer,
 	"size_bytes" bigint NOT NULL,
 	"bundle_status" text DEFAULT 'disabled' NOT NULL,
 	"bundle_status_updated_at" timestamp with time zone,
@@ -236,6 +259,8 @@ CREATE TABLE "revisions" (
 	"created_by_id" text NOT NULL,
 	"created_at" timestamp with time zone NOT NULL,
 	"published_at" timestamp with time zone,
+	CONSTRAINT "revisions_file_map_sha256_check" CHECK ("revisions"."file_map_sha256" ~ '^[a-f0-9]{64}$'),
+	CONSTRAINT "revisions_file_map_pair_check" CHECK (("revisions"."file_map_sha256" is null) = ("revisions"."file_map_size_bytes" is null)),
 	CONSTRAINT "revisions_status_check" CHECK ("revisions"."status" in ('draft', 'published', 'retained')),
 	CONSTRAINT "revisions_render_mode_check" CHECK ("revisions"."render_mode" in ('html', 'markdown', 'text', 'image', 'audio', 'video')),
 	CONSTRAINT "revisions_bundle_status_check" CHECK ("revisions"."bundle_status" in ('pending', 'ready', 'failed', 'disabled')),
@@ -269,6 +294,33 @@ CREATE TABLE "stripe_webhook_events" (
 	"updated_at" timestamp with time zone NOT NULL
 );
 
+CREATE TABLE "upload_session_chunks" (
+	"workspace_id" uuid NOT NULL,
+	"upload_session_id" text NOT NULL,
+	"path" text NOT NULL,
+	"chunk_index" integer NOT NULL,
+	"sha256" text NOT NULL,
+	"size_bytes" bigint NOT NULL,
+	"uploaded_at" timestamp with time zone,
+	CONSTRAINT "upload_session_chunks_upload_session_id_path_chunk_index_pk" PRIMARY KEY("upload_session_id","path","chunk_index"),
+	CONSTRAINT "upload_session_chunks_chunk_index_check" CHECK ("upload_session_chunks"."chunk_index" >= 0),
+	CONSTRAINT "upload_session_chunks_sha256_check" CHECK ("upload_session_chunks"."sha256" ~ '^[a-f0-9]{64}$'),
+	CONSTRAINT "upload_session_chunks_size_bytes_check" CHECK ("upload_session_chunks"."size_bytes" > 0)
+);
+
+CREATE TABLE "upload_session_deletions" (
+	"workspace_id" uuid NOT NULL,
+	"upload_session_id" text NOT NULL,
+	"kind" text NOT NULL,
+	"path" text NOT NULL,
+	"expect_sha256" text,
+	"expect_size_bytes" bigint,
+	"expect_snapshot_sha256" text,
+	"batch_index" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "upload_session_deletions_upload_session_id_kind_path_pk" PRIMARY KEY("upload_session_id","kind","path"),
+	CONSTRAINT "upload_session_deletions_kind_check" CHECK ("upload_session_deletions"."kind" in ('path', 'prefix'))
+);
+
 CREATE TABLE "upload_session_files" (
 	"workspace_id" uuid NOT NULL,
 	"upload_session_id" text NOT NULL,
@@ -282,7 +334,15 @@ CREATE TABLE "upload_session_files" (
 	"put_url_expires_at" timestamp with time zone NOT NULL,
 	"patch_base_sha256" text,
 	"patch_result_sha256" text,
+	"content_format" text DEFAULT 'single' NOT NULL,
+	"verified_at" timestamp with time zone,
+	"expect_kind" text,
+	"expect_sha256" text,
+	"expect_size_bytes" bigint,
+	"batch_index" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "upload_session_files_upload_session_id_path_pk" PRIMARY KEY("upload_session_id","path"),
+	CONSTRAINT "upload_session_files_content_format_check" CHECK ("upload_session_files"."content_format" in ('single', 'chunked-v1')),
+	CONSTRAINT "upload_session_files_expect_kind_check" CHECK ("upload_session_files"."expect_kind" in ('sha256', 'absent')),
 	CONSTRAINT "upload_session_files_storage_kind_check" CHECK ("upload_session_files"."storage_kind" in ('revision', 'blob')),
 	CONSTRAINT "upload_session_files_sha256_check" CHECK ("upload_session_files"."sha256" is null or "upload_session_files"."sha256" ~ '^[a-f0-9]{64}$'),
 	CONSTRAINT "upload_session_files_patch_check" CHECK (("upload_session_files"."patch_base_sha256" is null and "upload_session_files"."patch_result_sha256" is null) or ("upload_session_files"."patch_base_sha256" ~ '^[a-f0-9]{64}$' and "upload_session_files"."patch_result_sha256" ~ '^[a-f0-9]{64}$'))
@@ -307,6 +367,15 @@ CREATE TABLE "upload_sessions" (
 	"finalized_at" timestamp with time zone,
 	"base_revision_id" text,
 	"deleted_paths" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"commit_guard" text,
+	"commit_snapshot_prefix" text,
+	"commit_snapshot_sha256" text,
+	"pin_on_commit" boolean DEFAULT false NOT NULL,
+	"sealed_at" timestamp with time zone,
+	"next_batch_index" integer DEFAULT 1 NOT NULL,
+	CONSTRAINT "upload_sessions_status_check" CHECK ("upload_sessions"."status" in ('pending', 'ready', 'finalized', 'expired', 'failed')),
+	CONSTRAINT "upload_sessions_commit_guard_check" CHECK ("upload_sessions"."commit_guard" in ('paths', 'snapshot')),
+	CONSTRAINT "upload_sessions_commit_snapshot_sha256_check" CHECK ("upload_sessions"."commit_snapshot_sha256" ~ '^[a-f0-9]{64}$'),
 	CONSTRAINT "upload_sessions_created_by_type_check" CHECK ("upload_sessions"."created_by_type" in ('api_key', 'member')),
 	CONSTRAINT "upload_sessions_render_mode_check" CHECK ("upload_sessions"."render_mode" is null or "upload_sessions"."render_mode" in ('html', 'markdown', 'text', 'image', 'audio', 'video'))
 );
@@ -341,6 +410,7 @@ CREATE TABLE "workspace_members" (
 CREATE TABLE "workspaces" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
+	"storage_budget_bytes" bigint,
 	"contact_email" text,
 	"plan" text DEFAULT 'free' NOT NULL,
 	"plan_operator_override_at" timestamp with time zone,
@@ -349,6 +419,7 @@ CREATE TABLE "workspaces" (
 	"revision_retention_days" integer,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
+	CONSTRAINT "workspaces_storage_budget_bytes_check" CHECK ("workspaces"."storage_budget_bytes" > 0),
 	CONSTRAINT "workspaces_plan_check" CHECK ("workspaces"."plan" in ('free', 'pro')),
 	CONSTRAINT "workspaces_auto_deletion_days_check" CHECK ("workspaces"."auto_deletion_days" between 1 and 90),
 	CONSTRAINT "workspaces_revision_retention_days_check" CHECK ("workspaces"."revision_retention_days" is null or "workspaces"."revision_retention_days" >= 1)
@@ -372,6 +443,7 @@ ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_artifact_id_artifact
 ALTER TABLE "artifact_files" ADD CONSTRAINT "artifact_files_revision_id_revisions_id_fk" FOREIGN KEY ("revision_id") REFERENCES "public"."revisions"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "artifacts" ADD CONSTRAINT "artifacts_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "claim_tokens" ADD CONSTRAINT "claim_tokens_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "content_blob_chunks" ADD CONSTRAINT "content_blob_chunks_workspace_id_sha256_size_bytes_content_blobs_workspace_id_sha256_size_bytes_fk" FOREIGN KEY ("workspace_id","sha256","size_bytes") REFERENCES "public"."content_blobs"("workspace_id","sha256","size_bytes") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "content_blobs" ADD CONSTRAINT "content_blobs_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "feedback" ADD CONSTRAINT "feedback_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "feedback" ADD CONSTRAINT "feedback_member_fk" FOREIGN KEY ("workspace_id","submitter_member_id") REFERENCES "public"."workspace_members"("workspace_id","id") ON DELETE restrict ON UPDATE no action;
@@ -382,6 +454,10 @@ ALTER TABLE "revisions" ADD CONSTRAINT "revisions_artifact_id_artifacts_id_fk" F
 ALTER TABLE "revisions" ADD CONSTRAINT "revisions_parent_fk" FOREIGN KEY ("workspace_id","artifact_id","parent_revision_id") REFERENCES "public"."revisions"("workspace_id","artifact_id","id") ON DELETE set null ON UPDATE no action;
 ALTER TABLE "safety_warnings" ADD CONSTRAINT "safety_warnings_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "safety_warnings" ADD CONSTRAINT "safety_warnings_revision_fk" FOREIGN KEY ("workspace_id","artifact_id","revision_id") REFERENCES "public"."revisions"("workspace_id","artifact_id","id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "upload_session_chunks" ADD CONSTRAINT "upload_session_chunks_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "upload_session_chunks" ADD CONSTRAINT "upload_session_chunks_upload_session_id_path_upload_session_files_upload_session_id_path_fk" FOREIGN KEY ("upload_session_id","path") REFERENCES "public"."upload_session_files"("upload_session_id","path") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "upload_session_deletions" ADD CONSTRAINT "upload_session_deletions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
+ALTER TABLE "upload_session_deletions" ADD CONSTRAINT "upload_session_deletions_upload_session_id_upload_sessions_id_fk" FOREIGN KEY ("upload_session_id") REFERENCES "public"."upload_sessions"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "upload_session_files" ADD CONSTRAINT "upload_session_files_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
 ALTER TABLE "upload_session_files" ADD CONSTRAINT "upload_session_files_upload_session_id_upload_sessions_id_fk" FOREIGN KEY ("upload_session_id") REFERENCES "public"."upload_sessions"("id") ON DELETE cascade ON UPDATE no action;
 ALTER TABLE "upload_sessions" ADD CONSTRAINT "upload_sessions_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE restrict ON UPDATE no action;
@@ -401,6 +477,7 @@ CREATE INDEX "agent_auth_registrations_claim_attempt_idx" ON "agent_auth_registr
 CREATE INDEX "agent_auth_registrations_claim_token_id_idx" ON "agent_auth_registrations" USING btree ("claim_token_id");
 CREATE INDEX "api_keys_active_workspace_idx" ON "api_keys" USING btree ("workspace_id");
 CREATE UNIQUE INDEX "api_keys_workspace_id_id_unique" ON "api_keys" USING btree ("workspace_id","id");
+CREATE INDEX "artifact_files_legacy_bytes_idx" ON "artifact_files" USING btree ("workspace_id") WHERE "artifact_files"."storage_kind" = 'revision';
 CREATE INDEX "artifact_files_blob_idx" ON "artifact_files" USING btree ("workspace_id","sha256","size_bytes");
 CREATE INDEX "artifacts_workspace_created_idx" ON "artifacts" USING btree ("workspace_id","created_at");
 CREATE INDEX "artifacts_active_expiry_idx" ON "artifacts" USING btree ("workspace_id","expires_at");
@@ -408,11 +485,13 @@ CREATE UNIQUE INDEX "artifacts_workspace_id_unique" ON "artifacts" USING btree (
 CREATE UNIQUE INDEX "artifacts_capability_id_unique" ON "artifacts" USING btree ("capability_id");
 CREATE INDEX "claim_tokens_workspace_idx" ON "claim_tokens" USING btree ("workspace_id");
 CREATE UNIQUE INDEX "claim_tokens_public_id_unique" ON "claim_tokens" USING btree ("public_id");
+CREATE INDEX "content_blob_chunks_chunk_idx" ON "content_blob_chunks" USING btree ("workspace_id","chunk_sha256","chunk_size_bytes");
 CREATE UNIQUE INDEX "content_blobs_r2_key_unique" ON "content_blobs" USING btree ("r2_key");
 CREATE INDEX "feedback_workspace_created_idx" ON "feedback" USING btree ("workspace_id","created_at","id");
 CREATE INDEX "idempotency_records_created_idx" ON "idempotency_records" USING btree ("created_at");
 CREATE INDEX "operation_events_workspace_occurred_id_idx" ON "operation_events" USING btree ("workspace_id","occurred_at" DESC NULLS LAST,"id" DESC NULLS LAST);
 CREATE UNIQUE INDEX "platform_lockdowns_effective_unique" ON "platform_lockdowns" USING btree ("scope","target_id") WHERE "platform_lockdowns"."lifted_at" is null;
+CREATE INDEX "revisions_file_map_idx" ON "revisions" USING btree ("workspace_id","file_map_sha256") WHERE "revisions"."file_map_sha256" is not null;
 CREATE INDEX "revisions_artifact_created_idx" ON "revisions" USING btree ("artifact_id","created_at");
 CREATE INDEX "revisions_workspace_idx" ON "revisions" USING btree ("workspace_id");
 CREATE UNIQUE INDEX "revisions_workspace_artifact_id_unique" ON "revisions" USING btree ("workspace_id","artifact_id","id");
@@ -422,6 +501,7 @@ CREATE INDEX "revisions_parent_idx" ON "revisions" USING btree ("workspace_id","
 CREATE INDEX "safety_warnings_revision_idx" ON "safety_warnings" USING btree ("workspace_id","revision_id");
 CREATE INDEX "safety_warnings_scanner_idx" ON "safety_warnings" USING btree ("workspace_id","revision_id","scanner_id");
 CREATE INDEX "stripe_webhook_events_processed_idx" ON "stripe_webhook_events" USING btree ("processed_at");
+CREATE INDEX "upload_session_chunks_blob_idx" ON "upload_session_chunks" USING btree ("workspace_id","sha256","size_bytes");
 CREATE INDEX "upload_session_files_blob_idx" ON "upload_session_files" USING btree ("workspace_id","sha256","size_bytes");
 CREATE INDEX "upload_sessions_pending_expiry_idx" ON "upload_sessions" USING btree ("workspace_id","expires_at");
 CREATE UNIQUE INDEX "workspace_billing_stripe_subscription_id_unique" ON "workspace_billing" USING btree ("stripe_subscription_id") WHERE "workspace_billing"."stripe_subscription_id" is not null;

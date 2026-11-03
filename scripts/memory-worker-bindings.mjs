@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 export class MemoryKVNamespace {
   #values = new Map();
 
@@ -15,14 +17,19 @@ export class MemoryR2Bucket {
 
   async put(key, value, options = {}) {
     const bytes = await bytesFromBody(value);
+    const existing = this.#objects.get(key);
+    if (options.onlyIf?.etagDoesNotMatch === "*" && existing) return null;
+    if (options.onlyIf?.etagMatches && existing?.etag !== options.onlyIf.etagMatches) return null;
+    const etag = createHash("sha256").update(bytes).digest("hex");
     this.#objects.set(key, {
       bytes,
+      etag,
       httpMetadata: {
         contentType: options.httpMetadata?.contentType,
       },
       customMetadata: options.customMetadata,
     });
-    return {};
+    return { etag };
   }
 
   async head(key) {
@@ -58,6 +65,7 @@ export class MemoryR2Bucket {
     return {
       body: new Blob([object.bytes]).stream(),
       size: object.bytes.byteLength,
+      etag: object.etag,
       customMetadata: object.customMetadata,
       httpMetadata: object.httpMetadata,
       writeHttpMetadata(headers) {

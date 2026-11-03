@@ -9,7 +9,7 @@ Start with the agent guide unless you are implementing a protocol client.
 ## Agent Entry Points
 
 - Skill for Claude Code and Codex: \`${SKILL_INSTALL_CMD}\`
-- [Agent guide](/agents.md): CLI-first publish, auth, ephemeral, claim, and MCP.
+- [Agent guide](/agents.md): CLI-first persistent static hosting, partial sync, retention, auth, and MCP.
 - [CLI reference](/docs/cli.md): Commands, flags, JSON output, pull, and edit.
 - [Ephemeral publish](/docs/ephemeral.md): Accountless 24-hour publish and claim.
 - [MCP server](/docs/mcp.md): OAuth-only remote MCP for hosts without a shell.
@@ -19,6 +19,11 @@ Start with the agent guide unless you are implementing a protocol client.
 
 Every HTML page answers \`Accept: text/markdown\` and has a \`.md\` twin:
 /index.md, /about.md, /how-it-works.md, /docs.md, /docs/{slug}.md, /terms.md, /privacy.md.
+
+Claimed CLI uploads support 250 MiB files and trees up to 10,000 files / 2 GiB,
+subject to Workspace storage budgets. Use \`--pin\` for no scheduled expiry,
+\`--to\` for selected uploads, and \`pull --output\` for verified downloads.
+MCP text payloads remain capped at 10 MiB.
 
 ## Human Entry Points
 

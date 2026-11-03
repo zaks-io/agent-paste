@@ -171,10 +171,97 @@ DATABASE_URL=postgres://agent_paste:agent_paste@127.0.0.1:5432/agent_paste pnpm 
 ```
 
 The wrapper applies committed migrations once with the owner URL, sets an
-`app_role` password through `DATABASE_RUNTIME_ROLE_PASSWORD`, then runs
-`smoke-local-mvp.mjs` with `AGENT_PASTE_LOCAL_DATABASE_BACKEND=postgres`. This
+`app_role` password through `DATABASE_RUNTIME_ROLE_PASSWORD`, runs the upload
+lifecycle, transfer recovery, quota, map materialization and GC lock regression
+suites against Postgres, then runs `smoke-local-mvp.mjs` with `AGENT_PASTE_LOCAL_DATABASE_BACKEND=postgres`. This
 exercises the local CLI publish/delete/expiry/ephemeral path against real
 Postgres roles and RLS without creating a Neon branch or Hyperdrive config.
+
+### `smoke-local-transfers.mjs`
+
+After building the API, Upload, Content, Jobs, Stream and CLI packages, run:
+
+```sh
+node scripts/smoke-local-transfers.mjs
+```
+
+The driver allocates five `transfer-*` ports with `sbx-runtime`, starts isolated
+in-memory services, provisions a test workspace internally, and passes its key
+only through the child environment. It runs `transfer-soak.mjs` with 250 MiB
+files, both 1 GiB trees, acknowledged upload and persisted pull interruption,
+150 updates, guarded partial sync, and three independent concurrent transfers.
+Every downloaded file must match its source hash. CLI peak RSS must stay at or
+below 400 MiB.
+
+Additional HTTP fixtures verify pin/unpin, service after former expiry,
+manifest expiry, cache revalidation, signed upload URL renewal, and competing
+1 GiB reservations against a 1.5 GiB budget. `--fixtures-only` runs these smaller
+fixtures without the large soak. The local capability proxy preserves the
+published hostname when forwarding to Content, so the stable URL assertion
+exercises real capability manifests rather than revision URLs.
+
+Fixtures and private diagnostics stay in the allocated worktree state directory
+on disk. Do not use RAM-backed `/tmp` for multi-gigabyte transfer output. The
+driver stops its servers and leaves evidence for inspection. Never paste raw
+CLI diagnostics or capability URLs into reports. Use the sanitized JSON summary.
+
+These Node services use in-memory R2, database and always-allow rate-limit
+bindings. They do not establish native Worker memory/CPU behavior, managed
+gateway access, production rate limits, or preview browser acceptance. See
+[validation evidence](../docs/ops/status/persistent-hosting-validation.md).
+
+### `smoke-hosted-transfers.mjs`
+
+The **PR Preview** workflow runs large hosted acceptance only when a
+same-repository PR has both `full-pr-preview` and `large-transfer-preview`.
+After integrating and pushing the change, add the second label to trigger the
+normal preview deployment, database reset and acceptance run. Removing the label
+skips large acceptance on subsequent runs. The ordinary workflow retains its
+25-minute job deadline; opt-in runs allow 135 minutes overall and 110 minutes
+for the transfer step, with a 105-minute soak subprocess deadline.
+
+The existing deploy step supplies the masked scoped smoke secret within its
+job. No secret is added to job outputs or artifacts. The driver provisions a
+fresh owned workspace through `/__test__/provision-smoke`, verifies the key's
+workspace, and passes that key to CLI and direct API calls. It runs the existing
+soak with both full 1 GiB trees, 250 MiB files, upload/pull interruption,
+150 updates and three concurrent transfers. It does not delete hosted fixtures.
+Cleanup stays with the approved normal PR preview lifecycle.
+
+All endpoints must be HTTPS PR Workers for the same PR and Workers account.
+Signed reads must target that Content Worker; capability reads must use
+`{capability}-pr-{number}.agent-paste.link`. The deployment routes that suffix
+to this PR's Content Worker. The test refuses other origins, production hosts,
+redirects and mismatched credentials. A scoped fetch preload reaches both the
+soak and its CLI children. It honors native `Retry-After` responses for up to
+four retries per request, at most 120 seconds per wait and five minutes per
+request including waits. Missing, excessive or exhausted retry instructions
+fail acceptance. Server limits are unchanged.
+
+CI invokes the built driver directly:
+
+```sh
+node scripts/smoke-hosted-transfers.mjs
+```
+
+Required environment variables are `PR_NUMBER`, `AGENT_PASTE_PR_API_URL`,
+`AGENT_PASTE_PR_UPLOAD_URL`, `AGENT_PASTE_PR_CONTENT_URL`,
+`AGENT_PASTE_PR_SMOKE_HARNESS_SECRET`, and a disk-backed
+`AGENT_PASTE_TRANSFER_OUTPUT_DIR`. The workflow also records `PR_HEAD_SHA` and
+`GITHUB_SHA`. Do not extract the scoped secret to run from a sandbox; use the
+workflow's existing secret delivery.
+
+Only `hosted-transfer-evidence.json` is uploaded, with a seven-day retention.
+It contains SHA/PR metadata, fixed outcome fields, fixture counts/bytes,
+sanitized transfer/RSS counters, PUT content digests, Range checkpoints and retry counts. Child
+stdout/stderr, raw soak reports, credentials and capability URLs remain in the
+private runner directory. A failed soak preserves completed scenario identifiers,
+the last command, allowlisted API error codes, exit codes and termination outcomes.
+Streamed progress remains available when termination prevents the final report
+from being written. Raw error messages are never uploaded. Hosted success must
+be established by the actual CI run. Worker
+telemetry, managed gateway, browser, expiry/renewal and quota/GC acceptance
+remain separate checks listed in the report.
 
 ### Deploy build + ordering
 
@@ -291,6 +378,11 @@ pnpm lighthouse:dashboard-a11y
 ```
 
 The script builds on the same local harness pattern as `smoke-web-api.mjs`: mock WorkOS JWKS, the local MVP API/upload/content stack, and a built `@agent-paste/web` Worker via `wrangler dev`. It seals an AuthKit session cookie for a returning member with no published artifacts, asserts `/dashboard` renders authenticated chrome plus an empty overview, then runs Lighthouse with `onlyCategories: ['accessibility']`. The process exits non-zero when the score is below `95` (override with `AGENT_PASTE_LIGHTHOUSE_A11Y_MIN_SCORE`).
+
+Run this gate before deploying TanStack dependency updates. Unit tests and
+typechecks do not exercise the built dashboard's query hydration. Router,
+SSR query adapter and Query versions must be compatible; incompatible versions
+can build successfully but return HTTP 500 for authenticated pages.
 
 PR preview runs this step after Worker readiness. It does not depend on the
 per-PR web deploy and therefore still runs when `WORKOS_PREVIEW_API_KEY` is

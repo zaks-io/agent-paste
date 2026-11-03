@@ -2,6 +2,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { createId } from "../id.js";
 import { PostgresRepository } from "../postgres/repository.js";
 import type { ApiActor } from "../types.js";
+import { fakeFileMapStore } from "./file-map-store.js";
 import { applyMigrations, executorForPglite, pgliteConnection, platformExecutor, workspaceExecutor } from "./pglite.js";
 
 const DEFAULT_MEMBER_SCOPES = ["publish", "read", "admin"] as const;
@@ -184,7 +185,7 @@ export async function createRouteBoundaryFixture(): Promise<RouteBoundaryFixture
   await applyMigrations(client);
   const connection = pgliteConnection(client);
   const executor = executorForPglite(client);
-  const repo = new PostgresRepository(connection, { apiKeyPepper: "test-pepper" });
+  const repo = new PostgresRepository(connection, { fileMapStore: fakeFileMapStore, apiKeyPepper: "test-pepper" });
 
   const workspaceACore = await seedWorkspaceActors(repo, {
     email: "member-a@example.com",

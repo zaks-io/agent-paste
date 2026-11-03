@@ -53,6 +53,7 @@ export const workspaces = pgTable(
   {
     id: uuid("id").primaryKey(),
     name: text("name").notNull(),
+    storageBudgetBytes: bigint("storage_budget_bytes", { mode: "number" }),
     contactEmail: text("contact_email"),
     plan: text("plan").$type<WorkspacePlan>().notNull().default("free"),
     planOperatorOverrideAt: timestamp("plan_operator_override_at", { withTimezone: true }),
@@ -63,6 +64,7 @@ export const workspaces = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
   },
   (table) => [
+    check("workspaces_storage_budget_bytes_check", sql`${table.storageBudgetBytes} > 0`),
     check("workspaces_plan_check", sql`${table.plan} in ('free', 'pro')`),
     check("workspaces_auto_deletion_days_check", sql`${table.autoDeletionDays} between 1 and 90`),
     check(
@@ -327,8 +329,20 @@ export const uploadSessions = pgTable(
     // Base paths this publish drops. Needed to tell a deleted path apart from an
     // inherited one at finalize (both are base paths absent from the file manifest).
     deletedPaths: jsonb("deleted_paths").$type<string[]>().notNull().default([]),
+    commitGuard: text("commit_guard"),
+    commitSnapshotPrefix: text("commit_snapshot_prefix"),
+    commitSnapshotSha256: text("commit_snapshot_sha256"),
+    pinOnCommit: boolean("pin_on_commit").notNull().default(false),
+    sealedAt: timestamp("sealed_at", { withTimezone: true }),
+    nextBatchIndex: integer("next_batch_index").notNull().default(1),
   },
   (table) => [
+    check(
+      "upload_sessions_status_check",
+      sql`${table.status} in ('pending', 'ready', 'finalized', 'expired', 'failed')`,
+    ),
+    check("upload_sessions_commit_guard_check", sql`${table.commitGuard} in ('paths', 'snapshot')`),
+    check("upload_sessions_commit_snapshot_sha256_check", sql`${table.commitSnapshotSha256} ~ '^[a-f0-9]{64}$'`),
     index("upload_sessions_pending_expiry_idx").on(table.workspaceId, table.expiresAt),
     check("upload_sessions_created_by_type_check", sql`${table.createdByType} in ('api_key', 'member')`),
     check(
@@ -361,8 +375,16 @@ export const uploadSessionFiles = pgTable(
     // reconstructed whole file. Both null (whole-file upload) or both set.
     patchBaseSha256: text("patch_base_sha256"),
     patchResultSha256: text("patch_result_sha256"),
+    contentFormat: text("content_format").$type<"single" | "chunked-v1">().notNull().default("single"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    expectKind: text("expect_kind"),
+    expectSha256: text("expect_sha256"),
+    expectSizeBytes: bigint("expect_size_bytes", { mode: "number" }),
+    batchIndex: integer("batch_index").notNull().default(0),
   },
   (table) => [
+    check("upload_session_files_content_format_check", sql`${table.contentFormat} in ('single', 'chunked-v1')`),
+    check("upload_session_files_expect_kind_check", sql`${table.expectKind} in ('sha256', 'absent')`),
     primaryKey({ columns: [table.uploadSessionId, table.path] }),
     index("upload_session_files_blob_idx").on(table.workspaceId, table.sha256, table.sizeBytes),
     check("upload_session_files_storage_kind_check", sql`${table.storageKind} in ('revision', 'blob')`),
@@ -391,6 +413,8 @@ export const revisions = pgTable(
     // Unread and unwritten since Render Mode was removed; dropped by a follow-up migration.
     renderMode: text("render_mode").notNull().default("html"),
     fileCount: integer("file_count").notNull(),
+    fileMapSha256: text("file_map_sha256"),
+    fileMapSizeBytes: integer("file_map_size_bytes"),
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
     bundleStatus: text("bundle_status").notNull().default("disabled"),
     bundleStatusUpdatedAt: timestamp("bundle_status_updated_at", { withTimezone: true }),
@@ -402,6 +426,11 @@ export const revisions = pgTable(
     publishedAt: timestamp("published_at", { withTimezone: true }),
   },
   (table) => [
+    check("revisions_file_map_sha256_check", sql`${table.fileMapSha256} ~ '^[a-f0-9]{64}$'`),
+    check("revisions_file_map_pair_check", sql`(${table.fileMapSha256} is null) = (${table.fileMapSizeBytes} is null)`),
+    index("revisions_file_map_idx")
+      .on(table.workspaceId, table.fileMapSha256)
+      .where(sql`${table.fileMapSha256} is not null`),
     index("revisions_artifact_created_idx").on(table.artifactId, table.createdAt),
     index("revisions_workspace_idx").on(table.workspaceId),
     uniqueIndex("revisions_workspace_artifact_id_unique").on(table.workspaceId, table.artifactId, table.id),
@@ -478,10 +507,16 @@ export const contentBlobs = pgTable(
     sha256: text("sha256").notNull(),
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
     r2Key: text("r2_key").notNull(),
+    contentFormat: text("content_format").$type<"single" | "chunked-v1">().notNull().default("single"),
+    gcState: text("gc_state").$type<"live" | "deleting">().notNull().default("live"),
+    gcMarkedAt: timestamp("gc_marked_at", { withTimezone: true }),
+    r2CleanupEligible: boolean("r2_cleanup_eligible").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
   },
   (table) => [
+    check("content_blobs_content_format_check", sql`${table.contentFormat} in ('single', 'chunked-v1')`),
+    check("content_blobs_gc_state_check", sql`${table.gcState} in ('live', 'deleting')`),
     primaryKey({ columns: [table.workspaceId, table.sha256, table.sizeBytes] }),
     uniqueIndex("content_blobs_r2_key_unique").on(table.r2Key),
     check("content_blobs_sha256_check", sql`${table.sha256} ~ '^[a-f0-9]{64}$'`),
@@ -507,9 +542,12 @@ export const artifactFiles = pgTable(
     r2Key: text("r2_key").notNull(),
     sha256: text("sha256"),
     storageKind: text("storage_kind").notNull().default("revision"),
+    contentFormat: text("content_format").$type<"single" | "chunked-v1">().notNull().default("single"),
     uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull(),
   },
   (table) => [
+    check("artifact_files_content_format_check", sql`${table.contentFormat} in ('single', 'chunked-v1')`),
+    index("artifact_files_legacy_bytes_idx").on(table.workspaceId).where(sql`${table.storageKind} = 'revision'`),
     primaryKey({ columns: [table.artifactId, table.revisionId, table.path] }),
     index("artifact_files_blob_idx").on(table.workspaceId, table.sha256, table.sizeBytes),
     check("artifact_files_storage_kind_check", sql`${table.storageKind} in ('revision', 'blob')`),
@@ -704,5 +742,74 @@ export const feedback = pgTable(
       "feedback_context_check",
       sql`${table.context} is null or (jsonb_typeof(${table.context}) = 'object' and octet_length(${table.context}::text) <= 16384)`,
     ),
+  ],
+);
+
+export const uploadSessionChunks = pgTable(
+  "upload_session_chunks",
+  {
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "restrict" }),
+    uploadSessionId: text("upload_session_id").notNull(),
+    path: text("path").notNull(),
+    chunkIndex: integer("chunk_index").notNull(),
+    sha256: text("sha256").notNull(),
+    sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
+    uploadedAt: timestamp("uploaded_at", { withTimezone: true }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.uploadSessionId, table.path, table.chunkIndex] }),
+    foreignKey({
+      columns: [table.uploadSessionId, table.path],
+      foreignColumns: [uploadSessionFiles.uploadSessionId, uploadSessionFiles.path],
+    }).onDelete("cascade"),
+    index("upload_session_chunks_blob_idx").on(table.workspaceId, table.sha256, table.sizeBytes),
+    check("upload_session_chunks_chunk_index_check", sql`${table.chunkIndex} >= 0`),
+    check("upload_session_chunks_sha256_check", sql`${table.sha256} ~ '^[a-f0-9]{64}$'`),
+    check("upload_session_chunks_size_bytes_check", sql`${table.sizeBytes} > 0`),
+  ],
+);
+export const uploadSessionDeletions = pgTable(
+  "upload_session_deletions",
+  {
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "restrict" }),
+    uploadSessionId: text("upload_session_id")
+      .notNull()
+      .references(() => uploadSessions.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<"path" | "prefix">().notNull(),
+    path: text("path").notNull(),
+    expectSha256: text("expect_sha256"),
+    expectSizeBytes: bigint("expect_size_bytes", { mode: "number" }),
+    expectSnapshotSha256: text("expect_snapshot_sha256"),
+    batchIndex: integer("batch_index").notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.uploadSessionId, table.kind, table.path] }),
+    check("upload_session_deletions_kind_check", sql`${table.kind} in ('path', 'prefix')`),
+  ],
+);
+export const contentBlobChunks = pgTable(
+  "content_blob_chunks",
+  {
+    workspaceId: uuid("workspace_id").notNull(),
+    sha256: text("sha256").notNull(),
+    sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
+    chunkIndex: integer("chunk_index").notNull(),
+    chunkSha256: text("chunk_sha256").notNull(),
+    chunkSizeBytes: bigint("chunk_size_bytes", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.workspaceId, table.sha256, table.sizeBytes, table.chunkIndex] }),
+    foreignKey({
+      columns: [table.workspaceId, table.sha256, table.sizeBytes],
+      foreignColumns: [contentBlobs.workspaceId, contentBlobs.sha256, contentBlobs.sizeBytes],
+    }).onDelete("cascade"),
+    index("content_blob_chunks_chunk_idx").on(table.workspaceId, table.chunkSha256, table.chunkSizeBytes),
+    check("content_blob_chunks_chunk_index_check", sql`${table.chunkIndex} >= 0`),
+    check("content_blob_chunks_chunk_sha256_check", sql`${table.chunkSha256} ~ '^[a-f0-9]{64}$'`),
+    check("content_blob_chunks_chunk_size_bytes_check", sql`${table.chunkSizeBytes} > 0`),
   ],
 );

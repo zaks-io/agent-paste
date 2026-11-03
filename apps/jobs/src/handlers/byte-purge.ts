@@ -2,6 +2,7 @@ import { BytePurgeMessage } from "@agent-paste/contracts";
 import { contentCapabilityObjectKey } from "@agent-paste/tokens/content-capability";
 import { withQueueMessageTrace } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
+import { resolveSqlExecutor, withWorkspaceScope } from "../db.js";
 import type { Env, QueueMessage } from "../env.js";
 import { logOp, logOpError } from "../op-log.js";
 import { deletePrefixes } from "../r2-purge.js";
@@ -35,6 +36,24 @@ export async function handleBytePurgeBatch(messages: readonly QueueMessage[], en
           await deleteCapabilityManifest(bucket, payload.capability_id);
         }
         const deleted = await deletePrefixes(bucket, payload.prefixes);
+        if (payload.reason === "upload_cleanup") {
+          const executor = resolveSqlExecutor(env);
+          if (!executor || !payload.upload_session_id) throw new Error("upload_cleanup_database_missing");
+          await withWorkspaceScope(executor, payload.workspace_id).query(
+            `delete from upload_session_files f using upload_sessions s
+             where f.upload_session_id=s.id and s.id=$1 and s.workspace_id=$2
+               and s.artifact_id=$3 and s.revision_id=$4 and s.status='expired'
+               and f.storage_kind='revision'
+               and exists (select 1 from unnest($5::text[]) p where starts_with(f.r2_key,p))`,
+            [
+              payload.upload_session_id,
+              payload.workspace_id,
+              payload.artifact_id,
+              payload.revision_id,
+              payload.prefixes,
+            ],
+          );
+        }
         logOp("queue.byte_purge.succeeded", {
           artifact_id: payload.artifact_id,
           revision_id: payload.revision_id,

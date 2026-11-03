@@ -1,10 +1,16 @@
 import type { PublishTransport } from "@agent-paste/api-client/publish";
 import {
+  AgentView,
+  AppendUploadFilesResponse,
+  ArtifactFileListResponse,
+  CompleteUploadFilesResponse,
   CreateUploadSessionResponse,
   FinalizeUploadSessionResponse,
   type McpMappedToolError,
   mapMcpProtocolError,
-  PublishResult,
+  PublishResultV2,
+  PublishRevisionResponse,
+  UploadSessionTargetsResponse,
 } from "@agent-paste/contracts";
 import { emitWorkerLog } from "@agent-paste/worker-runtime";
 import {
@@ -19,8 +25,17 @@ import { zodIssueMetadata } from "./zod-issue-metadata.js";
 
 /** Carries a pre-mapped MCP protocol error out of the shared publish module untouched. */
 export class ForwardError extends Error {
-  constructor(readonly mapped: McpMappedToolError) {
+  readonly status: number;
+  readonly code: string;
+  readonly retryAfterSeconds: number | undefined;
+  constructor(
+    readonly mapped: McpMappedToolError,
+    meta: { status?: number; retryAfterSeconds?: number } = {},
+  ) {
     super("mcp forward error");
+    this.status = meta.status ?? mapped.httpStatus;
+    this.code = mapped.code;
+    this.retryAfterSeconds = meta.retryAfterSeconds;
   }
 }
 
@@ -39,6 +54,47 @@ export type PublishTransportDeps = {
  */
 export function serviceBindingTransport(deps: PublishTransportDeps): PublishTransport {
   return {
+    listFiles: (id, query) =>
+      forwardToApiRoute({
+        api: deps.api,
+        routeId: "artifactFiles.list",
+        tokenSub: deps.tokenSub,
+        params: { artifact_id: id },
+        ...(query ? { query } : {}),
+      }).then((result) => unwrap(result, ArtifactFileListResponse, "artifactFiles.list")),
+    getAgentView: (id, revision) =>
+      forwardToApiRoute({
+        api: deps.api,
+        routeId: revision ? "agentView.getRevision" : "agentView.getLatest",
+        tokenSub: deps.tokenSub,
+        params: { artifact_id: id, ...(revision ? { revision_id: revision } : {}) },
+      }).then((result) => unwrap(result, AgentView, "agentView.getLatest")),
+    appendFiles: (id, body, key) =>
+      forwardToUploadRoute({
+        upload: deps.upload,
+        routeId: "uploadSessions.appendFiles",
+        tokenSub: deps.tokenSub,
+        params: { upload_session_id: id },
+        body: JSON.stringify(body),
+        idempotencyKey: key,
+      }).then((result) => unwrap(result, AppendUploadFilesResponse, "uploadSessions.appendFiles")),
+    targets: (id, query) =>
+      forwardToUploadRoute({
+        upload: deps.upload,
+        routeId: "uploadSessions.targets",
+        tokenSub: deps.tokenSub,
+        params: { upload_session_id: id },
+        ...(query ? { query } : {}),
+      }).then((result) => unwrap(result, UploadSessionTargetsResponse, "uploadSessions.targets")),
+    completeFiles: (id, body, key) =>
+      forwardToUploadRoute({
+        upload: deps.upload,
+        routeId: "uploadSessions.completeFiles",
+        tokenSub: deps.tokenSub,
+        params: { upload_session_id: id },
+        body: JSON.stringify(body),
+        idempotencyKey: key,
+      }).then((result) => unwrap(result, CompleteUploadFilesResponse, "uploadSessions.completeFiles")),
     createUploadSession: (body, key) =>
       forwardToUploadRoute({
         upload: deps.upload,
@@ -57,7 +113,7 @@ export function serviceBindingTransport(deps: PublishTransportDeps): PublishTran
         requiredHeaders,
       });
       if (!result.ok) {
-        throw new ForwardError(result.error);
+        throw new ForwardError(result.error, result);
       }
     },
 
@@ -78,7 +134,9 @@ export function serviceBindingTransport(deps: PublishTransportDeps): PublishTran
         tokenSub: deps.tokenSub,
         idempotencyKey: key,
         ...(body ? { body: JSON.stringify(body) } : {}),
-      }).then((result) => unwrap(result, PublishResult, "revisions.publish")),
+      }).then((result) =>
+        unwrap(result, body?.include_retention ? PublishResultV2 : PublishRevisionResponse, "revisions.publish"),
+      ),
   };
 }
 
@@ -88,7 +146,7 @@ function unwrap<T>(
   routeId: string,
 ): T {
   if (!result.ok) {
-    throw new ForwardError(result.error);
+    throw new ForwardError(result.error, result);
   }
   const parsed = schema.safeParse(result.body);
   if (!parsed.success) {

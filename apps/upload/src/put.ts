@@ -157,7 +157,7 @@ export async function putUploadFile(
   if (preWriteGuard) {
     return preWriteGuard;
   }
-  const stored = await env.ARTIFACTS.put(payload.key, Uint8Array.from(encrypted.ciphertext), {
+  const stored = await env.ARTIFACTS.put(payload.key, encrypted.ciphertext, {
     httpMetadata: { contentType: "application/octet-stream" },
     customMetadata: encrypted.customMetadata,
     onlyIf: { etagDoesNotMatch: "*" },
@@ -179,15 +179,31 @@ export async function putUploadFile(
     }
   }
 
-  await db.recordUploadedFile({
-    workspaceId: payload.wid,
-    sessionId: payload.sid,
-    path: payload.path,
-    objectKey: payload.key,
-    sizeBytes: payload.size,
-    ...(payload.sha256 ? { sha256: payload.sha256 } : {}),
-    uploadedAt: new Date().toISOString(),
-  });
+  if (payload.ci !== undefined) {
+    if (!payload.sha256) return getBoundResponders(context).respondError("invalid_request");
+    await db.recordUploadedChunk({
+      workspaceId: payload.wid,
+      sessionId: payload.sid,
+      path: payload.path,
+      chunkIndex: payload.ci,
+      r2CleanupEligible: stored !== null,
+      sha256: payload.sha256,
+      sizeBytes: payload.size,
+      objectKey: payload.key,
+      uploadedAt: new Date().toISOString(),
+    });
+  } else
+    await db.recordUploadedFile({
+      workspaceId: payload.wid,
+      sessionId: payload.sid,
+      path: payload.path,
+      objectKey: payload.key,
+      sizeBytes: payload.size,
+      ...(payload.sha256 ? { sha256: payload.sha256 } : {}),
+      // A surviving object without an index row may predate physical GC.
+      r2CleanupEligible: stored !== null,
+      uploadedAt: new Date().toISOString(),
+    });
 
   return new Response(null, { status: 204, headers: { [REQUEST_ID_HEADER]: getRequestId(context) } });
 }
@@ -229,8 +245,6 @@ async function existingObjectMatchesUpload(
 }
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const source = new Uint8Array(bytes.byteLength);
-  source.set(bytes);
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", source));
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>));
   return [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }

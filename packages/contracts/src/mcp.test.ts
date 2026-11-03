@@ -49,6 +49,8 @@ describe("MCP tool registry", () => {
 
   it("registers the ADR 0061 tools in snake_case", () => {
     expect(mcpToolContracts.map((tool) => tool.name)).toEqual([
+      "pin_artifact",
+      "unpin_artifact",
       "publish_artifact",
       "add_revision",
       "multi_edit",
@@ -512,6 +514,13 @@ describe("MCP auth and idempotency helpers", () => {
 });
 
 describe("MCP error mapping", () => {
+  it("preserves structured commit conflict details through JSON-RPC mapping", () => {
+    const details = { kind: "paths", head_revision_id: null, conflicts: [] };
+    const mapped = mapApiErrorToMcp({ code: "commit_conflict", message: "commit_conflict", details });
+    expect(mapped.httpStatus).toBe(409);
+    expect(toMcpJsonRpcError(mapped).data?.details).toEqual(details);
+  });
+
   it("maps API errors to JSON-RPC application errors", () => {
     const mapped = mapApiErrorToMcp({
       code: "artifact_not_found",

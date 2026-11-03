@@ -1,3 +1,4 @@
+import { collectContentBlobGarbage } from "../../queries/content-blob-gc.js";
 import { contentBlobQueries } from "../../queries/index.js";
 import type { Entities } from "../ports.js";
 import type { PostgresContext } from "./context.js";
@@ -10,7 +11,10 @@ export function postgresContentBlobs(ctx: PostgresContext): Entities["contentBlo
       contentBlobQueries.findReusableAndTouch(drizzle, workspaceId, files, updatedAt),
     upsert: (blob) => contentBlobQueries.upsert(drizzle, blob),
     upsertMany: (blobs) => contentBlobQueries.upsertMany(drizzle, blobs),
-    deleteUnreferenced: (input) => contentBlobQueries.deleteUnreferenced(drizzle, input),
+    deleteUnreferenced: async (input) => {
+      const result = await collectContentBlobGarbage(ctx.sql, input);
+      return result.marked;
+    },
     listForReparent: (workspaceId, now) => contentBlobQueries.listForReparent(drizzle, workspaceId, now),
   };
 }

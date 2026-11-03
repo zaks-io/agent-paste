@@ -4,6 +4,7 @@ import { resolveSqlExecutor } from "./db.js";
 import { runAutoDeletionDiscovery } from "./discovery/auto-deletion.js";
 import { runBillingReconcileDiscovery } from "./discovery/billing-reconcile.js";
 import { runContentBlobGc } from "./discovery/content-blob-gc.js";
+import { runLockdownRecoveryDiscovery } from "./discovery/lockdown-recovery.js";
 import { runMaintenanceGc } from "./discovery/maintenance-gc.js";
 import { runPurgeRecoveryDiscovery } from "./discovery/purge-recovery.js";
 import { runRetentionDiscovery } from "./discovery/retention.js";
@@ -60,9 +61,10 @@ async function runHourlyDiscovery(executor: SqlExecutor, env: Env, now: string):
   const tasks: Array<{ name: string; run: () => Promise<unknown> }> = [
     { name: "upload_cleanup", run: () => runUploadCleanupOnHourly(executor, env, now) },
     { name: "auto_deletion", run: () => runAutoDeletionDiscovery(executor, env, now) },
+    { name: "lockdown_recovery", run: () => runLockdownRecoveryDiscovery(executor, env) },
     { name: "purge_recovery", run: () => runPurgeRecoveryDiscovery(executor, env) },
     { name: "retention", run: () => runRetentionDiscovery(executor, env, now) },
-    { name: "content_blob_gc", run: () => runContentBlobGc(executor, now) },
+    { name: "content_blob_gc", run: () => runContentBlobGc(executor, now, env.ARTIFACTS) },
     { name: "maintenance_gc", run: () => runMaintenanceGc(executor, now, env.ARTIFACTS) },
   ];
 

@@ -129,6 +129,8 @@ describe("reparentTenantContent", () => {
         put_url_expires_at timestamptz not null,
         primary key (upload_session_id, path)
       );
+      create table upload_session_chunks (workspace_id uuid not null);
+      create table upload_session_deletions (workspace_id uuid not null);
       create table artifact_files (
         workspace_id uuid not null references workspaces(id),
         artifact_id text not null,
@@ -143,6 +145,7 @@ describe("reparentTenantContent", () => {
         primary key (artifact_id, revision_id, path)
       );
       create table content_blobs (
+        gc_state text not null default 'live',
         workspace_id uuid not null references workspaces(id),
         sha256 text not null,
         size_bytes bigint not null,

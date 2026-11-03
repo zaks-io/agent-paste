@@ -4,17 +4,21 @@ import type { BundleGenerateMessage } from "@agent-paste/contracts";
 import { bundleKeyFor, type SqlExecutor, storageEnvSegment, withSqlQuerySource } from "@agent-paste/db";
 import { artifactBytesEncryptionRingFromEnv } from "@agent-paste/rotation";
 import { encryptArtifactBytes } from "@agent-paste/storage";
-import { markBundleFailed, markBundleReady } from "../bundle/bundle-state.js";
+import { markBundleDisabled, markBundleFailed, markBundleReady } from "../bundle/bundle-state.js";
 import { buildRevisionZip } from "../bundle/generate-zip.js";
 import { withWorkspaceScope } from "../db.js";
 import type { Env } from "../env.js";
 import { logOp, logOpError } from "../op-log.js";
 import { readRevisionFileBytes } from "./revision-file-bytes.js";
 
+// Buffered input, ZIP output, and encryption copies must fit in one Worker.
+export const MAX_BUNDLE_INPUT_BYTES = 16 * 1024 * 1024;
+
 type RevisionRow = {
   status: string;
   artifact_status: string;
   bundle_status: string;
+  size_bytes: number;
 };
 
 type RevisionFileRow = {
@@ -37,6 +41,7 @@ export type BundleGenerateSkipReason = "missing_revision" | ReturnType<typeof sh
 export type BundleGenerateMessageOutcome =
   | { kind: "skip"; reason: BundleGenerateSkipReason }
   | { kind: "size_cap_exceeded" }
+  | { kind: "input_size_cap_exceeded" }
   | { kind: "ready"; bundleSizeBytes: number };
 
 export async function processBundleGenerateMessage(
@@ -45,7 +50,8 @@ export async function processBundleGenerateMessage(
   executor: SqlExecutor,
 ): Promise<BundleGenerateMessageOutcome> {
   const scoped = withWorkspaceScope(executor, payload.workspace_id);
-  const skipReason = await resolveBundleGenerateSkipReason(scoped, payload);
+  const state = await loadRevisionState(scoped, payload.workspace_id, payload.revision_id);
+  const skipReason = resolveBundleGenerateSkipReason(state);
   if (skipReason) {
     if (skipReason !== "missing_revision") {
       logOp("queue.bundle_generate.skipped", {
@@ -54,6 +60,21 @@ export async function processBundleGenerateMessage(
       });
     }
     return { kind: "skip", reason: skipReason };
+  }
+
+  if (!state || !Number.isSafeInteger(state.size_bytes) || state.size_bytes < 0) {
+    throw new Error("bundle_revision_size_invalid");
+  }
+  const usagePolicy = await loadWorkspaceUsagePolicy(scoped, payload.workspace_id, env);
+  const inputLimit = Math.min(MAX_BUNDLE_INPUT_BYTES, usagePolicy.bundle_size_cap_bytes);
+  if (state.size_bytes > inputLimit) {
+    await markBundleDisabled(scoped, payload.workspace_id, payload.revision_id);
+    logOp("queue.bundle_generate.input_size_cap_exceeded", {
+      revision_id: payload.revision_id,
+      input_size_bytes: state.size_bytes,
+      input_size_cap_bytes: inputLimit,
+    });
+    return { kind: "input_size_cap_exceeded" };
   }
 
   const artifacts = resolveBundleArtifactsBinding(env);
@@ -71,7 +92,6 @@ export async function processBundleGenerateMessage(
     getObject: artifacts.get,
     encryptionRing,
   });
-  const usagePolicy = await loadWorkspaceUsagePolicy(scoped, payload.workspace_id, env);
   const zipBytes = buildRevisionZip(fileBytes);
   if (zipBytes.byteLength > usagePolicy.bundle_size_cap_bytes) {
     await markBundleFailed(scoped, payload.workspace_id, payload.revision_id);
@@ -98,11 +118,7 @@ export async function processBundleGenerateMessage(
   return { kind: "ready", bundleSizeBytes: zipBytes.byteLength };
 }
 
-async function resolveBundleGenerateSkipReason(
-  scoped: SqlExecutor,
-  payload: BundleGenerateMessage,
-): Promise<BundleGenerateSkipReason | null> {
-  const state = await loadRevisionState(scoped, payload.workspace_id, payload.revision_id);
+function resolveBundleGenerateSkipReason(state: RevisionRow | null): BundleGenerateSkipReason | null {
   if (!state) {
     return "missing_revision";
   }
@@ -200,7 +216,7 @@ async function loadRevisionState(
 ): Promise<RevisionRow | null> {
   return withSource("loadRevisionState", async () => {
     const result = await executor.query<RevisionRow>(
-      `select r.status, a.status as artifact_status, r.bundle_status
+      `select r.status, a.status as artifact_status, r.bundle_status, r.size_bytes::float8 as size_bytes
      from revisions r
      inner join artifacts a on a.id = r.artifact_id
      where r.workspace_id = $1 and r.id = $2`,

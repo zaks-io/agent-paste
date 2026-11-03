@@ -6,6 +6,8 @@ import { decodeWebArtifactCursor, encodeWebArtifactCursor } from "../web-transfo
 type ArtifactAuditActor = Pick<ApiActor, "type" | "id"> | AdminActor;
 
 type ArtifactAuditAction =
+  | "artifact.created"
+  | "artifact.published"
   | "access_link.lockdown.lifted"
   | "access_link.lockdown.set"
   | "artifact.deleted"
@@ -39,6 +41,7 @@ export async function insertArtifactAuditEvent(
     action: ArtifactAuditAction;
     artifact: Pick<Artifact, "id" | "workspace_id">;
     occurredAt: string;
+    details?: Record<string, unknown>;
   },
 ) {
   await entities.operationEvents.insert({
@@ -48,7 +51,7 @@ export async function insertArtifactAuditEvent(
     targetType: "artifact",
     targetId: input.artifact.id,
     workspaceId: input.artifact.workspace_id,
-    details: {},
+    details: input.details ?? {},
     occurredAt: input.occurredAt,
   });
 }

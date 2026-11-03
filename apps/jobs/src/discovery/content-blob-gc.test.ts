@@ -1,6 +1,6 @@
 import { workspaceBlobObjectKeyFor } from "@agent-paste/storage";
 import { PGlite } from "@electric-sql/pglite";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   applyMigrations,
   executorForPglite,
@@ -21,6 +21,7 @@ const orphanSha = "c".repeat(64);
 describe("content blob GC", () => {
   it("de-indexes only blobs with no active artifact or pending upload-session reference", async () => {
     const client = new PGlite();
+    const now = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
     try {
       await applyMigrations(client);
       const executor = executorForPglite(client);
@@ -47,14 +48,14 @@ describe("content blob GC", () => {
            (id, workspace_id, artifact_id, revision_id, status, title, entrypoint, artifact_expires_at,
             file_count, size_bytes, created_by_type, created_by_id, expires_at, created_at)
          values ('upl_gc_pending', $1, 'art_pending', 'rev_pending', 'pending', 'pending', 'pending.txt',
-           now() + interval '1 day', 1, 5, 'api_key', $2, now() + interval '1 day', now())`,
+           now() + interval '5 days', 1, 5, 'api_key', $2, now() + interval '5 days', now())`,
         [workspaceId, apiKeyId],
       );
       await tenant.query(
         `insert into upload_session_files
            (workspace_id, upload_session_id, path, size_bytes, served_content_type, r2_key, sha256, storage_kind,
             uploaded_at, put_url_expires_at)
-         values ($1, 'upl_gc_pending', 'pending.txt', 5, 'text/plain', $2, $3, 'blob', now(), now() + interval '1 day')`,
+         values ($1, 'upl_gc_pending', 'pending.txt', 5, 'text/plain', $2, $3, 'blob', now(), now() + interval '5 days')`,
         [workspaceId, pendingKey, pendingSha],
       );
       await platformExecutor(executor).query(
@@ -65,7 +66,9 @@ describe("content blob GC", () => {
            ($1, $6, 5, $7, now() - interval '1 day', now() - interval '1 day')`,
         [workspaceId, referencedSha, referencedKey, pendingSha, pendingKey, orphanSha, orphanKey],
       );
-      const result = await runContentBlobGc(executor, "2026-06-01T00:00:00.000Z");
+      const remove = vi.fn();
+      const result = await runContentBlobGc(executor, now, { delete: remove });
+      expect(remove).toHaveBeenCalledExactlyOnceWith([orphanKey]);
 
       expect(result.discovered).toBe(1);
       const remaining = await platformExecutor(executor).query<{ sha256: string }>(

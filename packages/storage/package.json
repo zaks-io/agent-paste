@@ -32,5 +32,9 @@
     "test:coverage": "vitest run --coverage --config ../../vitest.coverage.node.config.ts",
     "test:mutation": "stryker run",
     "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@agent-paste/config": "workspace:*",
+    "@agent-paste/contracts": "workspace:*"
   }
 }

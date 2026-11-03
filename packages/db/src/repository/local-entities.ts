@@ -8,6 +8,7 @@ import { localContentBlobs } from "./local-entities/content-blobs.js";
 import { localFeedback } from "./local-entities/feedback.js";
 import { localMembers } from "./local-entities/members.js";
 import { localOperationEvents } from "./local-entities/operation-events.js";
+import { localPersistent } from "./local-entities/persistent.js";
 import { localPlatformLockdowns } from "./local-entities/platform-lockdowns.js";
 import { localRevisions } from "./local-entities/revisions.js";
 import { localSafetyWarnings } from "./local-entities/safety-warnings.js";
@@ -20,6 +21,7 @@ import type { Entities } from "./ports.js";
 // Compose the grouped Entities accessor from per-collection local adapters.
 export function localEntities(state: LocalState): Entities {
   return {
+    persistent: localPersistent(state),
     feedback: localFeedback(state),
     workspaces: localWorkspaces(state),
     apiKeys: localApiKeys(state),

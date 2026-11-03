@@ -20,6 +20,7 @@ describe("claimTokenQueries bytea round-trip", () => {
         id uuid primary key,
         name text not null,
         contact_email text,
+        storage_budget_bytes bigint,
         plan text not null default 'free',
         plan_operator_override_at timestamptz,
         claimed_at timestamptz,

@@ -1,6 +1,7 @@
 import { getRequestId, type RequestIdVariables, requestIdMiddleware } from "@agent-paste/auth";
+import { IdempotencyInFlightError } from "@agent-paste/commands";
 import { buildUploadOpenApiDocument, type RouteId, routeContractById } from "@agent-paste/contracts";
-import { type Repository, repositoryErrorToAppError } from "@agent-paste/db";
+import { isRepositoryError, type Repository, repositoryErrorToAppError } from "@agent-paste/db";
 import type { SignedUploadPayload } from "@agent-paste/tokens/upload-url";
 import {
   type BoundRespondersVariables,
@@ -18,10 +19,13 @@ import {
 } from "@agent-paste/worker-runtime";
 import * as Sentry from "@sentry/cloudflare";
 import { Hono } from "hono";
+import { appendFiles } from "./append-files.js";
+import { completeFiles } from "./complete-files.js";
 import { createUploadSession } from "./create-session.js";
 import type { AppContext, Env } from "./env.js";
 import { finalizeUploadSession } from "./finalize.js";
 import { putUploadFile, uploadFilePath, verifyUploadToken } from "./put.js";
+import { uploadTargets } from "./targets.js";
 import { postgresRuntime, uploadDatabase, uploadReplay } from "./upload-db.js";
 
 export type { AuthService, Env, UploadActor, UploadFileInput, UploadSessionRecord } from "./env.js";
@@ -113,12 +117,29 @@ uploadNoDbRegistrar.mount(contractById("uploadSessions.putFile"), async (context
 uploadDbRegistrar.mount(contractById("uploadSessions.finalize"), async (context, principal, db, guard) =>
   finalizeUploadSession(context as AppContext, principal, db, guard),
 );
+uploadDbRegistrar.mount(contractById("uploadSessions.appendFiles"), (c, p, db, g) =>
+  appendFiles(c as AppContext, p, db, g),
+);
+uploadDbRegistrar.mount(contractById("uploadSessions.targets"), (c, p, db) => uploadTargets(c as AppContext, p, db));
+uploadDbRegistrar.mount(contractById("uploadSessions.completeFiles"), (c, p, db, g) =>
+  completeFiles(c as AppContext, p, db, g),
+);
 app.notFound((context) => getBoundResponders(context).respondError("not_found"));
 app.onError((error, context) => {
   const { respondError } = getBoundResponders(context);
+  if (error instanceof IdempotencyInFlightError) return respondError("idempotency_in_flight");
   const repositoryCode = repositoryErrorToAppError(error);
   if (repositoryCode) {
-    return respondError(repositoryCode);
+    return respondError(
+      repositoryCode,
+      isRepositoryError(error) ? error.kind : undefined,
+      isRepositoryError(error)
+        ? {
+            ...(error.details ? { details: error.details } : {}),
+            ...(error.kind === "blob_cleanup_in_progress" ? { headers: { "Retry-After": "60" } } : {}),
+          }
+        : undefined,
+    );
   }
   captureWorkerError({
     component: "upload",
@@ -143,7 +164,13 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
   return await app.fetch(request, env);
 }
 
-const MCP_UPLOAD_ROUTE_IDS = new Set<RouteId>(["uploadSessions.create", "uploadSessions.finalize"]);
+const MCP_UPLOAD_ROUTE_IDS = new Set<RouteId>([
+  "uploadSessions.create",
+  "uploadSessions.finalize",
+  "uploadSessions.appendFiles",
+  "uploadSessions.targets",
+  "uploadSessions.completeFiles",
+]);
 
 export async function handleMcpUploadRequest(
   request: Request,

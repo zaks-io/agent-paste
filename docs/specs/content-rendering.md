@@ -23,7 +23,7 @@ lowercase hexadecimal IDs remain valid and are never rewritten.
 
 The API writes an R2 manifest at `content-capabilities/v1/{id}.json`. The
 manifest contains the entrypoint and a signed content token with the Artifact,
-Revision, expiration, noindex policy, and allowed path-to-object map. Publishing
+Revision, expiration, noindex policy, and an authenticated file-map reference. Legacy Revisions retain their signed path-to-object map. Publishing
 a later Revision rewrites the same manifest, so the Artifact URL does not
 change. Claiming also rewrites the manifest immediately after reparenting, so
 the same URL uses the destination Workspace's copied object keys and retention
@@ -118,6 +118,53 @@ denylist keys, requested-path allowlist, and workspace-bound object key before
 reading and decrypting a file. Authorization failures return the generic
 `404 { "code": "not_found" }` response.
 
+## File maps, streams and ranges
+
+Newly published Revisions have one immutable JSON file map encrypted through the
+existing workspace AES-256-GCM blob path. Publish and claim build its deterministic
+bytes and register its digest, size and live `content_blobs` row in SQL, including
+the full map size in storage usage. These transactions never write map objects.
+After commit, API ensures the map exists before signing a token, refreshing a
+capability manifest or reading a mapped file. Missing maps rebuild from committed
+file rows and chunk digests; the digest and size must match the Revision before
+any R2 write. A shared lock on the live blob row prevents GC tombstoning during
+materialization. A missing or deleting registry row fails with
+`storage_unavailable` (503). A post-commit storage failure preserves the command
+and its write allowance; retrying the same idempotency key materializes the map
+before updating the capability manifest. The previous manifest remains unchanged
+until map materialization succeeds. A signed content token carries only
+`file_map: { sha256, size_bytes }` and the Workspace, Artifact and Revision
+identity. Content reads at most the declared map length, verifies its plaintext
+SHA-256, and strictly parses it against those identities before authorizing any
+path. Unknown paths, invalid maps, missing maps and digest mismatches return 404. An isolate LRU caches parsed maps with a 16 MiB serialized-byte budget.
+Denylist, lockdown and request limits apply before cache use or conditional
+responses. The cache does not grant access.
+
+Single files use existing whole-object decryption, bounded to 25 MiB for legacy
+Pro files. New guarded files above 10 MiB use `chunked-v1` with fixed 4 MiB
+workspace blobs. Content decrypts one chunk per consumer pull and validates its
+exact plaintext length. Missing, corrupt, oversized or short chunks abort the
+stream without padding. It never buffers the full large file. Range requests
+read only overlapping chunks; cancellation stops subsequent chunk reads.
+Chunked content always uses identity encoding. Encrypted-object size limits and
+expected lengths are checked before reading the R2 body and while reading it.
+
+GET supports a single `bytes=a-b`, `bytes=a-`, or `bytes=-n` range on identity
+representations. A satisfied range returns 206 with `Content-Range` and exact
+`Content-Length`. An unsatisfiable range returns 416 with
+`Content-Range: bytes */{size}`. Malformed headers and multiple ranges return a
+full 200. `If-Range` permits a range only on an exact strong ETag match; weak
+validators and dates receive a full 200. HEAD ignores Range and returns the GET
+metadata without a body. Eligible 200/206 responses advertise
+`Accept-Ranges: bytes`. Gzip and noindex-injected HTML ignore Range.
+
+Read-grant tokens sign `original_bytes: true`. These responses always have
+attachment disposition, identity encoding and exact stored bytes. They retain
+normal security headers, noindex headers and service-worker retirement, with no
+HTML injection. ETag representation material includes `original-download` to
+separate these bytes from rendered browsing responses. Default capability
+browsing retains its HTML/noindex and gzip behavior.
+
 ## Read rate limits
 
 Content reads allow 600 requests per 60 seconds per Artifact and visitor IP.
@@ -145,7 +192,7 @@ requests still count.
 
 ## Caching
 
-Every successful file response has a strong Revision-and-path `ETag`. Inline
+When the file SHA-256 is known, the strong `ETag` hashes `sha256:{sha}\n{size}\n{path}\n{representation}`. Unchanged files retain their validator across Revisions. Legacy tokens without signed file metadata keep a Revision-and-path validator. Inline
 images (including SVG), CSS, JavaScript, fonts, audio, and video use
 `Cache-Control: private, max-age=3600, must-revalidate, no-transform`. The
 freshness window is capped by the signed token's remaining lifetime; an explicit
@@ -157,12 +204,12 @@ expiry. HTML, data, text, attachments, and bundles use
 outer Cloudflare zone from injecting analytics or other markup into uploaded
 HTML. After freshness expires, `must-revalidate` requires a network check before
 reuse, including when offline. A matching `If-None-Match`, including `*`, returns
-`304 Not Modified` before the R2 read, after authorization, denylist, and
+`304 Not Modified` before the file R2 read, after map authorization, denylist, and
 rate-limit checks. The 304 carries the same content type, CSP, ETag, and cache
 policy as the corresponding 200, with freshness recomputed against token expiry.
 HEAD uses the same cache policy as GET.
 
-Revising an Artifact changes validators without changing its hostname. HTML
+Revising an Artifact changes validators for changed files without changing its hostname. HTML
 reflects the new Revision on navigation, but assets at reused paths can remain
 from the previous Revision for up to one hour. A hard refresh forces asset
 revalidation. Revocation, deletion, lockdown, denylisting, claiming, and retention
@@ -197,8 +244,7 @@ has its own strong `ETag`; identity `ETag` values are unchanged. Compression
 runs after noindex injection, so the gzipped body is the exact HTML a non-gzip
 request receives. `no-transform` stays on every response, so the zone never
 injects markup. A gzip HEAD advertises `Content-Encoding: gzip` and omits
-`Content-Length`; a 304 omits both. Read events and rate limits still count
-plaintext bytes and requests.
+`Content-Length`; a 304 omits both. Read metrics count bytes actually emitted, including range slices and transformed output; HEAD and 304 emit zero bytes. Request rate limits still apply.
 
 ## Legacy URLs
 

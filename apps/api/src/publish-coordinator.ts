@@ -4,6 +4,7 @@ import { writeArtifactEvent, writeFunnelEvent } from "@agent-paste/worker-runtim
 import { signPublishResult } from "./agent-view.js";
 import type { Env } from "./env.js";
 import { enqueuePostPublishJobs } from "./post-publish.js";
+import { requireViewFileMap } from "./require-file-map.js";
 import { RepositoryRouteError } from "./responses.js";
 import { enforceNewArtifactWriteAllowance, releaseNewArtifactWriteAllowance } from "./write-allowance.js";
 
@@ -18,6 +19,7 @@ export type PublishCoordinatorInput = {
   artifactId: string;
   revisionId: string;
   claimCode?: string | undefined;
+  includeRetention?: boolean;
 };
 
 export type PublishCoordinator = {
@@ -132,6 +134,9 @@ async function runPostPublishFanout(
   isReplay: boolean,
 ): Promise<unknown> {
   const ephemeralTier = isEphemeralPublish(result);
+  if (result && typeof result === "object" && "no_change" in result && result.no_change === true) {
+    return signResult(deps, input, result, ephemeralTier);
+  }
   recordFreshPublishEvent(deps.env, input, ephemeralTier, isReplay);
   recordFreshEphemeralFunnelEvent(deps.env, input, ephemeralTier, isReplay);
   const enqueue = enqueuePublishJobs(deps.env, input, result, now, ephemeralTier);
@@ -140,7 +145,25 @@ async function runPostPublishFanout(
   } else {
     await enqueue;
   }
-  return signPublishResult(result, deps.env, { workspaceId: input.actor.workspace_id, ephemeralTier });
+  return signResult(deps, input, result, ephemeralTier);
+}
+
+async function signResult(
+  deps: PublishCoordinatorDeps,
+  input: PublishCoordinatorInput,
+  result: PublishResult,
+  ephemeralTier: boolean,
+): Promise<unknown> {
+  await requireViewFileMap(deps.db, result, input.actor.workspace_id);
+  try {
+    return await signPublishResult(result, deps.env, {
+      workspaceId: input.actor.workspace_id,
+      ephemeralTier,
+      ...(input.includeRetention ? { includeRetention: true } : {}),
+    });
+  } catch (error) {
+    throw new RepositoryRouteError("storage_unavailable", undefined, { cause: error });
+  }
 }
 
 function isEphemeralPublish(result: PublishResult): boolean {

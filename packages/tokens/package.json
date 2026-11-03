@@ -66,5 +66,8 @@
     "@stryker-mutator/vitest-runner": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "dependencies": {
+    "@agent-paste/config": "workspace:*"
   }
 }

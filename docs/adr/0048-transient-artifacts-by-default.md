@@ -1,5 +1,8 @@
 # Transient Artifacts by Default
 
+Amended by [ADR 0101](./0101-persistent-static-hosting-and-guarded-transfers.md) for
+general static hosting, agent pin authority, and fresh retention after unpin. The original decision below records its historical scope.
+
 Status: Accepted. Renumbered from duplicate ADR 0032.
 
 Stored content is treated as transient by default to prevent the platform from drifting into general-purpose web hosting and to keep storage cost bounded. The platform enforces three composable mechanisms: **Auto Deletion** removes published **Artifacts** thirty days after their most recent **Publish**, **Pinning** lets a **Workspace Member** exempt a small number of **Artifacts** from **Auto Deletion**, and the **Artifact Rate Limit** throttles unauthenticated read traffic against a single **Artifact**.

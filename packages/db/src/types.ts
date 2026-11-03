@@ -68,6 +68,7 @@ export type SubscriptionStatus =
   | "paused";
 
 export type Workspace = {
+  storage_budget_bytes?: number | null;
   id: string;
   name: string;
   contact_email: string | null;
@@ -210,6 +211,8 @@ export type SafetyWarningSeverity = "info" | "warning";
 export type SafetyWarningScope = "artifact" | "revision" | "file";
 
 export type Revision = {
+  file_map_sha256?: string | null;
+  file_map_size_bytes?: number | null;
   id: string;
   workspace_id: string;
   artifact_id: string;
@@ -276,7 +279,13 @@ export type UploadSession = {
   workspace_id: string;
   artifact_id: string;
   revision_id: string;
-  status: "pending" | "finalized" | "expired" | "failed";
+  status: "pending" | "ready" | "finalized" | "expired" | "failed";
+  commit_guard?: "paths" | "snapshot" | null;
+  commit_snapshot_prefix?: string | null;
+  commit_snapshot_sha256?: string | null;
+  pin_on_commit?: boolean;
+  sealed_at?: string | null;
+  next_batch_index?: number;
   title: string;
   entrypoint: string;
   artifact_expires_at: string;
@@ -294,6 +303,10 @@ export type UploadSession = {
 };
 
 export type ContentBlob = {
+  content_format?: "single" | "chunked-v1";
+  gc_state?: "live" | "deleting";
+  gc_marked_at?: string | null;
+  r2_cleanup_eligible?: boolean;
   workspace_id: string;
   sha256: string;
   size_bytes: number;
@@ -305,6 +318,12 @@ export type ContentBlob = {
 export type StoredFileStorageKind = "revision" | "blob";
 
 export type StoredFile = {
+  content_format?: "single" | "chunked-v1";
+  verified_at?: string | null;
+  expect_sha256?: string | null;
+  expect_size_bytes?: number | null;
+  expect_absent?: boolean;
+  batch_index?: number;
   workspace_id: string;
   artifact_id?: string;
   revision_id?: string;
@@ -379,6 +398,7 @@ export type ReparentBlobMigrator = {
 // else (mapped to a retryable error, never a conflict).
 export type RevisionReconstructionRequest = {
   workspaceId: string;
+  maxResultBytes?: number;
   files: ReadonlyArray<{
     path: string;
     diffObjectKey: string;
@@ -414,6 +434,7 @@ export type RevisionReconstructor = {
 };
 
 export type RepositoryOptions = {
+  fileMapStore?: import("./repository/persistent-hosting-types.js").FileMapStore;
   apiKeyPepper: string;
   /** When set, verification and minting use multi-pepper overlap from ADR 0045. */
   pepperRing?: PepperRing;
@@ -421,10 +442,38 @@ export type RepositoryOptions = {
   apiBaseUrl?: string;
   contentBaseUrl?: string;
   webBaseUrl?: string;
-  /** When false (default), `workspaces.plan` is ignored and caps default to `pro`. */
+  /** When false (default), `workspaces.plan` is ignored and caps default to `free`. */
   billingEnabled?: boolean;
   /** Copies workspace blob bytes into the destination tenant before claim reparent commits. */
   reparentBlobMigrator?: ReparentBlobMigrator;
   /** Applies intra-file unified-diff patches to base blobs before a partial-manifest finalize commits (ADR 0089). */
   revisionReconstructor?: RevisionReconstructor;
+};
+
+export type UploadSessionChunk = {
+  workspace_id: string;
+  upload_session_id: string;
+  path: string;
+  chunk_index: number;
+  sha256: string;
+  size_bytes: number;
+  uploaded_at: string | null;
+};
+export type UploadSessionDeletion = {
+  workspace_id: string;
+  upload_session_id: string;
+  kind: "path" | "prefix";
+  path: string;
+  expect_sha256: string | null;
+  expect_size_bytes: number | null;
+  expect_snapshot_sha256: string | null;
+  batch_index: number;
+};
+export type ContentBlobChunk = {
+  workspace_id: string;
+  sha256: string;
+  size_bytes: number;
+  chunk_index: number;
+  chunk_sha256: string;
+  chunk_size_bytes: number;
 };

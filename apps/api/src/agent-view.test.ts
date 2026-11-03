@@ -103,6 +103,10 @@ describe("signAgentViewContentUrls characterization", () => {
     const signed = await signAgentViewContentUrls(view, {}, { workspaceId });
 
     expect(signed).toEqual({
+      retention: "temporary",
+      effective_expires_at: undefined,
+      file_count: 1,
+      files_truncated: false,
       artifact_id: "art_1",
       revision_id: "rev_1",
       revision_content_url: "https://content.test/v/art_1.rev_1/index.html",
@@ -122,6 +126,10 @@ describe("signAgentViewContentUrls characterization", () => {
     const signed = await signAgentViewContentUrls(view, signingEnv, { workspaceId });
 
     expect(signed).toEqual({
+      retention: "temporary",
+      effective_expires_at: undefined,
+      file_count: 1,
+      files_truncated: false,
       artifact_id: "art_1",
       revision_content_url: "https://content.test/old",
       files: [{ path: "index.html", url: "https://content.test/old" }],

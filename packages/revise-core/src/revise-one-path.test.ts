@@ -80,7 +80,8 @@ describe("reviseOnePath", () => {
 
     expect(result).toEqual({ ok: true, noop: false, outcome: outcome() });
     expect(captured?.artifactId).toBe("art_1");
-    expect(captured?.baseRevisionId).toBe("rev_1");
+    expect(captured?.commit).toEqual({ guard: "paths" });
+    expect(captured?.files[0]?.expect).toMatchObject({ sha256: expect.any(String), size_bytes: expect.any(Number) });
     expect(captured?.title).toBe("My Doc");
     expect(captured?.entrypoint).toBe("index.html");
     expect(captured?.files).toHaveLength(1);
@@ -156,7 +157,8 @@ describe("reviseOnePath", () => {
     });
     // Diff of a 1-byte file is never smaller, so the whole file is sent under base.
     expect(captured?.files[0]?.patch).toBeUndefined();
-    expect(captured?.baseRevisionId).toBe("rev_1");
+    expect(captured?.commit).toEqual({ guard: "paths" });
+    expect(captured?.files[0]?.expect).toMatchObject({ sha256: expect.any(String), size_bytes: expect.any(Number) });
   });
 
   it("is a no-op (no revision) when the edit result equals the stored bytes", async () => {
@@ -358,7 +360,8 @@ describe("reviseWholeBody", () => {
       idempotencyKey: "k1" as PublishInput["idempotencyKey"],
     });
     expect(result).toMatchObject({ ok: true, noop: false });
-    expect(captured?.baseRevisionId).toBe("rev_1");
+    expect(captured?.commit).toEqual({ guard: "paths" });
+    expect(captured?.files[0]?.expect).toMatchObject({ sha256: expect.any(String), size_bytes: expect.any(Number) });
   });
 
   it("is a no-op when the new body equals the stored bytes", async () => {

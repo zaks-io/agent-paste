@@ -1,5 +1,6 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import type { RequestBodyFor, RouteContract } from "@agent-paste/contracts";
+import { isRepositoryError } from "@agent-paste/db";
 import type { Context } from "hono";
 import { createBoundResponders } from "./bound-responders.js";
 import { contractErrorResponse, createContractErrorResponder } from "./contract-errors.js";
@@ -274,7 +275,13 @@ function mapHandlerError<Contract extends RouteContract>(
 
   const code = unknownErrorToCode(error);
   if (code) {
-    return contractErrorResponse(context, contract, code, errorOptions(context));
+    return contractErrorResponse(context, contract, code, {
+      ...errorOptions(context),
+      ...(isRepositoryError(error) ? { details: error.details } : {}),
+      ...(isRepositoryError(error) && error.kind === "blob_cleanup_in_progress"
+        ? { message: error.kind, headers: { "Retry-After": "60" } }
+        : {}),
+    });
   }
   throw error;
 }

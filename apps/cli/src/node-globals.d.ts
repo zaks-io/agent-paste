@@ -83,6 +83,7 @@ declare module "node:os" {
 
 declare module "node:path" {
   const path: {
+    matchesGlob(path: string, pattern: string): boolean;
     basename(value: string): string;
     dirname(value: string): string;
     extname(value: string): string;

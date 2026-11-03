@@ -30,6 +30,11 @@
         "in": "query",
         "name": "token",
         "description": "Signed upload URL token minted by the create-upload-session response."
+      },
+      "McpOAuthBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "WorkOS AuthKit/Connect access token minted for the MCP resource indicator."
       }
     },
     "schemas": {
@@ -47,6 +52,9 @@
                   "artifact_not_found",
                   "database_unavailable",
                   "draft_revision_conflict",
+                  "commit_conflict",
+                  "storage_quota_exceeded",
+                  "file_digest_mismatch",
                   "entrypoint_not_in_revision",
                   "file_count_cap_exceeded",
                   "file_size_cap_exceeded",
@@ -81,6 +89,10 @@
               },
               "message": {
                 "type": "string"
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": {}
               },
               "docs": {
                 "type": "string",
@@ -173,6 +185,13 @@
             "enum": [
               "disabled"
             ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "disabled_by_policy",
+              "revision_too_large"
+            ]
           }
         },
         "required": [
@@ -254,6 +273,13 @@
                 "enum": [
                   "disabled"
                 ]
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "disabled_by_policy",
+                  "revision_too_large"
+                ]
               }
             },
             "required": [
@@ -262,6 +288,610 @@
             "additionalProperties": false
           }
         ]
+      },
+      "AppendUploadFilesRequest": {
+        "type": "object",
+        "properties": {
+          "batch_index": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 262144000
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "patch": {
+                  "type": "object",
+                  "properties": {
+                    "base_sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "format": {
+                      "type": "string",
+                      "enum": [
+                        "unified"
+                      ]
+                    },
+                    "result_sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "required": [
+                    "base_sha256",
+                    "format",
+                    "result_sha256"
+                  ]
+                },
+                "chunks": {
+                  "type": "object",
+                  "properties": {
+                    "chunk_bytes": {
+                      "type": "number",
+                      "enum": [
+                        4194304
+                      ]
+                    },
+                    "sha256": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "minItems": 1,
+                      "maxItems": 63
+                    }
+                  },
+                  "required": [
+                    "chunk_bytes",
+                    "sha256"
+                  ],
+                  "additionalProperties": false
+                },
+                "expect": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "size_bytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "sha256",
+                        "size_bytes"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "absent": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        }
+                      },
+                      "required": [
+                        "absent"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "path",
+                "size_bytes"
+              ]
+            },
+            "maxItems": 1000
+          },
+          "deletions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "expect": {
+                  "type": "object",
+                  "properties": {
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "size_bytes": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "sha256",
+                    "size_bytes"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "path"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 1000
+          },
+          "prefix_deletions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "prefix": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "snapshot_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              },
+              "required": [
+                "prefix",
+                "snapshot_sha256"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 100
+          },
+          "more_files": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "batch_index",
+          "files",
+          "more_files"
+        ],
+        "additionalProperties": false
+      },
+      "AppendUploadFilesResponse": {
+        "type": "object",
+        "properties": {
+          "upload_session_id": {
+            "type": "string",
+            "pattern": "^upl_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "sealed": {
+            "type": "boolean"
+          },
+          "next_batch_index": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "upload_required"
+                      ]
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    },
+                    "put_url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "required_headers": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "path",
+                    "put_url",
+                    "required_headers",
+                    "expires_at"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "reused"
+                      ]
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "path"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "chunk_upload_required"
+                      ]
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    },
+                    "put_url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "required_headers": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "chunk_index": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 62
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "path",
+                    "put_url",
+                    "required_headers",
+                    "expires_at",
+                    "chunk_index"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "verify_required"
+                      ]
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "path"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "maxItems": 2000
+          }
+        },
+        "required": [
+          "upload_session_id",
+          "sealed",
+          "next_batch_index",
+          "files"
+        ],
+        "additionalProperties": false
+      },
+      "CompleteUploadFilesRequest": {
+        "type": "object",
+        "properties": {
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "minItems": 1,
+            "maxItems": 64
+          }
+        },
+        "required": [
+          "paths"
+        ],
+        "additionalProperties": false
+      },
+      "CompleteUploadFilesResponse": {
+        "type": "object",
+        "properties": {
+          "upload_session_id": {
+            "type": "string",
+            "pattern": "^upl_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "verified"
+                  ]
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "path",
+                "status",
+                "sha256",
+                "size_bytes"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 64
+          }
+        },
+        "required": [
+          "upload_session_id",
+          "files"
+        ],
+        "additionalProperties": false
+      },
+      "UploadSessionTargetsResponse": {
+        "type": "object",
+        "properties": {
+          "upload_session_id": {
+            "type": "string",
+            "pattern": "^upl_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ready",
+              "finalized",
+              "expired"
+            ]
+          },
+          "sealed": {
+            "type": "boolean"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "remaining": {
+            "type": "object",
+            "properties": {
+              "files": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "chunks": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unverified_files": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "files",
+              "chunks",
+              "bytes",
+              "unverified_files"
+            ],
+            "additionalProperties": false
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "upload_required"
+                      ]
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    },
+                    "put_url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "required_headers": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "path",
+                    "put_url",
+                    "required_headers",
+                    "expires_at"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "chunk_upload_required"
+                      ]
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    },
+                    "put_url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "required_headers": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "chunk_index": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 62
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "path",
+                    "put_url",
+                    "required_headers",
+                    "expires_at",
+                    "chunk_index"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "verify_required"
+                      ]
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "path"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "maxItems": 1000
+          },
+          "page_info": {
+            "type": "object",
+            "properties": {
+              "next_cursor": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "has_more": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "next_cursor",
+              "has_more"
+            ]
+          }
+        },
+        "required": [
+          "upload_session_id",
+          "status",
+          "sealed",
+          "expires_at",
+          "remaining",
+          "targets",
+          "page_info"
+        ],
+        "additionalProperties": false
       },
       "CreateUploadSessionRequest": {
         "type": "object",
@@ -320,7 +950,7 @@
                 "size_bytes": {
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 26214400
+                  "maximum": 262144000
                 },
                 "sha256": {
                   "type": "string",
@@ -349,6 +979,68 @@
                     "format",
                     "result_sha256"
                   ]
+                },
+                "chunks": {
+                  "type": "object",
+                  "properties": {
+                    "chunk_bytes": {
+                      "type": "number",
+                      "enum": [
+                        4194304
+                      ]
+                    },
+                    "sha256": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "minItems": 1,
+                      "maxItems": 63
+                    }
+                  },
+                  "required": [
+                    "chunk_bytes",
+                    "sha256"
+                  ],
+                  "additionalProperties": false
+                },
+                "expect": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "size_bytes": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "sha256",
+                        "size_bytes"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "absent": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        }
+                      },
+                      "required": [
+                        "absent"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
                 }
               },
               "required": [
@@ -356,7 +1048,110 @@
                 "size_bytes"
               ]
             },
+            "maxItems": 1000
+          },
+          "deletions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "expect": {
+                  "type": "object",
+                  "properties": {
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "size_bytes": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "sha256",
+                    "size_bytes"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "path"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 1000
+          },
+          "prefix_deletions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "prefix": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "snapshot_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              },
+              "required": [
+                "prefix",
+                "snapshot_sha256"
+              ],
+              "additionalProperties": false
+            },
             "maxItems": 100
+          },
+          "commit": {
+            "type": "object",
+            "properties": {
+              "guard": {
+                "type": "string",
+                "enum": [
+                  "paths",
+                  "snapshot"
+                ]
+              },
+              "snapshot": {
+                "type": "object",
+                "properties": {
+                  "prefix": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1,
+                    "maxLength": 4096
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                },
+                "required": [
+                  "prefix",
+                  "sha256"
+                ],
+                "additionalProperties": false
+              },
+              "pin": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "guard"
+            ],
+            "additionalProperties": false
+          },
+          "more_files": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -450,10 +1245,82 @@
                     "status",
                     "path"
                   ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "chunk_upload_required"
+                      ]
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    },
+                    "put_url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "required_headers": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "chunk_index": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 62
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "path",
+                    "put_url",
+                    "required_headers",
+                    "expires_at",
+                    "chunk_index"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "verify_required"
+                      ]
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "path"
+                  ],
+                  "additionalProperties": false
                 }
               ]
             },
-            "maxItems": 100
+            "maxItems": 2000
+          },
+          "sealed": {
+            "type": "boolean"
+          },
+          "next_batch_index": {
+            "type": "integer",
+            "minimum": 1
           }
         },
         "required": [
@@ -466,54 +1333,98 @@
         ]
       },
       "FinalizeUploadSessionResponse": {
-        "type": "object",
-        "properties": {
-          "upload_session_id": {
-            "type": "string",
-            "pattern": "^upl_[0-9A-HJKMNP-TV-Z]{26}$"
-          },
-          "artifact_id": {
-            "type": "string",
-            "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
-          },
-          "revision_id": {
-            "type": "string",
-            "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "draft"
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "upload_session_id": {
+                "type": "string",
+                "pattern": "^upl_[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "artifact_id": {
+                "type": "string",
+                "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "revision_id": {
+                "type": "string",
+                "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "draft"
+                ]
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "entrypoint": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "file_count": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "upload_session_id",
+              "artifact_id",
+              "revision_id",
+              "status",
+              "title",
+              "entrypoint",
+              "file_count",
+              "size_bytes"
             ]
           },
-          "title": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 160
-          },
-          "entrypoint": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 4096
-          },
-          "file_count": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "size_bytes": {
-            "type": "integer",
-            "minimum": 0
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ready"
+                ]
+              },
+              "upload_session_id": {
+                "type": "string",
+                "pattern": "^upl_[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "artifact_id": {
+                "type": "string",
+                "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "revision_id": {
+                "type": "string",
+                "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "file_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "deletion_count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "status",
+              "upload_session_id",
+              "artifact_id",
+              "revision_id",
+              "file_count",
+              "deletion_count"
+            ],
+            "additionalProperties": false
           }
-        },
-        "required": [
-          "upload_session_id",
-          "artifact_id",
-          "revision_id",
-          "status",
-          "title",
-          "entrypoint",
-          "file_count",
-          "size_bytes"
         ]
       },
       "PublishResult": {
@@ -549,6 +1460,226 @@
           "expires_at"
         ],
         "additionalProperties": false
+      },
+      "PublishResultV2": {
+        "type": "object",
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "revision_id": {
+            "type": "string",
+            "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revision_number": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "retention": {
+            "type": "string",
+            "enum": [
+              "pinned",
+              "temporary"
+            ]
+          },
+          "pinned_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "effective_expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "no_change": {
+            "type": "boolean"
+          },
+          "changes": {
+            "type": "object",
+            "properties": {
+              "added": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "changed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "removed": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "added",
+              "changed",
+              "removed"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "artifact_id",
+          "revision_id",
+          "title",
+          "url",
+          "expires_at",
+          "revision_number",
+          "retention",
+          "pinned_at",
+          "effective_expires_at",
+          "no_change",
+          "changes"
+        ],
+        "additionalProperties": false
+      },
+      "PublishRevisionResponse": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "artifact_id": {
+                "type": "string",
+                "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "revision_id": {
+                "type": "string",
+                "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "artifact_id",
+              "revision_id",
+              "title",
+              "url",
+              "expires_at"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "artifact_id": {
+                "type": "string",
+                "pattern": "^art_[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "revision_id": {
+                "type": "string",
+                "pattern": "^rev_[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "revision_number": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "retention": {
+                "type": "string",
+                "enum": [
+                  "pinned",
+                  "temporary"
+                ]
+              },
+              "pinned_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "effective_expires_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "no_change": {
+                "type": "boolean"
+              },
+              "changes": {
+                "type": "object",
+                "properties": {
+                  "added": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "changed": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "removed": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "added",
+                  "changed",
+                  "removed"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "artifact_id",
+              "revision_id",
+              "title",
+              "url",
+              "expires_at",
+              "revision_number",
+              "retention",
+              "pinned_at",
+              "effective_expires_at",
+              "no_change",
+              "changes"
+            ],
+            "additionalProperties": false
+          }
+        ]
       },
       "RevisionSummary": {
         "type": "object",
@@ -755,6 +1886,9 @@
         "security": [
           {
             "ApiKeyBearer": []
+          },
+          {
+            "McpOAuthBearer": []
           }
         ],
         "parameters": [
@@ -844,7 +1978,7 @@
                         "size_bytes": {
                           "type": "integer",
                           "minimum": 0,
-                          "maximum": 26214400
+                          "maximum": 262144000
                         },
                         "sha256": {
                           "type": "string",
@@ -873,6 +2007,68 @@
                             "format",
                             "result_sha256"
                           ]
+                        },
+                        "chunks": {
+                          "type": "object",
+                          "properties": {
+                            "chunk_bytes": {
+                              "type": "number",
+                              "enum": [
+                                4194304
+                              ]
+                            },
+                            "sha256": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                              },
+                              "minItems": 1,
+                              "maxItems": 63
+                            }
+                          },
+                          "required": [
+                            "chunk_bytes",
+                            "sha256"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "expect": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "sha256": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                },
+                                "size_bytes": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              },
+                              "required": [
+                                "sha256",
+                                "size_bytes"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "absent": {
+                                  "type": "boolean",
+                                  "enum": [
+                                    true
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "absent"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -880,7 +2076,110 @@
                         "size_bytes"
                       ]
                     },
+                    "maxItems": 1000
+                  },
+                  "deletions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "path": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 4096
+                        },
+                        "expect": {
+                          "type": "object",
+                          "properties": {
+                            "sha256": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "size_bytes": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "sha256",
+                            "size_bytes"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "path"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 1000
+                  },
+                  "prefix_deletions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "prefix": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 4096
+                        },
+                        "snapshot_sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        }
+                      },
+                      "required": [
+                        "prefix",
+                        "snapshot_sha256"
+                      ],
+                      "additionalProperties": false
+                    },
                     "maxItems": 100
+                  },
+                  "commit": {
+                    "type": "object",
+                    "properties": {
+                      "guard": {
+                        "type": "string",
+                        "enum": [
+                          "paths",
+                          "snapshot"
+                        ]
+                      },
+                      "snapshot": {
+                        "type": "object",
+                        "properties": {
+                          "prefix": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "minLength": 1,
+                            "maxLength": 4096
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          }
+                        },
+                        "required": [
+                          "prefix",
+                          "sha256"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "pin": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "guard"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "more_files": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -921,6 +2220,9 @@
                             "artifact_not_found",
                             "database_unavailable",
                             "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -955,6 +2257,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
                         },
                         "docs": {
                           "type": "string",
@@ -996,6 +2302,9 @@
                             "artifact_not_found",
                             "database_unavailable",
                             "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1030,6 +2339,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
                         },
                         "docs": {
                           "type": "string",
@@ -1071,6 +2384,9 @@
                             "artifact_not_found",
                             "database_unavailable",
                             "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1105,6 +2421,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
                         },
                         "docs": {
                           "type": "string",
@@ -1146,6 +2466,9 @@
                             "artifact_not_found",
                             "database_unavailable",
                             "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1180,6 +2503,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
                         },
                         "docs": {
                           "type": "string",
@@ -1204,27 +2531,17 @@
             }
           },
           "429": {
-            "description": "Actor or workspace rate limit exceeded. Error code is rate_limited_actor or rate_limited_workspace.",
+            "description": "Actor or workspace rate limit, or storage quota exceeded. Storage quota failures have no Retry-After.",
             "headers": {
               "Retry-After": {
                 "schema": {
                   "type": "string",
                   "description": "Seconds to wait before retrying."
                 },
-                "required": true,
+                "required": false,
                 "description": "Seconds to wait before retrying."
               }
             },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RateLimitErrorEnvelope"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Error envelope",
             "content": {
               "application/json": {
                 "schema": {
@@ -1241,6 +2558,9 @@
                             "artifact_not_found",
                             "database_unavailable",
                             "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1275,6 +2595,92 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
                         },
                         "docs": {
                           "type": "string",
@@ -1316,6 +2722,9 @@
                             "artifact_not_found",
                             "database_unavailable",
                             "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1350,6 +2759,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
                         },
                         "docs": {
                           "type": "string",
@@ -1449,6 +2862,9 @@
                             "artifact_not_found",
                             "database_unavailable",
                             "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1483,6 +2899,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
                         },
                         "docs": {
                           "type": "string",
@@ -1524,6 +2944,9 @@
                             "artifact_not_found",
                             "database_unavailable",
                             "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1558,6 +2981,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
                         },
                         "docs": {
                           "type": "string",
@@ -1599,6 +3026,9 @@
                             "artifact_not_found",
                             "database_unavailable",
                             "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1633,6 +3063,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
                         },
                         "docs": {
                           "type": "string",
@@ -1674,6 +3108,9 @@
                             "artifact_not_found",
                             "database_unavailable",
                             "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1708,6 +3145,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
                         },
                         "docs": {
                           "type": "string",
@@ -1750,6 +3191,88 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
           }
         }
       }
@@ -1761,6 +3284,9 @@
         "security": [
           {
             "ApiKeyBearer": []
+          },
+          {
+            "McpOAuthBearer": []
           }
         ],
         "parameters": [
@@ -1827,6 +3353,9 @@
                             "artifact_not_found",
                             "database_unavailable",
                             "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1861,6 +3390,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
                         },
                         "docs": {
                           "type": "string",
@@ -1902,6 +3435,9 @@
                             "artifact_not_found",
                             "database_unavailable",
                             "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -1936,6 +3472,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
                         },
                         "docs": {
                           "type": "string",
@@ -1977,6 +3517,9 @@
                             "artifact_not_found",
                             "database_unavailable",
                             "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -2011,6 +3554,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
                         },
                         "docs": {
                           "type": "string",
@@ -2052,6 +3599,9 @@
                             "artifact_not_found",
                             "database_unavailable",
                             "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -2086,6 +3636,2340 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Actor or workspace rate limit, or storage quota exceeded. Storage quota failures have no Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying."
+                },
+                "required": false,
+                "description": "Seconds to wait before retrying."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/upload-sessions/{upload_session_id}/file-batches": {
+      "post": {
+        "operationId": "uploadSessions.appendFiles",
+        "summary": "Append and optionally seal a guarded session batch.",
+        "security": [
+          {
+            "ApiKeyBearer": []
+          },
+          {
+            "McpOAuthBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "upload_session_id",
+            "in": "path",
+            "description": "Upload session id."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200,
+              "description": "Caller-provided idempotency key. Required on every mutation."
+            },
+            "required": true,
+            "description": "Caller-provided idempotency key. Required on every mutation.",
+            "name": "Idempotency-Key",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID."
+            },
+            "required": false,
+            "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID.",
+            "name": "X-Request-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "batch_index": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "path": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 4096
+                        },
+                        "size_bytes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 262144000
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "patch": {
+                          "type": "object",
+                          "properties": {
+                            "base_sha256": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "format": {
+                              "type": "string",
+                              "enum": [
+                                "unified"
+                              ]
+                            },
+                            "result_sha256": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            }
+                          },
+                          "required": [
+                            "base_sha256",
+                            "format",
+                            "result_sha256"
+                          ]
+                        },
+                        "chunks": {
+                          "type": "object",
+                          "properties": {
+                            "chunk_bytes": {
+                              "type": "number",
+                              "enum": [
+                                4194304
+                              ]
+                            },
+                            "sha256": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                              },
+                              "minItems": 1,
+                              "maxItems": 63
+                            }
+                          },
+                          "required": [
+                            "chunk_bytes",
+                            "sha256"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "expect": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "sha256": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                },
+                                "size_bytes": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              },
+                              "required": [
+                                "sha256",
+                                "size_bytes"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "absent": {
+                                  "type": "boolean",
+                                  "enum": [
+                                    true
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "absent"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "path",
+                        "size_bytes"
+                      ]
+                    },
+                    "maxItems": 1000
+                  },
+                  "deletions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "path": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 4096
+                        },
+                        "expect": {
+                          "type": "object",
+                          "properties": {
+                            "sha256": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "size_bytes": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "sha256",
+                            "size_bytes"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "path"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 1000
+                  },
+                  "prefix_deletions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "prefix": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 4096
+                        },
+                        "snapshot_sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        }
+                      },
+                      "required": [
+                        "prefix",
+                        "snapshot_sha256"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 100
+                  },
+                  "more_files": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "batch_index",
+                  "files",
+                  "more_files"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success (200)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppendUploadFilesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Actor or workspace rate limit, or storage quota exceeded. Storage quota failures have no Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying."
+                },
+                "required": false,
+                "description": "Seconds to wait before retrying."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/upload-sessions/{upload_session_id}/file-completions": {
+      "post": {
+        "operationId": "uploadSessions.completeFiles",
+        "summary": "Verify chunked whole-file digests.",
+        "security": [
+          {
+            "ApiKeyBearer": []
+          },
+          {
+            "McpOAuthBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "upload_session_id",
+            "in": "path",
+            "description": "Upload session id."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 200,
+              "description": "Caller-provided idempotency key. Required on every mutation."
+            },
+            "required": true,
+            "description": "Caller-provided idempotency key. Required on every mutation.",
+            "name": "Idempotency-Key",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID."
+            },
+            "required": false,
+            "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID.",
+            "name": "X-Request-Id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "paths": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    },
+                    "minItems": 1,
+                    "maxItems": 64
+                  }
+                },
+                "required": [
+                  "paths"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success (200)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompleteUploadFilesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Actor or workspace rate limit, or storage quota exceeded. Storage quota failures have no Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying."
+                },
+                "required": false,
+                "description": "Seconds to wait before retrying."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/upload-sessions/{upload_session_id}/targets": {
+      "get": {
+        "operationId": "uploadSessions.targets",
+        "summary": "Page fresh upload targets for resume.",
+        "security": [
+          {
+            "ApiKeyBearer": []
+          },
+          {
+            "McpOAuthBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "upload_session_id",
+            "in": "path",
+            "description": "Upload session id."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID."
+            },
+            "required": false,
+            "description": "Caller-supplied request id. Worker echoes it back; non-matching values are replaced with a UUID.",
+            "name": "X-Request-Id",
+            "in": "header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success (200)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadSessionTargetsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "docs": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "api_key_not_found",
+                            "api_key_revoked",
+                            "artifact_not_found",
+                            "database_unavailable",
+                            "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
+                            "entrypoint_not_in_revision",
+                            "file_count_cap_exceeded",
+                            "file_size_cap_exceeded",
+                            "forbidden",
+                            "idempotency_in_flight",
+                            "invalid_auth",
+                            "invalid_content_length",
+                            "invalid_cursor",
+                            "invalid_idempotency_key",
+                            "invalid_request",
+                            "not_authenticated",
+                            "not_found",
+                            "patch_conflict",
+                            "pinned_artifact_cap_exceeded",
+                            "rate_limited_actor",
+                            "rate_limited_artifact",
+                            "rate_limited_workspace",
+                            "ephemeral_provision_rate_limited",
+                            "ephemeral_provision_unavailable",
+                            "revision_retained",
+                            "revision_size_cap_exceeded",
+                            "revision_unpublished",
+                            "storage_unavailable",
+                            "unexpected_upload_object",
+                            "upload_incomplete",
+                            "upload_session_expired",
+                            "upload_session_not_found",
+                            "usage_policy_exceeded",
+                            "write_allowance_exceeded",
+                            "revision_ceiling_exceeded"
+                          ]
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
                         },
                         "docs": {
                           "type": "string",
@@ -2147,6 +6031,9 @@
                             "artifact_not_found",
                             "database_unavailable",
                             "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -2181,6 +6068,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
                         },
                         "docs": {
                           "type": "string",
@@ -2222,6 +6113,9 @@
                             "artifact_not_found",
                             "database_unavailable",
                             "draft_revision_conflict",
+                            "commit_conflict",
+                            "storage_quota_exceeded",
+                            "file_digest_mismatch",
                             "entrypoint_not_in_revision",
                             "file_count_cap_exceeded",
                             "file_size_cap_exceeded",
@@ -2256,6 +6150,10 @@
                         },
                         "message": {
                           "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
                         },
                         "docs": {
                           "type": "string",

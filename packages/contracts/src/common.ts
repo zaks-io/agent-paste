@@ -7,6 +7,9 @@ export const ErrorCode = z.enum([
   "artifact_not_found",
   "database_unavailable",
   "draft_revision_conflict",
+  "commit_conflict",
+  "storage_quota_exceeded",
+  "file_digest_mismatch",
   "entrypoint_not_in_revision",
   "file_count_cap_exceeded",
   "file_size_cap_exceeded",
@@ -44,6 +47,7 @@ export const ErrorEnvelope = z.object({
   error: z.object({
     code: ErrorCode,
     message: z.string(),
+    details: z.record(z.string(), z.unknown()).optional(),
     docs: z.string().url().optional(),
     request_id: z.string().min(1).optional(),
   }),

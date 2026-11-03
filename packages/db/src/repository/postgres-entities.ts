@@ -10,6 +10,7 @@ import type { PostgresContext } from "./postgres-entities/context.js";
 import { postgresFeedback } from "./postgres-entities/feedback.js";
 import { postgresMembers } from "./postgres-entities/members.js";
 import { postgresOperationEvents } from "./postgres-entities/operation-events.js";
+import { postgresPersistent } from "./postgres-entities/persistent.js";
 import { postgresPlatformLockdowns } from "./postgres-entities/platform-lockdowns.js";
 import { postgresRevisions } from "./postgres-entities/revisions.js";
 import { postgresSafetyWarnings } from "./postgres-entities/safety-warnings.js";
@@ -24,6 +25,7 @@ export type { PostgresContext } from "./postgres-entities/context.js";
 // keep the original raw SQL so RLS-scoped batch updates stay byte-for-byte identical.
 export function postgresEntities(ctx: PostgresContext): Entities {
   return {
+    persistent: postgresPersistent(ctx),
     feedback: postgresFeedback(ctx),
     workspaces: postgresWorkspaces(ctx),
     apiKeys: postgresApiKeys(ctx),

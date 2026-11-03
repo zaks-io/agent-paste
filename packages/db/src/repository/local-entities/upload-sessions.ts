@@ -29,15 +29,21 @@ export function localUploadSessions(state: LocalState): Entities["uploadSessions
     async listExpiring(now, limit) {
       const nowMs = new Date(now).getTime();
       return [...state.uploadSessions.values()]
-        .filter((session) => session.status === "pending" && new Date(session.expires_at).getTime() <= nowMs)
+        .filter(
+          (session) => ["pending", "ready"].includes(session.status) && new Date(session.expires_at).getTime() <= nowMs,
+        )
         .sort((left, right) => left.expires_at.localeCompare(right.expires_at))
         .slice(0, limit)
         .map((session) => ({ id: session.id }));
     },
-    async expireBatch(_now, ids) {
+    async expireBatch(now, ids) {
       for (const id of ids) {
         const session = state.uploadSessions.get(id);
-        if (session) {
+        if (
+          session &&
+          ["pending", "ready"].includes(session.status) &&
+          Date.parse(session.expires_at) <= Date.parse(now)
+        ) {
           session.status = "expired";
         }
       }

@@ -1,5 +1,8 @@
 # Revision Commit Chain, Tree Inheritance, And Server-Reconstructed Intra-File Delta
 
+Amended by [ADR 0101](./0101-persistent-static-hosting-and-guarded-transfers.md) for
+guarded current-head merges, bounded chunk transfers, and Range reads. The original decision below records its historical scope.
+
 An agent that has already published an **Artifact** and wants to change one file
 should be able to say "change this one file," not re-describe the whole tree. Two
 gaps stand in the way today, both recorded as the missing half of

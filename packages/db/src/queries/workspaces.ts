@@ -50,6 +50,7 @@ export const workspaceQueries = defineSqlQuerySourceMap("packages/db/src/queries
 
 function mapWorkspace(row: typeof workspaces.$inferSelect): Workspace {
   return {
+    storage_budget_bytes: row.storageBudgetBytes == null ? null : Number(row.storageBudgetBytes),
     id: row.id,
     name: row.name,
     contact_email: row.contactEmail,

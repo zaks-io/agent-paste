@@ -12,6 +12,7 @@ import {
   type SqlExecutor,
   type SqlValue,
 } from "./index";
+import { fakeFileMapStore } from "./test-helpers/file-map-store.js";
 
 const adminActor = { type: "admin" as const, id: "operator" };
 const memberActor = {
@@ -24,7 +25,7 @@ const memberActor = {
 
 describe("LocalRepository", () => {
   it("bootstraps a workspace and verifies a generated API key", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({
       actor: adminActor,
       idempotencyKey: "idem-ws",
@@ -50,7 +51,7 @@ describe("LocalRepository", () => {
   });
 
   it("replays workspace create when called twice with the same idempotency key", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const first = await repo.createWorkspace({
       actor: adminActor,
       idempotencyKey: "idem-ws",
@@ -66,7 +67,7 @@ describe("LocalRepository", () => {
   });
 
   it("replays api-key creation when called twice with the same idempotency key", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({
       actor: adminActor,
       idempotencyKey: "idem-ws",
@@ -89,7 +90,7 @@ describe("LocalRepository", () => {
   });
 
   it("provisions exactly one web workspace, member, and default key", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const first = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
@@ -115,7 +116,7 @@ describe("LocalRepository", () => {
   });
 
   it("heals a null claimed_at on a returning member's workspace", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const first = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
@@ -139,7 +140,7 @@ describe("LocalRepository", () => {
   });
 
   it("replays web member resolution by idempotency key without mutating member state", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const first = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
@@ -165,7 +166,7 @@ describe("LocalRepository", () => {
   });
 
   it("resolves a web member actor without mutating login timestamps", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const session = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
@@ -187,7 +188,7 @@ describe("LocalRepository", () => {
   });
 
   it("provisions a workspace on first ensureWebMember and is idempotent thereafter", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const first = await repo.ensureWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "cli@example.com",
@@ -211,7 +212,7 @@ describe("LocalRepository", () => {
   });
 
   it("creates member-owned API keys idempotently and writes a member audit event", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const session = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
@@ -258,7 +259,7 @@ describe("LocalRepository", () => {
   });
 
   it("creates expiring CLI API keys and rejects them after expiry without touching last_used_at", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
@@ -294,7 +295,7 @@ describe("LocalRepository", () => {
   });
 
   it("revokes member-owned API keys and hides missing or cross-workspace keys", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const firstSession = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
@@ -367,7 +368,7 @@ describe("LocalRepository", () => {
   });
 
   it("self-revokes the current API key with an API-key actor audit event", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const key = await repo.createApiKey({
       actor: { type: "admin", id: "admin" },
       idempotencyKey: "idem-admin-key",
@@ -406,7 +407,7 @@ describe("LocalRepository", () => {
   });
 
   it("persists web settings updates and reflects them in getWebSettings", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const session = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
@@ -463,7 +464,7 @@ describe("LocalRepository", () => {
   });
 
   it("rejects API-key actors on web settings updates", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({
       actor: adminActor,
       idempotencyKey: "idem-ws",
@@ -491,7 +492,7 @@ describe("LocalRepository", () => {
   });
 
   it("rejects out-of-range auto_deletion_days in the repository core", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
@@ -518,7 +519,7 @@ describe("LocalRepository", () => {
   });
 
   it("sets a platform lockdown, replays it, and lifts it", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const operator = { type: "platform" as const, id: "operator@example.com" };
 
     const set = await repo.setLockdown({
@@ -591,7 +592,7 @@ describe("LocalRepository", () => {
   });
 
   it("attributes platform lockdown audit events to the affected workspace", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({
       actor: adminActor,
       idempotencyKey: "idem-ws-lockdown-audit",
@@ -627,7 +628,7 @@ describe("LocalRepository", () => {
   });
 
   it("attributes artifact lockdown audit events to the artifact workspace", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({
       actor: adminActor,
       idempotencyKey: "idem-ws-art-lockdown",
@@ -683,7 +684,7 @@ describe("LocalRepository", () => {
   });
 
   it("returns not_found when lifting a lockdown that does not exist", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     await expect(
       repo.liftLockdown({
         actor: { type: "platform", id: "operator@example.com" },
@@ -695,7 +696,7 @@ describe("LocalRepository", () => {
   });
 
   it("lists effective lockdowns newest-first, excludes lifted, and paginates by cursor", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const operator = { type: "platform" as const, id: "operator@example.com" };
     const targets = [
       { id: "11111111-1111-1111-1111-111111111111", at: "2026-01-01T00:00:00.000Z" },
@@ -736,7 +737,7 @@ describe("LocalRepository", () => {
   });
 
   it("paginates stably across rows sharing a set_at via the id DESC tiebreak", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const operator = { type: "platform" as const, id: "operator@example.com" };
     // Two rows share an identical set_at so the keyset must fall back to id DESC;
     // a third row at an earlier set_at anchors the cross-timestamp boundary.
@@ -784,14 +785,14 @@ describe("LocalRepository", () => {
   });
 
   it("throws invalid_cursor when listing lockdowns with a malformed cursor", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     await expect(
       repo.listLockdowns({ type: "platform", id: "operator@example.com" }, { cursor: "not-base64" }),
     ).rejects.toThrow("invalid_cursor");
   });
 
   it("rejects API-key actors on member-only web workspace reads", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({
       actor: adminActor,
       idempotencyKey: "idem-ws",
@@ -812,7 +813,7 @@ describe("LocalRepository", () => {
   });
 
   it("cursor-paginates web artifacts inside the member workspace", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const session = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
@@ -849,7 +850,7 @@ describe("LocalRepository", () => {
   });
 
   it("normalizes and validates web artifact cursors", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const session = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
@@ -886,14 +887,14 @@ describe("LocalRepository", () => {
   });
 
   it("rejects invalid web artifact pagination limits", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
 
     await expect(repo.listWebArtifacts(memberActor, { limit: 0 })).rejects.toThrow("invalid_pagination_limit");
     await expect(repo.listWebArtifacts(memberActor, { limit: 101 })).rejects.toThrow("invalid_pagination_limit");
   });
 
   it("cursor-paginates web audit events inside the member workspace", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     repo.operationEvents.set("evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z1", {
       id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z1",
       workspace_id: memberActor.workspace_id,
@@ -1001,7 +1002,7 @@ describe("LocalRepository", () => {
   });
 
   it("validates web audit cursors and limits", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const invalidDateCursor = webAuditCursor({
       occurred_at: "not-a-date",
       id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z1",
@@ -1014,7 +1015,7 @@ describe("LocalRepository", () => {
   });
 
   it("lists cross-workspace operator events with focus and workspace filters", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const platformActor = { type: "platform" as const, id: "operator@example.com" };
     repo.operationEvents.set("evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z1", {
       id: "evt_01HZY7Q8X9Y2S3T4V5W6X7Y8Z1",
@@ -1071,7 +1072,7 @@ describe("LocalRepository", () => {
   });
 
   it("replays artifact deletion when called twice with the same idempotency key", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({
       actor: adminActor,
       idempotencyKey: "idem-ws",
@@ -1124,7 +1125,7 @@ describe("LocalRepository", () => {
   });
 
   it("creates and finalizes an upload session into an artifact", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({
       actor: adminActor,
       idempotencyKey: "idem-ws",
@@ -1186,7 +1187,7 @@ describe("LocalRepository", () => {
   });
 
   it("lists workspaces newest-first", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     await repo.createWorkspace({
       actor: adminActor,
       idempotencyKey: "idem-ws-old",
@@ -1209,7 +1210,7 @@ describe("LocalRepository", () => {
   });
 
   it("revokes admin-created API keys idempotently and rejects revoked or wrong secrets", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({
       actor: adminActor,
       idempotencyKey: "idem-ws",
@@ -1248,7 +1249,7 @@ describe("LocalRepository", () => {
   });
 
   it("rejects pin and unpin from non-member actors", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const session = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
@@ -1278,7 +1279,7 @@ describe("LocalRepository", () => {
   });
 
   it("pin and unpin are idempotent when state is already satisfied", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const session = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
@@ -1322,7 +1323,7 @@ describe("LocalRepository", () => {
   });
 
   it("pins and unpins artifacts for web members", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const session = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
@@ -1360,7 +1361,7 @@ describe("LocalRepository", () => {
   });
 
   it("rejects pin and unpin for missing artifacts and other workspaces", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const session = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
@@ -1420,7 +1421,7 @@ describe("LocalRepository", () => {
   });
 
   it("returns web artifact details only inside the member workspace", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const session = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
@@ -1448,7 +1449,7 @@ describe("LocalRepository", () => {
   });
 
   it("lists web API keys with revoked flags", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "user@example.com",
@@ -1482,7 +1483,7 @@ describe("LocalRepository", () => {
   });
 
   it("lists operation events newest-first", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     await repo.createWorkspace({
       actor: adminActor,
       idempotencyKey: "idem-ws-old",
@@ -2044,7 +2045,7 @@ describe("LocalRepository", () => {
   });
 
   it("rejects invalid upload finalization states", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const workspace = await repo.createWorkspace({
       actor: adminActor,
       idempotencyKey: "idem-ws",
@@ -2187,7 +2188,9 @@ describe("PostgresRepository", () => {
         return run(stub);
       },
     };
-    expect(() => new PostgresRepository(stub, { apiKeyPepper: "pepper" })).toThrow(/executor_missing_drizzle_binding/);
+    expect(() => new PostgresRepository(stub, { fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" })).toThrow(
+      /executor_missing_drizzle_binding/,
+    );
   });
 
   it("rejects invalid web artifact pagination limits before querying", async () => {
@@ -2200,7 +2203,7 @@ describe("PostgresRepository", () => {
       },
     };
     const connection = { sql: stub, drizzle: {} as DrizzleConnection["drizzle"] };
-    const repo = new PostgresRepository(connection, { apiKeyPepper: "pepper" });
+    const repo = new PostgresRepository(connection, { fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
 
     await expect(repo.listWebArtifacts(memberActor, { limit: 0 })).rejects.toThrow("invalid_pagination_limit");
     await expect(repo.listWebArtifacts(memberActor, { limit: 101 })).rejects.toThrow("invalid_pagination_limit");
@@ -2216,7 +2219,7 @@ describe("PostgresRepository", () => {
       },
     };
     const connection = { sql: stub, drizzle: {} as DrizzleConnection["drizzle"] };
-    const repo = new PostgresRepository(connection, { apiKeyPepper: "pepper" });
+    const repo = new PostgresRepository(connection, { fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
 
     await expect(repo.listWebAuditEvents(memberActor, { limit: 0 })).rejects.toThrow("invalid_pagination_limit");
     await expect(repo.listWebAuditEvents(memberActor, { limit: 101 })).rejects.toThrow("invalid_pagination_limit");
@@ -3019,7 +3022,7 @@ function firstFile(session: { files: Array<{ object_key: string }> }) {
 }
 
 async function localRepoWithApiActor(options?: Partial<RepositoryOptions>) {
-  const repo = new LocalRepository({ apiKeyPepper: "pepper", ...options });
+  const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper", ...options });
   const workspace = await repo.createWorkspace({
     actor: adminActor,
     idempotencyKey: "idem-ws",
@@ -3039,7 +3042,7 @@ async function localRepoWithApiActor(options?: Partial<RepositoryOptions>) {
 }
 
 async function localRepoWithMemberActor() {
-  const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+  const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
   const workosUserId = "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ";
   await repo.resolveWebMember({
     workosUserId,

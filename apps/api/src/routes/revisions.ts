@@ -9,6 +9,7 @@ import { resolveArtifactReference } from "../artifact-reference.js";
 import type { AppContext } from "../env.js";
 import { workspaceApiActor } from "../principals.js";
 import { createPublishCoordinator } from "../publish-coordinator.js";
+import { requireViewFileMap } from "../require-file-map.js";
 import { type ContractRespondError, runIdempotent } from "../responses.js";
 import type { GuardFor, RouteParams } from "../route-contracts.js";
 import { contentBaseUrl } from "../runtime.js";
@@ -52,6 +53,7 @@ export async function authenticatedAgentView(
     return getBoundResponders(context).respondError("not_found");
   }
 
+  await requireViewFileMap(db, view, actor.workspace_id);
   return getBoundResponders(context).respondJson(
     await signAgentViewContentUrls(view, env, {
       workspaceId: actor.workspace_id,
@@ -112,6 +114,7 @@ export async function publishRevision(
         artifactId,
         revisionId: params.revisionId ?? "",
         claimCode: claimCodeFromHeader(context.req.raw.headers),
+        ...(guard.body.include_retention ? { includeRetention: true } : {}),
       }),
     { respondError: guard.respondError as ContractRespondError },
   );
@@ -155,6 +158,7 @@ export async function publicAgentView(context: AppContext, principal: Principal,
     return getBoundResponders(context).respondError("not_found");
   }
 
+  await requireViewFileMap(db, view);
   const signedView = await signAgentViewContentUrls(view, env);
   return wantsHtml(context.req.raw)
     ? htmlAgentViewResponse(context, signedView)

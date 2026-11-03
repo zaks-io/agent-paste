@@ -27,6 +27,49 @@ const publishChainBaseForwardedCalls = [
 
 export const mcpToolContracts = [
   {
+    name: "pin_artifact",
+    description: "Pin an Artifact to keep it until unpinned.",
+    auth: "mcp_oauth",
+    requiredScopes: ["publish"],
+    idempotency: "optional_override",
+    inputSchema: "pin_artifact",
+    outputSchema: "pin_artifact",
+    forwardedCalls: [{ routeId: "artifacts.pin", auth: "mcp_principal", idempotencyKey: "same_as_tool" }],
+    errors: [
+      "forbidden",
+      "artifact_not_found",
+      "pinned_artifact_cap_exceeded",
+      "invalid_idempotency_key",
+      "idempotency_in_flight",
+      "storage_unavailable",
+      "rate_limited_actor",
+      "rate_limited_workspace",
+      "database_unavailable",
+    ],
+  },
+  {
+    name: "unpin_artifact",
+    description: "Unpin an Artifact and start a fresh retention window.",
+    auth: "mcp_oauth",
+    requiredScopes: ["publish"],
+    idempotency: "optional_override",
+    inputSchema: "unpin_artifact",
+    outputSchema: "unpin_artifact",
+    forwardedCalls: [{ routeId: "artifacts.unpin", auth: "mcp_principal", idempotencyKey: "same_as_tool" }],
+    errors: [
+      "forbidden",
+      "artifact_not_found",
+      "pinned_artifact_cap_exceeded",
+      "invalid_idempotency_key",
+      "idempotency_in_flight",
+      "storage_unavailable",
+      "rate_limited_actor",
+      "rate_limited_workspace",
+      "database_unavailable",
+    ],
+  },
+
+  {
     name: "publish_artifact",
     description:
       "Publish a NEW text Artifact. Returns artifact_id, revision_id, and url, which opens without login and stays the same across Revisions. To change an existing Artifact use add_revision or multi_edit; publishing an edit here creates a second Artifact at a second URL.",

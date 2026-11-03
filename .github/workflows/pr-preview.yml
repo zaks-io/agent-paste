@@ -23,7 +23,7 @@ jobs:
   deploy:
     name: Deploy PR Preview
     runs-on: blacksmith-2vcpu-ubuntu-2404
-    timeout-minutes: 25
+    timeout-minutes: ${{ contains(github.event.pull_request.labels.*.name, 'large-transfer-preview') && 135 || 25 }}
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'full-pr-preview') }}
     permissions:
       contents: read
@@ -262,6 +262,29 @@ jobs:
           # Override in workflow_dispatch or forked test runs if the style-guide threshold changes.
           AGENT_PASTE_LIGHTHOUSE_A11Y_MIN_SCORE: "95"
         run: pnpm lighthouse:dashboard-a11y
+
+      - name: Hosted large-transfer acceptance (opt-in)
+        id: large-transfer
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'full-pr-preview') && contains(github.event.pull_request.labels.*.name, 'large-transfer-preview') }}
+        timeout-minutes: 110
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          AGENT_PASTE_PR_API_URL: ${{ steps.deploy.outputs.api_url }}
+          AGENT_PASTE_PR_UPLOAD_URL: ${{ steps.deploy.outputs.upload_url }}
+          AGENT_PASTE_PR_CONTENT_URL: ${{ steps.deploy.outputs.content_url }}
+          AGENT_PASTE_PR_SMOKE_HARNESS_SECRET: ${{ steps.deploy.outputs.smoke_harness_secret }}
+          AGENT_PASTE_TRANSFER_OUTPUT_DIR: ${{ runner.temp }}/hosted-large-transfer
+        run: node scripts/smoke-hosted-transfers.mjs
+
+      - name: Upload sanitized hosted transfer evidence
+        if: ${{ always() && steps.large-transfer.outcome != 'skipped' && github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'full-pr-preview') && contains(github.event.pull_request.labels.*.name, 'large-transfer-preview') }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hosted-transfer-evidence-pr-${{ github.event.pull_request.number }}
+          path: ${{ runner.temp }}/hosted-large-transfer/hosted-transfer-evidence.json
+          if-no-files-found: error
+          retention-days: 7
 
   comment:
     name: Comment PR Preview Links

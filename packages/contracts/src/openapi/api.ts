@@ -5,6 +5,7 @@ import { registerArtifactPaths } from "./api.artifacts.js";
 import { registerBillingPaths } from "./api.billing.js";
 import { registerEphemeralPaths } from "./api.ephemeral.js";
 import { createApiPathHelpers } from "./api.helpers.js";
+import { registerPersistentHostingPaths } from "./api.persistent-hosting.js";
 import { registerPublicPaths } from "./api.public.js";
 import { registerWebPaths } from "./api.web.js";
 import { registerWebAdminPaths } from "./api.web-admin.js";
@@ -40,6 +41,7 @@ export function buildApiOpenApiDocument(options: ApiOpenApiOptions = {}): Record
   }
   registerBillingPaths(registry, helpers, { includeOperatorPaths });
   registerArtifactPaths(registry, helpers);
+  registerPersistentHostingPaths(registry, helpers);
 
   const generator = new OpenApiGeneratorV31(registry.definitions);
   const document = generator.generateDocument({

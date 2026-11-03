@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LocalRepository } from "./local-repository.js";
+import { fakeFileMapStore } from "./test-helpers/file-map-store.js";
 
 async function memberWithPublishedArtifact(repo: LocalRepository, suffix: string) {
   const workosUserId = `user_01J5K7Y8G9H0ABCDEFGHJK${suffix}`;
@@ -48,7 +49,7 @@ async function memberWithPublishedArtifact(repo: LocalRepository, suffix: string
 
 describe("web Access Link member operations", () => {
   it("lists access links workspace-wide and per artifact with a revoked flag", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const { member, artifactId } = await memberWithPublishedArtifact(repo, "MA");
 
     const empty = await repo.listWorkspaceAccessLinks(member);
@@ -76,13 +77,13 @@ describe("web Access Link member operations", () => {
   });
 
   it("returns null when listing access links for an unknown artifact", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const { member } = await memberWithPublishedArtifact(repo, "MB");
     await expect(repo.listWebArtifactAccessLinks(member, "art_missing")).resolves.toBeNull();
   });
 
   it("does not surface another workspace's access links", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const owner = await memberWithPublishedArtifact(repo, "MC");
     const other = await memberWithPublishedArtifact(repo, "MD");
     await repo.createMemberAccessLink({
@@ -96,7 +97,7 @@ describe("web Access Link member operations", () => {
   });
 
   it("engages and lifts Access Link Lockdown, gating mint while locked", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const { member, artifactId } = await memberWithPublishedArtifact(repo, "ME");
     const share = await repo.createMemberAccessLink({
       actor: member,
@@ -142,7 +143,7 @@ describe("web Access Link member operations", () => {
   });
 
   it("rejects lockdown changes for a missing artifact", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const { member } = await memberWithPublishedArtifact(repo, "MF");
     await expect(
       repo.setMemberAccessLinkLockdown({
@@ -155,7 +156,7 @@ describe("web Access Link member operations", () => {
   });
 
   it("treats a redundant lockdown request as an idempotent no-op", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const { member, artifactId } = await memberWithPublishedArtifact(repo, "MG");
 
     await repo.setMemberAccessLinkLockdown({
@@ -185,7 +186,7 @@ describe("web Access Link member operations", () => {
   });
 
   it("rejects lockdown changes from a non-member actor", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const { artifactId } = await memberWithPublishedArtifact(repo, "MI");
     const session = await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMI",
@@ -209,7 +210,7 @@ describe("web Access Link member operations", () => {
   });
 
   it("reports revision-link rows with their pinned revision and expiration", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const { member, artifactId } = await memberWithPublishedArtifact(repo, "MJ");
     const detail = await repo.listWebArtifactAccessLinks(member, artifactId);
     expect(detail).toMatchObject({ items: [] });

@@ -6,20 +6,10 @@ import {
   type AgentPasteAuth,
   AgentPasteError,
   ApiClient,
-  createIdempotencyKey,
   type EphemeralProvisionOptions,
-  type PublishFile,
-  runPublish as runSharedPublish,
 } from "@agent-paste/api-client";
 import type { EphemeralProvisionResponse } from "@agent-paste/contracts/ephemeral";
-import {
-  ArtifactId,
-  ArtifactReference,
-  CLAIM_CODE_HEADER,
-  ClaimCode,
-  FilePath,
-  RevisionId,
-} from "@agent-paste/contracts/primitives";
+import { ArtifactReference, CLAIM_CODE_HEADER, ClaimCode, FilePath } from "@agent-paste/contracts/primitives";
 import { mvpUsagePolicy } from "@agent-paste/contracts/workspace";
 import {
   booleanFlag,
@@ -29,29 +19,24 @@ import {
   type Parsed,
   parseArgs,
   requiredArg,
-  shellQuote,
   stringFlag,
   writeStdout,
 } from "./cli-args.js";
 import { type Credential, deleteCredential, isCredentialExpired, loadCredential } from "./credentials.js";
+import { deleteArtifact } from "./delete.js";
 import { download } from "./download.js";
 import { edit } from "./edit.js";
 import { feedback } from "./feedback.js";
 import { HELP_TEXT, PUBLISH_HELP_TEXT, PULL_HELP_TEXT } from "./help.js";
-import { contentTypeForLocalPath } from "./local.js";
+import { list } from "./list.js";
 import { login } from "./login.js";
-import { loadManifestCache, type ManifestCacheFile, saveManifestCache } from "./manifest-cache.js";
-import {
-  artifactUpdateReference,
-  ephemeralClaimUrl,
-  formatEphemeralPublishResult,
-  formatPublishResult,
-} from "./publish-format.js";
-import { digestPublish, type PreparedPublish, preparePublish, validatePublishUsage } from "./publish-preflight.js";
-import { apiClientTransport } from "./publish-transport.js";
-import { createProgress, exitCodeFor, formatError, type OutputMode } from "./render.js";
-import { buildRevisePlan, isBaseUnusableError, type LocalFileWithDigest, type RevisePlan } from "./revise.js";
-import { commandInvocation, detectChannel, runUpdateCheck, signedOutHint } from "./update-check.js";
+import { pin } from "./pin.js";
+import { publish, runPreparedPublish } from "./publish.js";
+import { ephemeralClaimUrl, formatEphemeralPublishResult } from "./publish-format.js";
+import { digestPublish, preparePublish, validatePublishUsage } from "./publish-preflight.js";
+import { pullDirectory } from "./pull-dir.js";
+import { exitCodeFor, formatError } from "./render.js";
+import { detectChannel, runUpdateCheck, signedOutHint } from "./update-check.js";
 import { runUpgrade } from "./upgrade.js";
 import { CLI_VERSION } from "./version.js";
 
@@ -114,7 +99,16 @@ async function dispatch(command: string, parsed: Parsed, client: ApiClient) {
       }
       return publish(parsed, client);
     case "pull":
-      return pull(parsed, client);
+      return stringFlag(parsed, "output") ? pullDirectory(parsed, client) : pull(parsed, client);
+    case "pin":
+    case "unpin":
+      return pin(parsed, client, command === "pin");
+    case "list":
+      return list(parsed, client);
+    case "delete":
+      return deleteArtifact(parsed, client);
+    case "usage":
+      return output(await client.usage.get(), parsed.global);
     case "edit":
       return edit(parsed, client);
     case "download":
@@ -133,8 +127,26 @@ const COMMAND_FLAG_NAMES: Record<string, readonly string[]> = {
   logout: [],
   whoami: [],
   feedback: [],
-  publish: ["claim-code", "artifact-id", "title", "entrypoint", "ephemeral"],
-  pull: ["revision-id"],
+  publish: [
+    "claim-code",
+    "artifact-id",
+    "title",
+    "entrypoint",
+    "ephemeral",
+    "to",
+    "mirror",
+    "delete",
+    "pin",
+    "dry-run",
+    "restart",
+    "exclude",
+  ],
+  pull: ["revision-id", "output", "overwrite", "dry-run"],
+  pin: [],
+  unpin: [],
+  list: ["cursor"],
+  delete: ["yes"],
+  usage: [],
   edit: ["edits"],
   download: ["revision-id", "output"],
   version: [],
@@ -247,9 +259,22 @@ export type EphemeralPublishDeps = {
 };
 
 export async function publishEphemeral(parsed: Parsed, deps: EphemeralPublishDeps = {}) {
+  for (const flag of ["to", "mirror", "delete", "pin", "dry-run", "restart", "exclude"]) {
+    if (parsed.flags.has(flag))
+      throw new AgentPasteError({
+        code: "invalid_request",
+        status: 400,
+        message: `--${flag} is unavailable with --ephemeral`,
+      });
+  }
   const preflight = await preparePublish(parsed, {
     allowArtifactId: false,
-    usagePolicy: mvpUsagePolicy,
+    usagePolicy: {
+      ...mvpUsagePolicy,
+      file_size_cap_bytes: 10 * 1024 * 1024,
+      artifact_size_cap_bytes: 25 * 1024 * 1024,
+      file_count_cap: 100,
+    },
   });
   const prepared = await digestPublish(preflight);
   validatePublishUsage(prepared.files, preflight.usagePolicy);
@@ -302,138 +327,6 @@ function unauthenticatedClient() {
   return new ApiClient();
 }
 
-function wholePublishFile(file: LocalFileWithDigest): PublishFile {
-  return {
-    path: file.path,
-    sizeBytes: file.sizeBytes,
-    sha256: file.sha256,
-    contentType: contentTypeForLocalPath(file.path),
-    read: () => file.bytes,
-  };
-}
-
-async function publish(parsed: Parsed, client: ApiClient) {
-  const mode = outputModeFor(parsed.global);
-  const result = await runPublish(parsed, client, mode);
-  // Channel-correct command the agent reruns to revise this Artifact in place,
-  // so it learns the revise verb at the moment it holds the id. Shell-quote the
-  // path so spaces or special chars don't produce a broken revise command.
-  const inputPath = requiredArg(parsed, 0, "path");
-  const updateCommand = commandInvocation(
-    detectChannel(),
-    `publish ${shellQuote(inputPath)} --artifact-id ${shellQuote(artifactUpdateReference(result))}`,
-  );
-  return output(result, parsed.global, formatPublishResult(mode, result, updateCommand));
-}
-
-async function runPublish(parsed: Parsed, client: ApiClient, mode: OutputMode) {
-  const preflight = await preparePublish(parsed, {
-    allowArtifactId: true,
-    resolveUsagePolicy: () => client.usagePolicy(),
-    resolveExistingArtifact: (artifactReference) => resolveExistingArtifact(client, artifactReference),
-  });
-  const prepared = await digestPublish(preflight);
-  validatePublishUsage(prepared.files, preflight.usagePolicy);
-  return runPreparedPublish(client, mode, prepared);
-}
-
-async function runPreparedPublish(client: ApiClient, mode: OutputMode, prepared: PreparedPublish) {
-  const { artifactId, files: filesWithDigest, inferred } = prepared;
-  const parsedArtifactId = artifactId === undefined ? undefined : ArtifactId.safeParse(artifactId);
-  const canonicalArtifactId = parsedArtifactId?.success ? parsedArtifactId.data : undefined;
-
-  const wholeManifest = (): PublishFile[] => filesWithDigest.map(wholePublishFile);
-  const fullTree = (): ManifestCacheFile[] =>
-    filesWithDigest.map((file) => ({ path: file.path, sha256: file.sha256, size_bytes: file.sizeBytes }));
-
-  // On a revise with a matching local cache, send only changed/added files (some
-  // as verified unified diffs) against the base Revision; unchanged files inherit.
-  // No cache (first publish elsewhere / fresh machine) => a full whole-blob publish.
-  const cache = canonicalArtifactId ? await loadManifestCache(canonicalArtifactId) : null;
-  const built =
-    canonicalArtifactId && cache
-      ? await buildRevisePlan({
-          client,
-          artifactId: canonicalArtifactId,
-          cache,
-          files: filesWithDigest,
-          entrypoint: inferred.entrypoint,
-        })
-      : null;
-  // A no-op delta (working tree identical to the base: nothing changed, added, or
-  // deleted) cannot be sent as a partial manifest — the server requires a delta to
-  // carry at least one change. Fall back to a full whole-blob publish, which always
-  // produces a valid request and a fresh Revision (e.g. re-publishing an unchanged
-  // dir, or a metadata-only revise like --title).
-  const plan = built && built.publishFiles.length === 0 && built.deletedPaths.length === 0 ? null : built;
-
-  const progress = createProgress(mode);
-  const runOnce = (revise: RevisePlan | null) =>
-    runSharedPublish(apiClientTransport(client), {
-      files: revise ? revise.publishFiles : wholeManifest(),
-      title: inferred.title,
-      entrypoint: inferred.entrypoint,
-      ...(artifactId ? { artifactId } : {}),
-      ...(revise
-        ? {
-            baseRevisionId: RevisionId.parse(revise.baseRevisionId),
-            ...(revise.deletedPaths.length > 0
-              ? { deletedPaths: revise.deletedPaths.map((p) => FilePath.parse(p)) }
-              : {}),
-          }
-        : {}),
-      idempotencyKey: createIdempotencyKey("cli_publish"),
-      onUploadProgress: ({ uploadedFiles, totalToUpload, uploadedBytes }) =>
-        progress.update({ done: uploadedFiles, total: totalToUpload, bytes: uploadedBytes }),
-    });
-
-  let outcome: Awaited<ReturnType<typeof runOnce>>;
-  try {
-    outcome = await runOnce(plan);
-  } catch (error) {
-    // A cached base that the server can no longer use (concurrent revise, retained
-    // base, non-inheritable file) is recoverable: drop the partial manifest and
-    // re-publish the whole working dir, which is always on disk.
-    if (plan && isBaseUnusableError(error)) {
-      progress.done();
-      outcome = await runOnce(null);
-    } else {
-      throw error;
-    }
-  }
-  progress.done();
-
-  // Seed the cache with the full effective tree so the next revise diffs correctly.
-  if (outcome.result.artifact_id && outcome.result.revision_id) {
-    try {
-      await saveManifestCache(outcome.result.artifact_id, {
-        revision_id: outcome.result.revision_id,
-        files: plan ? plan.effectiveTree : fullTree(),
-      });
-    } catch {
-      process.stderr.write("agent-paste: publish succeeded, but the local manifest cache could not be updated.\n");
-    }
-  }
-
-  // Publish returns the Artifact's one durable top-level capability URL.
-  return {
-    ...outcome.result,
-    upload_stats: {
-      total_files: outcome.uploadStats.totalFiles,
-      total_bytes: outcome.uploadStats.totalBytes,
-      uploaded_files: outcome.uploadStats.uploadedFiles,
-      uploaded_bytes: outcome.uploadStats.uploadedBytes,
-      reused_files: outcome.uploadStats.reusedFiles,
-      reused_bytes: outcome.uploadStats.reusedBytes,
-    },
-  };
-}
-
-async function resolveExistingArtifact(client: ApiClient, artifactReference: ArtifactReference) {
-  const view = await client.artifacts.getAgentView(artifactReference);
-  return { artifactId: view.artifact_id, title: view.title };
-}
-
 // Read one stored file's content for the owning member (ADR 0090). Default
 // output is cat-like: the raw text body to stdout, so `agent-paste pull <id> <remote-path>
 //  > file` works. --json emits structured metadata (text body inline; binary and
@@ -455,7 +348,7 @@ async function pull(parsed: Parsed, client: ApiClient) {
     : await client.artifacts.getAgentView(artifactReference);
   const artifactId = view.artifact_id;
   const remoteFile = view.files.find((candidate) => candidate.path === filePath);
-  if (!remoteFile) {
+  if (!remoteFile && !view.files_truncated) {
     throw new AgentPasteError({
       code: "not_found",
       message: `${filePath} is not present in Revision ${view.revision_id}`,
@@ -465,6 +358,10 @@ async function pull(parsed: Parsed, client: ApiClient) {
   const file = await client.artifacts.readFile(artifactId, filePath, view.revision_id);
 
   if (parsed.global.json) {
+    const grant = !remoteFile ? await client.artifacts.readGrant(artifactId, view.revision_id) : undefined;
+    if (grant && (grant.revision_id !== view.revision_id || grant.artifact_id !== artifactId))
+      throw new Error("revision_changed_in_read_grant");
+    const url = remoteFile?.url ?? `${grant!.content_base_url}${filePath.split("/").map(encodeURIComponent).join("/")}`;
     return output(
       {
         path: file.path,
@@ -472,7 +369,7 @@ async function pull(parsed: Parsed, client: ApiClient) {
         size_bytes: file.size_bytes,
         content_type: file.content_type,
         is_binary: file.is_binary,
-        url: remoteFile.url,
+        url,
         ...(file.body !== undefined ? { body: file.body } : {}),
       },
       parsed.global,

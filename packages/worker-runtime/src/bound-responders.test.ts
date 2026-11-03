@@ -4,6 +4,28 @@ import { describe, expect, it } from "vitest";
 import { boundRespondersMiddleware, getBoundResponders } from "./bound-responders.js";
 
 describe("bound responders", () => {
+  it("preserves structured details and extra headers through the three-argument responder", async () => {
+    const app = new Hono();
+    app.use("*", requestIdMiddleware());
+    app.use("*", boundRespondersMiddleware({}));
+    app.get("/quota", (context) =>
+      getBoundResponders(context).respondError("storage_quota_exceeded", "Quota reached", {
+        details: { budget_bytes: 10, required_bytes: 11 },
+      }),
+    );
+    app.get("/cleanup", (context) =>
+      getBoundResponders(context).respondError("storage_unavailable", "blob_cleanup_in_progress", {
+        headers: { "Retry-After": "60" },
+      }),
+    );
+    const response = await app.request("/quota");
+    expect(response.status).toBe(429);
+    expect(response.headers.has("Retry-After")).toBe(false);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "storage_quota_exceeded", details: { budget_bytes: 10, required_bytes: 11 } },
+    });
+    expect((await app.request("/cleanup")).headers.get("Retry-After")).toBe("60");
+  });
   it("injects docs links and default headers on handler-emitted errors", async () => {
     const app = new Hono();
     app.use("*", requestIdMiddleware());

@@ -1,4 +1,4 @@
-import { FinalizeUploadSessionResponse, type RouteContract } from "@agent-paste/contracts";
+import { CompleteUploadFilesResponse, FinalizeUploadSessionResponse, type RouteContract } from "@agent-paste/contracts";
 import {
   buildCreateUploadSessionWireResponse,
   createPostgresRuntime,
@@ -8,6 +8,7 @@ import {
 import { getBoundResponders, type HeaderGuardState, type Principal } from "@agent-paste/worker-runtime";
 import { sentryPostgresExecutorOptions } from "@agent-paste/worker-runtime/sentry-sql";
 import type { Context } from "hono";
+import { appendFilesResponse } from "./append-files.js";
 import { signUploadUrl } from "./create-session.js";
 import type { AppContext, Env, UploadActor } from "./env.js";
 import { uploadSessionActor } from "./upload-actor.js";
@@ -74,6 +75,24 @@ export async function uploadReplay(input: {
           }),
         )
       : null;
+  }
+  if (input.contract.id === "uploadSessions.appendFiles") {
+    const replay = await peekUploadReplay<UploadSessionRecord>(
+      input.db,
+      actor,
+      "upload.session.append",
+      input.guard.idempotencyKey,
+    );
+    return replay ? appendFilesResponse(context, replay) : null;
+  }
+  if (input.contract.id === "uploadSessions.completeFiles") {
+    const replay = await peekUploadReplay<unknown>(
+      input.db,
+      actor,
+      "upload.files.complete",
+      input.guard.idempotencyKey,
+    );
+    return replay ? getBoundResponders(context).respondJson(CompleteUploadFilesResponse.parse(replay)) : null;
   }
   if (input.contract.id === "uploadSessions.finalize") {
     const replay = await peekUploadReplay<unknown>(

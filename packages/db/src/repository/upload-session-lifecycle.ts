@@ -20,30 +20,18 @@ import type {
   UploadSession,
   Workspace,
 } from "../types.js";
-import { RevisionReconstructionConflict } from "../types.js";
 import { contentTypeForPath, normalizeStoragePath, objectKeyFor, validateUpload } from "../validation.js";
 import type { Entities } from "./ports.js";
+import type { CreateUploadSessionRequest, ObservedUploadFile } from "./upload-session-types.js";
+import { finalizeGuardedSession } from "./workflows/guarded-finalize-workflow.js";
+import { createGuardedSession, sessionRecord } from "./workflows/guarded-session-workflow.js";
+import { reconstructPatchedFiles } from "./workflows/upload-patch-workflow.js";
 
-// ADR 0089: a unified-diff descriptor for a single changed file. The uploaded
-// bytes are the diff; jobs reconstructs the whole result blob in Stage 4.
-export type UploadSessionFilePatchInput = {
-  base_sha256: string;
-  format: "unified";
-  result_sha256: string;
-};
-
-export type CreateUploadSessionRequest = {
-  artifact_id?: string;
-  // Base Revision to inherit unchanged files from (ADR 0089 tree inheritance).
-  base_revision_id?: string;
-  title?: string;
-  entrypoint?: string;
-  // Paths present in the base Revision that this publish drops (base-only).
-  deleted_paths?: string[];
-  files: Array<{ path: string; size_bytes: number; sha256?: string; patch?: UploadSessionFilePatchInput }>;
-};
-
-export type ObservedUploadFile = { path: string; objectKey: string; sizeBytes: number };
+export type {
+  CreateUploadSessionRequest,
+  ObservedUploadFile,
+  UploadSessionFilePatchInput,
+} from "./upload-session-types.js";
 
 export async function createUploadSessionInEntities(
   entities: Entities,
@@ -55,6 +43,7 @@ export async function createUploadSessionInEntities(
     workspace: Pick<Workspace, "claimed_at">;
   },
 ) {
+  if (input.request.commit) return createGuardedSession(entities, input);
   const files = input.request.files.map((file) => ({ ...file, path: normalizeStoragePath(file.path) }));
   const isUpdate = Boolean(input.request.artifact_id);
   let baseArtifact: Artifact | null = null;
@@ -108,7 +97,9 @@ export async function createUploadSessionInEntities(
     files.flatMap((file) => (file.sha256 ? [{ sha256: file.sha256, sizeBytes: file.size_bytes }] : [])),
     input.now,
   );
-  const reusableBlobKeys = new Set(reusableBlobs.map((blob) => `${blob.sha256}:${blob.size_bytes}`));
+  const reusableBlobKeys = new Set(
+    reusableBlobs.filter((b) => b.content_format !== "chunked-v1").map((blob) => `${blob.sha256}:${blob.size_bytes}`),
+  );
   const storedFiles: StoredFile[] = [];
   for (const file of files) {
     // A patched file uploads a unified diff, which is not content-addressable, so
@@ -172,7 +163,7 @@ export async function readUploadSessionInEntities(
     return null;
   }
   const files = await entities.uploadSessionFiles.listForSession(session.id);
-  return toUploadSessionRecord(session, files);
+  return sessionRecord(entities, session, files);
 }
 
 export type UploadSessionState = { status: string; expiresAt: string };
@@ -194,74 +185,6 @@ type MergedTree = {
   // rows must be registered at finalize so the refcount protects them from GC.
   reconstructedBlobs: StoredFile[];
 };
-
-// Validate the patched files against the base tree and reconstruct each result blob
-// (ADR 0089 Stage 4). The diff base must match the base Revision's file (defense before
-// the applier re-checks the hash); a patch that cannot apply throws an agent-visible
-// conflict, failing finalize so a broken revision never reaches draft. Returns a blob
-// StoredFile per patched path to replace the diff placeholder in the merged tree.
-async function reconstructPatchedFiles(input: {
-  session: UploadSession;
-  sessionFiles: StoredFile[];
-  baseFiles: Map<string, StoredFile>;
-  reconstructor: RevisionReconstructor | undefined;
-}): Promise<Map<string, StoredFile>> {
-  const { session, sessionFiles, baseFiles } = input;
-  const requests: Array<{ path: string; diffObjectKey: string; baseSha256: string; resultSha256: string }> = [];
-  for (const file of sessionFiles) {
-    if (!file.patch_base_sha256 || !file.patch_result_sha256) {
-      continue;
-    }
-    const baseFile = baseFiles.get(file.path);
-    if (!baseFile || baseFile.sha256 !== file.patch_base_sha256) {
-      repositoryError("patch_base_mismatch");
-    }
-    requests.push({
-      path: file.path,
-      diffObjectKey: file.r2_key,
-      baseSha256: file.patch_base_sha256,
-      resultSha256: file.patch_result_sha256,
-    });
-  }
-  const reconstructed = new Map<string, StoredFile>();
-  if (requests.length === 0) {
-    return reconstructed;
-  }
-  if (!input.reconstructor) {
-    // The capability is wired in every real worker (upload) + the local harness; its
-    // absence is an infra/config failure, not an agent error.
-    repositoryError("storage_unavailable");
-  }
-  let result: Awaited<ReturnType<RevisionReconstructor["reconstruct"]>>;
-  try {
-    result = await input.reconstructor.reconstruct({ workspaceId: session.workspace_id, files: requests });
-  } catch (error) {
-    // A patch that cannot apply is an agent-fixable conflict carrying the path + reason
-    // in the message; any other failure (R2/decrypt/ring) is infra and stays retryable.
-    if (error instanceof RevisionReconstructionConflict) {
-      repositoryError("patch_conflict", { cause: error });
-    }
-    throw error;
-  }
-  const bySha = new Map(sessionFiles.filter((f) => f.patch_result_sha256).map((f) => [f.path, f]));
-  for (const file of result.files) {
-    const source = bySha.get(file.path);
-    reconstructed.set(file.path, {
-      workspace_id: session.workspace_id,
-      artifact_id: session.artifact_id,
-      revision_id: session.revision_id,
-      upload_session_id: session.id,
-      path: file.path,
-      size_bytes: file.sizeBytes,
-      content_type: source?.content_type ?? contentTypeForPath(file.path),
-      r2_key: file.r2Key,
-      sha256: file.sha256,
-      storage_kind: "blob",
-      uploaded_at: session.finalized_at,
-    });
-  }
-  return reconstructed;
-}
 
 // ADR 0089 tree inheritance: merge the base Revision's published tree with this
 // session's changed/added/deleted manifest into the full tree the new Revision
@@ -433,6 +356,7 @@ export async function finalizeUploadSessionInEntities(
   if (!session) {
     repositoryError("upload_session_not_found");
   }
+  if (session.commit_guard) return finalizeGuardedSession(entities, session, input);
   if (session.status === "finalized") {
     // The session row carries only the uploaded DELTA counts; against a base Revision
     // the committed tree (merged base + delta) differs. Read the committed Revision so a

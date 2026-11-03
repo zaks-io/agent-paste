@@ -16,7 +16,7 @@ export function postgresUploadSessions(ctx: PostgresContext): Entities["uploadSe
         const result = await sql.query<{ id: string }>(
           `select id
          from upload_sessions
-         where status = 'pending' and expires_at <= $1
+         where status in ('pending','ready') and expires_at <= $1
          order by expires_at asc
          limit $2`,
           [now, limit],
@@ -28,7 +28,7 @@ export function postgresUploadSessions(ctx: PostgresContext): Entities["uploadSe
         await sql.query(
           `update upload_sessions
          set status = 'expired'
-         where status = 'pending' and expires_at <= $1 and id = any($2::text[])`,
+         where status in ('pending','ready') and expires_at <= $1 and id = any($2::text[])`,
           [now, ids],
         );
       }),

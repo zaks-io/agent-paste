@@ -1,4 +1,5 @@
 import { withSqlQuerySource } from "../postgres/query-source.js";
+import { repositoryError } from "../repository-error.js";
 import type { SqlExecutor } from "../types.js";
 
 export type WorkspaceBlobRef = {
@@ -62,13 +63,18 @@ export async function upsertReparentedContentBlobs(
          and usf.storage_kind = 'blob'
          and usf.sha256 is not null
          and usf.uploaded_at is not null
-         and us.status = 'pending'
+         and us.status in ('pending','ready')
          and us.expires_at > $2::timestamptz
      ) blobs
      order by blobs.sha256, blobs.size_bytes, blobs.path
      on conflict (workspace_id, sha256, size_bytes)
-     do update set r2_key = excluded.r2_key, updated_at = excluded.updated_at`,
+     do update set r2_key = excluded.r2_key, updated_at = excluded.updated_at where content_blobs.gc_state='live' returning sha256`,
         [input.workspaceId, input.updatedAt],
       ),
   );
+  const deleting = await sql.query(
+    "select 1 from content_blobs where workspace_id=$1 and gc_state='deleting' and (sha256,size_bytes) in (select sha256,size_bytes from artifact_files where workspace_id=$1 and storage_kind='blob' union select sha256,size_bytes from upload_session_files where workspace_id=$1 and storage_kind='blob') limit 1",
+    [input.workspaceId],
+  );
+  if (deleting.rows.length) repositoryError("blob_cleanup_in_progress");
 }

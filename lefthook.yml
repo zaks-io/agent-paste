@@ -14,7 +14,7 @@ pre-commit:
     typecheck:
       run: |
         BASE="$(git rev-parse --verify origin/main 2>/dev/null || git rev-parse --verify HEAD)"
-        pnpm exec turbo run typecheck --filter="...[$BASE]"
+        pnpm exec turbo run typecheck --filter="...[$BASE]" --concurrency=1
 
 pre-push:
   commands:

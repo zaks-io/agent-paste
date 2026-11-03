@@ -30,7 +30,8 @@ export async function runUploadCleanupDiscovery(
     platformExecutor.query<ExpiredSessionRow>(
       `select id, workspace_id, artifact_id, revision_id
      from upload_sessions
-     where status = 'pending' and expires_at <= $1
+     where (status in ('pending','ready') and expires_at <= $1)
+        or (status='expired' and exists (select 1 from upload_session_files f where f.upload_session_id=upload_sessions.id and f.storage_kind='revision'))
      order by expires_at asc
      limit $2`,
       [now, limit],
@@ -45,14 +46,8 @@ export async function runUploadCleanupDiscovery(
   let enqueued = 0;
   for (const session of batch) {
     try {
-      // Win the pending → expired transition BEFORE enqueueing the purge. A
-      // finalize racing this sweep can still publish the revision from these
-      // bytes; purging first (or purging when the guard lost) would delete a
-      // just-published revision's files. Losing the purge on a later enqueue
-      // failure only leaks orphan bytes, which is the safer failure — recovering
-      // those (a durable purge marker + recovery sweep for expired-but-unpurged
-      // sessions) is tracked separately; re-pending here would re-open the very
-      // live-byte-deletion race this ordering closes.
+      // Expired sessions remain discoverable until purge acknowledges their staging rows.
+      // Finalize cannot reopen an expired session, so retries cannot delete a committed Revision.
       const expired = await expireUploadSession(platformExecutor, session.id, now);
       if (!expired) {
         continue;
@@ -97,7 +92,7 @@ async function expireUploadSession(executor: SqlExecutor, sessionId: string, now
     executor.query<{ id: string }>(
       `update upload_sessions
      set status = 'expired'
-     where id = $1 and status = 'pending' and expires_at <= $2
+     where id = $1 and (status='expired' or (status in ('pending','ready') and expires_at <= $2))
      returning id`,
       [sessionId, now],
     ),

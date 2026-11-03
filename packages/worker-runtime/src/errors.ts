@@ -21,6 +21,9 @@ export const ERROR_STATUS: Record<ErrorCodeValue, number> = {
   upload_session_not_found: 404,
   api_key_revoked: 409,
   draft_revision_conflict: 409,
+  commit_conflict: 409,
+  storage_quota_exceeded: 429,
+  file_digest_mismatch: 422,
   idempotency_in_flight: 409,
   pinned_artifact_cap_exceeded: 409,
   unexpected_upload_object: 409,
@@ -50,6 +53,7 @@ export type AppErrorCode = keyof typeof APP_ERROR_STATUS;
 
 export type ErrorResponseOptions = {
   message?: string | undefined;
+  details?: Record<string, unknown> | undefined;
   headers?: Record<string, string> | undefined;
   docsBaseUrl?: string | undefined;
   defaultHeaders?: Record<string, string> | undefined;
@@ -80,6 +84,7 @@ export function errorResponse(context: Context, code: AppErrorCode, options: Err
     requestId,
     docsBaseUrl: options.docsBaseUrl,
   });
+  if (options.details !== undefined) Object.assign(body.error, { details: options.details });
   return new Response(JSON.stringify(body), {
     status: APP_ERROR_STATUS[code],
     headers: {

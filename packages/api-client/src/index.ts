@@ -1,7 +1,8 @@
 import { RevokeApiKeyResponse } from "@agent-paste/contracts/admin";
 import { AgentView } from "@agent-paste/contracts/agent-view";
 import { type CreateApiKeyRequest, CreateApiKeyResponse } from "@agent-paste/contracts/api-keys";
-import { ArtifactFileContent } from "@agent-paste/contracts/artifacts";
+import { ArtifactFileListResponse } from "@agent-paste/contracts/artifact-files";
+import { ArtifactFileContent, ArtifactListResponse, DeleteArtifactResponse } from "@agent-paste/contracts/artifacts";
 import { ErrorEnvelope } from "@agent-paste/contracts/common";
 import { EphemeralProvisionResponse } from "@agent-paste/contracts/ephemeral";
 import { type CreateFeedbackRequest, CreateFeedbackResponse } from "@agent-paste/contracts/feedback";
@@ -13,12 +14,21 @@ import type {
   RevisionId,
   UploadSessionId,
 } from "@agent-paste/contracts/primitives";
+import { RevisionReadGrant } from "@agent-paste/contracts/read-grants";
+import { ArtifactRetention } from "@agent-paste/contracts/retention";
 import { type PublishRevisionRequest, RevisionListResponse } from "@agent-paste/contracts/revisions";
+import { StorageUsage } from "@agent-paste/contracts/storage-usage";
 import {
+  type AppendUploadFilesRequest,
+  AppendUploadFilesResponse,
+  type CompleteUploadFilesRequest,
+  CompleteUploadFilesResponse,
   type CreateUploadSessionRequest,
   CreateUploadSessionResponse,
   FinalizeUploadSessionResponse,
-  PublishResult,
+  PublishResultV2,
+  PublishRevisionResponse,
+  UploadSessionTargetsResponse,
 } from "@agent-paste/contracts/upload-sessions";
 import { UsagePolicy, WhoamiResponse } from "@agent-paste/contracts/workspace";
 
@@ -54,6 +64,7 @@ export class AgentPasteError extends Error {
   readonly status: number;
   readonly requestId: string | undefined;
   readonly docs: string | undefined;
+  readonly details: Record<string, unknown> | undefined;
   readonly retryAfterSeconds: number | undefined;
 
   constructor(input: {
@@ -62,6 +73,7 @@ export class AgentPasteError extends Error {
     status: number;
     requestId?: string;
     docs?: string;
+    details?: Record<string, unknown>;
     retryAfterSeconds?: number;
   }) {
     super(input.message);
@@ -70,6 +82,7 @@ export class AgentPasteError extends Error {
     this.status = input.status;
     this.requestId = input.requestId;
     this.docs = input.docs;
+    this.details = input.details;
     this.retryAfterSeconds = input.retryAfterSeconds;
   }
 }
@@ -100,6 +113,20 @@ export class ApiClient {
     return this.request(UsagePolicy, this.apiBaseUrl, "/v1/usage-policy");
   }
 
+  usage = { get: () => this.request(StorageUsage, this.apiBaseUrl, "/v1/usage") };
+
+  artifactFiles = {
+    list: (
+      artifactId: string,
+      query: { revision_id?: string; prefix?: string; cursor?: string; limit?: number } = {},
+    ) =>
+      this.request(
+        ArtifactFileListResponse,
+        this.apiBaseUrl,
+        `/v1/artifacts/${encodeURIComponent(artifactId)}/files${queryString(query)}`,
+      ),
+  };
+
   feedback = {
     create: (body: CreateFeedbackRequest, idempotencyKey: string) =>
       this.request(CreateFeedbackResponse, this.apiBaseUrl, "/v1/feedback", {
@@ -121,6 +148,26 @@ export class ApiClient {
         body,
         idempotencyKey,
       }),
+    appendFiles: (id: string, body: AppendUploadFilesRequest, idempotencyKey: string) =>
+      this.request(
+        AppendUploadFilesResponse,
+        this.uploadBaseUrl,
+        `/v1/upload-sessions/${encodeURIComponent(id)}/file-batches`,
+        { method: "POST", body, idempotencyKey },
+      ),
+    targets: (id: string, query: { cursor?: string; limit?: number } = {}) =>
+      this.request(
+        UploadSessionTargetsResponse,
+        this.uploadBaseUrl,
+        `/v1/upload-sessions/${encodeURIComponent(id)}/targets${queryString(query)}`,
+      ),
+    completeFiles: (id: string, body: CompleteUploadFilesRequest, idempotencyKey: string) =>
+      this.request(
+        CompleteUploadFilesResponse,
+        this.uploadBaseUrl,
+        `/v1/upload-sessions/${encodeURIComponent(id)}/file-completions`,
+        { method: "POST", body, idempotencyKey },
+      ),
     finalize: (uploadSessionId: UploadSessionId | string, idempotencyKey: string) =>
       this.request(
         FinalizeUploadSessionResponse,
@@ -141,7 +188,7 @@ export class ApiClient {
       body?: PublishRevisionRequest,
     ) =>
       this.request(
-        PublishResult,
+        body?.include_retention ? PublishResultV2 : PublishRevisionResponse,
         this.apiBaseUrl,
         `/v1/artifacts/${encodeURIComponent(artifactId)}/revisions/${encodeURIComponent(revisionId)}/publish`,
         {
@@ -155,6 +202,28 @@ export class ApiClient {
   };
 
   artifacts = {
+    list: (query: { cursor?: string } = {}) =>
+      this.request(ArtifactListResponse, this.apiBaseUrl, `/v1/artifacts${queryString(query)}`),
+    delete: (id: string) =>
+      this.request(DeleteArtifactResponse, this.apiBaseUrl, `/v1/artifacts/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      }),
+    pin: (id: string, idempotencyKey: string) =>
+      this.request(ArtifactRetention, this.apiBaseUrl, `/v1/artifacts/${encodeURIComponent(id)}/pin`, {
+        method: "POST",
+        idempotencyKey,
+      }),
+    unpin: (id: string, idempotencyKey: string) =>
+      this.request(ArtifactRetention, this.apiBaseUrl, `/v1/artifacts/${encodeURIComponent(id)}/unpin`, {
+        method: "POST",
+        idempotencyKey,
+      }),
+    readGrant: (id: string, revisionId?: string) =>
+      this.request(
+        RevisionReadGrant,
+        this.apiBaseUrl,
+        `/v1/artifacts/${encodeURIComponent(id)}/read-grant${queryString({ revision_id: revisionId })}`,
+      ),
     // Resolve a base revision's identity (revision_id, entrypoint, title, file tree)
     // from the Agent View — the read half of a patch revise (ADR 0091).
     getAgentView: (artifactId: ArtifactId | string) =>
@@ -209,6 +278,12 @@ export class ApiClient {
     if (!response.ok) {
       await throwResponseError(response);
     }
+  }
+
+  async fetchContent(url: string, headers: Record<string, string> = {}): Promise<Response> {
+    const response = await this.fetchImpl(url, { headers: { "Accept-Encoding": "identity", ...headers } });
+    if (!response.ok) await throwResponseError(response);
+    return response;
   }
 
   // Signed content URLs carry their own token, so no Authorization header is sent.
@@ -358,6 +433,7 @@ async function throwParsedResponseError(response: Response, text: string, raw: u
       message: parsed.data.error.message,
       status: response.status,
       ...(parsed.data.error.request_id ? { requestId: parsed.data.error.request_id } : {}),
+      ...(parsed.data.error.details ? { details: parsed.data.error.details } : {}),
       ...(parsed.data.error.docs ? { docs: parsed.data.error.docs } : {}),
       ...retryAfterInput(response),
     });
@@ -376,11 +452,9 @@ async function throwParsedResponseError(response: Response, text: string, raw: u
 
 function retryAfterInput(response: Response): { retryAfterSeconds?: number } {
   const raw = response.headers.get("Retry-After");
-  if (raw === null || !/^\d+$/.test(raw)) {
-    return {};
-  }
-  const retryAfterSeconds = Number(raw);
-  return Number.isSafeInteger(retryAfterSeconds) ? { retryAfterSeconds } : {};
+  if (raw === null) return {};
+  const seconds = /^\d+$/.test(raw) ? Number(raw) : Math.ceil((Date.parse(raw) - Date.now()) / 1000);
+  return Number.isSafeInteger(seconds) && seconds >= 0 ? { retryAfterSeconds: seconds } : {};
 }
 
 function isErrorEnvelopeLike(
@@ -418,3 +492,15 @@ export {
   runPublish,
   type UploadStats,
 } from "./publish.js";
+
+function queryString(query: Record<string, string | number | undefined>): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) if (value !== undefined) params.set(key, String(value));
+  return params.size ? `?${params}` : "";
+}
+
+export type { LocalSource } from "./publish.js";
+export * from "./publish-commit.js";
+export * from "./publish-plan.js";
+export * from "./pull-plan.js";
+export * from "./pull-transfer.js";

@@ -73,6 +73,34 @@ describe("agent-view helpers", () => {
     ).not.toHaveProperty("upload_session_id");
   });
 
+  it.each([
+    { size: 16 * 1024 * 1024, chunked: false, reason: "disabled_by_policy" },
+    { size: 16 * 1024 * 1024 + 1, chunked: false, reason: "revision_too_large" },
+    { size: 11 * 1024 * 1024, chunked: true, reason: "revision_too_large" },
+  ])("maps disabled bundle reasons consistently for size $size and chunked $chunked", ({ size, chunked, reason }) => {
+    const revision = {
+      id: "rev_2",
+      revision_number: 2,
+      size_bytes: size,
+      bundle_status: "disabled" as const,
+      bundle_status_updated_at: null,
+      bundle_size_bytes: null,
+    };
+    const files = [
+      { ...file, size_bytes: size, content_format: chunked ? ("chunked-v1" as const) : ("single" as const) },
+    ];
+    const view = buildAgentView(artifact, revision.id, files, "https://content.test", revision);
+    const published = buildPublishResult(
+      artifact,
+      revision,
+      undefined,
+      { apiKeyPepper: "test" },
+      { has_chunked_files: chunked },
+    );
+    expect(view.bundle).toEqual({ status: "disabled", reason });
+    expect(published.bundle).toEqual(view.bundle);
+  });
+
   it("builds finalize draft metadata", () => {
     expect(
       buildFinalizeResult({
@@ -162,6 +190,6 @@ describe("agent-view helpers", () => {
         bundle_status_updated_at: null,
         bundle_size_bytes: null,
       }),
-    ).toEqual({ status: "disabled" });
+    ).toEqual({ status: "disabled", reason: "disabled_by_policy" });
   });
 });

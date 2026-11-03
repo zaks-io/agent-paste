@@ -1,26 +1,41 @@
 import { getRequestId, REQUEST_ID_HEADER } from "@agent-paste/auth";
 import { artifactBytesEncryptionRingFromEnv } from "@agent-paste/rotation";
 import {
-  attachmentFilename,
-  bytesFromReadableBody,
-  CONTENT_SECURITY_HEADERS,
+  bytesFromReadableBodyCapped,
+  ciphertextByteLengthForPlaintext,
   decryptArtifactBytesWithKeyRing,
   isArtifactBytesEncryptionMetadata,
   parseRevisionFileObjectKey,
   parseWorkspaceBlobObjectKey,
   plaintextByteLengthFromStoredObject,
-  servedContentForPath,
+  readStoredFilePrefix,
 } from "@agent-paste/storage";
 import type { ContentTokenPayload } from "@agent-paste/tokens/content";
-import { BASELINE_SECURITY_HEADERS, getBoundResponders, writeArtifactEvent } from "@agent-paste/worker-runtime";
-import { CONTENT_CACHE_CONTROL, contentCacheControl } from "./cache-policy.js";
-import { gzipBytes, isGzipNegotiable, negotiatesGzip } from "./content-encoding.js";
+import { getBoundResponders, writeArtifactEvent } from "@agent-paste/worker-runtime";
+import { gzipBytes, negotiatesGzip } from "./content-encoding.js";
+import { measureStream } from "./content-stream.js";
 import type { AppContext, Env, R2ObjectBody } from "./env.js";
 import { contentEtag, etagMatches } from "./etag.js";
+import { applyRangeHeaders, requestedRange } from "./range.js";
+import {
+  BUNDLE_FILENAME,
+  bundleResponseHeaders,
+  contentRepresentationKey,
+  isHtmlPath,
+  notModifiedResponse,
+  responseHeadersForPath,
+  transformHtmlBytes,
+} from "./response-headers.js";
+import { serveMappedFile } from "./serve-mapped-file.js";
 
-export const BUNDLE_FILENAME = "bundle.zip";
-const securityHeaders = { ...BASELINE_SECURITY_HEADERS, ...CONTENT_SECURITY_HEADERS };
-const NOINDEX_HEADER = "noindex, nofollow";
+export {
+  BUNDLE_FILENAME,
+  bundleResponseHeaders,
+  contentRepresentationKey,
+  injectNoindexMeta,
+  isHtmlPath,
+  responseHeadersForPath,
+} from "./response-headers.js";
 
 export function contentTokenFromRequest(context: AppContext): string {
   const pathname = new URL(context.req.raw.url).pathname;
@@ -80,7 +95,7 @@ export async function serveSignedBundle(context: AppContext, payload: ContentTok
   const headers = bundleResponseHeaders(served.plaintextSize, payload.noindex === true, etag);
   headers.set(REQUEST_ID_HEADER, getRequestId(context));
 
-  return new Response(bodyFromBytes(served.bytes), { status: 200, headers });
+  return new Response(measuredBody(context, payload, served.bytes), { status: 200, headers });
 }
 
 export async function serveSignedObject(
@@ -91,13 +106,15 @@ export async function serveSignedObject(
   const env = context.env;
   const request = context.req.raw;
 
+  if (payload.file_map) return serveMappedFile(context, payload, path);
   const key = objectKeyForPayload(payload, path);
   if (!key) {
     return getBoundResponders(context).respondError("not_found");
   }
 
-  const gzip = negotiatesGzip(path, request);
+  const gzip = payload.original_bytes !== true && negotiatesGzip(path, request);
   const representationKey = contentRepresentationKey(path, payload, gzip);
+  // Legacy tokens lack a signed size, so retain their revision validator.
   const etag = await contentEtag(payload.revision_id, path, representationKey);
   // Only short-circuit when the 200 path would actually serve: a workspace-less
   // token 404s below (prepareEncryptedObjectResponse), so a conditional request
@@ -127,7 +144,7 @@ export async function serveSignedObject(
     return getBoundResponders(context).respondError("not_found");
   }
 
-  const injectsNoindex = payload.noindex === true && isHtmlPath(path);
+  const injectsNoindex = payload.original_bytes !== true && payload.noindex === true && isHtmlPath(path);
   const transformed =
     served.bytes && injectsNoindex ? transformHtmlBytes(served.bytes, { noindex: injectsNoindex }) : served.bytes;
   const bytes = transformed && gzip ? await gzipBytes(transformed) : transformed;
@@ -145,7 +162,11 @@ export async function serveSignedObject(
 
   // The body is already in its final coding; "automatic" would make the Workers
   // runtime gzip it a second time because content-encoding is set.
-  return new Response(bodyFromBytes(bytes), { status: 200, headers, encodeBody: "manual" });
+  const range = !gzip && !injectsNoindex ? requestedRange(request, size, etag) : null;
+  const status = !gzip && !injectsNoindex ? applyRangeHeaders(headers, range, size) : 200;
+  const selected =
+    range === "unsatisfiable" ? null : bytes && range ? bytes.subarray(range.start, range.endInclusive + 1) : bytes;
+  return new Response(measuredBody(context, payload, selected), { status, headers, encodeBody: "manual" });
 }
 
 /**
@@ -158,6 +179,30 @@ type ServedObject = { bytes: Uint8Array | null; plaintextSize: number };
 
 function bodyFromBytes(bytes: Uint8Array | null): ReadableStream | null {
   return bytes ? new Blob([bytes as BlobPart]).stream() : null;
+}
+
+function measuredBody(
+  context: AppContext,
+  payload: ContentTokenPayload,
+  bytes: Uint8Array | null,
+): ReadableStream | null {
+  const emit = (size: number) => {
+    if (!payload.workspace_id) return;
+    writeArtifactEvent(context.env.ARTIFACT_EVENTS, {
+      kind: "read",
+      workspaceId: payload.workspace_id,
+      artifactId: payload.artifact_id,
+      revisionId: payload.revision_id,
+      bytes: size,
+      detail: context.req.raw.method === "HEAD" ? "head" : "get",
+    });
+  };
+  const body = bodyFromBytes(bytes);
+  if (!body) {
+    emit(0);
+    return null;
+  }
+  return measureStream(body, emit);
 }
 
 async function prepareEncryptedObjectResponse(input: {
@@ -176,49 +221,45 @@ async function prepareEncryptedObjectResponse(input: {
   if (!workspaceId) {
     return null;
   }
-  const normalizedPath = input.path.length > 0 ? input.path : BUNDLE_FILENAME;
-  const keyParts = normalizedPath === BUNDLE_FILENAME ? null : parseRevisionFileObjectKey(input.objectKey);
-  const blobKeyParts = normalizedPath === BUNDLE_FILENAME ? null : parseWorkspaceBlobObjectKey(input.objectKey);
-  const artifactId = keyParts?.artifactId ?? input.payload.artifact_id;
-  const revisionId = keyParts?.revisionId ?? input.payload.revision_id;
-  const emitRead = (bytes: number) =>
-    writeArtifactEvent(input.env.ARTIFACT_EVENTS, {
-      kind: "read",
-      workspaceId,
-      artifactId,
-      revisionId,
-      bytes,
-      detail: input.method === "HEAD" ? "head" : "get",
-    });
-  if (input.method === "HEAD") {
-    let plaintextSize: number;
-    try {
-      plaintextSize = plaintextByteLengthFromStoredObject(input.object.size);
-    } catch {
-      return null;
-    }
-    emitRead(plaintextSize);
-    return { bytes: null, plaintextSize };
+  const bundle = input.objectKey === expectedBundleKeyForPayload(input.payload, input.env.AGENT_PASTE_ENV);
+  const cap = ciphertextByteLengthForPlaintext((bundle ? 100 : 25) * 1024 * 1024);
+  if (!Number.isSafeInteger(input.object.size) || input.object.size > cap) {
+    await input.object.body?.cancel().catch(() => undefined);
+    return null;
   }
-  const ciphertext = await bytesFromReadableBody(input.object.body);
   try {
-    const decryptContext =
-      blobKeyParts && blobKeyParts.workspaceId === workspaceId
-        ? { kind: "blob" as const, workspaceId, sha256: blobKeyParts.sha256 }
-        : {
-            workspaceId,
-            artifactId,
-            revisionId,
-            normalizedPath,
-          };
-    const plaintext = await decryptArtifactBytesWithKeyRing({
+    const plaintextSize = plaintextByteLengthFromStoredObject(input.object.size);
+    if (input.method === "HEAD") return { bytes: null, plaintextSize };
+    if (!bundle) {
+      const bytes = await readStoredFilePrefix(
+        {
+          r2: {
+            async get() {
+              return input.object;
+            },
+          },
+          ring: encryptionRing,
+          workspaceId,
+          file: { format: "single", objectKey: input.objectKey, sizeBytes: plaintextSize },
+        },
+        plaintextSize,
+      );
+      return { bytes, plaintextSize };
+    }
+    const ciphertext = await bytesFromReadableBodyCapped(input.object.body, cap);
+    if (ciphertext.length !== input.object.size) return null;
+    const bytes = await decryptArtifactBytesWithKeyRing({
       ciphertext,
       ring: encryptionRing,
       metadata: input.object.customMetadata,
-      context: decryptContext,
+      context: {
+        workspaceId,
+        artifactId: input.payload.artifact_id,
+        revisionId: input.payload.revision_id,
+        normalizedPath: BUNDLE_FILENAME,
+      },
     });
-    emitRead(plaintext.byteLength);
-    return { bytes: plaintext, plaintextSize: plaintext.byteLength };
+    return { bytes, plaintextSize };
   } catch {
     return null;
   }
@@ -247,7 +288,7 @@ export function isAllowedPath(path: string, payload: ContentTokenPayload, storag
     return false;
   }
 
-  return !payload.paths || payload.paths.includes(path);
+  return Boolean(payload.file_map) || !payload.paths || payload.paths.includes(path);
 }
 
 export function isSafePath(path: string): boolean {
@@ -356,141 +397,6 @@ function isSafeKeyPrefix(keyPrefix: string): boolean {
 
 function isSafeKeySegment(segment: string): boolean {
   return segment !== "" && segment !== "." && segment !== "..";
-}
-
-export function bundleResponseHeaders(size: number, noindex: boolean, etag: string): Headers {
-  const headers = new Headers(securityHeaders);
-  headers.set("cache-control", CONTENT_CACHE_CONTROL);
-  headers.set("etag", etag);
-  headers.set("content-length", String(size));
-  headers.set("content-type", "application/zip");
-  headers.set("content-disposition", `attachment; filename="${BUNDLE_FILENAME}"`);
-  if (noindex) {
-    headers.set("x-robots-tag", NOINDEX_HEADER);
-  }
-  return headers;
-}
-
-export function responseHeadersForPath(
-  path: string,
-  size: number,
-  payload: ContentTokenPayload,
-  etag: string,
-  request?: Request,
-): Headers {
-  const scriptDisabled = isScriptDisabled(payload);
-  const served = servedContentForPath(path, { scriptDisabled });
-  const headers = new Headers(securityHeaders);
-  headers.set(
-    "cache-control",
-    contentCacheControl({ ...served, exp: payload.exp, nowSeconds: Math.floor(Date.now() / 1000) }),
-  );
-  headers.set("etag", etag);
-  headers.set("content-length", String(size));
-  headers.set("content-type", served.contentType);
-  headers.set("content-security-policy", served.csp);
-  if (served.disposition === "attachment") {
-    headers.set("content-disposition", `attachment; filename="${attachmentFilename(path)}"`);
-  }
-  if (payload.noindex === true) {
-    headers.set("x-robots-tag", NOINDEX_HEADER);
-  }
-  if (isGzipNegotiable(path)) {
-    appendVary(headers, "Accept-Encoding");
-    if (negotiatesGzip(path, request)) {
-      headers.set("content-encoding", "gzip");
-    }
-  }
-  applyOpaqueOriginCors(headers, request);
-  return headers;
-}
-
-function applyOpaqueOriginCors(headers: Headers, request?: Request): void {
-  if (request?.headers.get("origin") !== "null") {
-    return;
-  }
-  headers.set("access-control-allow-origin", "null");
-  appendVary(headers, "Origin");
-}
-
-function appendVary(headers: Headers, value: string): void {
-  const current = headers.get("vary");
-  if (!current) {
-    headers.set("vary", value);
-    return;
-  }
-  if (current === "*") {
-    return;
-  }
-  const exists = current.split(",").some((item) => item.trim().toLowerCase() === value.toLowerCase());
-  if (!exists) {
-    headers.set("vary", `${current}, ${value}`);
-  }
-}
-
-// 304 serves no bytes, but the request already counted against the artifact read
-// limit, so it still registers a read (bytes: 0). It reuses the exact headers the
-// 200 would carry (built by the caller) minus the body-only content-length and
-// content-encoding, so the validated cache entry keeps the same CSP,
-// content-type, and cache directives instead of inheriting a weaker set from a
-// hand-maintained 304 list.
-function notModifiedResponse(context: AppContext, payload: ContentTokenPayload, headers: Headers): Response {
-  if (payload.workspace_id) {
-    writeArtifactEvent(context.env.ARTIFACT_EVENTS, {
-      kind: "read",
-      workspaceId: payload.workspace_id,
-      artifactId: payload.artifact_id,
-      revisionId: payload.revision_id,
-      bytes: 0,
-      detail: "304",
-    });
-  }
-  headers.delete("content-length");
-  headers.delete("content-encoding");
-  headers.set(REQUEST_ID_HEADER, getRequestId(context));
-  return new Response(null, { status: 304, headers });
-}
-
-function transformHtmlBytes(bytes: Uint8Array, options: { noindex: boolean }): Uint8Array {
-  let html = new TextDecoder().decode(bytes);
-  if (options.noindex) html = injectNoindexMeta(html);
-  return new TextEncoder().encode(html);
-}
-
-export function contentRepresentationKey(path: string, payload: ContentTokenPayload, gzip = false): string | undefined {
-  const parts: string[] = [];
-  if (isHtmlPath(path)) {
-    if (payload.noindex === true) parts.push("noindex");
-    parts.push("direct");
-    parts.push(isScriptDisabled(payload) ? "script-none" : "script-on");
-  }
-  // A strong validator must differ per content-coding (RFC 9110 §8.8.3).
-  if (gzip) parts.push("gzip");
-  return parts.length > 0 ? parts.join(":") : undefined;
-}
-
-function isScriptDisabled(payload: ContentTokenPayload): boolean {
-  // Before ADR 0095, ephemeral tokens were signed with noindex=true and an
-  // explicit script_disabled=false. Keep that existing tier marker fail-closed
-  // until every pre-migration token and capability manifest has expired.
-  return payload.noindex === true || payload.script_disabled !== false;
-}
-
-export function injectNoindexMeta(html: string): string {
-  const tag = '<meta name="robots" content="noindex,nofollow">';
-  if (html.includes(tag)) {
-    return html;
-  }
-  const headMatch = /<head(\b[^>]*)>/i.exec(html);
-  if (headMatch) {
-    const index = headMatch.index + headMatch[0].length;
-    return `${html.slice(0, index)}${tag}${html.slice(index)}`;
-  }
-  return `${tag}${html}`;
-}
-
-export function isHtmlPath(path: string): boolean {
-  return /\.(?:html?|xhtml)$/i.test(path);
 }
 
 function safeDecodeURIComponent(value: string): string | null {

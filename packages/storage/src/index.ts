@@ -238,3 +238,11 @@ export function attachmentFilename(path: string): string {
   const basename = path.split("/").at(-1) || "download";
   return basename.replaceAll(/["\\\r\n]/gu, "_");
 }
+export {
+  lookupFileMapEntry,
+  parseRevisionFileMap,
+  type RevisionFileMapEntry,
+  type RevisionFileMapV1,
+  serializeRevisionFileMap,
+} from "./revision-file-map.js";
+export { readStoredFilePrefix, type StoredFileRef, streamStoredFile } from "./stored-file-reader.js";

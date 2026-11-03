@@ -9,10 +9,35 @@ import {
   MAX_MCP_FORWARDED_RESPONSE_BYTES,
   putSignedUploadFile,
 } from "./forward.js";
+import { ForwardError } from "./publish-transport.js";
 
 const subject = "user_01";
 
 describe("forwardToApi", () => {
+  it("preserves rate-limit retry metadata for the shared transfer engine", async () => {
+    const result = await forwardToApiRoute({
+      api: {
+        fetchMcp: async () =>
+          Response.json(
+            { error: { code: "rate_limited_actor", message: "limited" } },
+            {
+              status: 429,
+              headers: { "retry-after": "2" },
+            },
+          ),
+      },
+      routeId: "artifactFiles.list",
+      params: { artifact_id: "art_01HZY7Q8X9Y2S3T4V5W6X7Y8Z9" },
+      tokenSub: subject,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(new ForwardError(result.error, result)).toMatchObject({
+        status: 429,
+        code: "rate_limited_actor",
+        retryAfterSeconds: 2,
+      });
+  });
   it("resolves method and path from route contracts", async () => {
     const api = {
       fetchMcp: vi.fn(async () => Response.json({ ok: true })),

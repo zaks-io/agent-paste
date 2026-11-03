@@ -1,25 +1,27 @@
 import { IdempotencyInFlightError } from "@agent-paste/commands";
 import type { ErrorCode } from "@agent-paste/contracts";
-import { repositoryErrorToAppError } from "@agent-paste/db";
+import { RepositoryError, repositoryErrorToAppError } from "@agent-paste/db";
 import { type AppErrorCode, getBoundResponders } from "@agent-paste/worker-runtime";
 import type { AppContext } from "./env.js";
 
 export type ContractRespondError = (
   code: ErrorCode,
-  messageOrOptions?: string | { message?: string; headers?: Record<string, string> },
+  messageOrOptions?: string | { message?: string; headers?: Record<string, string>; details?: Record<string, unknown> },
 ) => Response;
 
 export class RepositoryRouteError extends Error {
   readonly headers: Record<string, string>;
+  readonly details: Record<string, unknown> | undefined;
 
   constructor(
     readonly code: AppErrorCode,
     message?: string,
-    options?: ErrorOptions & { headers?: Record<string, string> },
+    options?: ErrorOptions & { headers?: Record<string, string>; details?: Record<string, unknown> },
   ) {
     super(message ?? code, options);
     this.name = "RepositoryRouteError";
     this.headers = options?.headers ?? {};
+    this.details = options?.details;
   }
 }
 
@@ -29,33 +31,38 @@ function repositoryErrorResponse(
   respondError?: ContractRespondError,
   message?: string,
   headers?: Record<string, string>,
+  details?: Record<string, unknown>,
 ): Response {
-  if (respondError) {
-    if (message !== undefined) {
-      return respondError(code, headers ? { message, headers } : message);
-    }
-    if (headers !== undefined) {
-      return respondError(code, { headers });
-    }
-    return respondError(code);
-  }
-  const bound = getBoundResponders(context);
-  if (message !== undefined) {
-    return bound.respondError(code, headers ? { message, headers } : message);
-  }
-  if (headers !== undefined) {
-    return bound.respondError(code, { headers });
-  }
-  return bound.respondError(code);
+  const respond = respondError ?? getBoundResponders(context).respondError;
+  return respond(code, {
+    ...(message !== undefined ? { message } : {}),
+    ...(headers ? { headers } : {}),
+    ...(details ? { details } : {}),
+  });
 }
 
 function routeErrorResponse(context: AppContext, error: unknown, respondError?: ContractRespondError): Response | null {
   if (error instanceof RepositoryRouteError) {
-    return repositoryErrorResponse(context, error.code as ErrorCode, respondError, error.message, error.headers);
+    return repositoryErrorResponse(
+      context,
+      error.code as ErrorCode,
+      respondError,
+      error.message,
+      error.headers,
+      error.details,
+    );
   }
   const repositoryCode = repositoryErrorToAppError(error);
   if (repositoryCode) {
-    return repositoryErrorResponse(context, repositoryCode, respondError);
+    const cleanup = error instanceof RepositoryError && error.kind === "blob_cleanup_in_progress";
+    return repositoryErrorResponse(
+      context,
+      repositoryCode,
+      respondError,
+      cleanup ? "blob_cleanup_in_progress" : undefined,
+      cleanup ? { "Retry-After": "60" } : undefined,
+      error instanceof RepositoryError ? error.details : undefined,
+    );
   }
   return null;
 }

@@ -1,17 +1,15 @@
-/**
- * Strong validator over immutable revision identity plus any request-scoped
- * representation that rewrites the served body or per-path headers (viewer-frame
- * HTML transforms, script policy, noindex injection). Revisions are append-only
- * (ADR 0020), so `(revision_id, path)` identifies the stored ciphertext; the
- * optional `representation` suffix distinguishes transformed variants so a 304
- * cannot reuse a cached body from a different framing or script policy. We hash
- * so the header is opaque and fixed-length rather than leaking raw ids, and
- * never read R2: the value is a pure function of the token payload and
- * representation key, which lets the handler answer conditional requests before
- * fetching or decrypting ciphertext.
- */
-export async function contentEtag(revisionId: string, path: string, representation?: string): Promise<string> {
-  const material = representation ? `${revisionId}\n${path}\n${representation}` : `${revisionId}\n${path}`;
+/** Content hashes keep unchanged files cache-valid across revisions. */
+export async function contentEtag(
+  revisionId: string,
+  path: string,
+  representation?: string,
+  content?: { sha256: string; sizeBytes: number },
+): Promise<string> {
+  const material = content
+    ? `sha256:${content.sha256}\n${content.sizeBytes}\n${path}\n${representation ?? ""}`
+    : representation
+      ? `${revisionId}\n${path}\n${representation}`
+      : `${revisionId}\n${path}`;
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(material));
   const hex = Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))

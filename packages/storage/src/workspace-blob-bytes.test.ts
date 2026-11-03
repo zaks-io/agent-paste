@@ -119,3 +119,72 @@ describe("writeWorkspaceBlob", () => {
     expect(r2.puts).toHaveLength(1);
   });
 });
+
+describe("workspace blob read limits", () => {
+  it("rejects an oversized or mismatched encrypted length before pulling the body", async () => {
+    for (const size of [1, 1000]) {
+      let pulled = false;
+      let cancelled = false;
+      const body = new ReadableStream<Uint8Array>(
+        {
+          pull() {
+            pulled = true;
+          },
+          cancel() {
+            cancelled = true;
+          },
+        },
+        { highWaterMark: 0 },
+      );
+      await expect(
+        readWorkspaceBlobBytes({
+          workspaceId: WORKSPACE,
+          sha256: SHA,
+          ring: testArtifactBytesKeyRing(),
+          maxPlaintextBytes: 4,
+          expectedPlaintextBytes: 4,
+          r2: {
+            async get() {
+              return { body, size, customMetadata: { enc_alg: "aes-256-gcm", enc_kid: "1", enc_aad_v: "v2" } };
+            },
+          },
+        }),
+      ).rejects.toThrow();
+      expect(pulled).toBe(false);
+      expect(cancelled).toBe(true);
+    }
+  });
+  it("bounds a lying stream as bytes arrive", async () => {
+    const seeded = await seedEncryptedWorkspaceBlob({
+      workspaceId: WORKSPACE,
+      sha256: SHA,
+      plaintext: "longer than allowed",
+    });
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull(c) {
+          c.enqueue(seeded.body);
+        },
+        cancel() {
+          cancelled = true;
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    await expect(
+      readWorkspaceBlobBytes({
+        workspaceId: WORKSPACE,
+        sha256: SHA,
+        ring: testArtifactBytesKeyRing(),
+        maxPlaintextBytes: 1,
+        r2: {
+          async get() {
+            return { body, size: 29, customMetadata: seeded.customMetadata };
+          },
+        },
+      }),
+    ).rejects.toThrow();
+    expect(cancelled).toBe(true);
+  });
+});

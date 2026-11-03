@@ -61,6 +61,12 @@ export const rateLimitResponse: ResponseConfig = {
   content: rateLimitContent,
 };
 
+export const rateLimitOrQuotaResponse: ResponseConfig = {
+  description: "Actor or workspace rate limit, or storage quota exceeded. Storage quota failures have no Retry-After.",
+  headers: retryAfterHeaders.partial(),
+  content: errorEnvelopeContent,
+};
+
 export const artifactRateLimitResponse: ResponseConfig = {
   description: "Artifact read rate limit exceeded. Error code is rate_limited_artifact.",
   headers: retryAfterHeaders,

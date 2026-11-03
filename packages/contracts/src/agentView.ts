@@ -10,6 +10,7 @@ import {
   Sha256Hex,
   UrlString,
 } from "./primitives.js";
+import { Retention } from "./retention.js";
 
 export const DisplayMetadata = z.object({
   title: PlainTextTitle,
@@ -47,6 +48,7 @@ export const AgentViewFile = z.object({
   // file back to diff against (ADR 0090). Object is not strict, so this
   // is a non-breaking add the MCP read_artifact safeParse already accepts.
   sha256: Sha256Hex.optional(),
+  format: z.enum(["single", "chunked-v1"]).optional(),
 });
 export type AgentViewFile = z.infer<typeof AgentViewFile>;
 
@@ -89,6 +91,10 @@ const AgentViewBase = z.object({
   files: z.array(AgentViewFile).min(1).max(100),
   safety_warnings: z.array(SafetyWarning).max(100).default([]),
   bundle: BundleAvailability,
+  file_count: z.number().int().nonnegative().optional(),
+  files_truncated: z.boolean().optional(),
+  retention: Retention.optional(),
+  effective_expires_at: IsoDateTime.nullable().optional(),
 });
 
 export const PublicAgentView = AgentViewBase;

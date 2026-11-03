@@ -1,14 +1,11 @@
 import { runPublish } from "@agent-paste/api-client/publish";
 import {
-  type AgentView,
-  type IdempotencyKey,
   type McpAddRevisionInput,
   type McpMultiEditInput,
   mapApiErrorToMcp,
   mapMcpProtocolError,
-  mcpEntrypointForRenderMode,
 } from "@agent-paste/contracts";
-import { type Edit, ReviseError, reviseOnePath, reviseWholeBody } from "@agent-paste/revise-core";
+import { type Edit, ReviseError, reviseOnePath } from "@agent-paste/revise-core";
 import { captureWorkerError, emitWorkerLog } from "@agent-paste/worker-runtime";
 import type { McpAuthContext } from "./auth.js";
 import {
@@ -28,61 +25,42 @@ export async function callAddRevision(
   deps: McpToolDeps,
 ): Promise<McpToolResult> {
   const idempotencyKey = resolveIdempotencyKey("add_revision", input, auth, deps, input.idempotency_key);
-  const reader = serviceBindingReader(deps);
-  const path = mcpEntrypointForRenderMode(input.render_mode);
-
-  // The verified incremental revise: the engine reads the base, diffs the new body
-  // against the stored entrypoint bytes, and publishes a checked patch (or the whole
-  // file under the base revision), preserving the artifact's title + tree. It reads the
-  // base exactly once and hands it back on a no-op, so there is no second read here.
-  let result: Awaited<ReturnType<typeof reviseWholeBody>>;
   try {
-    result = await reviseWholeBody(
-      { reader, transport: serviceBindingTransport(deps), publish: runPublish },
-      {
-        artifactId: input.artifact_id,
-        path,
-        nextText: input.body,
-        idempotencyKey,
-      },
-    );
-  } catch (error) {
-    // A render_mode that changes the entrypoint (e.g. html -> markdown) has no matching
-    // file to patch: fall back to a whole-file publish under the base, still preserving
-    // the base title. Every other revise failure maps to an error envelope.
-    if (error instanceof ReviseError && error.reason === "path_not_in_base") {
-      return addRevisionWithNewEntrypoint(reader, input, idempotencyKey, deps);
+    const base = await serviceBindingReader(deps).readArtifact(input.artifact_id);
+    const payload = await textPublishInput(input, idempotencyKey, base.title);
+    const path = payload.entrypoint;
+    const old = base.files.find((file) => file.path === path);
+    if (!old && base.files_truncated) {
+      return {
+        ok: false,
+        error: mapApiErrorToMcp({
+          code: "invalid_request",
+          message: "File listing is truncated. Use CLI publish --to for this update.",
+        }),
+      };
     }
-    return addRevisionError(error);
-  }
-  if (result.noop) {
-    // Byte-identical body: no revision minted. Echo the stable Artifact URL from
-    // the base the engine already read, so the agent still gets the link to hand back
-    // (the live page already shows this content). Reused stats: nothing was uploaded.
-    return noopPublishOutput(result.base);
-  }
-  return shapePublishOutput(result.outcome);
-}
-
-/** Whole-file publish under the base for a revision whose render_mode changes the entrypoint. */
-async function addRevisionWithNewEntrypoint(
-  reader: ReturnType<typeof serviceBindingReader>,
-  input: McpAddRevisionInput,
-  idempotencyKey: IdempotencyKey,
-  deps: McpToolDeps,
-): Promise<McpToolResult> {
-  let base: AgentView;
-  try {
-    base = await reader.readArtifact(input.artifact_id);
+    if (old?.sha256 === payload.files[0]?.sha256 && base.entrypoint === path && input.pin === undefined)
+      return noopPublishOutput(base);
+    if (old && !old.sha256)
+      return {
+        ok: false,
+        error: mapApiErrorToMcp({
+          code: "invalid_request",
+          message: "Legacy file has no digest. Use an explicit full-tree CLI mirror.",
+        }),
+      };
+    return publishViaSharedModule(deps, {
+      ...payload,
+      artifactId: base.artifact_id,
+      commit: { guard: "paths", ...(input.pin !== undefined ? { pin: input.pin } : {}) },
+      files: payload.files.map((file) => ({
+        ...file,
+        expect: old ? { sha256: old.sha256!, size_bytes: old.size_bytes } : { absent: true },
+      })),
+    });
   } catch (error) {
     return addRevisionError(error);
   }
-  const file = await textPublishInput(input, idempotencyKey, base.title);
-  return publishViaSharedModule(deps, {
-    ...file,
-    artifactId: base.artifact_id,
-    baseRevisionId: base.revision_id,
-  });
 }
 
 /** Map an add_revision throw (forward, revise, or unexpected) to a tool error envelope. */

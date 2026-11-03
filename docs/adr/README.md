@@ -14,6 +14,8 @@ This directory is the decision log for agent-paste: it records _why_ choices wer
 
 ## Current Conflict Resolutions
 
+- [ADR 0101](./0101-persistent-static-hosting-and-guarded-transfers.md) extends Artifact hosting with agent pin/unpin, guarded partial sync, chunked transfers up to 250 MiB per file, digest-bound file maps, and workspace storage budgets. It amends the transient-only intent and prior small-transfer and merge decisions; the one-hour browser freshness policy remains unchanged.
+
 - [ADR 0100](./0100-bounded-browser-cache-for-static-assets.md) supersedes the uniform browser revalidation policy in ADR 0020/0081. Inline static assets have up to one hour of private freshness; documents and downloads still revalidate.
 
 - [ADR 0028](./0028-signed-url-tokens-for-content-gateway-authorization.md) is the canonical content-origin authorization model. `content` verifies short-lived content-gateway tokens, reads R2, checks KV denylist state, and has no Hyperdrive binding.

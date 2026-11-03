@@ -28,8 +28,12 @@
   "files": [
     "scripts/deploy.mjs",
     "scripts/deploy-pr-preview.mjs",
+    "scripts/smoke-hosted-transfers.mjs",
+    "scripts/hosted-transfer-preload.mjs",
     "scripts/ensure-content-capability-dns.mjs",
     "scripts/lib/content-capability-dns.mjs",
+    "scripts/lib/transfer-endpoints.mjs",
+    "scripts/lib/hosted-transfer-fetch.mjs",
     "scripts/lib/braces-patch.mjs",
     "scripts/lib/hyperdrive-branch-guard.mjs",
     "scripts/lib/load-env-files.mjs",

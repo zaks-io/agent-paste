@@ -117,6 +117,9 @@ const byWorkspaceId = (row: { workspace_id: string | null }) => row.workspace_id
 // null-workspace row fails `workspace_id = app.workspace_id` so it is invisible under a
 // workspace scope, exactly as it is in Postgres.
 const SCOPE_KEYS: { [K in keyof LocalState]: ScopeKey<RowOf<K>> } = {
+  uploadSessionChunks: byWorkspaceId,
+  uploadSessionDeletions: byWorkspaceId,
+  contentBlobChunks: byWorkspaceId,
   feedback: byWorkspaceId,
   workspaces: (row) => row.id,
   workspaceMembers: byWorkspaceId,

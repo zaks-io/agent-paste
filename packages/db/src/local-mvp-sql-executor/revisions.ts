@@ -25,6 +25,7 @@ export function handleRevisionBundleStateJoin<Row>(
         status: revision.status,
         artifact_status: artifact.status,
         bundle_status: revision.bundle_status,
+        size_bytes: revision.size_bytes,
       },
     ] as Row[],
   };
@@ -63,8 +64,8 @@ export function handleRevisionBundleStatusUpdate<Row>(
   if (!revision || revision.workspace_id !== workspaceId || revision.bundle_status !== "pending") {
     return { rows: [] as Row[] };
   }
-  if (normalized.includes("bundle_status = 'failed'")) {
-    revision.bundle_status = "failed";
+  if (normalized.includes("bundle_status = 'failed'") || normalized.includes("bundle_status = 'disabled'")) {
+    revision.bundle_status = normalized.includes("bundle_status = 'disabled'") ? "disabled" : "failed";
     revision.bundle_status_updated_at = new Date().toISOString();
     revision.bundle_size_bytes = null;
   } else {

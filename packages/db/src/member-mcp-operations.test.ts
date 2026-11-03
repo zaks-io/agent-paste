@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LocalRepository } from "./local-repository.js";
+import { fakeFileMapStore } from "./test-helpers/file-map-store.js";
 
 async function memberWithPublishedArtifact(repo: LocalRepository) {
   const session = await repo.resolveWebMember({
@@ -47,7 +48,7 @@ async function memberWithPublishedArtifact(repo: LocalRepository) {
 
 describe("member MCP repository operations", () => {
   it("peekIdempotentReplay resolves upload session commands for member actors", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     await repo.resolveWebMember({
       workosUserId: "user_01J5K7Y8G9H0ABCDEFGHJKMNPQ",
       email: "mcp-member@example.com",
@@ -98,7 +99,7 @@ describe("member MCP repository operations", () => {
   });
 
   it("reuses the one active share link across distinct unlisted visibility calls, then mints fresh after revoke", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const { member, artifactId } = await memberWithPublishedArtifact(repo);
 
     // Distinct idempotency keys: real set_visibility unlisted calls derive a
@@ -133,7 +134,7 @@ describe("member MCP repository operations", () => {
   });
 
   it("lists, updates title, deletes artifacts, and manages access links for a member", async () => {
-    const repo = new LocalRepository({ apiKeyPepper: "pepper" });
+    const repo = new LocalRepository({ fileMapStore: fakeFileMapStore, apiKeyPepper: "pepper" });
     const { member, artifactId } = await memberWithPublishedArtifact(repo);
 
     const listed = await repo.listMemberArtifacts(member, { limit: 10 });

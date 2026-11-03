@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createDrizzleConnection } from "../postgres/drizzle.js";
+import { markUnreferencedContentBlobs } from "./content-blob-gc.js";
 import { contentBlobQueries } from "./content-blobs.js";
 
 describe("contentBlobQueries on postgres-js drizzle", () => {
@@ -32,7 +33,7 @@ describe("contentBlobQueries on postgres-js drizzle", () => {
     };
     const conn = createDrizzleConnection(client as never);
     const now = "2099-06-01T14:00:00.000Z";
-    await contentBlobQueries.deleteUnreferenced(conn.drizzle, { now, limit: 10 });
+    await markUnreferencedContentBlobs(conn.sql, { now, limit: 10 });
     expect(params).toContain(now);
     expect(params).toContain(10);
     expect(params.some((value) => value instanceof Date)).toBe(false);

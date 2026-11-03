@@ -17,6 +17,7 @@ import type {
   Workspace,
 } from "../types.js";
 import type { OperatorEventFilters } from "./operator-event-filters.js";
+import type { PersistentHostingRepository } from "./persistent-hosting-repository.js";
 import type { CreateUploadSessionRequest } from "./upload-session-lifecycle.js";
 import type { toWebArtifactRow, toWebAuditRow, toWebOperatorEventRow } from "./web-transforms.js";
 import type {
@@ -36,7 +37,16 @@ import type { SubmitFeedbackInput } from "./workflows/feedback-workflow.js";
 
 type AgentView = ReturnType<typeof buildAgentView>;
 type PublishResult = ReturnType<typeof buildPublishResult>;
-type FinalizeResult = ReturnType<typeof buildFinalizeResult>;
+type FinalizeResult =
+  | ReturnType<typeof buildFinalizeResult>
+  | {
+      status: "ready";
+      upload_session_id: string;
+      artifact_id: string;
+      revision_id: string;
+      file_count: number;
+      deletion_count: number;
+    };
 type WorkspaceSummary = ReturnType<typeof toWorkspaceSummary>;
 type ApiKeySummary = ReturnType<typeof toApiKeySummary>;
 type UploadSessionRecord = ReturnType<typeof toUploadSessionRecord>;
@@ -151,7 +161,7 @@ type LockdownDetail = {
 // Single backend-agnostic contract. Both the Postgres and local repositories
 // implement this exactly; the api and upload workers consume it directly.
 /** Domain failures throw {@link RepositoryError}; map with {@link repositoryErrorToAppError}. */
-export type Repository = {
+export type Repository = PersistentHostingRepository & {
   submitFeedback(input: SubmitFeedbackInput): Promise<{ feedback_id: string }>;
   resolveArtifactReference(input: {
     actor: ApiActor;
@@ -345,6 +355,7 @@ export type Repository = {
     objectKey?: string;
     sizeBytes?: number;
     sha256?: string;
+    r2CleanupEligible?: boolean;
     uploadedAt: string;
   }): Promise<void>;
   getUploadSession(input: { actor: ApiActor; sessionId: string }): Promise<UploadSessionRecord | null>;

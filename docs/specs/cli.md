@@ -167,17 +167,14 @@ Structured output continues to return canonical `artifact_id` values.
   within a version, but field removals or renames bump it.
 - Object payloads are emitted as `{ "schema_version": "2", ...fields }`.
 - `publish --json` emits `{ schema_version, artifact_id, revision_id, title,
-url, expires_at, upload_stats }`. `url` is the no-login top-level capability
+url, expires_at, mode, no_change, retention, effective_expires_at, changes, upload_stats }`. `url` is the no-login top-level capability
   website and is the only recipient link. Revising with `--artifact-id` keeps
   it unchanged. `upload_stats` is `{ total_files, total_bytes, uploaded_files,
 uploaded_bytes, reused_files, reused_bytes }`.
-- If the publish request fails after the server may have committed the Revision,
-  the CLI reads the authenticated Agent View and recovers success only when it
-  reports the exact Artifact and Revision just finalized. This keeps response
-  parser drift or a post-commit connection failure from stranding the Artifact
-  URL while preserving the original error when the exact commit cannot be
-  verified. Recovery exits successfully with the normal result on stdout and a
-  diagnostic on stderr so release validation can still reject parser drift.
+- Guarded publish opts into retention fields. Its JSON result adds `mode`,
+  `no_change`, `retention`, `effective_expires_at` and `changes` within schema
+  version `"2"`. Retrying a saved transfer reuses the same operation keys and
+  recovers the authoritative publish result through idempotent replay.
 - There is no `--share`, visibility input, private viewer, or second sharing
   command.
 - `publish --ephemeral --json` emits the normal publish fields plus
@@ -251,34 +248,117 @@ one Revision's Bundle as a zip. It reads the latest Revision unless
 `--json` returns `{ schema_version, artifact_id, revision_id, title, path,
 size_bytes }`.
 
-## Incremental revise (manifest cache + diffs)
+## Guarded publish and sync
 
-On a revise (`publish <path> --artifact-id <id>`), the CLI sends only what
-changed instead of the whole tree ([ADR 0090](../adr/0090-agent-file-read-back-api-decrypts-member-plaintext.md)).
-It caches the last published manifest per artifact (`paths + sha256 + revision_id`)
-under the CLI config dir and, on the next revise, diffs the working dir against
-that cache: unchanged files inherit by reference (not re-hashed, not re-uploaded),
-removed files become `deleted_paths`, and changed text files are sent as a
-verified unified diff against `base_revision_id` (whole blob for binary or when the
-diff is not smaller). The diff generator (`diffWithSelfCheck`) lives in the shared
-`@agent-paste/revise-core` package ([ADR 0091](../adr/0091-client-side-revise-engine-and-literal-edit-tools.md)),
-the single copy both the CLI and MCP use; it self-checks (applies its own diff and
-verifies the result digest) before attaching a patch, so a generator bug degrades
-to a correct whole-blob upload, never a finalize conflict. There is no diff size
-threshold. If the cached base is no longer usable on the server (a concurrent
-revise elsewhere, a retained/deleted base, or a non-inheritable base file), the
-CLI drops the cache and re-publishes the whole working directory once; a corrupt
-or schema-drifted cache is treated as a cache miss. The cache holds no bytes and
-no secrets and is written `0600`. Cache persistence happens after the server
-commits the publish. A cache write failure warns on stderr but does not change
-the successful exit code or suppress the publish result.
+Claimed Workspaces accept files up to 250 MiB, up to 10,000 files and 2 GiB per
+Revision, subject to the Workspace storage budget. Directories around 1 GiB are
+supported. Free storage defaults to 5 GiB and Pro to 50 GiB. History, bundles,
+file entries and pending transfer reservations count toward usage. Deleting an
+Artifact frees physical storage after the GC age floor and sweep, potentially
+24 hours plus one sweep. Ephemeral publishing retains its 10 MiB file, 25 MiB
+tree and 100-file limits. Legacy clients retain single uploads of 10 MiB on
+Free and 25 MiB on Pro.
 
-- Errors in `json` mode are emitted on **stderr** as
-  `{ "error": { "code", "message", "docs?", "retry_after_seconds?" } }` (no
-  `schema_version` — it is an error envelope, not a result). On HTTP 429,
-  `retry_after_seconds` carries the server's integer `Retry-After` value. The CLI
-  does not retry automatically. Agents must wait for that interval before a new
-  attempt.
+| Invocation                                                 | Scope and deletion behavior                                                                                            |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `publish <path>`                                           | Create one Artifact from the complete selection.                                                                       |
+| `publish <path> --artifact-id <ref>`                       | Mirror the whole tree. Remote-only paths are removed under a whole-tree snapshot guard.                                |
+| `publish <file> --artifact-id <ref> --to <path>`           | Upsert one remote file. Omitted paths are preserved.                                                                   |
+| `publish <dir> --artifact-id <ref> --to <prefix>`          | Upsert the directory below that prefix. Omitted paths are preserved.                                                   |
+| `publish <dir> --artifact-id <ref> --to <prefix> --mirror` | Mirror only that prefix. Remote-only descendants are removed under a prefix snapshot guard.                            |
+| `publish [<path>] --artifact-id <ref> --delete <path>`     | Delete an explicit file or directory prefix. Repeat `--delete` for more selections. A local path also requires `--to`. |
+
+`--exclude <glob>` is repeatable and applies Node 24 `path.matchesGlob` to local
+relative paths after the fixed exclusions. In mirror mode an excluded local
+path is absent from the mirror and can therefore be deleted remotely. Use
+`--dry-run` to inspect the exact scope first. It emits `{ mode,
+head_revision_id, added, changed, removed, unchanged, bytes_to_send_max, limits,
+usage }` and creates no upload session. An unchanged publish returns
+`no_change: true` and creates no Revision.
+
+Head listing replaces the local manifest cache. Each listing page is pinned to
+one Revision. Selected upserts and deletions carry full-file SHA-256 and size
+expectations, with absent expectations for additions. Directory deletions carry
+a prefix snapshot. Disjoint path commits can both succeed, while overlapping
+changes produce `commit_conflict` with structured `details`. Conflicts are not
+retried automatically. A selected-path operation that cannot inherit legacy
+revision-scoped rows fails and asks for an explicit full-tree mirror. The CLI
+never broadens a selected upload into a full replacement.
+
+The CLI hashes files through pinned file handles in 4 MiB blocks. Files above
+10 MiB use fixed 4 MiB chunks through the existing encrypted workspace-blob
+protocol. `sha256` always describes the full plaintext file. Upload reads verify
+recorded digests again and fail with `local_file_changed` if bytes changed.
+No 250 MiB file body is buffered in the client. Six transfers run concurrently;
+ordered file batches have at most 1,000 entries. Chunk completion verifies the
+whole-file digest before finalize and publish.
+
+Transfer plans and operation keys are saved with mode `0600` below the CLI
+config directory's `transfers/` folder. State contains file metadata and guards,
+never API keys, file bodies or signed URLs. Rerun the same command with the same
+local bytes to resume. Target listing skips uploaded chunks and renews signed
+URLs. Network and server failures use up to five attempts with backoff;
+rate limits honor `Retry-After`. Other 4xx failures, including quota failures
+without `Retry-After`, are not retried. The state lookup uses the invocation's
+server, Workspace, actor, source path, target and explicit selection flags.
+Source hashes and resolved remote metadata do not change that identity. Resume
+validates the entire original local selection and retains its saved title,
+entrypoint and guards across a head change. Changed local bytes fail with
+`local_file_changed`; conflicts leave the saved plan intact. After inspecting
+the current head, rerun with `--restart` to intentionally discard that plan and
+start against fresh guards. Expired sessions also require `--restart`.
+`--restart` cannot be combined with `--dry-run`.
+
+## Retention and management
+
+`publish --pin` pins with the commit. `pin <ref>` and `unpin <ref>` require
+publish authority in the owning claimed Workspace and return `ArtifactRetention`.
+A pinned Artifact has no scheduled expiry, subject to deletion and platform
+policy. Unpin starts a fresh default retention window. Ephemeral Artifacts
+cannot be pinned. Pin limits still apply.
+
+`list [--cursor <cursor>]` returns paginated Artifacts including retention.
+`usage` returns used, reserved and budget bytes plus pin counts.
+`delete <ref> --yes` uses the existing deletion route. Without `--yes`, it
+fails with exit `4` before sending the delete request.
+
+## File-wise pull
+
+`pull <ref> [<remote-path>...] --output <directory> [--revision-id <id>]
+[--overwrite] [--dry-run]` downloads files or prefixes. No remote paths selects
+the whole tree. Local files outside the selection are preserved. Existing files
+with matching full-file hashes are skipped. Different existing files stop the
+entire plan before writes unless `--overwrite` is given. Dry runs report the
+selected files, skips and conflicts without downloading content.
+
+A pull uses one bounded Revision read grant and paginated listings for that
+exact Revision, followed by content requests. Concurrent publication never
+mixes revisions. Expired grants are renewed for the original Revision. Writes
+use root-bounded `openWritable` handles and reject traversal, symlinks and
+hardlinks. Bodies stream into an exclusively owned private directory below
+the CLI configuration directory's `pulls/` folder. Ownership metadata includes
+the destination and partial file identity. Transfer state never uses remote
+filenames in the output tree; names ending in `.agent-paste-partial` or
+`.agent-paste-partial.json` are ordinary user files. Output directories cannot
+contain the CLI configuration directory.
+
+Reruns resume using `Range` and strong `If-Range`; a 200 response restarts the
+owned partial. Size and SHA-256 must match before installation. Without
+`--overwrite`, fs-safe creates the destination exclusively and copies through
+the pinned handle, so a file created concurrently is preserved. With
+`--overwrite`, installation uses fs-safe's atomic replacement. Interrupted
+local installation can leave a differing destination, which requires explicit
+`--overwrite` on rerun. Corrupt owned partials are removed. Legacy files without a known full-file digest fail
+verification explicitly. Six files transfer concurrently.
+
+Without `--output`, the existing single-file text/JSON `pull` behavior remains.
+`download` still saves a ZIP when available. A Revision with chunked files or
+large bundle input can disable ZIP generation with `revision_too_large`; use
+`pull --output` instead.
+
+Errors in JSON mode go to stderr as `{ "error": { "code", "message",
+"details?", "docs?", "retry_after_seconds?" } }`. There is no result
+`schema_version` in error envelopes.
 
 ## Directory publish (folder walk, exclusions, symlinks)
 
@@ -311,11 +391,9 @@ and are skipped; symlinked directories are cycle-guarded by real path so a link
 loop cannot recurse forever. Single-file publish (`publish <file>`) follows the
 named path directly, since the caller selected it explicitly. Before upload,
 the CLI reopens every selected path through `@openclaw/fs-safe`'s root-bounded
-reader, which pins the file descriptor, validates the resolved target against
-the selected root, buffers it within the per-file cap, and computes the digest
-from that buffer. A symlink or ancestor swap therefore fails closed or retains
-the already pinned in-root file. Whole-file and patch uploads use those same
-bytes, so a later path change cannot change what is published.
+reader, which pins the file descriptor and validates the resolved target against
+the selected root. Hashing and upload use bounded reads. Every uploaded range
+must still match the recorded digest; a changed file fails before publish.
 
 ## Exit codes
 
