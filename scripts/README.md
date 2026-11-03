@@ -255,8 +255,11 @@ Only `hosted-transfer-evidence.json` is uploaded, with a seven-day retention.
 It contains SHA/PR metadata, fixed outcome fields, fixture counts/bytes,
 sanitized transfer/RSS counters, PUT content digests, Range checkpoints and retry counts. Child
 stdout/stderr, raw soak reports, credentials and capability URLs remain in the
-private runner directory. A failed driver publishes only its sanitized failure
-stage. Hosted success must be established by the actual CI run. Worker
+private runner directory. A failed soak preserves completed scenario identifiers,
+the last command, allowlisted API error codes, exit codes and termination outcomes.
+Streamed progress remains available when termination prevents the final report
+from being written. Raw error messages are never uploaded. Hosted success must
+be established by the actual CI run. Worker
 telemetry, managed gateway, browser, expiry/renewal and quota/GC acceptance
 remain separate checks listed in the report.
 

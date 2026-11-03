@@ -6,11 +6,72 @@ import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { ErrorCode } from "../packages/contracts/dist/common.js";
 import { hostedTransferFetch } from "./lib/hosted-transfer-fetch.mjs";
 import { hostedTransferEndpoints } from "./lib/transfer-endpoints.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const preload = fileURLToPath(new URL("./hosted-transfer-preload.mjs", import.meta.url));
+const commands = ["whoami", "publish", "pull", "pin", "unpin"];
+const checks = [
+  "large_file",
+  "no_op",
+  "resume",
+  "small_tree",
+  "mixed_tree",
+  "partial_conflicts",
+  "retention",
+  "updates",
+  "legacy",
+  "concurrent",
+];
+const safeNumber = (value) => (Number.isSafeInteger(value) && value >= 0 ? value : null);
+const safeCommand = (value) => (commands.includes(value) ? value : null);
+
+async function soakDiagnostics(directory, outcome, progress) {
+  let report;
+  let reportState = "available";
+  try {
+    report = JSON.parse(await readFile(path.join(directory, "report.json"), "utf8"));
+    if (!report || !Array.isArray(report.runs) || !Array.isArray(report.checks)) throw new Error("Invalid report");
+  } catch (error) {
+    report = null;
+    reportState = error.code === "ENOENT" ? "missing" : "invalid";
+  }
+  const count = report?.checks.length ?? progress.completed_checks;
+  const failure = {
+    exit_code: safeNumber(outcome.exit_code),
+    signal: ["SIGTERM", "SIGKILL", "SIGINT", "SIGABRT", "SIGSEGV", "SIGBUS"].includes(outcome.signal)
+      ? outcome.signal
+      : null,
+    timed_out: outcome.timed_out === true,
+    cancelled: outcome.cancelled === true,
+    spawn_failed: outcome.spawn_failed === true,
+    report: reportState,
+    completed_checks: checks.slice(0, safeNumber(count) !== null && count <= checks.length ? count : 0),
+    command: safeCommand(progress.command) ?? safeCommand(report?.runs.at(-1)?.command),
+    completed_runs: report ? report.runs.filter((run) => run?.code === 0).length : 0,
+    cli_failures: [],
+  };
+  for (const [index, run] of (report?.runs ?? []).entries()) {
+    if (!run || run.code === 0 || run.interrupted === true || run.expected_failure === true) continue;
+    let code = "unknown";
+    try {
+      const data = JSON.parse(await readFile(path.join(directory, `failure-${index + 1}.json`), "utf8"));
+      const parsed = ErrorCode.safeParse(data.error_code);
+      if (parsed.success) code = parsed.data;
+    } catch {
+      /* Missing or malformed diagnostics must not hide the process outcome. */
+    }
+    failure.cli_failures.push({
+      run: index + 1,
+      command: safeCommand(run.command),
+      exit_code: safeNumber(run.code),
+      error_code: code,
+    });
+  }
+  return { report, failure };
+}
 
 function integer(value) {
   assert(Number.isSafeInteger(value) && value >= 0, "Invalid numeric soak evidence");
@@ -28,12 +89,13 @@ function sanitizeSoak(report) {
     return { kind, files: fixture.files, bytes: fixture.bytes };
   });
   const runs = report.runs.map((run) => {
-    assert(["whoami", "publish", "pull", "pin", "unpin"].includes(run.command), "Unexpected CLI evidence");
+    assert(commands.includes(run.command), "Unexpected CLI evidence");
     const e = run.evidence;
     return {
       command: run.command,
       exit_code: run.code === null ? null : integer(run.code),
       interrupted: run.interrupted === true,
+      expected_failure: run.expected_failure === true,
       peak_rss_kib: integer(run.peak_rss_kib),
       uploads: e.uploads.map((chunk) => {
         assert(
@@ -84,17 +146,42 @@ async function runSoak(config, env, directory, onMessage) {
   child.stdout.on("data", (data) => stdout.push(data));
   child.stderr.on("data", (data) => stderr.push(data));
   child.on("message", onMessage);
-  const stop = () => child.kill("SIGTERM");
+  let timedOut = false;
+  let cancelled = false;
+  let killTimer;
+  const terminate = () => {
+    child.kill("SIGTERM");
+    killTimer ??= setTimeout(() => child.kill("SIGKILL"), 5000);
+  };
+  const stop = () => {
+    cancelled = true;
+    terminate();
+  };
   process.on("SIGTERM", stop);
   process.on("SIGINT", stop);
-  const timer = setTimeout(stop, 105 * 60_000);
+  const timer = setTimeout(() => {
+    timedOut = true;
+    terminate();
+  }, 105 * 60_000);
   try {
-    return await new Promise((resolve, reject) => {
-      child.once("error", reject);
-      child.once("close", (code) => resolve(code));
+    return await new Promise((resolve) => {
+      const finish = (code, signal, spawnFailed) =>
+        resolve({
+          exit_code: code,
+          signal,
+          timed_out: timedOut,
+          cancelled,
+          spawn_failed: spawnFailed,
+        });
+      child.once("error", (error) => {
+        stderr.push(Buffer.from(String(error)));
+        finish(null, null, true);
+      });
+      child.once("close", (code, signal) => finish(code, signal, false));
     });
   } finally {
     clearTimeout(timer);
+    clearTimeout(killTimer);
     process.off("SIGTERM", stop);
     process.off("SIGINT", stop);
     await writeFile(path.join(directory, "private-soak-stdout.log"), Buffer.concat(stdout), { mode: 0o600 });
@@ -118,6 +205,7 @@ export async function hostedTransferAcceptance(env = process.env) {
     direct_retries: 0,
     direct_wait_ms: 0,
     soak: null,
+    failure: null,
     pending: [
       "worker_memory_cpu_telemetry",
       "managed_gateway",
@@ -127,7 +215,14 @@ export async function hostedTransferAcceptance(env = process.env) {
       "quota_gc",
     ],
   };
+  const progress = { completed_checks: 0, command: null };
   const onEvent = (event) => {
+    if (event.type === "soak_progress") {
+      if (safeNumber(event.completed_checks) !== null && event.completed_checks <= checks.length) {
+        progress.completed_checks = event.completed_checks;
+      }
+      progress.command = safeCommand(event.command);
+    }
     if (event.type === "hosted_request") evidence.direct_requests++;
     if (event.type === "hosted_retry") {
       evidence.direct_retries++;
@@ -170,9 +265,19 @@ export async function hostedTransferAcceptance(env = process.env) {
     // CLI grandchildren inherit this preload. Do not pass the provisioning secret.
     delete childEnv.AGENT_PASTE_PR_SMOKE_HARNESS_SECRET;
     childEnv.NODE_OPTIONS = `${env.NODE_OPTIONS ?? ""} --import=${preload}`.trim();
-    assert.equal(await runSoak(config, childEnv, directory, onEvent), 0, "Hosted transfer soak failed");
+    const outcome = await runSoak(config, childEnv, directory, onEvent);
+    const diagnostics = await soakDiagnostics(directory, outcome, progress);
+    evidence.failure = diagnostics.failure;
+    assert(
+      evidence.failure.exit_code === 0 &&
+        !evidence.failure.timed_out &&
+        !evidence.failure.cancelled &&
+        !evidence.failure.spawn_failed,
+      "Hosted transfer soak failed",
+    );
     evidence.stage = "evidence";
-    evidence.soak = sanitizeSoak(JSON.parse(await readFile(path.join(directory, "report.json"), "utf8")));
+    evidence.soak = sanitizeSoak(diagnostics.report);
+    evidence.failure = null;
     evidence.status = "passed";
     evidence.stage = "complete";
   } catch (error) {

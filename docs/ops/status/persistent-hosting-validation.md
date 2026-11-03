@@ -245,6 +245,16 @@ The full local soak evidence above remains the prior completed run. This wiring
 change did not run a new full local or hosted soak, push, deploy or production
 request.
 
+Independent review of `059fd7fa` found that a failed child discarded its
+sanitized diagnostics. The follow-up preserves completed scenario identifiers,
+the last command, known API error codes, CLI exit codes, and process termination
+outcomes. Streamed progress survives a missing final report. Expected oversize
+rejections are not reported as unexpected failures. Timeout and cancellation
+escalate to SIGKILL after five seconds if SIGTERM does not stop the owned child.
+Raw diagnostics remain private. Three reproductions failed before the fix;
+all 82 focused hosted-transfer tests and script typechecks pass afterward.
+Focused independent re-review and hosted execution remain pending.
+
 ## PR preview dashboard gate repair
 
 PR #686 preview run [41565007603](https://github.com/zaks-io/agent-paste/actions/runs/41565007603)

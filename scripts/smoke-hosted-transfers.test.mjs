@@ -15,9 +15,21 @@ const key = "ap_pk_preview_driver-test-only";
 const secret = "driver-test-harness-only";
 const sensitive = `Authorization: Bearer ${key}\nhttps://private-capability-pr-686.agent-paste.link/?token=private-token`;
 let report;
+let childExit;
+let failureCode;
+let writeReport;
+let stalled;
+let childReady;
+let spawnFailure;
 
 beforeEach(async () => {
   directory = await mkdtemp(path.join(os.tmpdir(), "hosted-transfers-test-"));
+  childExit = { code: 0, signal: null };
+  failureCode = null;
+  writeReport = true;
+  stalled = false;
+  spawnFailure = false;
+  childReady = () => {};
   env = {
     PR_NUMBER: "686",
     PR_HEAD_SHA: "a".repeat(40),
@@ -87,20 +99,38 @@ beforeEach(async () => {
     const child = Object.assign(new EventEmitter(), {
       stdout: new PassThrough(),
       stderr: new PassThrough(),
-      kill: vi.fn(),
+      kill: vi.fn(() => child.emit("close", 143, null)),
     });
     queueMicrotask(async () => {
-      await writeFile(path.join(args[args.indexOf("--output") + 1], "report.json"), JSON.stringify(report));
+      if (spawnFailure) {
+        child.emit("error", new Error(sensitive));
+        return;
+      }
+      if (stalled) {
+        child.emit("message", { type: "soak_progress", completed_checks: 3, command: "pull" });
+        childReady();
+        return;
+      }
+      const output = args[args.indexOf("--output") + 1];
+      if (writeReport) await writeFile(path.join(output, "report.json"), JSON.stringify(report));
+      if (failureCode) {
+        await writeFile(
+          path.join(output, `failure-${report.runs.length}.json`),
+          JSON.stringify({ error_code: failureCode, raw: sensitive }),
+        );
+      }
       child.stdout.write(sensitive);
       child.stderr.write(sensitive);
       child.emit("message", { type: "hosted_request", kind: "capability", status: 200 });
-      child.emit("close", 0);
+      child.emit("message", { type: "soak_progress", completed_checks: 3, command: "pull" });
+      child.emit("close", childExit.code, childExit.signal);
     });
     return child;
   });
 });
 
 afterEach(async () => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.resetAllMocks();
   await rm(directory, { recursive: true, force: true });
@@ -158,6 +188,133 @@ describe("hosted transfer driver", () => {
     expect(await hostedTransferAcceptance(env)).toBe(false);
     expect(spawn).not.toHaveBeenCalled();
     expect(await evidence()).toMatchObject({ status: "failed" });
+  });
+
+  it("retains safe CLI failure diagnostics and completed checks from a failed soak", async () => {
+    childExit.code = 1;
+    report.status = "failed";
+    report.checks.length = 3;
+    report.runs.at(-1).code = 2;
+    report.runs.at(-1).command = "pull";
+    failureCode = "storage_unavailable";
+    expect(await hostedTransferAcceptance(env)).toBe(false);
+    expect(await evidence()).toMatchObject({
+      status: "failed",
+      stage: "soak",
+      soak: null,
+      failure: {
+        exit_code: 1,
+        signal: null,
+        timed_out: false,
+        completed_checks: ["large_file", "no_op", "resume"],
+        command: "pull",
+        cli_failures: [{ run: 3, command: "pull", exit_code: 2, error_code: "storage_unavailable" }],
+      },
+    });
+  });
+
+  it("does not publish an arbitrary error code or command from a failed report", async () => {
+    childExit.code = 1;
+    report.runs.at(-1).code = 2;
+    report.runs.at(-1).command = sensitive;
+    failureCode = key;
+    expect(await hostedTransferAcceptance(env)).toBe(false);
+    expect((await evidence()).failure.cli_failures).toEqual([
+      { run: 3, command: null, exit_code: 2, error_code: "unknown" },
+    ]);
+  });
+
+  it("does not report the intentional oversize rejection as the cause of a later soak failure", async () => {
+    childExit.code = 1;
+    report.runs.at(-1).code = 2;
+    report.runs.at(-1).expected_failure = true;
+    expect(await hostedTransferAcceptance(env)).toBe(false);
+    expect((await evidence()).failure.cli_failures).toEqual([]);
+  });
+
+  it("retains signal and last streamed progress when a killed child writes no report", async () => {
+    writeReport = false;
+    childExit = { code: null, signal: "SIGKILL" };
+    expect(await hostedTransferAcceptance(env)).toBe(false);
+    expect((await evidence()).failure).toMatchObject({
+      exit_code: null,
+      signal: "SIGKILL",
+      timed_out: false,
+      report: "missing",
+      completed_checks: ["large_file", "no_op", "resume"],
+      command: "pull",
+    });
+  });
+
+  it("records a timed-out soak even when SIGTERM prevents its report from being written", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    stalled = true;
+    const ready = new Promise((resolve) => {
+      childReady = resolve;
+    });
+    const running = hostedTransferAcceptance(env);
+    await ready;
+    await vi.advanceTimersByTimeAsync(105 * 60_000);
+    expect(await running).toBe(false);
+    expect((await evidence()).failure).toMatchObject({
+      exit_code: 143,
+      timed_out: true,
+      cancelled: false,
+      report: "missing",
+      command: "pull",
+      completed_checks: ["large_file", "no_op", "resume"],
+    });
+  });
+
+  it("distinguishes requested cancellation from a deadline", async () => {
+    stalled = true;
+    const before = new Set(process.listeners("SIGTERM"));
+    const ready = new Promise((resolve) => {
+      childReady = resolve;
+    });
+    const running = hostedTransferAcceptance(env);
+    await ready;
+    const stop = process.listeners("SIGTERM").find((listener) => !before.has(listener));
+    stop();
+    expect(await running).toBe(false);
+    expect((await evidence()).failure).toMatchObject({ exit_code: 143, timed_out: false, cancelled: true });
+    expect(process.listeners("SIGTERM")).not.toContain(stop);
+  });
+
+  it("kills an unresponsive child before the workflow deadline and retains the timeout outcome", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    stalled = true;
+    const ready = new Promise((resolve) => {
+      childReady = resolve;
+    });
+    const running = hostedTransferAcceptance(env);
+    await ready;
+    const child = vi.mocked(spawn).mock.results[0].value;
+    child.kill.mockImplementation((signal) => {
+      if (signal === "SIGKILL") child.emit("close", null, signal);
+    });
+    await vi.advanceTimersByTimeAsync(105 * 60_000 + 5000);
+    expect(await running).toBe(false);
+    expect(child.kill.mock.calls).toEqual([["SIGTERM"], ["SIGKILL"]]);
+    expect((await evidence()).failure).toMatchObject({ exit_code: null, signal: "SIGKILL", timed_out: true });
+  });
+
+  it("records process-start failure without exposing its error", async () => {
+    spawnFailure = true;
+    expect(await hostedTransferAcceptance(env)).toBe(false);
+    expect((await evidence()).failure).toMatchObject({ exit_code: null, spawn_failed: true, report: "missing" });
+  });
+
+  it("keeps termination diagnostics when the final report is malformed", async () => {
+    report = { raw: sensitive };
+    childExit = { code: 1, signal: key };
+    expect(await hostedTransferAcceptance(env)).toBe(false);
+    expect((await evidence()).failure).toMatchObject({
+      exit_code: 1,
+      signal: null,
+      report: "invalid",
+      command: "pull",
+    });
   });
 
   it.each([

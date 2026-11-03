@@ -137,6 +137,7 @@ for (const [signal, exitCode] of [
   });
 }
 const run = async (command, { interrupt, allowFailure = false } = {}) => {
+  process.send?.({ type: "soak_progress", completed_checks: report.checks.length, command: command[0] });
   const probe = `data:text/javascript,${encodeURIComponent(probeSource(interrupt))}`;
   const child = spawn(process.execPath, ["--import", probe, cli, ...command, "--json"], {
     env,
@@ -193,7 +194,14 @@ const run = async (command, { interrupt, allowFailure = false } = {}) => {
   });
   clearInterval(monitor);
   clearTimeout(timer);
-  const record = { command: command[0], code, interrupted: Boolean(interrupt), peak_rss_kib: peakRssKiB, evidence };
+  const record = {
+    command: command[0],
+    code,
+    interrupted: Boolean(interrupt),
+    expected_failure: allowFailure,
+    peak_rss_kib: peakRssKiB,
+    evidence,
+  };
   runs.push(record);
   assert(peakRssKiB > 0, "No owned child RSS sample was recorded");
   assert(peakRssKiB <= 400 * 1024, `CLI exceeded 400 MiB: ${peakRssKiB} KiB`);
@@ -278,6 +286,7 @@ const report = {
 };
 const check = (name) => {
   report.checks.push(name);
+  process.send?.({ type: "soak_progress", completed_checks: report.checks.length, command: null });
   console.log(name);
 };
 try {
